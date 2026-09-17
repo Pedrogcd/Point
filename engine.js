@@ -509,9 +509,17 @@ export function resolveConfirmationPhase({ attacker, defender, attack, successes
   const efeitoTexto = (attack.efeito || "").toLowerCase();
   const impactoDeProc = fezContato && !fixedSuccessMatch && successFlags.some((f) => f.success && f.procAtacante?.concedeEfeito === "impacto");
   const chamasDeProc = fezContato && !fixedSuccessMatch && successFlags.some((f) => f.success && f.procAtacante?.concedeEfeito === "chamas");
-  const instanciasImpacto = (efeitoTexto.includes("impacto") ? 1 : 0) + (impactoDeProc ? 1 : 0);
-  const instanciasChamas = (efeitoTexto.includes("chamas") ? 1 : 0) + (chamasDeProc ? 1 : 0);
-  const instanciasEnvenenamento = efeitoTexto.includes("envenenamento") ? 1 : 0;
+  // Efeitos por texto do ataque também exigem contato (fezContato) — sem essa
+  // checagem, um ataque que ERROU o Acerto ainda rolaria a confirmação de
+  // Impacto/Chamas/Envenenamento, contradizendo a própria regra ("quando o
+  // ataque faz contato"). Não filtra por !fixedSuccessMatch (esse filtro só
+  // faz sentido pra concessão via Habilidade Passiva, que depende de olhar um
+  // dado de Acerto que não existe em ataques de sucesso fixo tipo "2S" — mas
+  // esses ataques TÊM contato, successes já vem preenchido, e fezContato
+  // funciona neles normalmente).
+  const instanciasImpacto = (fezContato && efeitoTexto.includes("impacto") ? 1 : 0) + (impactoDeProc ? 1 : 0);
+  const instanciasChamas = (fezContato && efeitoTexto.includes("chamas") ? 1 : 0) + (chamasDeProc ? 1 : 0);
+  const instanciasEnvenenamento = fezContato && efeitoTexto.includes("envenenamento") ? 1 : 0;
 
   let impactoBonus = 0;
   let impactoRoll = null;

@@ -541,6 +541,38 @@ describe("Status effects", () => {
     assert.equal(r.envenenamentoRolls[0].resistValor, 10);
     assert.equal(r.envenenamentoRolls[0].passou, false); // 9 não bate 10 (e não é crítico)
   });
+
+  it("IMPACTO/CHAMAS/ENVENENAMENTO por texto do ataque não disparam se o ataque errar o Acerto", (t) => {
+    for (const efeito of ["impacto", "chamas", "envenenamento"]) {
+      const attack = { ...SOCO, efeito };
+      // acertoBonus = destreza(0) + briga(0) + manual(+1) = 1; defesa 8 — die<=7 sempre falha (d+1 não é >8)
+      const restore = Math.random;
+      Math.random = queuedRandom([1, 1, 1]);
+      try {
+        const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
+        assert.equal(r.successes, 0, `efeito ${efeito}: successes`);
+        assert.equal(r.impactoRoll, null, `efeito ${efeito}: impactoRoll`);
+        assert.equal(r.chamasRolls.length, 0, `efeito ${efeito}: chamasRolls`);
+        assert.equal(r.envenenamentoRolls.length, 0, `efeito ${efeito}: envenenamentoRolls`);
+        assert.equal(r.causaDano, false, `efeito ${efeito}: causaDano`);
+        assert.equal(r.feridaValor, 0, `efeito ${efeito}: feridaValor`);
+      } finally {
+        Math.random = restore;
+      }
+    }
+  });
+
+  it("ataque de sucesso fixo (\"2S\") tem contato mesmo sem rolar Acerto — CHAMAS ainda dispara", (t) => {
+    const bombardeio = BASE_ATTACK_TYPES.find((a) => a.id === "bombardeio_de_mana");
+    const attack = { ...bombardeio, efeito: "chamas" };
+    // sem rolagem de Acerto (successes=2 fixo): 2 confirmações + 1 rolagem de Chamas
+    mockDice(t, [/*confirm x2*/ 9, 9, /*chamas*/ 7]);
+    const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
+    assert.equal(r.semRolagemDeAcerto, true);
+    assert.equal(r.successes, 2);
+    assert.equal(r.chamasRolls.length, 1);
+    assert.equal(r.chamasRolls[0].passou, true);
+  });
 });
 
 // ---------------------------------------------------------------------------

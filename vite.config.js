@@ -6,7 +6,14 @@ import { VitePWA } from "vite-plugin-pwa";
 const THEME_COLOR = "#2B2116";
 const BACKGROUND_COLOR = "#F3E9D2";
 
+// GitHub Pages serve o site em /<nome-do-repo>/, não na raiz do domínio — todo
+// caminho absoluto (base do Vite, start_url/scope/ícones do manifest,
+// navigateFallback do service worker) precisa levar esse prefixo. Se o
+// repositório for renomeado, é só trocar aqui.
+const BASE = "/Point/";
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     VitePWA({
@@ -17,17 +24,17 @@ export default defineConfig({
         short_name: "Point",
         description: "Gerenciador de campanha de RPG de mesa Point — universo Amaranth.",
         lang: "pt-BR",
-        start_url: "/",
-        scope: "/",
+        start_url: BASE,
+        scope: BASE,
         display: "standalone",
         orientation: "portrait-primary",
         theme_color: THEME_COLOR,
         background_color: BACKGROUND_COLOR,
         icons: [
-          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icons/icon-192-maskable.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-          { src: "/icons/icon-512-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: `${BASE}icons/icon-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: `${BASE}icons/icon-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: `${BASE}icons/icon-192-maskable.png`, sizes: "192x192", type: "image/png", purpose: "maskable" },
+          { src: `${BASE}icons/icon-512-maskable.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {
@@ -37,7 +44,7 @@ export default defineConfig({
         // ver point-amaranth-app.jsx) — sem cache de runtime pra ela, offline de verdade
         // cairia pra fonte padrão do sistema.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
-        navigateFallback: "/index.html",
+        navigateFallback: `${BASE}index.html`,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

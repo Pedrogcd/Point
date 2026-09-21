@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
-  ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check
+  ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
+  Upload, LogIn, LogOut,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -14,7 +15,9 @@ import {
   attrBonus, computeMaxHP, computeMaxSP, parseFlatBonus, limiarDaHabilidade, attrLabelDaHabilidade,
   findTriggeredProc, resolveConfirmationPhase, resolveAttack, computeStat, rollSuccessDice,
 } from "./engine.js";
-import { storage } from "./storage.js";
+import { storage, seedFromLocalIfEmpty } from "./storage.js";
+import { auth } from "./auth.js";
+import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
 /* ---------------------------------------------------------------
    TOKENS — paleta inspirada em Fire Emblem: Three Houses (fundo
@@ -570,6 +573,40 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   );
 }
 
+function LoginModal({ onSubmit, onCancel, error, loading }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "#00000090", display: "flex",
+      alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20,
+    }}>
+      <div style={{
+        background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 8, padding: 22,
+        maxWidth: 320, width: "100%", boxShadow: `0 0 30px #00000080`,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <LogIn size={16} color={PURPLE} />
+          <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1, color: PURPLE, textTransform: "uppercase" }}>Entrar como mestre</span>
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(email, password); }}>
+          <Field label="E-mail">
+            <input type="email" required autoFocus style={inputStyle} value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Senha">
+            <input type="password" required style={inputStyle} value={password} onChange={(e) => setPassword(e.target.value)} />
+          </Field>
+          {error && <p style={{ color: EMBER, fontSize: 12, margin: "6px 0 0" }}>{error}</p>}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <Btn type="button" variant="ghost" onClick={onCancel}>Cancelar</Btn>
+            <Btn type="submit" variant="primary" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Btn>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // Selo pequeno com ícone + cor indicando se a habilidade afeta Ataque, Confirmação
 // de Dano, Defesa ou Resistência — usado sempre perto da prioridade da habilidade.
 function HabilidadeCategoriaBadge({ p }) {
@@ -905,12 +942,16 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
               <ChevronRight size={16} />
             </button>
           )}
-          <button onClick={() => onEdit(character)} title="Editar" style={{ background: "transparent", border: "none", cursor: "pointer", color: PURPLE_TEXT, display: "flex" }}>
-            <Pencil size={16} />
-          </button>
-          <button onClick={() => onRequestDelete(character)} title="Excluir" style={{ background: "transparent", border: "none", cursor: "pointer", color: "#E8A090", display: "flex" }}>
-            <Trash2 size={16} />
-          </button>
+          {onEdit && (
+            <button onClick={() => onEdit(character)} title="Editar" style={{ background: "transparent", border: "none", cursor: "pointer", color: PURPLE_TEXT, display: "flex" }}>
+              <Pencil size={16} />
+            </button>
+          )}
+          {onRequestDelete && (
+            <button onClick={() => onRequestDelete(character)} title="Excluir" style={{ background: "transparent", border: "none", cursor: "pointer", color: "#E8A090", display: "flex" }}>
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1158,24 +1199,28 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
                         fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: (d === 10 || d > successThreshold) ? BRASS_BRIGHT : MUTED, fontSize: 13,
                       }}>{d}</div>
                       <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 3 }}>
-                        <button
-                          onClick={() => gastarMpRerolar(i)} disabled={(character.mp?.current || 0) <= 0}
-                          title="Gastar 1 MP pra re-rolar este dado"
-                          style={{
-                            width: 18, height: 18, borderRadius: "50%", border: `1px solid ${MP_COLOR}`, background: "transparent",
-                            color: MP_COLOR, fontSize: 9, cursor: (character.mp?.current || 0) > 0 ? "pointer" : "not-allowed",
-                            opacity: (character.mp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-                          }}
-                        >↻</button>
-                        <button
-                          onClick={() => gastarSpMais5(i)} disabled={(character.sp?.current || 0) <= 0}
-                          title="Gastar 1 SP pra somar +5 neste dado"
-                          style={{
-                            width: 18, height: 18, borderRadius: "50%", border: `1px solid ${SP_COLOR}`, background: "transparent",
-                            color: SP_COLOR, fontSize: 8, fontWeight: 700, cursor: (character.sp?.current || 0) > 0 ? "pointer" : "not-allowed",
-                            opacity: (character.sp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-                          }}
-                        >+5</button>
+                        {onUpdateCharacter && (
+                          <>
+                            <button
+                              onClick={() => gastarMpRerolar(i)} disabled={(character.mp?.current || 0) <= 0}
+                              title="Gastar 1 MP pra re-rolar este dado"
+                              style={{
+                                width: 18, height: 18, borderRadius: "50%", border: `1px solid ${MP_COLOR}`, background: "transparent",
+                                color: MP_COLOR, fontSize: 9, cursor: (character.mp?.current || 0) > 0 ? "pointer" : "not-allowed",
+                                opacity: (character.mp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                              }}
+                            >↻</button>
+                            <button
+                              onClick={() => gastarSpMais5(i)} disabled={(character.sp?.current || 0) <= 0}
+                              title="Gastar 1 SP pra somar +5 neste dado"
+                              style={{
+                                width: 18, height: 18, borderRadius: "50%", border: `1px solid ${SP_COLOR}`, background: "transparent",
+                                color: SP_COLOR, fontSize: 8, fontWeight: 700, cursor: (character.sp?.current || 0) > 0 ? "pointer" : "not-allowed",
+                                opacity: (character.sp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                              }}
+                            >+5</button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1295,6 +1340,29 @@ function AbilityPicker({ onPick }) {
 
 function CharacterForm({ initial, onSave, onCancel }) {
   const [c, setC] = useState(initial);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  async function handlePickImage(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite escolher o mesmo arquivo de novo depois, se precisar
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const url = await uploadPortrait(file, c.id);
+      set(["imageUrl"], url);
+    } catch (err) {
+      setUploadError(err.message || "Falha ao enviar a imagem.");
+    } finally {
+      setUploading(false);
+    }
+  }
+  function handleRemoveImage() {
+    removePortrait(c.imageUrl); // best-effort, não bloqueia a UI
+    set(["imageUrl"], "");
+  }
 
   function set(path, value) {
     setC((prev) => {
@@ -1418,8 +1486,18 @@ function CharacterForm({ initial, onSave, onCancel }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "start", marginTop: 4 }}>
-        <Field label="Imagem (URL)">
+        <Field label="Imagem (URL, ou envie um arquivo abaixo)">
           <input style={inputStyle} placeholder="https://..." value={c.imageUrl || ""} onChange={(e) => set(["imageUrl"], e.target.value)} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePickImage} />
+            <Btn type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              <Upload size={13} /> {uploading ? "Enviando..." : "Enviar imagem do computador"}
+            </Btn>
+            {c.imageUrl && (
+              <Btn type="button" variant="ghost" onClick={handleRemoveImage}><X size={13} /> Remover</Btn>
+            )}
+          </div>
+          {uploadError && <p style={{ color: EMBER, fontSize: 11.5, margin: "6px 0 0" }}>{uploadError}</p>}
         </Field>
         {c.imageUrl && (
           <img
@@ -1775,7 +1853,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
             Resistência de {b.name} ({tipoAtual.label}): {temArmaduraB ? `Armadura ${resistArmaduraB} → depois ${STAT_LIST.find((s) => s.key === resistKeyAtual)?.label} ${resistNaturalB}` : `${STAT_LIST.find((s) => s.key === resistKeyAtual)?.label} ${resistNaturalB} (sem armadura)`}
           </div>
 
-          {result && (
+          {result && onUpdateCharacter && (
             <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
               <button
                 onClick={() => setModoGasto(modoGasto === "mp" ? null : "mp")}
@@ -2293,22 +2371,25 @@ function CompareView({ characters, onUpdateCharacter }) {
 /* ---------------------------------------------------------------
    MUNDO — reinos e cidades
 ----------------------------------------------------------------*/
-function WorldView({ kingdoms, setKingdoms, askConfirm }) {
+function WorldView({ kingdoms, setKingdoms, askConfirm, readOnly }) {
   const [openId, setOpenId] = useState(null);
   const [newCity, setNewCity] = useState({});
 
   function addCity(kid) {
+    if (readOnly) return;
     const draft = newCity[kid];
     if (!draft?.name) return;
     setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: [...k.cities, { name: draft.name, description: draft.description || "" }] } : k));
     setNewCity((p) => ({ ...p, [kid]: { name: "", description: "" } }));
   }
   function removeCity(kid, idx, cityName) {
+    if (readOnly) return;
     askConfirm(`Remover a cidade "${cityName}"? Essa ação não pode ser desfeita.`, () => {
       setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: k.cities.filter((_, i) => i !== idx) } : k));
     });
   }
   function updateDescription(kid, value) {
+    if (readOnly) return;
     setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, description: value } : k));
   }
 
@@ -2346,6 +2427,7 @@ function WorldView({ kingdoms, setKingdoms, askConfirm }) {
                 <textarea
                   style={{ ...inputStyle, minHeight: 70, resize: "vertical", marginBottom: 12 }}
                   value={k.description}
+                  disabled={readOnly}
                   onChange={(e) => updateDescription(k.id, e.target.value)}
                 />
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontFamily: "'IBM Plex Mono', monospace" }}>CIDADES</div>
@@ -2355,22 +2437,24 @@ function WorldView({ kingdoms, setKingdoms, askConfirm }) {
                       <div style={{ fontSize: 13, color: PARCHMENT, fontWeight: 600 }}>{city.name}</div>
                       <div style={{ fontSize: 11.5, color: MUTED }}>{city.description}</div>
                     </div>
-                    <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city.name)}><X size={13} /></Btn>
+                    {!readOnly && <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city.name)}><X size={13} /></Btn>}
                   </div>
                 ))}
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <input
-                    style={inputStyle} placeholder="Nova cidade"
-                    value={newCity[k.id]?.name || ""}
-                    onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], name: e.target.value } }))}
-                  />
-                  <input
-                    style={inputStyle} placeholder="Descrição curta"
-                    value={newCity[k.id]?.description || ""}
-                    onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], description: e.target.value } }))}
-                  />
-                  <Btn onClick={() => addCity(k.id)}><Plus size={13} /></Btn>
-                </div>
+                {!readOnly && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <input
+                      style={inputStyle} placeholder="Nova cidade"
+                      value={newCity[k.id]?.name || ""}
+                      onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], name: e.target.value } }))}
+                    />
+                    <input
+                      style={inputStyle} placeholder="Descrição curta"
+                      value={newCity[k.id]?.description || ""}
+                      onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], description: e.target.value } }))}
+                    />
+                    <Btn onClick={() => addCity(k.id)}><Plus size={13} /></Btn>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2383,18 +2467,21 @@ function WorldView({ kingdoms, setKingdoms, askConfirm }) {
 /* ---------------------------------------------------------------
    DEUSES
 ----------------------------------------------------------------*/
-function GodsView({ gods, setGods, askConfirm }) {
+function GodsView({ gods, setGods, askConfirm, readOnly }) {
   const [editing, setEditing] = useState(null);
 
   function addGod() {
+    if (readOnly) return;
     const g = { id: `god_${Date.now()}`, name: "Novo Deus", domain: "", description: "" };
     setGods((prev) => [...prev, g]);
     setEditing(g.id);
   }
   function update(id, key, value) {
+    if (readOnly) return;
     setGods((prev) => prev.map((g) => g.id === id ? { ...g, [key]: value } : g));
   }
   function remove(id, name) {
+    if (readOnly) return;
     askConfirm(`Remover o deus "${name}" do panteão? Essa ação não pode ser desfeita.`, () => {
       setGods((prev) => prev.filter((g) => g.id !== id));
     });
@@ -2404,12 +2491,12 @@ function GodsView({ gods, setGods, askConfirm }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SectionTitle icon={Sparkles}>Panteão</SectionTitle>
-        <Btn variant="primary" onClick={addGod} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Deus</Btn>
+        {!readOnly && <Btn variant="primary" onClick={addGod} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Deus</Btn>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
         {gods.map((g) => (
           <div key={g.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14 }}>
-            {editing === g.id ? (
+            {editing === g.id && !readOnly ? (
               <>
                 <input style={{ ...inputStyle, marginBottom: 8, fontWeight: 700 }} value={g.name} onChange={(e) => update(g.id, "name", e.target.value)} />
                 <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="Domínio" value={g.domain} onChange={(e) => update(g.id, "domain", e.target.value)} />
@@ -2422,10 +2509,12 @@ function GodsView({ gods, setGods, askConfirm }) {
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: BRASS_BRIGHT }}>{g.name}</div>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <Btn variant="ghost" onClick={() => setEditing(g.id)}><Pencil size={13} /></Btn>
-                    <Btn variant="ghost" onClick={() => remove(g.id, g.name)}><Trash2 size={13} /></Btn>
-                  </div>
+                  {!readOnly && (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <Btn variant="ghost" onClick={() => setEditing(g.id)}><Pencil size={13} /></Btn>
+                      <Btn variant="ghost" onClick={() => remove(g.id, g.name)}><Trash2 size={13} /></Btn>
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: 11, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>{g.domain}</div>
                 <p style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.5, margin: 0 }}>{g.description}</p>
@@ -2515,20 +2604,23 @@ function CoverView({ characters, onOpenCharacter }) {
 ----------------------------------------------------------------*/
 const SAGA_STATUS_COLOR = { "Em andamento": BRASS_BRIGHT, "Concluída": "#7C8F7A", "Planejada": MUTED };
 
-function SagasView({ sagas, setSagas, askConfirm }) {
+function SagasView({ sagas, setSagas, askConfirm, readOnly }) {
   const [editing, setEditing] = useState(null);
   const [openId, setOpenId] = useState(sagas[0]?.id || null);
 
   function addSaga() {
+    if (readOnly) return;
     const s = { id: `saga_${Date.now()}`, title: "Nova Saga", status: "Planejada", summary: "" };
     setSagas((prev) => [...prev, s]);
     setEditing(s.id);
     setOpenId(s.id);
   }
   function update(id, key, value) {
+    if (readOnly) return;
     setSagas((prev) => prev.map((s) => s.id === id ? { ...s, [key]: value } : s));
   }
   function remove(id, title) {
+    if (readOnly) return;
     askConfirm(`Remover a saga "${title}"? Essa ação não pode ser desfeita.`, () => {
       setSagas((prev) => prev.filter((s) => s.id !== id));
     });
@@ -2538,7 +2630,7 @@ function SagasView({ sagas, setSagas, askConfirm }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SectionTitle icon={ScrollText}>Sagas</SectionTitle>
-        <Btn variant="primary" onClick={addSaga} style={{ marginBottom: 10 }}><Plus size={13} /> Nova Saga</Btn>
+        {!readOnly && <Btn variant="primary" onClick={addSaga} style={{ marginBottom: 10 }}><Plus size={13} /> Nova Saga</Btn>}
       </div>
 
       {sagas.length === 0 && <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhuma saga registrada ainda.</p>}
@@ -2568,7 +2660,7 @@ function SagasView({ sagas, setSagas, askConfirm }) {
 
             {open && (
               <div style={{ padding: 16, background: "#00000020" }}>
-                {isEditing ? (
+                {isEditing && !readOnly ? (
                   <>
                     <Field label="Título">
                       <input style={inputStyle} value={s.title} onChange={(e) => update(s.id, "title", e.target.value)} />
@@ -2588,12 +2680,14 @@ function SagasView({ sagas, setSagas, askConfirm }) {
                 ) : (
                   <>
                     <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.6, whiteSpace: "pre-wrap", margin: "0 0 14px" }}>
-                      {s.summary || "Sem resumo ainda — clique em Editar para adicionar."}
+                      {s.summary || (readOnly ? "Sem resumo ainda." : "Sem resumo ainda — clique em Editar para adicionar.")}
                     </p>
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                      <Btn variant="ghost" onClick={() => setEditing(s.id)}><Pencil size={13} /> Editar</Btn>
-                      <Btn variant="danger" onClick={() => remove(s.id, s.title)}><Trash2 size={13} /> Excluir</Btn>
-                    </div>
+                    {!readOnly && (
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                        <Btn variant="ghost" onClick={() => setEditing(s.id)}><Pencil size={13} /> Editar</Btn>
+                        <Btn variant="danger" onClick={() => remove(s.id, s.title)}><Trash2 size={13} /> Excluir</Btn>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -2611,23 +2705,27 @@ function SagasView({ sagas, setSagas, askConfirm }) {
 const OBJ_STATUS = ["Ativo", "Pausado", "Concluído"];
 const OBJ_STATUS_COLOR = { "Ativo": BRASS_BRIGHT, "Pausado": "#B0784F", "Concluído": "#7C8F7A" };
 
-function ObjectivesView({ objectives, setObjectives, askConfirm }) {
+function ObjectivesView({ objectives, setObjectives, askConfirm, readOnly }) {
   const [editing, setEditing] = useState(null);
 
   function addObjective() {
+    if (readOnly) return;
     const o = { id: `obj_${Date.now()}`, title: "Novo Objetivo", status: "Ativo", description: "" };
     setObjectives((prev) => [o, ...prev]);
     setEditing(o.id);
   }
   function update(id, key, value) {
+    if (readOnly) return;
     setObjectives((prev) => prev.map((o) => o.id === id ? { ...o, [key]: value } : o));
   }
   function remove(id, title) {
+    if (readOnly) return;
     askConfirm(`Remover o objetivo "${title}"? Essa ação não pode ser desfeita.`, () => {
       setObjectives((prev) => prev.filter((o) => o.id !== id));
     });
   }
   function cycleStatus(o) {
+    if (readOnly) return;
     const idx = OBJ_STATUS.indexOf(o.status);
     update(o.id, "status", OBJ_STATUS[(idx + 1) % OBJ_STATUS.length]);
   }
@@ -2643,7 +2741,7 @@ function ObjectivesView({ objectives, setObjectives, askConfirm }) {
         background: PANEL_2, border: `1px solid ${o.status === "Ativo" ? BRASS : LINE}`, borderRadius: 8,
         padding: 14, marginBottom: 10, opacity: o.status === "Concluído" ? 0.7 : 1,
       }}>
-        {isEditing ? (
+        {isEditing && !readOnly ? (
           <>
             <input style={{ ...inputStyle, marginBottom: 8, fontWeight: 700 }} value={o.title} onChange={(e) => update(o.id, "title", e.target.value)} />
             <select style={{ ...inputStyle, marginBottom: 8 }} value={o.status} onChange={(e) => update(o.id, "status", e.target.value)}>
@@ -2660,20 +2758,23 @@ function ObjectivesView({ objectives, setObjectives, askConfirm }) {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   onClick={() => cycleStatus(o)}
-                  title="Clique para mudar o status"
+                  disabled={readOnly}
+                  title={readOnly ? undefined : "Clique para mudar o status"}
                   style={{
                     width: 22, height: 22, borderRadius: "50%", border: `2px solid ${color}`, background: "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center", cursor: readOnly ? "default" : "pointer", flexShrink: 0,
                   }}
                 >
                   {o.status === "Concluído" && <Check size={13} color={color} />}
                 </button>
                 <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, textDecoration: o.status === "Concluído" ? "line-through" : "none" }}>{o.title}</span>
               </div>
-              <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                <Btn variant="ghost" onClick={() => setEditing(o.id)}><Pencil size={12} /></Btn>
-                <Btn variant="ghost" onClick={() => remove(o.id, o.title)}><Trash2 size={12} /></Btn>
-              </div>
+              {!readOnly && (
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <Btn variant="ghost" onClick={() => setEditing(o.id)}><Pencil size={12} /></Btn>
+                  <Btn variant="ghost" onClick={() => remove(o.id, o.title)}><Trash2 size={12} /></Btn>
+                </div>
+              )}
             </div>
             {o.description && <p style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.5, margin: "8px 0 0 30px" }}>{o.description}</p>}
             <div style={{ marginLeft: 30, marginTop: 6 }}>
@@ -2692,7 +2793,7 @@ function ObjectivesView({ objectives, setObjectives, askConfirm }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SectionTitle icon={Target}>Objetivos do Grupo</SectionTitle>
-        <Btn variant="primary" onClick={addObjective} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Objetivo</Btn>
+        {!readOnly && <Btn variant="primary" onClick={addObjective} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Objetivo</Btn>}
       </div>
 
       {active.length === 0 && others.length === 0 && <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhum objetivo registrado ainda.</p>}
@@ -3000,9 +3101,40 @@ export default function App() {
   const [factionFilter, setFactionFilter] = useState("Todos");
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
+  const [session, setSession] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginError, setLoginError] = useState(null);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const readOnly = !session;
 
   function askConfirm(message, action) {
     setConfirmState({ message, action });
+  }
+
+  // Sessão do mestre (Supabase Auth, e-mail/senha). Sem login, o app fica
+  // somente-leitura (ver readOnly acima). auth.onAuthStateChange já dispara
+  // uma vez com a sessão atual ao inscrever, então cobre o carregamento
+  // inicial também — não precisa de uma chamada separada a getSession().
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChange((newSession) => {
+      setSession(newSession);
+      // idempotente: só sobe pro Supabase as chaves que ainda não existirem lá
+      if (newSession) seedFromLocalIfEmpty();
+    });
+    return unsubscribe;
+  }, []);
+
+  async function handleLogin(email, password) {
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      await auth.signIn(email, password);
+      setShowLogin(false);
+    } catch (e) {
+      setLoginError("E-mail ou senha incorretos.");
+    } finally {
+      setLoginLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -3247,7 +3379,37 @@ export default function App() {
             );
           })}
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {session ? (
+            <>
+              <span style={{ fontSize: 10, color: `${PURPLE_TEXT}88`, fontFamily: "'IBM Plex Mono', monospace" }}>{session.user?.email}</span>
+              <button
+                onClick={() => auth.signOut()}
+                title="Sair"
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: `${PURPLE_TEXT}88`, display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace" }}
+              >
+                <LogOut size={12} /> Sair
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowLogin(true)}
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: `${PURPLE_TEXT}66`, fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              Entrar como mestre
+            </button>
+          )}
+        </div>
       </div>
+
+      {showLogin && (
+        <LoginModal
+          error={loginError}
+          loading={loginLoading}
+          onCancel={() => { setShowLogin(false); setLoginError(null); }}
+          onSubmit={handleLogin}
+        />
+      )}
 
       <div style={{ padding: 24 }}>
         {tab === "home" && (
@@ -3257,7 +3419,7 @@ export default function App() {
           />
         )}
 
-        {tab === "objectives" && <ObjectivesView objectives={objectives} setObjectives={setObjectives} askConfirm={askConfirm} />}
+        {tab === "objectives" && <ObjectivesView objectives={objectives} setObjectives={setObjectives} askConfirm={askConfirm} readOnly={readOnly} />}
 
         {tab === "characters" && subView === "list" && (
           <div>
@@ -3276,9 +3438,11 @@ export default function App() {
                   >{f}</button>
                 ))}
               </div>
-              <Btn variant="primary" onClick={() => { setEditingChar(emptyCharacter()); setSubView("form"); }}>
-                <Plus size={14} /> Nova Ficha
-              </Btn>
+              {!readOnly && (
+                <Btn variant="primary" onClick={() => { setEditingChar(emptyCharacter()); setSubView("form"); }}>
+                  <Plus size={14} /> Nova Ficha
+                </Btn>
+              )}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
@@ -3311,16 +3475,16 @@ export default function App() {
           <CharacterSheet
             character={selected}
             onBack={() => setSubView("list")}
-            onEdit={(c) => { setEditingChar(c); setSubView("form"); }}
-            onRequestDelete={requestDeleteCharacter}
+            onEdit={readOnly ? undefined : (c) => { setEditingChar(c); setSubView("form"); }}
+            onRequestDelete={readOnly ? undefined : requestDeleteCharacter}
             onRestoreAttacks={handleRestoreDefaultAttacks}
             onPrev={() => goToAdjacentCharacter(-1)}
             onNext={() => goToAdjacentCharacter(1)}
-            onUpdateCharacter={updateCharacterFields}
+            onUpdateCharacter={readOnly ? undefined : updateCharacterFields}
           />
         )}
 
-        {tab === "characters" && subView === "form" && (
+        {tab === "characters" && subView === "form" && !readOnly && (
           <CharacterForm
             initial={editingChar}
             onSave={handleSave}
@@ -3328,12 +3492,12 @@ export default function App() {
           />
         )}
 
-        {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={updateCharacterFields} />}
+        {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={readOnly ? undefined : updateCharacterFields} />}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
-        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} />}
-        {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} />}
-        {tab === "sagas" && <SagasView sagas={sagas} setSagas={setSagas} askConfirm={askConfirm} />}
+        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} readOnly={readOnly} />}
+        {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} readOnly={readOnly} />}
+        {tab === "sagas" && <SagasView sagas={sagas} setSagas={setSagas} askConfirm={askConfirm} readOnly={readOnly} />}
       </div>
 
       {confirmState && (

@@ -8,7 +8,9 @@ Documento de continuidade. Leia junto com `SISTEMA.md` (regras completas) e `REA
 
 App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de 3d10. Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura do motor" abaixo).
 
-Publicado como site próprio (Vite + PWA, deploy no Vercel) — ver "Arquitetura de publicação" abaixo. **Não depende mais do Lovable.**
+Publicado como site próprio (Vite + PWA, deploy no GitHub Pages) — ver "Arquitetura de publicação" abaixo. **Não depende mais do Lovable.**
+
+**Link do app publicado**: https://pedrogcd.github.io/Point/
 
 **Projeto Lovable antigo (desativado, só histórico)**: https://id-preview--1c753329-b2f1-4878-9fbe-458337a6a7ca.lovable.app — id `1c753329-b2f1-4878-9fbe-458337a6a7ca`. Ficou desatualizado (última sessão 12/09, com uma reestruturação de atributos aplicada mas sem validação final — nunca foi retomado) e o Pedro decidiu não usar mais. Não sincronizar; só serve de referência arqueológica se um dia for preciso recuperar algo de lá.
 
@@ -43,7 +45,10 @@ Meta: personagem com tudo em grau E deve ter ~25% de chance de causar 1 de ferim
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 
 ### Por que saímos do Lovable (21/09)
-Decisão do Pedro: parar de depender do Lovable e publicar como app web próprio a partir deste repositório. Motivo prático — o Lovable trava por falta de créditos e tinha uma base de código paralela (`src/lib/rpg.ts`, modular) que nunca foi reconciliada com este `point-amaranth-app.jsx`; manter os dois sincronizados era trabalho duplicado. Agora o repositório é a única fonte de verdade, publicado via Vercel (ver "Arquitetura de publicação").
+Decisão do Pedro: parar de depender do Lovable e publicar como app web próprio a partir deste repositório. Motivo prático — o Lovable trava por falta de créditos e tinha uma base de código paralela (`src/lib/rpg.ts`, modular) que nunca foi reconciliada com este `point-amaranth-app.jsx`; manter os dois sincronizados era trabalho duplicado. Agora o repositório é a única fonte de verdade, publicado no GitHub Pages (ver "Arquitetura de publicação").
+
+### Por que GitHub Pages em vez de Vercel (21/09, mesmo dia)
+Primeira tentativa foi Vercel (deploy via CLI no GitHub Action, com secrets `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`). O Pedro trocou por GitHub Pages pra não depender de conta externa, CLI nem token — só o GitHub mesmo, que já é usado de qualquer forma. Custo: a URL carrega o nome do repositório no caminho (`/Point/`), por isso o `base` do Vite e o `start_url`/`scope` do manifest do PWA precisam apontar pra lá (ver `vite.config.js`, constante `BASE`) — não é a raiz do domínio como seria no Vercel.
 
 ---
 
@@ -69,23 +74,23 @@ O que **fica** em `point-amaranth-app.jsx` (não foi extraído por ser puramente
 
 ---
 
-## Arquitetura de publicação (Vite + PWA + Vercel)
+## Arquitetura de publicação (Vite + PWA + GitHub Pages)
 
 Desde 21/09 o repositório é um app Vite completo, não só um arquivo `.jsx` solto:
 
 - **`index.html` / `main.jsx`** — scaffold padrão do Vite. `main.jsx` só monta `<App/>` (default export de `point-amaranth-app.jsx`) no `#root`.
 - **`storage.js`** — camada de armazenamento isolada, ver "Por que a camada de storage é separada" abaixo.
-- **`vite.config.js`** — plugin React + `vite-plugin-pwa` (gera manifest, ícones referenciados e o service worker via Workbox).
+- **`vite.config.js`** — plugin React + `vite-plugin-pwa` (gera manifest, ícones referenciados e o service worker via Workbox). Tem uma constante `BASE = "/Point/"` (nome do repositório) usada no `base` do Vite e no `start_url`/`scope` do manifest/`navigateFallback` do service worker — **importante**: se o repositório for renomeado, é só atualizar essa constante; o `npm run dev` também serve em `/Point/`, não na raiz, por causa disso.
 - **`public/`** — `icon.svg` (favicon) e `icons/*.png` (192/512, normal e maskable). Gerados por script (sem lib de imagem — zlib + PNG cru), não são artes feitas por um designer; é um selo dourado simples com "P", dá pra trocar por uma arte de verdade depois sem mexer em mais nada.
 - **`.github/workflows/ci.yml`** — roda `npm test` + `npm run build` em todo push e pull request, qualquer branch.
-- **`.github/workflows/deploy.yml`** — em push na `main`: roda os testes de novo e, só se passarem, publica no Vercel via CLI (`vercel pull` → `vercel build` → `vercel deploy --prebuilt --prod`), usando os secrets `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`. **Esses secrets são passos manuais que o Pedro precisa configurar** — ver pendência 1 abaixo e o README ("Publicar (Vercel)") para o passo a passo.
-- `package.json`: `npm run build` = `npm test && vite build` — o build falha se os testes falharem, então mesmo se algo disparar um build fora do GitHub Action (o próprio Vercel, um build manual), a trava continua valendo.
+- **`.github/workflows/pages.yml`** — em push na `main`: job `test` (roda os testes) → job `build` (só roda se `test` passar; `npm run build`, depois `actions/upload-pages-artifact`) → job `deploy` (só roda se `build` passar; `actions/deploy-pages`, publica em https://pedrogcd.github.io/Point/). Cada job depende do anterior via `needs` — se algum falhar, os seguintes nem começam. **Não precisa de secret nenhum** — só usa o `GITHUB_TOKEN` automático do Actions (via as permissions `pages: write`/`id-token: write` declaradas no workflow).
+- `package.json`: `npm run build` = `npm test && vite build` — o build falha se os testes falharem, trava extra que vale mesmo fora do GitHub Action (build manual, por exemplo).
 
 ### Por que a camada de storage é separada
 O app usava `window.storage` (API que só existe dentro do ambiente do Claude/Lovable). Fora de lá isso não existe. `storage.js` isola um `get(key)`/`set(key, value)` assíncrono — hoje implementado com `localStorage`, mas é a ÚNICA peça que precisa mudar se um dia trocar por Supabase (ou outro backend): o resto do app (as migrações de personagem, os `useEffect` de load/save) não sabe nem precisa saber onde os dados realmente vivem. Detalhe: `get()` devolve `{ value: string } | undefined` (não o valor cru) de propósito — é o mesmo formato que `window.storage` tinha, pra não precisar reescrever a lógica de migração que já esperava esse formato.
 
 ### Testado localmente antes de commitar
-`npm run build` gerou o `dist/` esperado (manifest, ícones, `sw.js`, `workbox-*.js`). Rodado num Chromium headless (Playwright) via `npm run preview`: app carrega sem erros de console, navegação entre abas funciona (Confronto, ficha de personagem), service worker registra e assume controle da página, `localStorage` funciona, e — testado de verdade, não só por inspeção — o app **continua funcionando com a rede desligada** (`context.setOffline(true)` no Playwright, recarregando a página).
+`npm run build` gerou o `dist/` esperado (manifest, ícones, `sw.js`, `workbox-*.js`, tudo com o prefixo `/Point/` nas URLs — conferido lendo o HTML/manifest/service worker gerados, não só assumindo que o `base` do Vite ia propagar sozinho). Rodado num Chromium headless (Playwright) via `npm run preview` (que serve em `http://localhost:4173/Point/`): app carrega sem erros de console, navegação entre abas funciona (Confronto, ficha de personagem), service worker registra com escopo `/Point/` e assume controle da página, `localStorage` funciona, e — testado de verdade, não só por inspeção — o app **continua funcionando com a rede desligada** (`context.setOffline(true)` no Playwright, recarregando a página).
 
 **Achado durante esse teste**: o app carrega as fontes (Cinzel/Spectral/IBM Plex Mono) via `@import` do Google Fonts em tempo de render (não é algo que eu adicionei agora — já existia). Isso não é coberto pelo precache padrão do service worker (que só pega os arquivos gerados pelo build). Adicionado `runtimeCaching` no `vite.config.js` pra `fonts.googleapis.com`/`fonts.gstatic.com` (CacheFirst, 1 ano) — sem isso, offline de verdade cairia pra fonte padrão do sistema depois da 1ª visita.
 
@@ -101,14 +106,14 @@ Auditoria completa feita em sessão anterior: **161 testes automatizados, 0 falh
 
 Se for mexer no motor, mexa em `engine.js` e rode os testes antes de subir — eles agora **estão no repositório** e não dependem de nenhum ambiente externo.
 
-**21/09**: repositório virou app Vite publicável direto (sem Lovable) — ver "Arquitetura de publicação" acima. `window.storage` substituído por `storage.js` (localStorage, isolado pra trocar por Supabase depois). PWA configurado (manifest, ícones, service worker offline via `vite-plugin-pwa`/Workbox, com cache de runtime pras fontes do Google Fonts). CI (`ci.yml`) roda testes+build em todo push/PR; deploy (`deploy.yml`) publica no Vercel automaticamente em push na `main`, só se os testes passarem. Tudo testado localmente (`npm run build`, `npm run preview`, Chromium headless) antes de commitar — inclusive offline de verdade, não só inspeção de código.
+**21/09**: repositório virou app Vite publicável direto (sem Lovable) — ver "Arquitetura de publicação" acima. `window.storage` substituído por `storage.js` (localStorage, isolado pra trocar por Supabase depois). PWA configurado (manifest, ícones, service worker offline via `vite-plugin-pwa`/Workbox, com cache de runtime pras fontes do Google Fonts). Primeira versão publicava no Vercel; trocado no mesmo dia por **GitHub Pages** (sem conta externa/CLI/token — ver "Por que GitHub Pages em vez de Vercel"). `base` do Vite e `start_url`/`scope`/`navigateFallback` do PWA ajustados pra `/Point/` (caminho do repositório no Pages). Tudo testado localmente de novo depois da troca (`npm run build`, `npm run preview` em `/Point/`, Chromium headless) antes de commitar — inclusive offline de verdade, não só inspeção de código.
 
 ---
 
 ## PENDÊNCIAS
 
-### 1. Passos manuais no Vercel/GitHub ainda não feitos (PRIORITÁRIO)
-O deploy automático (`deploy.yml`) só funciona depois que o Pedro fizer, uma vez só: criar conta no Vercel, rodar `vercel link` pra criar o projeto, e cadastrar 3 secrets no GitHub (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`). Passo a passo completo no README, seção "Publicar (Vercel)". Até isso ser feito, o workflow de deploy vai falhar (sem os secrets) — o de CI (testes) funciona normalmente independente disso.
+### 1. Passo manual no GitHub ainda não feito (PRIORITÁRIO)
+O deploy automático (`pages.yml`) só funciona depois que o Pedro fizer, uma vez só: no repositório, **Settings → Pages → Source: GitHub Actions**. Sem isso o job `deploy` do workflow falha (o GitHub Pages "não está habilitado" pro repositório) — o `test` e o `build` funcionam normalmente independente disso. Depois de habilitado, o merge deste PR (ou qualquer push na `main`) já publica em https://pedrogcd.github.io/Point/.
 
 ### 2. ~~Sincronizar com o Lovable~~ (obsoleta em 21/09 — decisão do Pedro)
 Não se aplica mais: o Pedro decidiu parar de usar o Lovable e publicar direto deste repositório (ver "Por que saímos do Lovable" nas Decisões de design). O projeto Lovable antigo fica só como referência histórica, sem sincronização. O que ainda estava pendente de portar de lá (balanceamento, Golpe Penetrante/Persistente, Mestre do Crítico redesenhado, MP/SP, teste de ficha, 4 status novos) já estava, na prática, **implementado neste repositório** antes mesmo dessa decisão — era só o Lovable que estava atrasado, não o contrário.

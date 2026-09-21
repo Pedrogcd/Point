@@ -10,7 +10,7 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `storage.js` — camada de armazenamento (hoje localStorage, trocável no futuro)
 - `index.html` / `main.jsx` / `vite.config.js` — scaffold Vite que empacota o app como site/PWA
 - `public/` — ícones e manifest do PWA
-- `.github/workflows/` — CI (testes a cada push) e deploy automático no Vercel
+- `.github/workflows/` — CI (testes a cada push) e deploy automático no GitHub Pages
 - `SISTEMA.md` — regras do sistema de combate
 - `CONTEXTO.md` — decisões de design e pendências (continuidade entre sessões)
 
@@ -45,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Abre em `http://localhost:5173`. Os dados ficam salvos no localStorage do navegador (ver `storage.js`).
+Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito — ver "Publicar" abaixo). Os dados ficam salvos no localStorage do navegador (ver `storage.js`).
 
 ## Testes
 
@@ -55,32 +55,20 @@ O motor de combate tem suíte de testes automatizados (Node nativo, sem dependê
 npm test
 ```
 
-`npm run build` roda os testes antes de gerar o build de produção — o build **falha** se algum teste falhar, então isso funciona como trava de publicação mesmo fora do GitHub Actions (ex: build manual, ou o próprio Vercel rodando `npm run build` por conta própria).
+`npm run build` roda os testes antes de gerar o build de produção — o build **falha** se algum teste falhar, então isso funciona como trava extra mesmo fora do GitHub Actions (ex: build manual).
 
 ## PWA (offline / "Adicionar à tela inicial")
 
 O app é uma PWA: funciona offline (o service worker faz cache do app inteiro, inclusive as fontes do Google Fonts) e pode ser instalado pela opção "Adicionar à tela inicial" do navegador (Android/Chrome) ou "Adicionar ao Dock" (iOS/Safari, no menu de compartilhar). Isso só funciona no site publicado (https) — em `npm run dev` o service worker fica desligado de propósito, pra não atrapalhar o hot-reload. Pra testar o comportamento de PWA localmente, use `npm run build && npm run preview`.
 
-## Publicar (Vercel)
+## Publicar (GitHub Pages)
 
-Todo push na branch `main` roda os testes e, se passarem, publica automaticamente em produção via GitHub Actions (`.github/workflows/deploy.yml`). Pull requests e outras branches só rodam os testes (`.github/workflows/ci.yml`), sem publicar.
+Todo push na branch `main` roda os testes e, se passarem, publica automaticamente em **https://pedrogcd.github.io/Point/** via GitHub Actions (`.github/workflows/pages.yml`). Pull requests e outras branches só rodam os testes (`.github/workflows/ci.yml`), sem publicar. Sem conta externa, sem CLI, sem token — só o GitHub mesmo.
 
 ### O que você precisa fazer (uma vez só)
 
-1. **Criar conta no Vercel** (https://vercel.com — dá pra entrar direto com a conta do GitHub) e criar um projeto:
-   ```
-   npm install -g vercel
-   vercel login
-   vercel link
-   ```
-   O `vercel link` vai perguntar o escopo (sua conta/time) e o nome do projeto — pode aceitar os padrões. Isso cria uma pasta `.vercel/` local (já está no `.gitignore`, não sobe pro repo) com os IDs do projeto.
+No repositório, em **Settings → Pages → Source**, escolha **GitHub Actions** (em vez de "Deploy from a branch"). Só isso — não precisa escolher branch nem pasta, o workflow já cuida disso.
 
-   **Importante**: não use o botão "Import Git Repository" do painel do Vercel pra conectar este repo — isso liga o deploy automático do próprio Vercel a cada push, o que ignora a trava dos testes. A publicação deve vir só do GitHub Action.
+Depois desse passo, o próximo push na `main` (por exemplo, o merge deste pull request) já publica o site. Acompanhe em *Actions*, no GitHub.
 
-2. **Pegar os 3 valores que o GitHub Action precisa**:
-   - `VERCEL_ORG_ID` e `VERCEL_PROJECT_ID`: depois do `vercel link`, estão em `.vercel/project.json` (`orgId` e `projectId`).
-   - `VERCEL_TOKEN`: crie em https://vercel.com/account/tokens (qualquer nome, sem expiração ou com uma validade longa).
-
-3. **Adicionar os 3 como Secrets no GitHub**: no repositório, em *Settings → Secrets and variables → Actions → New repository secret*, crie `VERCEL_TOKEN`, `VERCEL_ORG_ID` e `VERCEL_PROJECT_ID` com os valores do passo 2.
-
-4. Pronto — o próximo push na `main` já publica. Acompanhe em *Actions* (no GitHub) e em *Deployments* (no painel do Vercel).
+O caminho `/Point/` no meio da URL vem do nome do repositório — é assim que o GitHub Pages funciona pra sites de projeto (não é o domínio raiz `pedrogcd.github.io`, que ficaria reservado pra um repositório especial chamado `pedrogcd.github.io`, se você criar um no futuro). Se o repositório for renomeado, o caminho muda junto — é só atualizar a constante `BASE` em `vite.config.js`.

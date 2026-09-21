@@ -7,7 +7,9 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `point-amaranth-app.jsx` — o aplicativo completo (React)
 - `engine.js` — o motor de combate (regras puras, sem React), importado pelo app
 - `engine.test.js` — suíte de testes automatizados do motor
-- `storage.js` — camada de armazenamento (hoje localStorage, trocável no futuro)
+- `storage.js` — camada de armazenamento: Supabase como fonte de verdade (sincroniza entre aparelhos), localStorage como cache offline
+- `supabaseClient.js` / `auth.js` / `imageUpload.js` — cliente Supabase, login do mestre, upload de retrato
+- `supabase/schema.sql` — SQL pra rodar uma vez no projeto Supabase (tabela + bucket de imagens)
 - `index.html` / `main.jsx` / `vite.config.js` — scaffold Vite que empacota o app como site/PWA
 - `public/` — ícones e manifest do PWA
 - `.github/workflows/` — CI (testes a cada push) e deploy automático no GitHub Pages
@@ -30,6 +32,8 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 | **Deuses** | 7 deidades do panteão |
 | **Sagas** | Arcos narrativos da campanha |
 
+Sem login, o app é **somente leitura**: editar, excluir, salvar e os gastos de MP/SP que alteram a ficha ficam escondidos. Confronto e o Teste (Atributo + Perícia) continuam funcionando pra todo mundo — só não persistem gasto de MP/SP sem login. Ver "Dados e login" abaixo.
+
 ## Estrutura da ficha
 
 - **Atributos Gerais** (9): Força, Destreza, Vigor / Carisma, Manipulação, Compostura / Inteligência, Perspicácia, Resolução
@@ -38,6 +42,34 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 - **Recursos**: HP (definido por Vigor), MP (azul), SP (verde)
 - **Habilidades Passivas de Combate**: até 2 por personagem + a Singularidade
 
+## Dados e login (Supabase)
+
+Os dados da campanha (personagens, mundo, deuses, sagas, objetivos) ficam num projeto Supabase — sincronizados entre qualquer aparelho que abrir o app. Sem conexão, o app cai pro cache local (localStorage) e continua funcionando em modo leitura; a próxima vez que conseguir falar com o Supabase, ele volta a ser a fonte de verdade.
+
+### O que você precisa rodar no Supabase (uma vez só)
+
+No painel do seu projeto Supabase → **SQL Editor** → **New query** → cola o conteúdo inteiro de [`supabase/schema.sql`](supabase/schema.sql) → **Run**. Esse arquivo é seguro de rodar mais de uma vez (idempotente). Ele cria:
+
+1. **`point_kv`** — tabela chave/valor, uma linha por chave que o app já salvava (`point-characters`, `point-kingdoms`, `point-gods`, `point-sagas`, `point-objectives`). Leitura pública (RLS), escrita só pra usuário autenticado.
+2. **Bucket `retratos`** — Storage pras imagens de personagem enviadas pelo formulário. Leitura pública, upload só autenticado.
+
+Nada mais é necessário no banco — sem tabelas ou índices adicionais.
+
+### Login do mestre
+
+Botão discreto "Entrar como mestre" no canto superior direito — e-mail/senha (Supabase Auth, que você já configurou). Só quem estiver logado edita, exclui, salva ou gasta MP/SP na ficha de verdade; o resto do app (incluindo Confronto e o rolador de Teste) funciona pra qualquer visitante, sem login.
+
+**Primeiro login**: se o Supabase ainda não tiver nenhum dado salvo (banco recém-criado) e o navegador tiver dados no localStorage (de uma sessão anterior, offline), o primeiro login sobe esses dados locais pro Supabase automaticamente — só nas chaves que ainda estiverem vazias lá, nunca sobrescrevendo o que já existir. Roda de novo (sem efeito) em todo login seguinte, então é seguro.
+
+### Upload de imagem
+
+No formulário de personagem, "Enviar imagem do computador" redimensiona a imagem no navegador (máximo 512px, JPEG ~80% de qualidade) antes de subir pro bucket `retratos`, e preenche a URL pública automaticamente. "Remover" limpa o campo e tenta apagar o arquivo do bucket (melhor esforço — se falhar, não trava a UI).
+
+### Limites conhecidos (documentados, não escondidos)
+
+- **Sem fila de retry offline pra escrita**: se você estiver logado e a escrita no Supabase falhar (rede caiu no meio de uma edição), a mudança fica salva no cache local do seu navegador mas não sincroniza sozinha depois — só na próxima edição bem-sucedida daquela mesma chave. Editar de novo (ou só reabrir com internet) resolve.
+- **Login e upload não foram testados contra o Supabase de verdade nesta sessão**: o ambiente onde rodei os testes bloqueia acesso de saída pra `supabase.co` (política de rede do sandbox). Testei exaustivamente tudo que dava pra testar sem essa conexão — build, modo leitura, esconder/mostrar controles, Confronto funcionando, o app funcionando offline de verdade, e até que uma tentativa de login com a rede fora do ar mostra o erro tratado em vez de quebrar a UI. Mas o fluxo completo (logar de verdade, ver os dados sincronizarem, subir uma imagem) só você consegue confirmar depois do deploy. Se algo não funcionar como esperado, me avisa com o erro exato (console do navegador) que eu ajusto.
+
 ## Como rodar localmente
 
 ```
@@ -45,7 +77,7 @@ npm install
 npm run dev
 ```
 
-Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito — ver "Publicar" abaixo). Os dados ficam salvos no localStorage do navegador (ver `storage.js`).
+Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito — ver "Publicar" abaixo). Copie `.env.example` pra `.env.local` e preencha com os dados do seu projeto Supabase pra testar com dados de verdade — sem isso, o app funciona igual, só que sempre em modo leitura com localStorage puro.
 
 ## Testes
 
@@ -69,6 +101,8 @@ Todo push na branch `main` roda os testes e, se passarem, publica automaticament
 
 No repositório, em **Settings → Pages → Source**, escolha **GitHub Actions** (em vez de "Deploy from a branch"). Só isso — não precisa escolher branch nem pasta, o workflow já cuida disso.
 
-Depois desse passo, o próximo push na `main` (por exemplo, o merge deste pull request) já publica o site. Acompanhe em *Actions*, no GitHub.
+Os secrets `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (você já cadastrou em Settings → Secrets and variables → Actions) são passados pro build automaticamente — não precisa mexer em mais nada por causa deles.
+
+Depois desse passo (e de rodar o `supabase/schema.sql`, ver "Dados e login" acima), o próximo push na `main` (por exemplo, o merge deste pull request) já publica o site. Acompanhe em *Actions*, no GitHub.
 
 O caminho `/Point/` no meio da URL vem do nome do repositório — é assim que o GitHub Pages funciona pra sites de projeto (não é o domínio raiz `pedrogcd.github.io`, que ficaria reservado pra um repositório especial chamado `pedrogcd.github.io`, se você criar um no futuro). Se o repositório for renomeado, o caminho muda junto — é só atualizar a constante `BASE` em `vite.config.js`.

@@ -3,8 +3,12 @@ name: Deploy (GitHub Pages)
 # Só publica se os testes passarem: o job "deploy" depende do "build", que
 # depende do "test" (needs) — se qualquer um falhar, os seguintes não rodam.
 #
-# Passo único do lado do Pedro: Settings → Pages → Source: GitHub Actions.
-# Não precisa de conta externa, CLI nem tokens.
+# Passo único do lado do Pedro pro Pages em si: Settings → Pages → Source:
+# GitHub Actions. Não precisa de conta externa, CLI nem tokens pra isso.
+#
+# O build também usa 2 secrets do Supabase (VITE_SUPABASE_URL e
+# VITE_SUPABASE_ANON_KEY) — sem eles o app ainda builda e funciona, só que
+# sempre em modo somente-leitura com localStorage (ver storage.js).
 
 on:
   push:
@@ -48,6 +52,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - uses: actions/configure-pages@v5
 

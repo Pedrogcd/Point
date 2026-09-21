@@ -3,8 +3,21 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Motor de combate do Point (universo Amaranth) e sua suíte de testes",
+  "description": "Point — gerenciador de campanha de RPG de mesa (universo Amaranth)",
   "scripts": {
-    "test": "node --test engine.test.js"
+    "dev": "vite",
+    "test": "node --test engine.test.js",
+    "build": "npm test && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.47.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.3.0",
+    "vite-plugin-pwa": "^1.3.0"
   }
 }

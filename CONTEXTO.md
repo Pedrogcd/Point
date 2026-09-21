@@ -6,10 +6,11 @@ Documento de continuidade. Leia junto com `SISTEMA.md` (regras completas) e `REA
 
 ## O que é este projeto
 
-App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de 3d10. Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura" abaixo).
+App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de 3d10. Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura do motor" abaixo).
 
-**Versão online (Lovable)**: https://id-preview--1c753329-b2f1-4878-9fbe-458337a6a7ca.lovable.app
-**Project ID do Lovable**: `1c753329-b2f1-4878-9fbe-458337a6a7ca`
+Publicado como site próprio (Vite + PWA, deploy no Vercel) — ver "Arquitetura de publicação" abaixo. **Não depende mais do Lovable.**
+
+**Projeto Lovable antigo (desativado, só histórico)**: https://id-preview--1c753329-b2f1-4878-9fbe-458337a6a7ca.lovable.app — id `1c753329-b2f1-4878-9fbe-458337a6a7ca`. Ficou desatualizado (última sessão 12/09, com uma reestruturação de atributos aplicada mas sem validação final — nunca foi retomado) e o Pedro decidiu não usar mais. Não sincronizar; só serve de referência arqueológica se um dia for preciso recuperar algo de lá.
 
 ---
 
@@ -41,6 +42,9 @@ Meta: personagem com tudo em grau E deve ter ~25% de chance de causar 1 de ferim
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 
+### Por que saímos do Lovable (21/09)
+Decisão do Pedro: parar de depender do Lovable e publicar como app web próprio a partir deste repositório. Motivo prático — o Lovable trava por falta de créditos e tinha uma base de código paralela (`src/lib/rpg.ts`, modular) que nunca foi reconciliada com este `point-amaranth-app.jsx`; manter os dois sincronizados era trabalho duplicado. Agora o repositório é a única fonte de verdade, publicado via Vercel (ver "Arquitetura de publicação").
+
 ---
 
 ## Arquitetura do motor de combate
@@ -65,6 +69,28 @@ O que **fica** em `point-amaranth-app.jsx` (não foi extraído por ser puramente
 
 ---
 
+## Arquitetura de publicação (Vite + PWA + Vercel)
+
+Desde 21/09 o repositório é um app Vite completo, não só um arquivo `.jsx` solto:
+
+- **`index.html` / `main.jsx`** — scaffold padrão do Vite. `main.jsx` só monta `<App/>` (default export de `point-amaranth-app.jsx`) no `#root`.
+- **`storage.js`** — camada de armazenamento isolada, ver "Por que a camada de storage é separada" abaixo.
+- **`vite.config.js`** — plugin React + `vite-plugin-pwa` (gera manifest, ícones referenciados e o service worker via Workbox).
+- **`public/`** — `icon.svg` (favicon) e `icons/*.png` (192/512, normal e maskable). Gerados por script (sem lib de imagem — zlib + PNG cru), não são artes feitas por um designer; é um selo dourado simples com "P", dá pra trocar por uma arte de verdade depois sem mexer em mais nada.
+- **`.github/workflows/ci.yml`** — roda `npm test` + `npm run build` em todo push e pull request, qualquer branch.
+- **`.github/workflows/deploy.yml`** — em push na `main`: roda os testes de novo e, só se passarem, publica no Vercel via CLI (`vercel pull` → `vercel build` → `vercel deploy --prebuilt --prod`), usando os secrets `VERCEL_TOKEN`/`VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`. **Esses secrets são passos manuais que o Pedro precisa configurar** — ver pendência 1 abaixo e o README ("Publicar (Vercel)") para o passo a passo.
+- `package.json`: `npm run build` = `npm test && vite build` — o build falha se os testes falharem, então mesmo se algo disparar um build fora do GitHub Action (o próprio Vercel, um build manual), a trava continua valendo.
+
+### Por que a camada de storage é separada
+O app usava `window.storage` (API que só existe dentro do ambiente do Claude/Lovable). Fora de lá isso não existe. `storage.js` isola um `get(key)`/`set(key, value)` assíncrono — hoje implementado com `localStorage`, mas é a ÚNICA peça que precisa mudar se um dia trocar por Supabase (ou outro backend): o resto do app (as migrações de personagem, os `useEffect` de load/save) não sabe nem precisa saber onde os dados realmente vivem. Detalhe: `get()` devolve `{ value: string } | undefined` (não o valor cru) de propósito — é o mesmo formato que `window.storage` tinha, pra não precisar reescrever a lógica de migração que já esperava esse formato.
+
+### Testado localmente antes de commitar
+`npm run build` gerou o `dist/` esperado (manifest, ícones, `sw.js`, `workbox-*.js`). Rodado num Chromium headless (Playwright) via `npm run preview`: app carrega sem erros de console, navegação entre abas funciona (Confronto, ficha de personagem), service worker registra e assume controle da página, `localStorage` funciona, e — testado de verdade, não só por inspeção — o app **continua funcionando com a rede desligada** (`context.setOffline(true)` no Playwright, recarregando a página).
+
+**Achado durante esse teste**: o app carrega as fontes (Cinzel/Spectral/IBM Plex Mono) via `@import` do Google Fonts em tempo de render (não é algo que eu adicionei agora — já existia). Isso não é coberto pelo precache padrão do service worker (que só pega os arquivos gerados pelo build). Adicionado `runtimeCaching` no `vite.config.js` pra `fonts.googleapis.com`/`fonts.gstatic.com` (CacheFirst, 1 ano) — sem isso, offline de verdade cairia pra fonte padrão do sistema depois da 1ª visita.
+
+---
+
 ## Estado atual: FUNCIONANDO, com rede de segurança de novo
 
 Auditoria completa feita em sessão anterior: **161 testes automatizados, 0 falhas** — mas rodados num ambiente temporário que não persistiu, então não sobreviveram no repositório (isso foi corrigido, ver abaixo).
@@ -75,28 +101,22 @@ Auditoria completa feita em sessão anterior: **161 testes automatizados, 0 falh
 
 Se for mexer no motor, mexa em `engine.js` e rode os testes antes de subir — eles agora **estão no repositório** e não dependem de nenhum ambiente externo.
 
+**21/09**: repositório virou app Vite publicável direto (sem Lovable) — ver "Arquitetura de publicação" acima. `window.storage` substituído por `storage.js` (localStorage, isolado pra trocar por Supabase depois). PWA configurado (manifest, ícones, service worker offline via `vite-plugin-pwa`/Workbox, com cache de runtime pras fontes do Google Fonts). CI (`ci.yml`) roda testes+build em todo push/PR; deploy (`deploy.yml`) publica no Vercel automaticamente em push na `main`, só se os testes passarem. Tudo testado localmente (`npm run build`, `npm run preview`, Chromium headless) antes de commitar — inclusive offline de verdade, não só inspeção de código.
+
 ---
 
 ## PENDÊNCIAS
 
-### 1. Sincronizar com o Lovable (PRIORITÁRIO)
-O Lovable está **desatualizado em arquitetura** — o projeto lá (`src/lib/rpg.ts`) é uma base de código modular diferente deste `point-amaranth-app.jsx` de arquivo único, e a última sessão por lá (12/09) ficou com uma reestruturação de Atributos Gerais/Proficiências aplicada mas **sem verificação final** (o próprio agente admitiu: "verificação final ainda ficou pendente... validar a tela de Confronto"). Não houve sessão desde então.
+### 1. Passos manuais no Vercel/GitHub ainda não feitos (PRIORITÁRIO)
+O deploy automático (`deploy.yml`) só funciona depois que o Pedro fizer, uma vez só: criar conta no Vercel, rodar `vercel link` pra criar o projeto, e cadastrar 3 secrets no GitHub (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`). Passo a passo completo no README, seção "Publicar (Vercel)". Até isso ser feito, o workflow de deploy vai falhar (sem os secrets) — o de CI (testes) funciona normalmente independente disso.
 
-Boas notícias: conferindo `point-amaranth-app.jsx` (que já reflete a lista certa de 9 Atributos Gerais / 32 Proficiências, e cujas fórmulas foram agora cobertas pela suíte de testes) contra o SISTEMA.md, está tudo consistente. Ou seja, este arquivo parece ter avançado *além* do que ficou pendente no Lovable — mas os dois ainda não foram reconciliados numa única fonte.
+### 2. ~~Sincronizar com o Lovable~~ (obsoleta em 21/09 — decisão do Pedro)
+Não se aplica mais: o Pedro decidiu parar de usar o Lovable e publicar direto deste repositório (ver "Por que saímos do Lovable" nas Decisões de design). O projeto Lovable antigo fica só como referência histórica, sem sincronização. O que ainda estava pendente de portar de lá (balanceamento, Golpe Penetrante/Persistente, Mestre do Crítico redesenhado, MP/SP, teste de ficha, 4 status novos) já estava, na prática, **implementado neste repositório** antes mesmo dessa decisão — era só o Lovable que estava atrasado, não o contrário.
 
-Ainda pendente, como antes:
-- Balanceamento (Defesa 8, Armadura 8, Resistências 6)
-- Golpe Penetrante e Persistente (habilidades novas)
-- Mestre do Crítico redesenhado
-- Sistema de MP/SP completo (bolinhas, gasto por clique, botão restaurar)
-- Teste da ficha reformulado (Atributo + Perícia, limiar customizável)
-- 4 status novos (Desaceleração, Enraizamento, Aceleração, Envenenamento)
-- Limpeza de UI (restos da reforma de atributos)
-
-### 2. Personagens ainda não preenchidos
+### 3. Personagens ainda não preenchidos
 Os 13 personagens do Grupo C têm **grau E em quase tudo** — atributos gerais, proficiências e nenhuma habilidade escolhida. Precisam ser preenchidos com valores reais.
 
-### 3. Sistemas elementais não implementados
+### 4. Sistemas elementais não implementados
 Discutido mas não construído. Ideias levantadas (inspiradas em Genshin Impact):
 - **Electro** → concede CHAMAS; ou combo que soma dano se já houver CHAMAS
 - **Cryo** → concede DESACELERAÇÃO; ou trava o alvo desacelerado
@@ -106,16 +126,16 @@ Discutido mas não construído. Ideias levantadas (inspiradas em Genshin Impact)
 
 **Nota**: reações de combo verdadeiras (tipo Genshin) exigiriam rastrear status ativos no alvo entre rodadas, algo que o motor não faz — cada ataque resolve tudo na hora, sem memória.
 
-### 4. Catálogo antigo arquivado
+### 5. Catálogo antigo arquivado
 ~86 habilidades do sistema antigo (`ABILITIES_CATALOG`) ficaram arquivadas, visíveis mas sem função. Duas já foram convertidas (Golpe Penetrante, Persistente). O resto exigiria infraestrutura nova — por exemplo, maestrias de arma específica precisariam restringir habilidade a uma arma, e hoje só dá pra restringir por Tipo (Marcial/Arma de fogo/Mágico).
 
-### 5. Proficiências não-combate são decorativas
+### 6. Proficiências não-combate são decorativas
 24 das 32 proficiências (Física, Social, Mental) não afetam nada mecanicamente ainda — só aparecem na ficha e no teste de Atributo+Perícia.
 
-### 6. ~~IMPACTO/CHAMAS/ENVENENAMENTO por texto do ataque não checavam "fez contato"~~ (resolvida em 17/09)
+### 7. ~~IMPACTO/CHAMAS/ENVENENAMENTO por texto do ataque não checavam "fez contato"~~ (resolvida em 17/09)
 Era bug, confirmado pelo Pedro. Corrigido em `engine.js` — ver "Estado atual" acima.
 
-### 7. ~~Motor sem rede de segurança~~ (resolvida em 17/09)
+### 8. ~~Motor sem rede de segurança~~ (resolvida em 17/09)
 Existia um risco real de qualquer edição no motor quebrar regras silenciosamente, já que os 161 testes antigos não sobreviveram no repositório. Resolvido: motor extraído para `engine.js` e nova suíte de testes (55 testes) commitada no repo (ver "Estado atual" acima).
 
 ---

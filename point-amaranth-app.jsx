@@ -14,6 +14,7 @@ import {
   attrBonus, computeMaxHP, computeMaxSP, parseFlatBonus, limiarDaHabilidade, attrLabelDaHabilidade,
   findTriggeredProc, resolveConfirmationPhase, resolveAttack, computeStat, rollSuccessDice,
 } from "./engine.js";
+import { storage } from "./storage.js";
 
 /* ---------------------------------------------------------------
    TOKENS — paleta inspirada em Fire Emblem: Three Houses (fundo
@@ -3007,7 +3008,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const c = await window.storage?.get("point-characters");
+        const c = await storage.get("point-characters");
         if (c?.value) {
           const loadedChars = JSON.parse(c.value);
           // Migração automática e não-destrutiva:
@@ -3103,11 +3104,11 @@ export default function App() {
           });
           // Reset de HP/MP/SP pedido nas sessões de revisão — roda só uma vez (marcado
           // por uma flag), pra não sobrescrever ajustes manuais feitos depois.
-          // window.storage.get lança erro (não retorna null) quando a chave não existe,
-          // então tratamos esse erro como "flag ainda não definida" = precisa resetar.
+          // storage.get devolve undefined quando a chave não existe (ver storage.js),
+          // então tratamos isso como "flag ainda não definida" = precisa resetar.
           let flagAlreadySet = false;
           try {
-            const hpResetFlag = await window.storage?.get("point-hp-reset-v1");
+            const hpResetFlag = await storage.get("point-hp-reset-v1");
             flagAlreadySet = !!hpResetFlag?.value;
           } catch (e) {
             flagAlreadySet = false;
@@ -3120,36 +3121,36 @@ export default function App() {
               mp: { current: 3, max: 3 },
               sp: { current: 3, max: 3 },
             }));
-            try { await window.storage?.set("point-hp-reset-v1", "done"); } catch (e) {}
+            try { await storage.set("point-hp-reset-v1", "done"); } catch (e) {}
           }
           setCharacters(finalChars);
         }
       } catch (e) {}
       try {
-        const k = await window.storage?.get("point-kingdoms");
+        const k = await storage.get("point-kingdoms");
         if (k?.value) setKingdoms(JSON.parse(k.value));
       } catch (e) {}
       try {
-        const g = await window.storage?.get("point-gods");
+        const g = await storage.get("point-gods");
         if (g?.value) setGods(JSON.parse(g.value));
       } catch (e) {}
       try {
-        const s = await window.storage?.get("point-sagas");
+        const s = await storage.get("point-sagas");
         if (s?.value) setSagas(JSON.parse(s.value));
       } catch (e) {}
       try {
-        const o = await window.storage?.get("point-objectives");
+        const o = await storage.get("point-objectives");
         if (o?.value) setObjectives(JSON.parse(o.value));
       } catch (e) {}
       setLoaded(true);
     })();
   }, []);
 
-  useEffect(() => { if (loaded) window.storage?.set("point-characters", JSON.stringify(characters)).catch(() => {}); }, [characters, loaded]);
-  useEffect(() => { if (loaded) window.storage?.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
-  useEffect(() => { if (loaded) window.storage?.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
-  useEffect(() => { if (loaded) window.storage?.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
-  useEffect(() => { if (loaded) window.storage?.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-characters", JSON.stringify(characters)).catch(() => {}); }, [characters, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
 
   const filtered = useMemo(
     () => factionFilter === "Todos" ? characters : characters.filter((c) => c.faction === factionFilter),

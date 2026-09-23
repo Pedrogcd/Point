@@ -39,7 +39,24 @@ Testado com limiar variável e ficou forte demais. Virou um `-1` flat no valor d
 Sem o limite, 3 dados qualificando davam 6 sucessos. Limitado a uma ativação por ataque.
 
 ### Balanceamento calibrado por simulação
-Meta: personagem com tudo em grau E deve ter ~25% de chance de causar 1 de ferimento com ataque desarmado contra alvo com armadura. Valores resultantes: Defesa 8, Resistência Armadura 8, Resistências Naturais 6. Verificado: 25-27% com armadura, ~40% sem.
+Meta: personagem com tudo em grau E deve ter uma chance moderada de causar 1 de ferimento com ataque desarmado. Valores atuais (desde a fórmula nova das Resistências Naturais, 23/09): Defesa 8, Resistência Armadura 8, Resistências Naturais 4 (tudo E). Verificado por simulação: ~27% com armadura, ~53% sem — ver `engine.test.js`, describe "balanceamento estatístico".
+
+### Resistências Naturais viraram "2 + Vigor + Resistência", pelo grau cheio (23/09)
+Antes: base 6 + bônus da Proficiência de Resistência (E=0..A=+4). Agora: `2 + Vigor + Resistência (Física ou Mágica)`, mas contando o **grau cheio** dos dois lados (E=1, D=2, C=3, B=4, A=5) em vez do bônus — com tudo em E dá `2+1+1=4`. Implementado via `STAT_USA_GRAU_CHEIO` (Set com as duas Resistências Naturais), que faz `computeStat` trocar de peso (`attrBonus` vs `GRADE_VALUE`) por estatística. **Defesa continua usando o bônus** — são escalas diferentes de propósito, não é uma migração de todo o sistema pro grau cheio.
+
+### "Briga" foi eliminada; Ataque desarmado usa Combate Corpo a Corpo (23/09)
+A proficiência "Briga" era redundante com "Combate Corpo a Corpo" (mesmo cálculo, xingar duas perícias pro mesmo tipo de ataque). Eliminada do `PROFICIENCIAS_LIST`; `BASE_ATTACK_TYPES` (soco) e as fichas do Grupo Aurora já nascem com `profKey: "combateCorpoACorpo"`. Fichas salvas com `profKey: "briga"` migram sozinhas ao carregar, via `migrateBrigaProfKey` (`engine.js`, testada em `engine.test.js`) — e a chave `briga` some das proficiências salvas (`delete proficiencias.briga` na migração do `App`).
+
+### "acerto" saiu do STAT_LIST; virou Acerto real por tipo de ataque (23/09)
+A estatística "Acerto" da ficha nunca era lida pelo motor — decorativa. Removida do `STAT_LIST`. No lugar, `ACERTOS_POR_TIPO` + `computeAcertoTipo(character, entrada)` calculam o Acerto de verdade por tipo (corpo a corpo, arma de fogo, mágico): atributo do Tipo (Destreza, ou nenhum no Mágico) + Proficiência de Combate do tipo, ambos em bônus (E=0..A=+4). `StatBlock` mostra os três + as estatísticas de Defesa/Resistência lado a lado.
+
+### 3 espaços de Habilidade Passiva de Combate, Singularidade fora da contagem (23/09)
+`MAX_PROCS` subiu de 2 pra 3. A ficha ganhou duas tabelas de 3 caixas acima dos Atributos, em largura total: Habilidade de Raça + 2 Classes (campos livres, sistema de raça/classe ainda não existe — `racialAbility`/`classes` no personagem), e os 3 espaços de Habilidade Passiva (`SlotBox`/`ProcSlotPicker`, clicáveis, escolhem entre `PROC_ABILITIES`). A Singularidade tem painel próprio, também fora da contagem dos 3 espaços.
+
+### Grupo Aurora (Sidepoint) e o conceito de GRUPO (mesa) (23/09)
+O Pedro roda uma segunda mesa em paralelo ao Grupo C, com elenco e história próprios (mercenários de Beltezu). 6 personagens novos (`SIDEPOINT_CHARACTERS_RAW`, ids `sp_*`), facção `"Aurora (Sidepoint)"`, `fichaFechada: true` (a migração do `App` não completa ataques/armadura padrão nessas fichas — elas já vêm com tudo definido). O campo `grupo` (`"c"` ou `"aurora"`) separa as mesas: seletor na aba Personagens, seletor na Capa (mostra uma vitrine por vez, com a frase do hero mudando via `GRUPO_CHAMADA`), campo no formulário. `grupoDoPersonagem(c)` (em `sidepoint.js`) classifica quem foi salvo antes do campo existir (por prefixo `sp_` do id ou pela facção).
+
+**Reposição do Grupo Aurora é por personagem, não por lote** — decisão explícita do Pedro. `reporSidepoint` (`sidepoint.js`, testada com os 4 cenários de carregamento verificados manualmente) roda em toda abertura do app: cada ficha semente entra se o id dela não existir E não estiver em `point-sidepoint-removidos` (lista alimentada por `handleDelete`). **De propósito não existe uma flag "já inseri uma vez"**: a versão anterior tinha uma (`point-sidepoint-v1`, abandonada) e ela falhou na prática — se a gravação da flag não completasse antes de fechar o app, o grupo Aurora sumia PARA SEMPRE sem jeito de voltar pela interface. Comparar por id é idempotente de verdade: reabrir o app não duplica ninguém (testado, inclusive "abrir duas vezes seguidas").
 
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
@@ -68,15 +85,19 @@ Funções-chave em `engine.js`:
 |---|---|
 | `resolveAttack({attacker, defender, attack})` | Ponto de entrada. Rola Acerto e chama a fase de Confirmação |
 | `resolveConfirmationPhase({...})` | Extraída para poder ser re-executada quando um dado de Acerto muda (gasto de MP/SP) |
-| `computeStat(character, statKey)` | Base + Proficiência de Combate vinculada + ajuste temporário |
+| `computeStat(character, statKey)` | Base + atributos/proficiência vinculados (peso muda por `STAT_USA_GRAU_CHEIO`) + ajuste temporário |
+| `computeAcertoTipo(character, entrada)` | Acerto real por tipo de ataque (`ACERTOS_POR_TIPO`) — não lê a estatística "acerto" (removida do `STAT_LIST`, era decorativa) |
 | `getAttrGrade(character, key)` | Busca grau em `attributes` OU `atributosGerais` (compatibilidade da migração) |
 | `limiarDaHabilidade(character, p)` | 11 − grau; aceita atributo e/ou proficiência, usa o melhor |
 | `findTriggeredProc(...)` | Acha qual habilidade dispara num dado; exclui `furia_crescente` (tratada à parte) |
 | `computeMaxHP` / `computeMaxSP` | Vigor e bônus de Persistente |
+| `migrateBrigaProfKey(attacks)` | Migração idempotente: `profKey: "briga"` → `"combateCorpoACorpo"` (proficiência eliminada 23/09) |
 
-**Constante importante**: `STAT_PROF_LINK` mapeia estatística → proficiência que soma nela.
+**Constantes importantes**: `STAT_PROF_LINK` mapeia estatística → proficiência que soma nela; `STAT_USA_GRAU_CHEIO` (Set) marca quais estatísticas pesam o grau cheio (E=1..A=5) em vez do bônus (E=0..A=+4) — hoje só as duas Resistências Naturais; `MAX_PROCS` (3) é o número de espaços de Habilidade Passiva de Combate por ficha.
 
-O que **fica** em `point-amaranth-app.jsx` (não foi extraído por ser puramente visual): cores/tokens de tema, `HABILIDADE_CATEGORIA_INFO` (ícones lucide-react), `STATUS_EFFECTS` (textos de referência da aba Regras — o comportamento de verdade está em `engine.js`, esse array é só documentação exibida na UI), componentes React.
+**`sidepoint.js`** (novo, 23/09): módulo pequeno e puro, mesmo espírito do `engine.js` (sem React, testável com `node --test`) mas pra dados de conteúdo, não combate — `grupoDoPersonagem(c)` (classifica Grupo C vs Grupo Aurora) e `reporSidepoint(existentes, sementes, removidos)` (reposição idempotente das sementes do Grupo Aurora, por personagem). Ver `sidepoint.test.js`.
+
+O que **fica** em `point-amaranth-app.jsx` (não foi extraído por ser puramente visual ou conteúdo de ficha): cores/tokens de tema, `HABILIDADE_CATEGORIA_INFO` (ícones lucide-react), `STATUS_EFFECTS` (textos de referência da aba Regras — o comportamento de verdade está em `engine.js`, esse array é só documentação exibida na UI), `SIDEPOINT_CHARACTERS_RAW` (as 6 fichas do Grupo Aurora), componentes React.
 
 ---
 
@@ -142,6 +163,8 @@ Se for mexer no motor, mexa em `engine.js` e rode os testes antes de subir — e
 
 **21/09 (mesmo dia, sessão seguinte)**: migração de armazenamento pro Supabase — dados sincronizados entre aparelhos, login do mestre (e-mail/senha) com modo somente-leitura pra quem não estiver logado, upload de imagem de personagem. Ver "Arquitetura de dados (Supabase)" acima pro detalhe completo. Resumo: `storage.js` reescrito (Supabase como fonte de verdade, localStorage como cache — interface `get`/`set` não mudou), `auth.js` e `supabaseClient.js` novos, `imageUpload.js` novo (redimensiona no canvas antes de subir), `supabase/schema.sql` novo (tabela `point_kv` + bucket `retratos`, RLS: leitura pública, escrita autenticada), `pages.yml` passa os 2 secrets do Supabase pro build. App inteiro ganhou um `readOnly` derivado da sessão, propagado pra cada tela que edita algo.
 
+**23/09**: merge de uma versão feita numa conversa de preview (React solto, sem a infraestrutura deste repo) que trazia várias mudanças de sistema. Trazidas pro repositório sem perder Vite/Supabase/testes — ver as decisões de design novas acima (Resistências Naturais, Briga eliminada, Acerto por tipo, 3 espaços de Habilidade, Grupo Aurora/GRUPO). Resumo técnico: regras novas foram pra `engine.js` (não duplicadas no componente); Grupo Aurora ganhou `sidepoint.js` (módulo novo, mesmo espírito do `engine.js` mas pra reconciliação de dados, não combate); a suíte de testes foi de 55 pra **78 testes em 2 arquivos** (`engine.test.js` + `sidepoint.test.js`, `npm test` roda os dois) — cobrindo a fórmula nova das Resistências Naturais em vários graus (confirmando que Defesa continua no bônus), `computeAcertoTipo` nos 3 tipos, `migrateBrigaProfKey`, as 6 fichas do Grupo Aurora batendo com a tabela verificada manualmente (Defesa/Resistências/Acerto/HP/SP) e os 4 cenários de carregamento do Grupo Aurora (repõe do zero, recupera de uma flag antiga abandonada, não duplica quem já está salvo, respeita quem foi excluído de propósito) mais um teste explícito de idempotência (abrir o app duas vezes seguidas não duplica). O balanceamento recalibrou sozinho com a fórmula nova (~27% com armadura, ~53% sem, tudo em grau E) — não foi um ajuste manual, é consequência da Resistência Natural cair de 6 pra 4.
+
 ---
 
 ## PENDÊNCIAS
@@ -163,7 +186,7 @@ Se o mestre estiver logado e a escrita no Supabase falhar no meio de uma ediçã
 Não se aplica mais: o Pedro decidiu parar de usar o Lovable e publicar direto deste repositório (ver "Por que saímos do Lovable" nas Decisões de design). O projeto Lovable antigo fica só como referência histórica, sem sincronização. O que ainda estava pendente de portar de lá (balanceamento, Golpe Penetrante/Persistente, Mestre do Crítico redesenhado, MP/SP, teste de ficha, 4 status novos) já estava, na prática, **implementado neste repositório** antes mesmo dessa decisão — era só o Lovable que estava atrasado, não o contrário.
 
 ### 5. Personagens ainda não preenchidos
-Os 13 personagens do Grupo C têm **grau E em quase tudo** — atributos gerais, proficiências e nenhuma habilidade escolhida. Precisam ser preenchidos com valores reais.
+Os 13 personagens do Grupo C têm **grau E em quase tudo** — atributos gerais, proficiências e nenhuma habilidade escolhida. Precisam ser preenchidos com valores reais. (O Grupo Aurora, 6 personagens novos desde 23/09, já entrou totalmente preenchido — graus, procs, Singularidade, Raça/Classes, ataques — ver `SIDEPOINT_CHARACTERS_RAW`.)
 
 ### 6. Sistemas elementais não implementados
 Discutido mas não construído. Ideias levantadas (inspiradas em Genshin Impact):

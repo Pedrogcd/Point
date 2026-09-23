@@ -9,12 +9,15 @@ import {
   GRADE_VALUE, GRADE_ORDER,
   ATTR_LIST, ATRIBUTOS_GERAIS_LIST, ATRIBUTOS_GERAIS_DEFAULT, ATRIBUTOS_GERAIS_KEYS, getAttrGrade,
   PROFICIENCIAS_LIST, PROFICIENCIAS_DEFAULT,
-  STAT_LIST, DEFAULT_STAT_LINKS, STAT_BASE_DEFAULTS, STAT_PROF_LINK,
-  PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS,
+  STAT_LIST, DEFAULT_STAT_LINKS, STAT_BASE_DEFAULTS, STAT_PROF_LINK, STAT_USA_GRAU_CHEIO,
+  ACERTOS_POR_TIPO, computeAcertoTipo,
+  PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS, MAX_PROCS,
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
   attrBonus, computeMaxHP, computeMaxSP, parseFlatBonus, limiarDaHabilidade, attrLabelDaHabilidade,
   findTriggeredProc, resolveConfirmationPhase, resolveAttack, computeStat, rollSuccessDice,
+  migrateBrigaProfKey,
 } from "./engine.js";
+import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { storage, seedFromLocalIfEmpty } from "./storage.js";
 import { auth } from "./auth.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
@@ -73,7 +76,7 @@ const CATEGORIA_GERAL_INFO = {
   mental: { label: "Mental", color: PURPLE },
 };
 
-const FACTIONS = ["Hetalion", "Katalão", "Maxis Power", "Suth", "Goethia", "Amaranth/Omem", "Outra"];
+const FACTIONS = ["Hetalion", "Katalão", "Maxis Power", "Suth", "Goethia", "Amaranth/Omem", "Aurora (Sidepoint)", "Outra"];
 
 const FACTION_SEAL = {
   "Hetalion": "#8AA6A3",
@@ -82,6 +85,7 @@ const FACTION_SEAL = {
   "Suth": "#C7994F",
   "Goethia": "#6E8F6B",
   "Amaranth/Omem": "#C7994F",
+  "Aurora (Sidepoint)": "#B5654A",
   "Outra": "#9C8F78",
 };
 
@@ -469,11 +473,318 @@ function withFichaDefaults(c) {
     procs: [],
     atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT },
     proficiencias: { ...PROFICIENCIAS_DEFAULT },
+    racialAbility: { name: "", description: "" },
+    classes: [{ name: "", description: "" }, { name: "", description: "" }],
+    grupo: "c",
     ...c,
   };
 }
 
-const SEED_CHARACTERS = SEED_CHARACTERS_RAW.map(withFichaDefaults);
+// ---------------------------------------------------------------
+// SIDEPOINT — Grupo Aurora (mesa paralela ao Point)
+// Fichas adaptadas das fichas antigas (steampoint) para o sistema atual:
+// graus E–A, 3 procs, Singularidade, Raça + 2 Classes.
+// As habilidades da ficha antiga ficam arquivadas em habilidadesFicha
+// (só descritivas), para não se perder nada da mesa.
+// ---------------------------------------------------------------
+const SIDEPOINT_FACTION = "Aurora (Sidepoint)";
+
+const spAtk = (nome, tipo, acerto, dano, ferida, profKey, efeito = "") => ({
+  nome, tipo, acerto, dano, ferida, efeito, profKey,
+});
+
+const SIDEPOINT_CHARACTERS_RAW = [
+  // ----------------------------------------------------------- LEON
+  {
+    id: "sp_leon", name: "Leon Winters", epithet: "A Alma Ímpar · Irmão mais velho",
+    race: "Humano", faction: SIDEPOINT_FACTION,
+    affiliation: "Aurora (mercenários de Beltezu) · Irmãos Winters · ex-Black Shield",
+    height: "1,78m", deity: "Dulahand (vínculo de alma)", weapon: "Estoc",
+    traits: "Cabelos muito finos e brancos (a cor da mãe), olhos muito azuis, pele clara. Instintivo, implicante com o irmão, sente as almas ao redor.",
+    xp: 2,
+    singularity: {
+      name: "Alma Ímpar", level: "C",
+      description: "Nasceu com uma alma diferente das dos outros seres. Tem breves premonições, sente e lê a alma dos outros, cria uma aura de alma na zona onde está, se teleporta dentro dela e infunde a arma com CHAMAS astrais. Consegue concentrar a própria alma num ponto e inseri-la num objeto.",
+    },
+    racialAbility: { name: "Humano — Mana Concentrada", description: "Poder espiritual mais elevado que o comum; usa essa energia para melhorar o próprio desempenho em momentos decisivos." },
+    classes: [
+      { name: "Duelista de Estoc", description: "Esgrimista de uma mão livre, rápido e preciso. Luta colado no alvo e aproveita o teleporte da Alma Ímpar para atacar pontos cegos." },
+      { name: "Mercador Ocultista (Regra de Cobre)", description: "Ex-ajudante da Madame Satã e leitor de tarô. Tem trânsito natural entre mercadores e ocultistas e sabe conseguir recursos e informação." },
+    ],
+    attributes: {},
+    atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "D", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "C", resolucao: "E" },
+    proficiencias: {
+      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", tecnicaProf: "C",
+      intuicao: "C", percepcao: "C", ocultismo: "D", financas: "D", persuasao: "D",
+    },
+    procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
+    attacks: [
+      spAtk("Ataque desarmado", "marcial", "+1", "0", "1", "combateCorpoACorpo"),
+      spAtk("Estoc", "marcial", "0", "+1", "1", "combateCorpoACorpo", "Duelo rápido e preciso"),
+      // Variante gastando 1MP. Separada porque o motor lê a palavra CHAMAS no texto
+      // do efeito e aplica sempre - deixar "pode receber CHAMAS" no ataque base
+      // fazia o Estoc pegar fogo de graca em toda rolagem.
+      spAtk("Estoc — Chamas astrais (1MP)", "marcial", "0", "+1", "1", "combateCorpoACorpo", "CHAMAS astrais da Alma Ímpar · gasta 1MP"),
+    ],
+    itens: { principais: ["Estoc", "Lanterna analógica"], usaveis: ["Caixa de primeiros socorros"], armadura: ["Armadura leve de Katalão"] },
+    habilidadesFicha: {
+      ativas: [
+        { name: "Borrão D (ficha antiga)", custo: "Resposta, 2MP ou 1SP", description: "Rola defesa com +1d10; ou defesa com -1d10 para cancelar um acerto inimigo que não seja crítico." },
+        { name: "Golpe Preciso D (ficha antiga)", custo: "2MP ou 1SP", description: "Inimigo com -1 na defesa se Leon não se moveu; +1 no acerto." },
+      ],
+      especial: [
+        { name: "Sistema de Alma Ímpar", description: "Aura de influência na zona (+1 acerto) · consome a aura para se teleportar ou evitar golpe em área (1SP) · infunde a aura na arma: CHAMAS astrais (1MP) · manifesta a alma num objeto (1SP)." },
+      ],
+      racial: [], passivas: [
+        { name: "Premonição D (ficha antiga)", description: "-1 em um dado de ataque à distância contra ele; re-roll de defesa contra quem tem alma." },
+        { name: "Soulmancer D (ficha antiga)", description: "Confirma CHAMAS do sistema de Alma com +1." },
+      ], extras: [],
+    },
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Irmão mais velho dos Winters, criado em Midhab. Filho de Lisa (Clara), desertora de Hetalion. Vendia mercadorias e lia tarô para a Madame Satã em Maxis, onde foi recrutado por Lid e trabalhou para a Black Shield ao lado do Phantom, e hoje está desligado. Sentiu o Pendragon a quilômetros antes do ataque a Midhab. Testemunhou a queda dos deuses na montanha, morreu e foi ressuscitado pelo Dulahand, ao qual está preso junto dos outros três. Depois de 5 anos escondido, virou mercenário com Aurora. Duelou e se envolveu com Kirilia, de Suth. Pintou o cabelo para se disfarçar e depois pediu ao Ishran que o devolvesse ao branco da mãe: 'é nossa identidade'.",
+  },
+
+  // ----------------------------------------------------------- MERKEL
+  {
+    id: "sp_merkel", name: "Merkel Winters", epithet: "O Sacerdote Vendado de Umbra",
+    race: "Humano", faction: SIDEPOINT_FACTION,
+    affiliation: "Aurora · Irmãos Winters · Templo de Umbra (Kuro) · Dojo do Hill",
+    height: "1,90m", deity: "Umbra", weapon: "Artes marciais (stances) · faca da Trish",
+    traits: "Lindos olhos azuis quase sempre vendados. Fuma. Provocador, sem tato social, protetor à sua maneira. Implica com a Trish.",
+    xp: 5,
+    singularity: {
+      name: "Olhos Espelhados", level: "B",
+      description: "Vê e sente as emoções de quem está ao redor, enxerga através de camadas finas de matéria e copia técnicas e habilidades que vê. Anda vendado para não se afogar no que sente dos outros. Consegue espelhar a tela de mana de outro sensor.",
+    },
+    racialAbility: { name: "Humano — Mana Concentrada", description: "Poder espiritual mais elevado que o comum; usa essa energia para melhorar o próprio desempenho em momentos decisivos." },
+    classes: [
+      { name: "Monge de Umbra", description: "Treinado pelo Hill (ex-capitão de Hetalion) e pelo templo de Umbra. Luta desarmado alternando stances animais (Águia, Jaguar, Leão, Tatu, Cobra)." },
+      { name: "Encantador", description: "Aplica encantamentos de mana em si e em aliados (Força, Mira, Velocidade, Esquiva), com trocas feitas na manutenção." },
+    ],
+    attributes: {},
+    atributosGerais: { forca: "C", destreza: "D", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    proficiencias: {
+      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", tecnicaProf: "D",
+      atletismo: "D", intuicao: "D", ocultismo: "D", intimidacao: "D", percepcao: "D",
+    },
+    procs: ["persistente", "instinto_selvagem", "furia_crescente"],
+    attacks: [
+      spAtk("Ataque desarmado", "marcial", "+1", "0", "1", "combateCorpoACorpo", "Stances (Águia/Leão somam na confirmação)"),
+      spAtk("Faca da Trish", "marcial", "0", "+1", "1", "combateCorpoACorpo", "Não corta muito bem"),
+    ],
+    itens: { principais: ["Faca da Trish", "Estoque", "Máscara de gás"], usaveis: ["Poção de rápido metabolismo", "Cigarros"], armadura: [] },
+    habilidadesFicha: {
+      ativas: [
+        { name: "Encantamento D (ficha antiga)", custo: "Manutenção, quebra 1MP por encantamento", description: "Força (+1 confirmação), Mira (+1 acerto), Velocidade (+1 prioridade), Esquiva (+1 defesa)." },
+        { name: "Olho da Mente D (ficha antiga)", custo: "Resposta, 2MP ou 1SP", description: "+1d10 na defesa; com crítico no acerto, rola +1d10 na confirmação até o fim do próximo turno." },
+        { name: "Stances (ficha antiga)", custo: "Manutenção 1SP", description: "Águia, Jaguar, Leão, Tatu, Cobra, Escorpião, Área de Controle, Leopardo." },
+      ],
+      especial: [], racial: [],
+      passivas: [
+        { name: "Olhos Mágicos (ficha antiga)", description: "Abre tela de mana. Com os olhos abertos, ganha efeitos pela emoção do oponente: raiva +1 confirmação, medo +1 defesa, desprezo +1 acerto e +1 confirmação com -1 defesa, etc." },
+      ],
+      extras: [],
+    },
+    hp: { current: 4, max: 4 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Caçula dos Winters. Cresceu entre a vila de Midhab e a favela ningen, onde treinou no dojo do Hill e se tornou sacerdote de Umbra a convite da Kuro. Amigo de infância da K e rival eterno da Trish. Ao ver a queda dos deuses, um véu caiu dos seus olhos e ele passou a enxergar a alma e as emoções de todos, por isso a venda. Morreu e foi ressuscitado pelo Dulahand. Carrega a Umbra (em forma de raposa) no ombro. Quase morreu por destruir o orbe de Ishran e foi reconstruído com a biomassa doada pelas tropas de Katalão. Passou a noite na tenda da Laian.",
+  },
+
+  // ----------------------------------------------------------- RAIKO
+  {
+    id: "sp_raiko", name: "Raiko (雷鼓)", epithet: "A Grande Demônio da Montanha",
+    race: "Niosh (Oni, descendente de Arcani)", faction: SIDEPOINT_FACTION,
+    affiliation: "Aurora · antiga guardiã do templo da montanha de Midhab",
+    height: "1,44m (encolheu após a transfusão) · 1,75m antes", deity: "Nenhuma (ligada a Ishran e Nekron pela mãe)", weapon: "Kanabo (porrete) e instrumentos",
+    traits: "Um único chifre na lateral da cabeça, marcas vermelhas em forma de onda sob o olho. Barulhenta, bebe demais, fala pomposo quando quer e palavrão sempre. Musicista talentosa.",
+    xp: 0,
+    singularity: {
+      name: "Eco", level: "C",
+      description: "Controla e distorce ondas sonoras: gritos que quebram vidro e empurram inimigos, impacto sonoro encantando a arma, vibração que rasga criaturas grandes por dentro, abafar som e sentir todos numa área pelo eco.",
+    },
+    racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "Nioshes são naturalmente fortes e resistentes. Como descendente de Arcani, tem poderes psiônicos que simulam magia (mana pura e eletricidade) e resistência extra contra magia. Acumuladora e avarenta por natureza." },
+    classes: [
+      { name: "Bárbara do Kanabo", description: "Luta de perto com o porrete e muita força bruta. Aproveita críticos e perfura defesas." },
+      { name: "Bardo do Eco", description: "Toca baixo, bongos e o que aparecer. Usa a música para motivar tropas, distrair e amplificar o próprio poder sonoro." },
+    ],
+    attributes: {},
+    atributosGerais: { forca: "C", destreza: "E", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    proficiencias: {
+      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "D", tecnicaProf: "D",
+      atuacao: "C", sobrevivencia: "D", intimidacao: "D",
+    },
+    procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
+    attacks: [
+      spAtk("Ataque desarmado", "marcial", "+1", "0", "1", "combateCorpoACorpo"),
+      spAtk("Kanabo", "marcial", "-1", "+2", "1", "combateCorpoACorpo", "Porrete pesado"),
+      // Mesma correcao do Estoc. ARREMESSO tambem era o nome ANTIGO do IMPACTO:
+      // o status so disparava por causa da palavra "impacto sonoro" na prosa.
+      spAtk("Kanabo — Impacto sonoro (1MP)", "marcial", "-1", "+2", "1", "combateCorpoACorpo", "IMPACTO pelo Eco · gasta 1MP"),
+      spAtk("Shin", "magico", "+3", "+1", "1", "magiasOfensivas", "1MP · área"),
+      spAtk("Tiro mágico", "magico", "+2", "+1", "1", "magiasOfensivas", "1MP · distância"),
+    ],
+    itens: { principais: ["Kanabo (porrete de madeira)", "Baixo", "Bongos"], usaveis: [], armadura: [] },
+    habilidadesFicha: {
+      ativas: [
+        { name: "Magia (mana pura) D — racial (ficha antiga)", custo: "Ação", description: "Shin, Tiro mágico, Torrente mágica, Tiro vazio." },
+        { name: "Golpe Penetrante C (ficha antiga)", custo: "2MP ou 1SP", description: "Ignora armadura; +1 na confirmação; +1d10 no acerto contra bloqueio." },
+        { name: "Giro Defensivo D (ficha antiga)", custo: "Resposta, 2MP ou 1SP", description: "+1d10 na defesa ou reduz 1 de dano recebido." },
+      ],
+      especial: [
+        { name: "Sistema Eco", description: "+1MP: ofensivo (ARREMESSO), defensivo (re-roll de defesa), especial (campo que soma 1d10 nas defesas da área). B.Ação: sente todos na área." },
+      ],
+      racial: [],
+      passivas: [
+        { name: "Sistema Electro (ficha antiga)", description: "+1MP adiciona eletricidade (CARGA → acerto / CHAMAS). Gera ou absorve corrente sem ferir." },
+      ],
+      extras: [{ name: "Copper Rule — Talento Musical", description: "Música de verdade. Senhor Rosa e Laian a elogiaram." }],
+    },
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Oni de um chifre que morou sozinha por anos no templo da montanha de Midhab, dormindo ao lado do corpo da mãe, preservado num baú por Nekron a pedido de Ishran. Adotada informalmente pelo Jack, enterrou a mãe e desceu para o mundo. Morreu na queda dos deuses e foi ressuscitada pelo Dulahand. Consolou o Vinland quando ele matou o pai sem querer. Busca a origem do símbolo nas roupas da mãe, e Nekron indicou o niosh Mao. Encolheu depois de doar biomassa para salvar o Merkel. Fez amizade com a Lilazian e os filhotes Kutrefas.",
+  },
+
+  // ----------------------------------------------------------- AKIRA
+  {
+    id: "sp_akira", name: "Akira Cagliostro", epithet: "A Raposa Ilusionista · Líder (de fachada) de Aurora",
+    race: "Ningen Raposa", faction: SIDEPOINT_FACTION,
+    affiliation: "Aurora · filha adotiva de Klaus (Pendragon) · provável bastarda Gotis · broche da Parteira de Suth",
+    height: "1,55m", deity: "???", weapon: "Bombas alquímicas",
+    traits: "Orelhas e cauda de raposa, que costuma esconder com ilusão. Quimono de mangas longas cheio de compartimentos. Esperta, sarcástica, a 'irmã menos caótica' do grupo.",
+    xp: 0,
+    singularity: {
+      name: "Ilusão", level: "C",
+      description: "Cria ilusões visuais intangíveis em si e em aliados, inclusive clones de si mesma e disfarces, e as projeta em outros através do sensor. Quanto mais mana, mais real. Com a ajuda do Leon, conseguiu envolver uma alma com ilusão (Alira).",
+    },
+    racialAbility: { name: "Ningen Raposa", description: "Faro e instinto apurados (detecta inimigos em zonas vizinhas), deslocamento ágil entre zonas e transformação entre forma humanoide e bestial." },
+    classes: [
+      { name: "Alquimista (Alqui Bomb)", description: "Carrega bombas ocultas no corpo (fumaça, explosiva, gosma, pyro, eletro, veneno, gelo...) e fabrica poções e itens mágicos numa oficina." },
+      { name: "Sensora", description: "Marca até 5 pessoas numa rede de visão e comunicação compartilhada, transfere mana e prepara defesas nos marcados." },
+    ],
+    attributes: {},
+    atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "D", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "E" },
+    proficiencias: {
+      combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", tecnicaProf: "D",
+      ciencia: "C", magiasGerais: "C", furtividade: "D", subterfugio: "D", medicina: "D", etiqueta: "D",
+    },
+    procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
+    attacks: [
+      spAtk("Ataque desarmado", "marcial", "+1", "0", "1", "combateCorpoACorpo"),
+      spAtk("Bomba explosiva", "arma_de_fogo", "2S", "+1", "1", "armasDeFogo", "Alqui Bomb · área, zona 2"),
+      spAtk("Bomba pyro", "arma_de_fogo", "2S", "0", "1", "armasDeFogo", "Alqui Bomb · área · CHAMAS"),
+    ],
+    itens: { principais: ["Mosquete (sem munição)", "Máscara de gás", "Dispositivo de ilusão"], usaveis: ["Bomba banana (dinamite goetiana)", "Bomba de água", "Bomba de gelo"], armadura: ["Armadura leve de Katalão"] },
+    habilidadesFicha: {
+      ativas: [
+        { name: "Sensor C (ficha antiga)", custo: "1MP", description: "Marca até 5 pessoas (visão e comunicação compartilhadas); transfere MP; prepara defesa antecipada num marcado." },
+        { name: "Alqui Bomb D (ficha antiga)", custo: "Ação + 1 bomba", description: "Bombas ocultas no corpo, recuperadas em descanso longo." },
+        { name: "Borrão E (ficha antiga)", custo: "Resposta, 2MP ou 1SP", description: "Rola defesa com +1d10." },
+      ],
+      especial: [], racial: [],
+      passivas: [
+        { name: "Ofício Mágico C (ficha antiga)", description: "Tela de mana, +1 MP, cria e obtém itens mágicos." },
+        { name: "Ocultação de Presença E (ficha antiga)", description: "Esconde a presença em regiões de visão obstruída." },
+      ],
+      extras: [],
+    },
+    hp: { current: 3, max: 3 }, mp: { current: 4, max: 4 }, sp: { current: 3, max: 3 },
+    history: "Ningen raposa encontrada e criada pelo alquimista Klaus, ex-servo dos Pendragons, cuidando da loja dele em Midhab e se passando por humana. Klaus partiu para ajudar os Pendragons com a pesquisa das flores de Umbra e morreu anos depois como Klaus Pendragon, procurando a filha. Morreu na queda dos deuses e foi ressuscitada pelo Dulahand. Recusou sacrificar o Mevil para salvar a Terest, sua amiga, e enfrentou o Ishran por isso. Krusland e Laian indicam que ela é bastarda da casa Gotis de Katalão. Tratada como 'líder' de Aurora por ser a mais educada do grupo.",
+  },
+
+  // ----------------------------------------------------------- K
+  {
+    id: "sp_k", name: "K (Kanny)", epithet: "A Loba Silenciosa",
+    race: "Ningen Lobo", faction: SIDEPOINT_FACTION,
+    affiliation: "Aurora · filha do Hill · ex-prisioneira da fábrica de Midhab · abençoada por Isha",
+    height: "1,62m", deity: "Umbra? / abençoada por Isha", weapon: "Facas de arremesso e arma de fogo",
+    traits: "Quieta, sempre com armas por perto, fuma. Olhar calmo que esconde muita raiva do passado.",
+    xp: 12.6,
+    singularity: {
+      name: "Bênção de Isha", level: "D",
+      description: "Recebeu uma fagulha do poder da deusa da vida: faz sementes e plantas brotarem na hora e sente as flores ao redor. Ainda está aprendendo o quão útil isso é.",
+    },
+    racialAbility: { name: "Ningen Lobo", description: "Orelhas e cauda de lobo. Faro e instinto poderosos (detecta inimigos nas zonas vizinhas) e deslocamento ágil entre zonas." },
+    classes: [
+      { name: "Arsenal Oculto", description: "Esconde armas pelo corpo e troca ou recarrega rápido; sempre tem uma faca a mais do que parece." },
+      { name: "Batedora Furtiva", description: "Oculta a presença e ataca de surpresa. Boa atiradora de longa distância." },
+    ],
+    attributes: {},
+    atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "D", inteligencia: "E", perspicacia: "D", resolucao: "E" },
+    proficiencias: {
+      combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "E", tecnicaProf: "D",
+      furtividade: "C", percepcao: "D", sobrevivencia: "D",
+    },
+    procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
+    attacks: [
+      spAtk("Ataque desarmado", "marcial", "+1", "0", "1", "combateCorpoACorpo"),
+      spAtk("Faca de arremesso", "marcial", "0", "+1", "1", "combateCorpoACorpo", "Pode arremessar (curta distância)"),
+      spAtk("Mosquete", "arma_de_fogo", "-1", "+4", "2", "armasDeFogo", "Carga 1"),
+    ],
+    itens: { principais: ["Mosquete (6 balas)", "Facas de arremesso x3", "Rádio"], usaveis: ["Facas de arremesso x4", "Lanterna", "Máscara de gás"], armadura: [] },
+    habilidadesFicha: {
+      ativas: [
+        { name: "Golpe Veloz E (ficha antiga)", custo: "2MP ou 1SP", description: "Prioridade +1." },
+        { name: "Borrão D (ficha antiga)", custo: "Resposta, 2MP ou 1SP", description: "+1d10 na defesa ou cancelar um acerto não crítico." },
+      ],
+      especial: [{ name: "Acesso a Armas C (ficha antiga)", description: "Arsenal acessado de forma secreta; +1 item; troca e recarrega armas como B.Ação ou ação livre." }],
+      racial: [],
+      passivas: [
+        { name: "Mestre de Longo Alcance E (ficha antiga)", description: "Re-rola um dado de acerto à distância." },
+        { name: "Ocultação de Presença E (ficha antiga)", description: "Se oculta em regiões de visão obstruída." },
+      ],
+      extras: [],
+    },
+    hp: { current: 2, max: 2 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Filha do Hill, cresceu na favela ningen ao lado da Trish e do Merkel. Quando a Kuro fugiu para Hetalion, ficou para lutar pela cidade, brigou com a Trish e acabou presa e escravizada na fábrica erguida sobre Midhab pelos Fangs/Garras do Vaars. Foi resgatada pelo grupo após 5 anos. Fez as pazes com a Trish no jogo de União e recebeu uma bênção da Isha depois da queda da árvore. Enfim conseguiu uma arma de verdade em Katalão.",
+  },
+
+  // ----------------------------------------------------------- ISHRAN
+  {
+    id: "sp_ishran", name: "Mevil Ishran", epithet: "O Deus da Vida Aposentado",
+    race: "Humano (corpo-boneco criado por Nekron)", faction: SIDEPOINT_FACTION,
+    affiliation: "Aurora · antigo Deus da Vida (sucedido por Isha) · Mevil e Ishran fundidos",
+    height: "—", deity: "Ele mesmo / Isha", weapon: "Espada e escudo",
+    traits: "Pálido, veste terno sujo ou armadura velha, tosse sangue. Oscila entre a arrogância teatral do Mevil e a serenidade cansada do Ishran. Tem cerca de 2 meses de vida... ou é mais velho que a realidade.",
+    xp: 0,
+    singularity: {
+      name: "Necromancia", level: "Divino (enfraquecido)",
+      description: "Antigo poder de um Deus da Vida: cria e sustenta vida, cura e recompõe corpos com biomassa, e ergue exércitos de mortos que digitam telas de mana e trazem outros mortos de volta. Foi lenhador, soldado e depois deus. Hoje é uma sobra do que foi, num corpo que não vai durar.",
+    },
+    racialAbility: { name: "Humano — Mana Estática", description: "Resistência natural acima do comum e sorte nos críticos." },
+    classes: [
+      { name: "Guardião de Escudo", description: "Soldado de linha de frente com armadura pesada; protege aliados na mesma zona e reduz o golpe mais forte que recebe." },
+      { name: "Sistema Nekron (Vitalidade)", description: "Troca vida própria e alma por cura: transfere HP para aliados, levanta aliados caídos e se recupera com SP." },
+    ],
+    attributes: {},
+    atributosGerais: { forca: "D", destreza: "E", vigor: "D", carisma: "C", manipulacao: "E", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "D" },
+    proficiencias: {
+      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", tecnicaProf: "E",
+      lideranca: "B", medicina: "C", magiasGerais: "C", ocultismo: "C", persuasao: "D",
+    },
+    procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
+    attacks: [
+      spAtk("Ataque desarmado", "marcial", "+1", "0", "1", "combateCorpoACorpo"),
+      spAtk("Espada", "marcial", "0", "+1", "1", "combateCorpoACorpo", "Com escudo"),
+    ],
+    itens: { principais: ["Espada", "Escudo"], usaveis: [], armadura: ["Armadura pesada (velha)"] },
+    habilidadesFicha: {
+      ativas: [
+        { name: "Golpe Poderoso E (ficha antiga)", custo: "2MP ou 1SP", description: "Se o ataque só causar contato, causa 1d10 de confirmação." },
+        { name: "Técnica de Defesa D (ficha antiga)", custo: "Resposta, 2MP ou 1SP", description: "+1d10 na defesa ou cancela uma confirmação não crítica." },
+        { name: "Stances E (ficha antiga)", custo: "Manutenção 1SP", description: "Águia e Jaguar." },
+      ],
+      especial: [{ name: "Sistema Necron", description: "Gasta 1SP: +1HP; B.Ação: 1HP próprio → 1HP de aliado (acorda caídos); B.Ação: 1SP → 1HP." }],
+      racial: [],
+      passivas: [
+        { name: "Resistente D / Persistente C / Mestre em Armadura D / Mestre de Defesa D (ficha antiga)", description: "Muito resistente, difícil de derrubar, usa bem armadura pesada e protege aliados com o escudo." },
+      ],
+      extras: [],
+    },
+    hp: { current: 4, max: 4 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Mevil era um boneco criado por Nekron como contenção para caso os deuses caíssem; acreditava ser um arquimago e contratou Aurora como escolta. Dentro dele despertou Ishran, o lenhador que virou soldado e depois Deus da Vida ao receber o poder de três arcanjos. Ishran quis se aposentar e criar uma sucessora digna, e isso aconteceu: sentou no trono, ressuscitou os mortos da batalha da árvore e deu lugar a Isha, a Deusa da Vida. O que sobrou foi Mevil Ishran, os dois fundidos num corpo frágil, abençoado por Isha e amaldiçoado por Nekron. Ainda faz discursos revolucionários capazes de incendiar multidões.",
+  },
+];
+
+const SIDEPOINT_CHARACTERS = SIDEPOINT_CHARACTERS_RAW.map((c) => withFichaDefaults({ ...c, fichaFechada: true, grupo: "aurora" }));
+const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS];
 
 const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
@@ -500,6 +811,13 @@ const GRUPO_C_ROLE = {
   kiryu: "Sub-líder do Grupo C",
 };
 const GRUPO_C_ORDER = ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kutrefas", "vientra", "sombra", "rena", "erin", "minerva", "mercurio"];
+
+// Conceito de GRUPO (mesa): cada personagem pertence a uma campanha. "c" é o
+// Grupo C (a campanha principal), "aurora" é o Sidepoint.
+const GRUPOS = [
+  { id: "c", label: "Grupo C", subtitulo: "Cavaleiros de Omem · campanha principal", cor: BRASS },
+  { id: "aurora", label: "Grupo Aurora", subtitulo: "Mercenários de Beltezu · mesa Sidepoint", cor: "#B5654A" },
+];
 
 const SEED_SAGAS = [
   {
@@ -538,6 +856,9 @@ const emptyCharacter = () => ({
   abilities: [],
   habilidadesFicha: { ativas: [], especial: [], racial: [], passivas: [], extras: [] },
   procs: [],
+  racialAbility: { name: "", description: "" },
+  classes: [{ name: "", description: "" }, { name: "", description: "" }],
+  grupo: "c",
   atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT },
   proficiencias: { ...PROFICIENCIAS_DEFAULT },
   hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
@@ -743,14 +1064,54 @@ const inputStyle = {
    FICHA — visualização completa + rolador de dados
 ----------------------------------------------------------------*/
 function StatBlock({ character }) {
+  const caixa = { background: "#00000030", border: `1px solid ${LINE}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" };
+  const rotulo = { fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" };
+  const numero = { fontFamily: "'Cinzel', serif", fontSize: 20, color: BRASS_BRIGHT, fontWeight: 700 };
+  const detalhe = { fontSize: 9, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" };
+  const sinal = (n) => (n >= 0 ? `+${n}` : `${n}`);
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-      {STAT_LIST.map((s) => (
-        <div key={s.key} style={{ background: "#00000030", border: `1px solid ${LINE}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
-          <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>{s.label}</div>
-          <div style={{ fontFamily: "'Cinzel', serif", fontSize: 20, color: BRASS_BRIGHT, fontWeight: 700 }}>{computeStat(character, s.key)}</div>
-        </div>
-      ))}
+    <div>
+      <div style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Acerto (por tipo de ataque)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
+        {ACERTOS_POR_TIPO.map((e) => {
+          const { total, doAtributo, daProficiencia } = computeAcertoTipo(character, e);
+          const grauAttr = e.attr ? getAttrGrade(character, e.attr) || "E" : null;
+          const grauProf = character?.proficiencias?.[e.prof] || "E";
+          const nomeProf = PROFICIENCIAS_LIST.find((p) => p.key === e.prof)?.label || e.prof;
+          return (
+            <div key={e.key} style={caixa}>
+              <div style={rotulo}>{e.label}</div>
+              <div style={numero}>{sinal(total)}</div>
+              <div style={detalhe}>
+                {e.attr
+                  ? `Destreza ${grauAttr} ${sinal(doAtributo)} · ${nomeProf} ${grauProf} ${sinal(daProficiencia)}`
+                  : `${nomeProf} ${grauProf} ${sinal(daProficiencia)} · sem atributo`}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Defesa e Resistências</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        {STAT_LIST.map((st) => {
+          const usaGrau = STAT_USA_GRAU_CHEIO.has(st.key);
+          const profKey = STAT_PROF_LINK[st.key];
+          const nomeProf = profKey ? PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label : null;
+          return (
+            <div key={st.key} style={caixa}>
+              <div style={rotulo}>{st.label}</div>
+              <div style={numero}>{computeStat(character, st.key)}</div>
+              {usaGrau && (
+                <div style={detalhe}>
+                  2 + Vigor {character?.atributosGerais?.vigor || "E"} + {nomeProf} {character?.proficiencias?.[profKey] || "E"}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -860,6 +1221,140 @@ function AttackCard({ atk, onClick, selected, character }) {
   );
 }
 
+// Caixa genérica usada nas duas tabelas de 3 colunas da ficha (Raça/Classes e
+// Habilidades Passivas de Combate) — mostra vazio/preenchido de forma consistente.
+function SlotBox({ etiqueta, cor, titulo, subtitulo, corpo, vazio, onClick, acao }) {
+  const clicavel = !!onClick;
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: vazio ? "#00000012" : `${cor}12`,
+        border: `1px solid ${vazio ? LINE : `${cor}88`}`,
+        borderRadius: 8, padding: 12, minHeight: 104,
+        cursor: clicavel ? "pointer" : "default",
+        display: "flex", flexDirection: "column", gap: 4,
+        transition: "border-color .15s",
+      }}
+      title={clicavel ? (vazio ? "Clique pra escolher uma habilidade" : "Clique pra trocar ou remover") : undefined}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.8, textTransform: "uppercase", color: vazio ? MUTED : cor }}>
+          {etiqueta}
+        </span>
+        {acao}
+      </div>
+      {vazio ? (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 11.5, fontStyle: "italic", textAlign: "center", lineHeight: 1.4 }}>
+          {corpo}
+        </div>
+      ) : (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, lineHeight: 1.25 }}>{titulo}</div>
+          {subtitulo && <div style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace", color: cor }}>{subtitulo}</div>}
+          <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{corpo}</div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Modal que abre ao clicar num espaço de habilidade da ficha. Lista as mesmas
+// habilidades já criadas (PROC_ABILITIES), agrupadas por categoria e com filtro,
+// desabilitando as que já estão em outro espaço.
+function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
+  const [filtro, setFiltro] = useState("todas");
+  const procs = character.procs || [];
+  const atual = procs[slotIndex];
+  const visiveis = PROC_ABILITIES_AGRUPADAS.filter((p) => filtro === "todas" || categoriaDaHabilidade(p) === filtro);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 10, width: "min(860px, 100%)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 0 40px #00000090" }}
+      >
+        <div style={{ padding: "16px 20px 10px", borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: BRASS_BRIGHT, textTransform: "uppercase" }}>
+              Espaço de habilidade {slotIndex + 1}
+            </span>
+            <Btn variant="ghost" onClick={onClose}>Fechar</Btn>
+          </div>
+          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 10px" }}>
+            {character.name} · {procs.filter(Boolean).length} de {MAX_PROCS} espaços preenchidos. A Singularidade não ocupa espaço.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {["todas", ...CATEGORIA_ORDEM].map((catKey) => {
+              const info = catKey === "todas" ? { label: "Todas", color: BRASS } : HABILIDADE_CATEGORIA_INFO[catKey];
+              const ativo = filtro === catKey;
+              return (
+                <button
+                  key={catKey}
+                  onClick={() => setFiltro(catKey)}
+                  style={{
+                    background: ativo ? `${info.color}25` : "transparent", border: `1px solid ${ativo ? info.color : LINE}`,
+                    color: ativo ? info.color : MUTED, borderRadius: 20, padding: "4px 12px", fontSize: 11, cursor: "pointer",
+                    fontFamily: "'IBM Plex Mono', monospace",
+                  }}
+                >{info.label}</button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {visiveis.map((p) => {
+              const emOutroSlot = procs.some((id, i) => id === p.id && i !== slotIndex);
+              const selecionada = atual === p.id;
+              const cor = HABILIDADE_CATEGORIA_INFO[categoriaDaHabilidade(p)].color;
+              const limiar = limiarDaHabilidade(character, p);
+              const attrLabel = attrLabelDaHabilidade(p);
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => { if (!emOutroSlot) onPick(p.id); }}
+                  style={{
+                    padding: 11, borderRadius: 8, cursor: emOutroSlot ? "not-allowed" : "pointer", opacity: emOutroSlot ? 0.4 : 1,
+                    background: selecionada ? `${cor}20` : "#00000012", border: `1px solid ${selecionada ? cor : LINE}`,
+                  }}
+                  title={emOutroSlot ? "Já está em outro espaço desta ficha" : undefined}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT }}>{p.nome}</span>
+                    <span style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace" }}><HabilidadeCategoriaBadge p={p} /></span>
+                  </div>
+                  <div style={{ fontSize: 10, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 3 }}>
+                    {p.reduzCriticoEm
+                      ? `Reduz o crítico em ${p.reduzCriticoEm}`
+                      : p.gatilho?.startsWith("passivo_")
+                      ? "Sempre ativa"
+                      : p.gatilho === "contato_proprio"
+                      ? "Dispara ao fazer contato"
+                      : `Dispara com dado ≥${limiar} (${attrLabel})`}
+                    {p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{p.efeito}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {atual && (
+          <div style={{ padding: "10px 20px 16px", borderTop: `1px solid ${LINE}` }}>
+            <Btn variant="danger" onClick={onClear}><Trash2 size={13} /> Esvaziar este espaço</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreAttacks, onPrev, onNext, onUpdateCharacter }) {
   const [rollAttr, setRollAttr] = useState(ATRIBUTOS_GERAIS_LIST[0].key);
   const [rollProf, setRollProf] = useState(PROFICIENCIAS_LIST[0].key);
@@ -868,6 +1363,8 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
   const [history, setHistory] = useState([]);
   const [rolling, setRolling] = useState(false);
   const [lastRoll, setLastRoll] = useState(null);
+  // Índice do espaço de habilidade aberto na tabela de 3 caixas (null = fechado).
+  const [slotAberto, setSlotAberto] = useState(null);
   const habilidadesFicha = character.habilidadesFicha || { ativas: [], especial: [], racial: [], passivas: [], extras: [] };
   const itens = character.itens || { usaveis: [], principais: [], armadura: [] };
   const attacks = character.attacks || [];
@@ -887,6 +1384,23 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
       setHistory((h) => [{ ...result, attr: rollAttr, prof: rollProf, id: Date.now() }, ...h].slice(0, 6));
       setRolling(false);
     }, 380);
+  }
+
+  // Grava a habilidade escolhida num dos espaços da tabela. A lista `procs`
+  // fica densa (sem buracos): esvaziar um espaço puxa os seguintes pra trás.
+  function setProcNoSlot(indice, procId) {
+    if (!onUpdateCharacter) return;
+    const atuais = (character.procs || []).filter(Boolean).slice(0, MAX_PROCS);
+    let novos;
+    if (procId === null) {
+      novos = atuais.filter((_, i) => i !== indice);
+    } else if (indice < atuais.length) {
+      novos = atuais.map((id, i) => (i === indice ? procId : id));
+    } else {
+      novos = [...atuais, procId];
+    }
+    novos = novos.filter((id, i) => novos.indexOf(id) === i).slice(0, MAX_PROCS);
+    onUpdateCharacter(character.id, { procs: novos });
   }
 
   function recomputeRoll(dice) {
@@ -1031,7 +1545,7 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Acerto usa o atributo do Tipo (Destreza p/ Marcial e Arma de fogo, só o valor da magia p/ Mágico) + a Proficiência de Combate do ataque (Briga/Combate Corpo a Corpo/Armas de Fogo/Magias Ofensivas). Dano usa Força (Marcial), Magia (Mágico) ou só o valor da arma (Arma de fogo) + a mesma Proficiência. Ferida escala com confirmações no Marcial; é fixa nos outros. Use o Confronto pra resolver contra um alvo.
+              Acerto usa o atributo do Tipo (Destreza p/ Marcial e Arma de fogo, só o valor da magia p/ Mágico) + a Proficiência de Combate do ataque (Combate Corpo a Corpo/Armas de Fogo/Magias Ofensivas). Dano usa Força (Marcial), Magia (Mágico) ou só o valor da arma (Arma de fogo) + a mesma Proficiência. Ferida escala com confirmações no Marcial; é fixa nos outros. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -1064,62 +1578,15 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
             <div style={panelHeadStyle}>Estatísticas de Combate</div>
             <StatBlock character={character} />
             <div style={{ fontSize: 10, color: MUTED, marginTop: 8, fontStyle: "italic" }}>
-              Valor = base da ficha + bônus dos atributos vinculados + bônus da Proficiência de Combate correspondente (Defesa/Resistência Física/Resistência Mágica) + ajustes temporários. Ajuste na edição da ficha.
+              Acerto não é estatística da ficha: cada tipo de ataque monta o seu com o atributo do Tipo + a Proficiência de Combate, e a arma soma o bônus dela por cima. Defesa = base + Proficiência de Defesa. As duas Resistências Naturais seguem 2 + Vigor + Resistência (Física ou Mágica), contando o grau cheio (E=1 … A=5) — com tudo em E dá 4. Resistência Armadura é um valor manual da ficha.
             </div>
           </div>
         </div>
 
-        {/* Coluna 3: singularidade + habilidades + história */}
+        {/* Coluna 3: habilidades antigas + história + teste.
+            A Singularidade e as duas tabelas de 3 caixas (Raça/Classes e
+            Habilidades) ficam logo abaixo, em largura total, acima dos atributos. */}
         <div>
-          <div style={panelStyle}>
-            <div style={panelHeadStyle}>Singularidade</div>
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <Seal grade={character.singularity.level?.split(" ")[0]?.replace(/[^A-Za-z]/g, "") || "E"} size={30} />
-              <div>
-                <div style={{ fontWeight: 700, color: PARCHMENT, fontSize: 13.5 }}>{character.singularity.name}</div>
-                <div style={{ fontSize: 10.5, color: tierColor(character.singularity.level), marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>{character.singularity.level}</div>
-                <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}>{character.singularity.description}</p>
-              </div>
-            </div>
-          </div>
-
-          <div style={panelStyle}>
-            <div style={panelHeadStyle}>Habilidades Passivas de Combate</div>
-            <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 8 }}>
-              Cada ficha tem até 2 dessas + a Singularidade (acima) como a 3ª habilidade ativa do personagem.
-            </p>
-            {(character.procs || []).length === 0 && (
-              <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhuma habilidade passiva escolhida ainda. Edite a ficha pra escolher até 2.</p>
-            )}
-            {(character.procs || []).map((procId) => {
-              const p = PROC_ABILITIES.find((x) => x.id === procId);
-              if (!p) return null;
-              const limiar = limiarDaHabilidade(character, p);
-              const attrLabel = attrLabelDaHabilidade(p);
-              return (
-                <div key={p.id} style={{ marginBottom: 10, paddingLeft: 10, borderLeft: `2px solid ${PURPLE}` }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT }}>{p.nome}</div>
-                    <span style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace" }}>
-                      <HabilidadeCategoriaBadge p={p} />
-                      {p.prioridade ? <span style={{ color: MUTED }}> · prioridade {p.prioridade}</span> : null}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 10, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 3 }}>
-                    {p.reduzCriticoEm
-                      ? `Reduz o crítico em ${p.reduzCriticoEm} (em todos os críticos da rolagem)`
-                      : p.gatilho?.startsWith("passivo_")
-                      ? "Sempre ativa (não depende de dado)"
-                      : p.gatilho === "contato_proprio"
-                      ? `Dispara sempre ao fazer contato${p.restricaoTipo ? ` com ataque ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`
-                      : `Dispara com dado ≥${limiar} (${attrLabel})${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`}
-                  </div>
-                  <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.4 }}>{p.efeito}</div>
-                </div>
-              );
-            })}
-          </div>
-
           {hasHabilidades && (
             <details style={{ ...panelStyle, cursor: "pointer" }}>
               <summary style={{ ...panelHeadStyle, marginBottom: 0, borderBottom: "none", cursor: "pointer" }}>Habilidades antigas (arquivadas)</summary>
@@ -1252,6 +1719,99 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
         </div>
       </div>
 
+      {/* SINGULARIDADE — acima das duas tabelas, em largura total. Não ocupa
+          espaço de habilidade: tem lugar próprio na ficha. */}
+      <div style={{ ...panelStyle, borderColor: `${BRASS}66` }}>
+        <div style={panelHeadStyle}>Singularidade</div>
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+          <Seal grade={character.singularity?.level?.split(" ")[0]?.replace(/[^A-Za-z]/g, "") || "E"} size={38} />
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, color: BRASS_BRIGHT, fontSize: 16 }}>{character.singularity?.name || "—"}</span>
+              <span style={{ fontSize: 11, color: tierColor(character.singularity?.level), fontFamily: "'IBM Plex Mono', monospace" }}>{character.singularity?.level}</span>
+            </div>
+            <p style={{ fontSize: 12.5, color: MUTED, margin: "5px 0 0", lineHeight: 1.55 }}>{character.singularity?.description || "—"}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* TABELA 1 — Habilidade de Raça + as duas Classes. Ainda vão ser criadas
+          no sistema; por enquanto as caixas guardam nome + descrição livres. */}
+      <div style={panelStyle}>
+        <div style={panelHeadStyle}>Raça e Classes</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          <SlotBox
+            etiqueta="Habilidade de Raça"
+            cor={BRASS}
+            vazio={!character.racialAbility?.name}
+            titulo={character.racialAbility?.name}
+            subtitulo={character.race || null}
+            corpo={character.racialAbility?.name
+              ? (character.racialAbility.description || "Sem descrição.")
+              : `Ainda não definida${character.race ? ` (raça: ${character.race})` : ""} — a criar.`}
+          />
+          {[0, 1].map((i) => (
+            <SlotBox
+              key={i}
+              etiqueta={`Classe ${i + 1}`}
+              cor={PURPLE}
+              vazio={!character.classes?.[i]?.name}
+              titulo={character.classes?.[i]?.name}
+              corpo={character.classes?.[i]?.name
+                ? (character.classes[i].description || "Sem descrição.")
+                : "Ainda não definida — a criar."}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* TABELA 2 — os 3 espaços de Habilidade Passiva de Combate. Clicar numa
+          caixa abre o seletor com as habilidades já criadas (PROC_ABILITIES). */}
+      <div style={panelStyle}>
+        <div style={panelHeadStyle}>Habilidades Passivas de Combate</div>
+        <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 10 }}>
+          {MAX_PROCS} espaços. {onUpdateCharacter ? "Clique numa caixa pra escolher, trocar ou esvaziar." : "Só o mestre logado pode alterar."} A maioria dispara sozinha quando um dado já rolado bate o limiar — sem rolagem extra.
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {Array.from({ length: MAX_PROCS }).map((_, i) => {
+            const procId = (character.procs || [])[i];
+            const p = procId ? PROC_ABILITIES.find((x) => x.id === procId) : null;
+            const cor = p ? HABILIDADE_CATEGORIA_INFO[categoriaDaHabilidade(p)].color : PURPLE;
+            const limiar = p ? limiarDaHabilidade(character, p) : null;
+            return (
+              <SlotBox
+                key={i}
+                etiqueta={p ? HABILIDADE_CATEGORIA_INFO[categoriaDaHabilidade(p)].label : `Espaço ${i + 1}`}
+                cor={cor}
+                vazio={!p}
+                titulo={p?.nome}
+                subtitulo={p
+                  ? (p.reduzCriticoEm
+                    ? `Reduz o crítico em ${p.reduzCriticoEm}`
+                    : p.gatilho?.startsWith("passivo_")
+                    ? "Sempre ativa"
+                    : p.gatilho === "contato_proprio"
+                    ? "Dispara ao fazer contato"
+                    : `Dado ≥${limiar} (${attrLabelDaHabilidade(p)})`) + (p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : "")
+                  : null}
+                corpo={p ? p.efeito : (onUpdateCharacter ? "Vazio — clique pra escolher." : "Vazio.")}
+                onClick={onUpdateCharacter ? () => setSlotAberto(i) : undefined}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {slotAberto !== null && onUpdateCharacter && (
+        <ProcSlotPicker
+          character={character}
+          slotIndex={slotAberto}
+          onPick={(procId) => { setProcNoSlot(slotAberto, procId); setSlotAberto(null); }}
+          onClear={() => { setProcNoSlot(slotAberto, null); setSlotAberto(null); }}
+          onClose={() => setSlotAberto(null)}
+        />
+      )}
+
       <div style={panelStyle}>
         <div style={panelHeadStyle}>Atributos Gerais e Proficiências (estilo Vampiro: A Máscara)</div>
         <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 12 }}>
@@ -1339,7 +1899,13 @@ function AbilityPicker({ onPick }) {
 }
 
 function CharacterForm({ initial, onSave, onCancel }) {
-  const [c, setC] = useState(initial);
+  // Garante a estrutura de Raça/Classes mesmo em fichas salvas antes dela existir.
+  const [c, setC] = useState(() => ({
+    ...initial,
+    grupo: initial.grupo || grupoDoPersonagem(initial),
+    racialAbility: initial.racialAbility || { name: "", description: "" },
+    classes: [0, 1].map((i) => (Array.isArray(initial.classes) ? initial.classes[i] : null) || { name: "", description: "" }),
+  }));
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
@@ -1366,10 +1932,13 @@ function CharacterForm({ initial, onSave, onCancel }) {
 
   function set(path, value) {
     setC((prev) => {
-      const next = { ...prev };
+      // Clona preservando o tipo: array continua array (senão `classes` viraria
+      // um objeto {0:…,1:…} e quebraria o .map da ficha).
+      const clone = (v) => (Array.isArray(v) ? [...v] : { ...(v || {}) });
+      const next = clone(prev);
       let cur = next;
       for (let i = 0; i < path.length - 1; i++) {
-        cur[path[i]] = { ...cur[path[i]] };
+        cur[path[i]] = clone(cur[path[i]]);
         cur = cur[path[i]];
       }
       cur[path[path.length - 1]] = value;
@@ -1472,6 +2041,11 @@ function CharacterForm({ initial, onSave, onCancel }) {
         <Field label="Nome"><input style={inputStyle} value={c.name} onChange={(e) => set(["name"], e.target.value)} /></Field>
         <Field label="Epíteto"><input style={inputStyle} value={c.epithet} onChange={(e) => set(["epithet"], e.target.value)} /></Field>
         <Field label="Raça"><input style={inputStyle} value={c.race} onChange={(e) => set(["race"], e.target.value)} /></Field>
+        <Field label="Grupo (mesa)">
+          <select style={inputStyle} value={c.grupo || grupoDoPersonagem(c)} onChange={(e) => set(["grupo"], e.target.value)}>
+            {GRUPOS.map((g) => <option key={g.id} value={g.id}>{g.label} — {g.subtitulo}</option>)}
+          </select>
+        </Field>
         <Field label="Facção">
           <select style={inputStyle} value={c.faction} onChange={(e) => set(["faction"], e.target.value)}>
             {FACTIONS.map((f) => <option key={f} value={f}>{f}</option>)}
@@ -1518,9 +2092,34 @@ function CharacterForm({ initial, onSave, onCancel }) {
         <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={c.singularity.description} onChange={(e) => set(["singularity", "description"], e.target.value)} />
       </Field>
 
+      <SectionTitle icon={ShieldHalf}>Raça e Classes</SectionTitle>
+      <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
+        Aparecem na primeira tabela de 3 caixas da ficha, logo abaixo da Singularidade. O sistema de raças e classes ainda vai ser criado — por enquanto são campos livres.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
+        <div>
+          <Field label="Habilidade de Raça — nome">
+            <input style={inputStyle} value={c.racialAbility?.name || ""} onChange={(e) => set(["racialAbility", "name"], e.target.value)} />
+          </Field>
+          <Field label="Descrição">
+            <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.racialAbility?.description || ""} onChange={(e) => set(["racialAbility", "description"], e.target.value)} />
+          </Field>
+        </div>
+        {[0, 1].map((i) => (
+          <div key={i}>
+            <Field label={`Classe ${i + 1} — nome`}>
+              <input style={inputStyle} value={c.classes?.[i]?.name || ""} onChange={(e) => set(["classes", i, "name"], e.target.value)} />
+            </Field>
+            <Field label="Descrição">
+              <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.classes?.[i]?.description || ""} onChange={(e) => set(["classes", i, "description"], e.target.value)} />
+            </Field>
+          </div>
+        ))}
+      </div>
+
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Briga/Armas de Fogo/Combate Corpo a Corpo/Magias Ofensivas por tipo de ataque, e Defesa/Resistência Física/Resistência Mágica/Técnica reforçando a stat equivalente.
+        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo/Magias Ofensivas por tipo de ataque, e Defesa/Resistência Física/Resistência Mágica/Técnica reforçando a stat equivalente.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
@@ -1562,7 +2161,7 @@ function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={ShieldHalf}>Estatísticas de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Cada estatística soma: base (manual, abaixo) + bônus da Proficiência de Combate correspondente (Defesa, Resistência Física, Resistência Mágica) + ajuste temporário.
+        Defesa = base + bônus da Proficiência de Defesa. Resistências Naturais = base 2 + Vigor + Resistência (Física/Mágica), contando o grau cheio (E=1 … A=5): com tudo em E dá 4. Resistência Armadura é manual (não tem proficiência ligada a ela). A estatística Acerto foi removida — o Acerto real é por tipo de ataque e aparece na ficha.
       </p>
       {STAT_LIST.map((s) => (
         <div key={s.key} style={{ display: "grid", gridTemplateColumns: "180px 90px 1fr 70px", gap: 10, alignItems: "center", marginBottom: 8 }}>
@@ -1596,14 +2195,14 @@ function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Swords}>Habilidades Passivas de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Escolha até 2. A Singularidade (acima) já conta como a 3ª habilidade ativa do personagem — não precisa duplicar aqui.
+        Escolha até 3 — os mesmos 3 espaços da tabela da ficha. A Singularidade não ocupa espaço: ela tem lugar próprio, junto da Habilidade de Raça e das Classes.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
         {PROC_ABILITIES_AGRUPADAS.map((p) => {
           const checked = (c.procs || []).includes(p.id);
           const limiar = limiarDaHabilidade(c, p);
           const attrLabel = attrLabelDaHabilidade(p);
-          const atLimit = !checked && (c.procs || []).length >= 2;
+          const atLimit = !checked && (c.procs || []).length >= MAX_PROCS;
           return (
             <label key={p.id} style={{
               display: "block", padding: 10, borderRadius: 8, cursor: atLimit ? "not-allowed" : "pointer",
@@ -1616,7 +2215,7 @@ function CharacterForm({ initial, onSave, onCancel }) {
                     type="checkbox" checked={checked} disabled={atLimit}
                     onChange={() => {
                       const cur = c.procs || [];
-                      const next = checked ? cur.filter((id) => id !== p.id) : [...cur, p.id].slice(0, 2);
+                      const next = checked ? cur.filter((id) => id !== p.id) : [...cur, p.id].slice(0, MAX_PROCS);
                       set(["procs"], next);
                     }}
                   />
@@ -2178,7 +2777,7 @@ function CompareView({ characters, onUpdateCharacter }) {
   function toggleEditableProc(procId) {
     setEditableStats((prev) => {
       const cur = prev.procs || [];
-      const next = cur.includes(procId) ? cur.filter((id) => id !== procId) : [...cur, procId].slice(0, 2);
+      const next = cur.includes(procId) ? cur.filter((id) => id !== procId) : [...cur, procId].slice(0, MAX_PROCS);
       return { ...prev, procs: next };
     });
   }
@@ -2268,12 +2867,12 @@ function CompareView({ characters, onUpdateCharacter }) {
           </div>
 
           <div style={{ fontSize: 10.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, margin: "14px 0 8px", textTransform: "uppercase" }}>
-            Habilidades Passivas de Combate (até 2)
+            Habilidades Passivas de Combate (até {MAX_PROCS})
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {PROC_ABILITIES_AGRUPADAS.map((p) => {
               const checked = (editableStats.procs || []).includes(p.id);
-              const atLimit = !checked && (editableStats.procs || []).length >= 2;
+              const atLimit = !checked && (editableStats.procs || []).length >= MAX_PROCS;
               const limiar = limiarDaHabilidade({ attributes: editableStats.attributes, atributosGerais: editableStats.atributosGerais }, p);
               const attrLabel = attrLabelDaHabilidade(p);
               return (
@@ -2530,11 +3129,23 @@ function GodsView({ gods, setGods, askConfirm, readOnly }) {
 /* ---------------------------------------------------------------
    CAPA — hero + vitrine do Grupo C
 ----------------------------------------------------------------*/
+// Frase da capa por grupo (mesa), já que cada mesa tem o seu elenco e sua história.
+const GRUPO_CHAMADA = {
+  c: "Dossiês táticos, singularidades e o destino dos Cavaleiros de Omem, reunidos num só lugar.",
+  aurora: "Os mercenários de Beltezu e a mesa paralela do Sidepoint — mesmo mundo, outra história.",
+};
+
 function CoverView({ characters, onOpenCharacter }) {
-  const roster = GRUPO_C_ORDER
+  // Qual mesa a capa está mostrando. Abre no Grupo C, a campanha principal.
+  const [grupoAtivo, setGrupoAtivo] = useState("c");
+  // Cada grupo tem a sua vitrine. O Grupo C segue a ordem manual (líder e sub-líder
+  // primeiro); o resto de cada grupo entra na ordem em que estiver.
+  const doGrupo = (gid) => characters.filter((c) => grupoDoPersonagem(c) === gid);
+  const rosterC = GRUPO_C_ORDER
     .map((id) => characters.find((c) => c.id === id))
     .filter(Boolean)
-    .concat(characters.filter((c) => !GRUPO_C_ORDER.includes(c.id)));
+    .concat(doGrupo("c").filter((c) => !GRUPO_C_ORDER.includes(c.id)));
+  const rosterAurora = doGrupo("aurora");
 
   return (
     <div>
@@ -2546,55 +3157,97 @@ function CoverView({ characters, onOpenCharacter }) {
         <div style={{ fontSize: 11, letterSpacing: 4, color: `${PURPLE_TEXT}99`, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>UNIVERSO AMARANTH</div>
         <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: 40, letterSpacing: 6, color: "#F0D98C", margin: "0 0 8px", textShadow: `0 2px 8px #00000040` }}>POINT</h1>
         <p style={{ color: PURPLE_TEXT, fontSize: 13.5, maxWidth: 480, margin: "0 auto", lineHeight: 1.6, fontStyle: "italic" }}>
-          Dossiês táticos, singularidades e o destino dos Cavaleiros de Omem, reunidos num só lugar.
+          {GRUPO_CHAMADA[grupoAtivo] || GRUPO_CHAMADA.c}
         </p>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <Crown size={16} color={BRASS} />
-        <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: BRASS_BRIGHT, margin: 0 }}>
-          Vitrine do Grupo C
-        </h3>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 14 }}>
-        {roster.map((c) => {
-          const role = GRUPO_C_ROLE[c.id];
+      {/* Escolha da mesa: a capa mostra um grupo de cada vez */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", justifyContent: "center" }}>
+        {GRUPOS.map((g) => {
+          const ativo = grupoAtivo === g.id;
+          const qtd = doGrupo(g.id).length;
           return (
             <button
-              key={c.id}
-              onClick={() => onOpenCharacter(c.id)}
+              key={g.id}
+              onClick={() => setGrupoAtivo(g.id)}
               style={{
-                position: "relative", textAlign: "left", cursor: "pointer", color: "inherit",
-                background: PANEL_2, border: `1px solid ${role ? BRASS : LINE}`, borderRadius: 8,
-                padding: "16px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-                boxShadow: role ? `0 0 14px ${BRASS}33` : "none",
+                textAlign: "center", cursor: "pointer", borderRadius: 8, padding: "10px 20px",
+                border: `1px solid ${ativo ? g.cor : LINE}`,
+                background: ativo ? `${g.cor}1E` : "transparent", color: "inherit",
+                boxShadow: ativo ? `0 0 14px ${g.cor}22` : "none",
               }}
             >
-              {role && (
-                <span style={{
-                  position: "absolute", top: -9, display: "flex", alignItems: "center", gap: 3,
-                  background: PURPLE, border: `1px solid ${BRASS}`, borderRadius: 20, padding: "2px 8px",
-                  fontSize: 9, color: "#F0D98C", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5,
-                }}>
-                  <Crown size={9} /> {role.includes("Sub") ? "SUB-LÍDER" : "LÍDER"}
-                </span>
-              )}
-              <div style={{
-                width: 54, height: 54, borderRadius: "50%", background: "#00000030",
-                border: `2px solid ${FACTION_SEAL[c.faction] || BRASS}`, display: "flex",
-                alignItems: "center", justifyContent: "center", marginTop: role ? 6 : 0,
-              }}>
-                <ShieldHalf size={24} color={FACTION_SEAL[c.faction] || BRASS} />
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: ativo ? g.cor : PARCHMENT }}>
+                {g.label} <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>({qtd})</span>
               </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PARCHMENT, lineHeight: 1.3 }}>{c.name}</div>
-                <div style={{ fontSize: 10, color: BRASS, fontStyle: "italic", marginTop: 2, lineHeight: 1.3 }}>{c.epithet}</div>
-              </div>
+              <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{g.subtitulo}</div>
             </button>
           );
         })}
       </div>
+
+      {[
+        { gid: "c", titulo: "Vitrine do Grupo C", roster: rosterC, cor: BRASS, icone: Crown },
+        { gid: "aurora", titulo: "Vitrine do Grupo Aurora", roster: rosterAurora, cor: "#B5654A", icone: Swords },
+      ].filter((v) => v.gid === grupoAtivo).map((v) => {
+        const Icone = v.icone;
+        const g = GRUPOS.find((x) => x.id === v.gid);
+        return (
+          <div key={v.gid} style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              <Icone size={16} color={v.cor} style={{ alignSelf: "center" }} />
+              <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: v.cor, margin: 0 }}>
+                {v.titulo}
+              </h3>
+              <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{g?.subtitulo}</span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 14 }}>
+              {v.roster.map((c) => {
+                const role = v.gid === "c" ? GRUPO_C_ROLE[c.id] : null;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => onOpenCharacter(c.id)}
+                    style={{
+                      position: "relative", textAlign: "left", cursor: "pointer", color: "inherit",
+                      background: PANEL_2, border: `1px solid ${role ? BRASS : LINE}`, borderRadius: 8,
+                      padding: "16px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+                      boxShadow: role ? `0 0 14px ${BRASS}33` : "none",
+                    }}
+                  >
+                    {role && (
+                      <span style={{
+                        position: "absolute", top: -9, display: "flex", alignItems: "center", gap: 3,
+                        background: PURPLE, border: `1px solid ${BRASS}`, borderRadius: 20, padding: "2px 8px",
+                        fontSize: 9, color: "#F0D98C", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5,
+                      }}>
+                        <Crown size={9} /> {role.includes("Sub") ? "SUB-LÍDER" : "LÍDER"}
+                      </span>
+                    )}
+                    <div style={{
+                      width: 54, height: 54, borderRadius: "50%", background: "#00000030",
+                      border: `2px solid ${FACTION_SEAL[c.faction] || BRASS}`, display: "flex",
+                      alignItems: "center", justifyContent: "center", marginTop: role ? 6 : 0, overflow: "hidden",
+                    }}>
+                      {c.imageUrl
+                        ? <img src={c.imageUrl} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
+                        : <ShieldHalf size={24} color={FACTION_SEAL[c.faction] || BRASS} />}
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PARCHMENT, lineHeight: 1.3 }}>{c.name}</div>
+                      <div style={{ fontSize: 10, color: BRASS, fontStyle: "italic", marginTop: 2, lineHeight: 1.3 }}>{c.epithet}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {v.roster.length === 0 && (
+              <p style={{ color: MUTED, fontSize: 12.5, fontStyle: "italic" }}>Nenhum personagem nesta mesa ainda.</p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2876,7 +3529,7 @@ function AbilitiesCatalogView() {
     <div>
       <SectionTitle icon={Sparkles}>Habilidades Passivas de Combate (catálogo atual)</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        Sistema em uso agora: cada ficha escolhe até 2 dessas + a Singularidade conta como a 3ª habilidade ativa. A maioria dispara sozinha quando um dado já rolado (Acerto ou Confirmação) bate um limiar ligado a um atributo — sem rolagem extra. O Mestre em Armadura é sempre ativa, sem limiar nenhum. Se duas pudessem disparar no mesmo dado, só a de maior prioridade ativa.
+        Sistema em uso agora: cada ficha tem 3 espaços pra essas habilidades (a tabela de 3 caixas na ficha). A Singularidade não ocupa espaço — fica acima, junto da Habilidade de Raça e das duas Classes. A maioria dispara sozinha quando um dado já rolado (Acerto ou Confirmação) bate um limiar ligado a um atributo — sem rolagem extra. O Mestre em Armadura é sempre ativa, sem limiar nenhum. Se duas pudessem disparar no mesmo dado, só a de maior prioridade ativa.
       </p>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
@@ -3099,6 +3752,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [editingChar, setEditingChar] = useState(null);
   const [factionFilter, setFactionFilter] = useState("Todos");
+  const [grupoFilter, setGrupoFilter] = useState("c"); // abre no Grupo C (campanha principal)
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
   const [session, setSession] = useState(null);
@@ -3202,13 +3856,16 @@ export default function App() {
               }
               return { ...atk, nome: alias };
             });
-            const fixedAttacks = renamedAttacks.map((atk) => {
+            // 9) A Proficiencia "Briga" foi eliminada: Ataque desarmado passou a usar
+            //    Combate Corpo a Corpo, como qualquer outro ataque marcial.
+            const semBriga = migrateBrigaProfKey(renamedAttacks);
+            const fixedAttacks = semBriga.map((atk) => {
               if (atk.tipo) return atk;
               const base = BASE_ATTACK_TYPES.find((t) => t.nome.trim().toLowerCase() === (atk.nome || "").trim().toLowerCase());
               return { ...atk, tipo: base?.tipo || "marcial" };
             });
             const existingNames = new Set(fixedAttacks.map((a) => (a.nome || "").trim().toLowerCase()));
-            const missing = defaultAttacksForCharacter().filter((a) => {
+            const missing = ch.fichaFechada ? [] : defaultAttacksForCharacter().filter((a) => {
               const nomeLower = a.nome.trim().toLowerCase();
               if (existingNames.has(nomeLower)) return false;
               if (isAlmah && nomeLower === "ataque desarmado") return false; // não repor pra Almah
@@ -3227,12 +3884,19 @@ export default function App() {
             if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalFisica)) statBase.resistNaturalFisica = STAT_BASE_DEFAULTS.resistNaturalFisica;
             if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalMagica)) statBase.resistNaturalMagica = STAT_BASE_DEFAULTS.resistNaturalMagica;
             const itensArmadura = (ch.itens?.armadura || []);
-            const itens = itensArmadura.length > 0 ? ch.itens : { ...(ch.itens || { usaveis: [], principais: [] }), armadura: ["Armadura física"] };
+            const itens = (itensArmadura.length > 0 || ch.fichaFechada) ? ch.itens : { ...(ch.itens || { usaveis: [], principais: [] }), armadura: ["Armadura física"] };
             const attributes = migrateAttributes(ch.attributes);
-            const procs = Array.isArray(ch.procs) ? ch.procs.slice(0, 2) : [];
+            const procs = Array.isArray(ch.procs) ? ch.procs.slice(0, MAX_PROCS) : [];
             const atributosGerais = { ...ATRIBUTOS_GERAIS_DEFAULT, ...(ch.atributosGerais || {}) };
             const proficiencias = { ...PROFICIENCIAS_DEFAULT, ...(ch.proficiencias || {}) };
-            return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, atributosGerais, proficiencias };
+            delete proficiencias.briga; // proficiencia eliminada do sistema
+            // 10) Grupo (Grupo C / Grupo Aurora) e a tabela de Raça + Classes (ainda a
+            //     definir no sistema) em quem foi salvo antes desses campos existirem.
+            const grupo = ch.grupo || grupoDoPersonagem(ch);
+            const racialAbility = ch.racialAbility || { name: "", description: "" };
+            const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
+            const classes = [0, 1].map((i) => classesSalvas[i] || { name: "", description: "" });
+            return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, atributosGerais, proficiencias };
           });
           // Reset de HP/MP/SP pedido nas sessões de revisão — roda só uma vez (marcado
           // por uma flag), pra não sobrescrever ajustes manuais feitos depois.
@@ -3255,6 +3919,14 @@ export default function App() {
             }));
             try { await storage.set("point-hp-reset-v1", "done"); } catch (e) {}
           }
+          // Sidepoint: repõe o grupo Aurora em quem já tinha personagens salvos, de
+          // forma idempotente e por personagem (ver rationale em sidepoint.js).
+          let apagadosDeProposito = [];
+          try {
+            const rem = await storage.get("point-sidepoint-removidos");
+            apagadosDeProposito = rem?.value ? JSON.parse(rem.value) : [];
+          } catch (e) { apagadosDeProposito = []; }
+          finalChars = reporSidepoint(finalChars, SIDEPOINT_CHARACTERS, apagadosDeProposito);
           setCharacters(finalChars);
         }
       } catch (e) {}
@@ -3284,10 +3956,10 @@ export default function App() {
   useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
   useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
 
-  const filtered = useMemo(
-    () => factionFilter === "Todos" ? characters : characters.filter((c) => c.faction === factionFilter),
-    [characters, factionFilter]
-  );
+  const filtered = useMemo(() => {
+    const porGrupo = grupoFilter === "todos" ? characters : characters.filter((c) => grupoDoPersonagem(c) === grupoFilter);
+    return factionFilter === "Todos" ? porGrupo : porGrupo.filter((c) => c.faction === factionFilter);
+  }, [characters, grupoFilter, factionFilter]);
 
   const selected = characters.find((c) => c.id === selectedId);
 
@@ -3311,6 +3983,20 @@ export default function App() {
   function handleDelete(id) {
     setCharacters((prev) => prev.filter((c) => c.id !== id));
     setSubView("list");
+    // Personagem semente do Sidepoint apagado de propósito entra numa lista de
+    // exclusões, pra reposição automática do grupo Aurora não trazer ele de volta.
+    if (SIDEPOINT_CHARACTERS.some((ch) => ch.id === id)) {
+      (async () => {
+        let lista = [];
+        try {
+          const rem = await storage.get("point-sidepoint-removidos");
+          lista = rem?.value ? JSON.parse(rem.value) : [];
+        } catch (e) { lista = []; }
+        if (!Array.isArray(lista)) lista = [];
+        if (!lista.includes(id)) lista.push(id);
+        try { await storage.set("point-sidepoint-removidos", JSON.stringify(lista)); } catch (e) {}
+      })();
+    }
   }
   function handleRestoreDefaultAttacks(character) {
     const existingNames = new Set((character.attacks || []).map((a) => (a.nome || "").trim().toLowerCase()));
@@ -3423,6 +4109,30 @@ export default function App() {
 
         {tab === "characters" && subView === "list" && (
           <div>
+            {/* Seletor de GRUPO (mesa) — separa o Grupo C do Grupo Aurora */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              {[...GRUPOS, { id: "todos", label: "Todos", subtitulo: "As duas mesas juntas", cor: MUTED }].map((g) => {
+                const ativo = grupoFilter === g.id;
+                const qtd = g.id === "todos" ? characters.length : characters.filter((c) => grupoDoPersonagem(c) === g.id).length;
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => { setGrupoFilter(g.id); setFactionFilter("Todos"); }}
+                    style={{
+                      textAlign: "left", cursor: "pointer", borderRadius: 8, padding: "9px 14px",
+                      border: `1px solid ${ativo ? g.cor : LINE}`,
+                      background: ativo ? `${g.cor}1E` : "transparent", color: "inherit",
+                    }}
+                  >
+                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, letterSpacing: 0.8, color: ativo ? g.cor : PARCHMENT }}>
+                      {g.label} <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>({qtd})</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: MUTED }}>{g.subtitulo}</div>
+                  </button>
+                );
+              })}
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {["Todos", ...FACTIONS].map((f) => (

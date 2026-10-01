@@ -7,6 +7,8 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `point-amaranth-app.jsx` — o aplicativo completo (React)
 - `engine.js` — o motor de combate (regras puras, sem React), importado pelo app
 - `engine.test.js` — suíte de testes automatizados do motor
+- `sidepoint.js` — funções puras do Grupo Aurora (Sidepoint): classificação de grupo e reposição idempotente das fichas semente
+- `sidepoint.test.js` — testes automatizados do `sidepoint.js` (cenários de carregamento e idempotência)
 - `storage.js` — camada de armazenamento: Supabase como fonte de verdade (sincroniza entre aparelhos), localStorage como cache offline
 - `supabaseClient.js` / `auth.js` / `imageUpload.js` — cliente Supabase, login do mestre, upload de retrato
 - `supabase/schema.sql` — SQL pra rodar uma vez no projeto Supabase (tabela + bucket de imagens)
@@ -22,9 +24,9 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 
 | Aba | O que faz |
 |---|---|
-| **Início** | Vitrine do Grupo C e arco atual |
+| **Início** | Vitrine de uma mesa por vez (Grupo C ou Grupo Aurora) e arco atual |
 | **Objetivos** | Metas da campanha com estados (Ativo/Pausado/Concluído) |
-| **Personagens** | Fichas completas dos 13 personagens, com edição |
+| **Personagens** | Fichas completas dos 19 personagens (13 do Grupo C + 6 do Grupo Aurora), com edição e seletor de mesa |
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
@@ -36,11 +38,13 @@ Sem login, o app é **somente leitura**: editar, excluir, salvar e os gastos de 
 
 ## Estrutura da ficha
 
+- **Grupo (mesa)**: Grupo C (campanha principal) ou Grupo Aurora (Sidepoint)
+- **Singularidade**, **Habilidade de Raça** + **2 Classes** — tabelas de 3 caixas em largura total, acima dos atributos
 - **Atributos Gerais** (9): Força, Destreza, Vigor / Carisma, Manipulação, Compostura / Inteligência, Perspicácia, Resolução
 - **Proficiências** (32), em 4 categorias: Combate, Física, Social, Mental
-- **Estatísticas de Combate**: Acerto, Defesa, Resistência Armadura, Resistência Natural Física, Resistência Natural Mágica, Geral
+- **Estatísticas de Combate**: Defesa, Resistência Armadura, Resistência Natural Física, Resistência Natural Mágica, Geral. Acerto não é estatística fixa — é calculado por tipo de ataque (corpo a corpo, arma de fogo, mágico)
 - **Recursos**: HP (definido por Vigor), MP (azul), SP (verde)
-- **Habilidades Passivas de Combate**: até 2 por personagem + a Singularidade
+- **Habilidades Passivas de Combate**: até 3 espaços por personagem, clicáveis — a Singularidade não ocupa espaço
 
 ## Dados e login (Supabase)
 
@@ -81,7 +85,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate tem suíte de testes automatizados (Node nativo, sem dependências):
+O motor de combate e o Grupo Aurora têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js` e `sidepoint.test.js` — 78 testes ao todo:
 
 ```
 npm test

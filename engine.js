@@ -54,8 +54,9 @@ export function getAttrGrade(character, key) {
 // organizadas nas 3 categorias do livro (Física, Social, Mental). Usam o mesmo
 // grau E–A dos atributos.
 export const PROFICIENCIAS_LIST = [
-  // Combate — perícias usadas nos cálculos de combate (somam com o atributo correspondente)
-  { key: "briga", label: "Briga", categoria: "combate" },
+  // Combate — perícias usadas nos cálculos de combate (somam com o atributo correspondente).
+  // "Briga" foi eliminada (21/09) — Ataque desarmado passou a usar Combate Corpo a Corpo,
+  // igual toda arma branca. Fichas salvas com profKey "briga" migram automaticamente.
   { key: "armasDeFogo", label: "Armas de Fogo", categoria: "combate" },
   { key: "combateCorpoACorpo", label: "Combate Corpo a Corpo", categoria: "combate" },
   { key: "magiasOfensivas", label: "Magias Ofensivas", categoria: "combate" },
@@ -93,8 +94,9 @@ export const PROFICIENCIAS_LIST = [
 
 export const PROFICIENCIAS_DEFAULT = PROFICIENCIAS_LIST.reduce((acc, p) => ({ ...acc, [p.key]: "E" }), {});
 
+// "acerto" saiu daqui: era uma estatística decorativa (o motor nunca a lia). Os
+// Acertos reais, por tipo de ataque, vêm de ACERTOS_POR_TIPO / computeAcertoTipo.
 export const STAT_LIST = [
-  { key: "acerto", label: "Acerto" },
   { key: "defesa", label: "Defesa" },
   { key: "resistArmadura", label: "Resistência Armadura" },
   { key: "resistNaturalFisica", label: "Resistência Natural Física" },
@@ -103,19 +105,43 @@ export const STAT_LIST = [
 ];
 
 // Vínculo padrão sugerido entre atributo e estatística de combate — o grau do
-// atributo (E=0 a A=+4) soma automaticamente na estatística vinculada.
+// atributo soma automaticamente na estatística vinculada (bônus E=0..A=+4, exceto
+// as Resistências Naturais, que usam o grau cheio — ver STAT_USA_GRAU_CHEIO).
 // Isso é uma SUGESTÃO ajustável por ficha (não uma regra confirmada no material
 // original) — dá pra reatribuir por personagem em "Vínculos de atributo".
 export const DEFAULT_STAT_LINKS = {
   acerto: ["destreza"],
   defesa: [],
   resistArmadura: [],
-  resistNaturalFisica: [],
-  resistNaturalMagica: [],
+  resistNaturalFisica: ["vigor"],
+  resistNaturalMagica: ["vigor"],
   geral: [],
 };
 
-export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, resistNaturalFisica: 6, resistNaturalMagica: 6, geral: 0 };
+export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, resistNaturalFisica: 2, resistNaturalMagica: 2, geral: 0 };
+
+// As duas Resistências Naturais seguem "2 + Vigor + Resistência (Física/Mágica)",
+// onde os graus contam pelo NÍVEL (E=1, D=2, C=3, B=4, A=5) — tanto o do atributo
+// vinculado (Vigor) quanto o da Proficiência de Resistência — em vez do bônus
+// (E=0..A=+4) que as outras estatísticas usam. Com tudo em E: 2 + 1 + 1 = 4.
+export const STAT_USA_GRAU_CHEIO = new Set(["resistNaturalFisica", "resistNaturalMagica"]);
+
+// Os Acertos reais do personagem, um por tipo de ataque. O motor NÃO usa a
+// estatística "acerto" da ficha: ele monta o Acerto do zero com o atributo do
+// Tipo + a Proficiência de Combate do ataque + o bônus manual da arma. Estes são
+// os valores que o personagem leva pra qualquer ataque daquele tipo, antes do
+// bônus da arma.
+export const ACERTOS_POR_TIPO = [
+  { key: "corpoACorpo", label: "Corpo a corpo", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
+  { key: "armaDeFogo", label: "Arma de fogo", attr: "destreza", prof: "armasDeFogo", tipo: "arma_de_fogo" },
+  { key: "magico", label: "Mágico", attr: null, prof: "magiasOfensivas", tipo: "magico" },
+];
+
+export function computeAcertoTipo(character, entrada) {
+  const doAtributo = entrada.attr ? attrBonus(getAttrGrade(character, entrada.attr)) : 0;
+  const daProficiencia = attrBonus(character?.proficiencias?.[entrada.prof]);
+  return { total: doAtributo + daProficiencia, doAtributo, daProficiencia };
+}
 
 // Catálogo NOVO de Habilidades Passivas de Combate — substitui o sistema antigo
 // (as 92 habilidades ficam arquivadas na aba Habilidades, só como referência).
@@ -123,8 +149,10 @@ export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, res
 // Confirmação) contra um limiar definido por um atributo do dono da habilidade
 // (o mesmo limiar usado pro crítico: 11 - grau do atributo => E=10, D=9, C=8,
 // B=7, A=6). Se dois procs poderiam disparar no mesmo dado, só o de maior
-// "prioridade" ativa. Cada ficha só pode ter até 2 dessas equipadas, e a
-// Singularidade conta como a terceira habilidade "ativa" do personagem.
+// "prioridade" ativa. Cada ficha tem MAX_PROCS espaços pra essas habilidades (a
+// tabela de 3 caixas na ficha). A Singularidade NÃO ocupa espaço: ela fica acima
+// das tabelas, junto da Habilidade de Raça e das duas Classes, que têm tabela própria.
+export const MAX_PROCS = 3;
 export const PROC_ABILITIES = [
   {
     id: "furia_crescente",
@@ -206,7 +234,7 @@ export const PROC_ABILITIES = [
   },
   {
     id: "toque_flamejante",
-    nome: "Magia Pyro",
+    nome: "Magias energéticas",
     gatilho: "acerto_proprio",
     proficienciaLimiar: "magiasOfensivas",
     prioridade: 1,
@@ -255,7 +283,7 @@ export const TIPOS_ATAQUE = {
 // sucesso), ferida (valor fixo por confirmação bem-sucedida).
 export const BASE_ATTACK_TYPES = [
   {
-    id: "soco", profKey: "briga",
+    id: "soco", profKey: "combateCorpoACorpo",
     nome: "Ataque desarmado",
     categoria: "Corpo a corpo — desarmado",
     caracteristicas: ["físico", "corpo a corpo"],
@@ -443,10 +471,19 @@ export function computeStat(character, statKey) {
   const base = (character.statBase && character.statBase[statKey]) ?? STAT_BASE_DEFAULTS[statKey] ?? 0;
   const temp = (character.statTemp && character.statTemp[statKey]) ?? 0;
   const links = (character.statLinks && character.statLinks[statKey]) ?? DEFAULT_STAT_LINKS[statKey] ?? [];
-  const fromAttrs = links.reduce((sum, attrKey) => sum + attrBonus(getAttrGrade(character, attrKey)), 0);
+  // Resistências Naturais contam o grau cheio (E=1..A=5); as demais, o bônus (E=0..A=+4).
+  const peso = STAT_USA_GRAU_CHEIO.has(statKey) ? (g) => GRADE_VALUE[g] || 1 : attrBonus;
+  const fromAttrs = links.reduce((sum, attrKey) => sum + peso(getAttrGrade(character, attrKey)), 0);
   const profKey = STAT_PROF_LINK[statKey];
-  const fromProf = profKey ? attrBonus(character.proficiencias?.[profKey]) : 0;
+  const fromProf = profKey ? peso(character.proficiencias?.[profKey]) : 0;
   return base + fromAttrs + fromProf + temp;
+}
+
+// "Briga" foi eliminada (21/09): ataques salvos com profKey "briga" migram pra
+// "combateCorpoACorpo", igual toda arma branca. Idempotente — rodar de novo não
+// muda nada em ataques que já foram migrados (ou que nunca usaram "briga").
+export function migrateBrigaProfKey(attacks) {
+  return (attacks || []).map((atk) => (atk.profKey === "briga" ? { ...atk, profKey: "combateCorpoACorpo" } : atk));
 }
 
 // Rola N dados de 10, sucesso se dado > limiar (customizável, padrão 5). Um 10
@@ -492,7 +529,7 @@ export function rollSuccessDice(totalDice, limiar = 5) {
 //  - instinto_selvagem (nome: Ataque Poderoso): em ataques Marciais, quando um dado
 //    do Acerto bate o limiar de Força, soma mais uma instancia de IMPACTO (mesmo se
 //    ja tiver - instancias extras so somam +1 no dado de IMPACTO, nao rolam de novo).
-//  - toque_flamejante (nome: Magia Pyro): mesma logica, mas com limiar de Magia em
+//  - toque_flamejante (nome: Magias energeticas): mesma logica, mas com limiar de Magia em
 //    ataques Magicos, somando mais uma instancia de CHAMAS (cada instancia de CHAMAS
 //    rola 1d10 separado, diferente do IMPACTO).
 // Etapa 2 (Confirmacao + IMPACTO/CHAMAS + Ferida final) extraida em funcao propria
@@ -533,7 +570,7 @@ export function resolveConfirmationPhase({ attacker, defender, attack, successes
   // Etapa 2 - Confirmacao: uma rolagem de 1d10 por sucesso obtido no Acerto.
   // O atributo somado depende do tipo do ataque (marcial soma Forca, magico soma
   // Magia, arma de fogo nao soma atributo nenhum - so o valor da arma). A
-  // Proficiencia de Combate do ataque (Briga/Armas de Fogo/Combate Corpo a Corpo/
+  // Proficiencia de Combate do ataque (Combate Corpo a Corpo/Armas de Fogo/
   // Magias Ofensivas) soma tanto no Acerto quanto aqui na Confirmacao.
   const danoAttrBonus = tipoInfo.danoAttr ? attrBonus(getAttrGrade(attacker, tipoInfo.danoAttr)) : 0;
   const danoProfBonus = attack.profKey ? attrBonus(attacker.proficiencias?.[attack.profKey]) : 0;

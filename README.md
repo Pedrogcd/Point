@@ -13,6 +13,8 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `supabaseClient.js` / `imageUpload.js` — cliente Supabase, upload de retrato
 - `backup.js` — exportar/importar o estado inteiro do app em `.json` (sem depender de File/Blob do navegador, testável)
 - `backup.test.js` — testes automatizados do `backup.js`, incluindo o ciclo exportar → importar
+- `seedGuard.js` — decide quando é seguro propor enviar o localStorage pro Supabase (blindagem contra repovoar o banco sem querer)
+- `seedGuard.test.js` — testes automatizados do `seedGuard.js`
 - `supabase/schema.sql` — SQL pra rodar uma vez no projeto Supabase (tabela + bucket de imagens)
 - `index.html` / `main.jsx` / `vite.config.js` — scaffold Vite que empacota o app como site/PWA
 - `public/` — ícones e manifest do PWA
@@ -65,7 +67,7 @@ Nada mais é necessário no banco — sem tabelas ou índices adicionais.
 
 Qualquer pessoa com o link do app edita, exclui, salva e gasta MP/SP direto — não existe mais um botão "Entrar como mestre". Decisão atual: o app é usado só por gente de confiança, então o portão de autenticação só atrapalhava. Se um dia isso mudar (mais gente com o link, por exemplo), dá pra reintroduzir login/RLS restrita — a camada `storage.js` já isola isso do resto do app.
 
-**Na primeira abertura**: se o Supabase ainda não tiver nenhum dado salvo (banco recém-criado) e o navegador tiver dados no localStorage (de uma sessão anterior, offline), o app sobe esses dados locais pro Supabase automaticamente — só nas chaves que ainda estiverem vazias lá, nunca sobrescrevendo o que já existir. Roda de novo (sem efeito) em toda abertura seguinte, então é seguro.
+**Se o banco estiver vazio** (banco recém-criado, ou a tabela `point_kv` ficou vazia por algum motivo) e o navegador que abriu o app tiver personagens salvos no localStorage (de uma sessão anterior, offline), o app **pergunta antes de fazer qualquer coisa** — mostra quantos personagens tem localmente e pede confirmação pra enviar pro Supabase. Isso existe de propósito: sem login, qualquer um poderia abrir o site com uma tabela vazia por engano e repovoar o banco sozinho, sem querer, com uma cópia velha do navegador dele — a confirmação evita isso. Recusar não sobe nada, e só pergunta uma vez por sessão. Todo envio confirmado fica registrado (console do navegador + uma chave de histórico, `point-seed-log`) pra dar pra conferir depois se precisar.
 
 ### Backup manual
 
@@ -91,7 +93,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora e o backup têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js` e `backup.test.js` — 89 testes ao todo:
+O motor de combate, o Grupo Aurora, o backup e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `backup.test.js` e `seedGuard.test.js` — 99 testes ao todo:
 
 ```
 npm test

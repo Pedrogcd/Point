@@ -18,7 +18,7 @@ import {
   migrateBrigaProfKey,
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
-import { storage, seedFromLocalIfEmpty } from "./storage.js";
+import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
@@ -3702,17 +3702,33 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
   const backupInputRef = useRef(null);
+  const seedCheckedRef = useRef(false);
 
   function askConfirm(message, action, options) {
     setConfirmState({ message, action, ...options });
   }
 
-  // Sem login: todo mundo com o link edita direto (RLS do Supabase já libera
-  // insert/update/delete pro papel anon). Roda uma vez na abertura do app —
-  // idempotente: só sobe pro Supabase as chaves "point-*" que ainda não
-  // existirem lá, nunca sobrescreve o que já está salvo.
+  // Blindagem contra repovoar o banco sem querer: se a tabela não tiver
+  // point-characters (banco vazio — limpeza acidental, pausa longa do
+  // projeto, migração) e o localStorage deste navegador tiver uma
+  // quantidade plausível de personagens, pergunta antes de enviar — nunca
+  // semeia silenciosamente (ver checkSeedOpportunity/commitSeedFromLocal em
+  // storage.js, e a lógica de decisão em seedGuard.js). Recusar não semeia;
+  // o ref garante que só pergunta uma vez por sessão (inclusive contra o
+  // duplo-disparo do React.StrictMode em dev).
   useEffect(() => {
-    seedFromLocalIfEmpty();
+    if (seedCheckedRef.current) return;
+    seedCheckedRef.current = true;
+    (async () => {
+      const opportunity = await checkSeedOpportunity();
+      if (!opportunity) return;
+      const { count } = opportunity;
+      askConfirm(
+        `O banco de dados do Supabase está vazio (sem personagens salvos). Este navegador tem ${count} personagem${count === 1 ? "" : "s"} salvo${count === 1 ? "" : "s"} localmente — enviar agora pra sincronizar com os outros aparelhos?`,
+        () => { commitSeedFromLocal(); },
+        { title: "Banco vazio — enviar dados locais?", confirmLabel: "Enviar", icon: Upload, tone: PURPLE }
+      );
+    })();
   }, []);
 
   useEffect(() => {

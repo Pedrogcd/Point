@@ -3,7 +3,7 @@ import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
-  Upload, LogIn, LogOut,
+  Upload, Download,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -19,7 +19,7 @@ import {
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { storage, seedFromLocalIfEmpty } from "./storage.js";
-import { auth } from "./auth.js";
+import { buildBackup, parseBackup } from "./backup.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
 /* ---------------------------------------------------------------
@@ -868,61 +868,30 @@ const emptyCharacter = () => ({
 /* ---------------------------------------------------------------
    PEQUENOS COMPONENTES DE APOIO
 ----------------------------------------------------------------*/
-function ConfirmDialog({ message, onConfirm, onCancel }) {
+// Dialog de confirmação genérico — por padrão é o de exclusão (ícone/cor de
+// perigo, botão "Excluir"), mas aceita title/confirmLabel/icon/tone pra outras
+// ações destrutivas ou importantes (ex: importar um backup, que substitui tudo).
+function ConfirmDialog({ message, onConfirm, onCancel, title = "Confirmar exclusão", confirmLabel = "Excluir", icon: Icon = Trash2, tone = EMBER }) {
   return (
     <div style={{
       position: "fixed", inset: 0, background: "#00000090", display: "flex",
       alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20,
     }}>
       <div style={{
-        background: PANEL_2, border: `1px solid ${EMBER}`, borderRadius: 8, padding: 22,
+        background: PANEL_2, border: `1px solid ${tone}`, borderRadius: 8, padding: 22,
         maxWidth: 340, boxShadow: `0 0 30px #00000080`,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <Trash2 size={16} color={EMBER} />
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1, color: EMBER, textTransform: "uppercase" }}>Confirmar exclusão</span>
+          <Icon size={16} color={tone} />
+          <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1, color: tone, textTransform: "uppercase" }}>{title}</span>
         </div>
         <p style={{ fontSize: 13, color: PARCHMENT, lineHeight: 1.5, margin: "0 0 18px" }}>{message}</p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Btn variant="ghost" onClick={onCancel}>Cancelar</Btn>
-          <Btn onClick={onConfirm} style={{ background: EMBER, color: PARCHMENT, border: "none", fontWeight: 700 }}>
-            <Trash2 size={13} /> Excluir
+          <Btn onClick={onConfirm} style={{ background: tone, color: PARCHMENT, border: "none", fontWeight: 700 }}>
+            <Icon size={13} /> {confirmLabel}
           </Btn>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function LoginModal({ onSubmit, onCancel, error, loading }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  return (
-    <div style={{
-      position: "fixed", inset: 0, background: "#00000090", display: "flex",
-      alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20,
-    }}>
-      <div style={{
-        background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 8, padding: 22,
-        maxWidth: 320, width: "100%", boxShadow: `0 0 30px #00000080`,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <LogIn size={16} color={PURPLE} />
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1, color: PURPLE, textTransform: "uppercase" }}>Entrar como mestre</span>
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit(email, password); }}>
-          <Field label="E-mail">
-            <input type="email" required autoFocus style={inputStyle} value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="Senha">
-            <input type="password" required style={inputStyle} value={password} onChange={(e) => setPassword(e.target.value)} />
-          </Field>
-          {error && <p style={{ color: EMBER, fontSize: 12, margin: "6px 0 0" }}>{error}</p>}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <Btn type="button" variant="ghost" onClick={onCancel}>Cancelar</Btn>
-            <Btn type="submit" variant="primary" disabled={loading}>{loading ? "Entrando..." : "Entrar"}</Btn>
-          </div>
-        </form>
       </div>
     </div>
   );
@@ -1770,7 +1739,7 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
       <div style={panelStyle}>
         <div style={panelHeadStyle}>Habilidades Passivas de Combate</div>
         <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 10 }}>
-          {MAX_PROCS} espaços. {onUpdateCharacter ? "Clique numa caixa pra escolher, trocar ou esvaziar." : "Só o mestre logado pode alterar."} A maioria dispara sozinha quando um dado já rolado bate o limiar — sem rolagem extra.
+          {MAX_PROCS} espaços. Clique numa caixa pra escolher, trocar ou esvaziar. A maioria dispara sozinha quando um dado já rolado bate o limiar — sem rolagem extra.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {Array.from({ length: MAX_PROCS }).map((_, i) => {
@@ -2970,25 +2939,22 @@ function CompareView({ characters, onUpdateCharacter }) {
 /* ---------------------------------------------------------------
    MUNDO — reinos e cidades
 ----------------------------------------------------------------*/
-function WorldView({ kingdoms, setKingdoms, askConfirm, readOnly }) {
+function WorldView({ kingdoms, setKingdoms, askConfirm }) {
   const [openId, setOpenId] = useState(null);
   const [newCity, setNewCity] = useState({});
 
   function addCity(kid) {
-    if (readOnly) return;
     const draft = newCity[kid];
     if (!draft?.name) return;
     setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: [...k.cities, { name: draft.name, description: draft.description || "" }] } : k));
     setNewCity((p) => ({ ...p, [kid]: { name: "", description: "" } }));
   }
   function removeCity(kid, idx, cityName) {
-    if (readOnly) return;
     askConfirm(`Remover a cidade "${cityName}"? Essa ação não pode ser desfeita.`, () => {
       setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: k.cities.filter((_, i) => i !== idx) } : k));
     });
   }
   function updateDescription(kid, value) {
-    if (readOnly) return;
     setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, description: value } : k));
   }
 
@@ -3026,7 +2992,6 @@ function WorldView({ kingdoms, setKingdoms, askConfirm, readOnly }) {
                 <textarea
                   style={{ ...inputStyle, minHeight: 70, resize: "vertical", marginBottom: 12 }}
                   value={k.description}
-                  disabled={readOnly}
                   onChange={(e) => updateDescription(k.id, e.target.value)}
                 />
                 <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontFamily: "'IBM Plex Mono', monospace" }}>CIDADES</div>
@@ -3036,24 +3001,22 @@ function WorldView({ kingdoms, setKingdoms, askConfirm, readOnly }) {
                       <div style={{ fontSize: 13, color: PARCHMENT, fontWeight: 600 }}>{city.name}</div>
                       <div style={{ fontSize: 11.5, color: MUTED }}>{city.description}</div>
                     </div>
-                    {!readOnly && <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city.name)}><X size={13} /></Btn>}
+                    <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city.name)}><X size={13} /></Btn>
                   </div>
                 ))}
-                {!readOnly && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <input
-                      style={inputStyle} placeholder="Nova cidade"
-                      value={newCity[k.id]?.name || ""}
-                      onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], name: e.target.value } }))}
-                    />
-                    <input
-                      style={inputStyle} placeholder="Descrição curta"
-                      value={newCity[k.id]?.description || ""}
-                      onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], description: e.target.value } }))}
-                    />
-                    <Btn onClick={() => addCity(k.id)}><Plus size={13} /></Btn>
-                  </div>
-                )}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <input
+                    style={inputStyle} placeholder="Nova cidade"
+                    value={newCity[k.id]?.name || ""}
+                    onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], name: e.target.value } }))}
+                  />
+                  <input
+                    style={inputStyle} placeholder="Descrição curta"
+                    value={newCity[k.id]?.description || ""}
+                    onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], description: e.target.value } }))}
+                  />
+                  <Btn onClick={() => addCity(k.id)}><Plus size={13} /></Btn>
+                </div>
               </div>
             )}
           </div>
@@ -3066,21 +3029,18 @@ function WorldView({ kingdoms, setKingdoms, askConfirm, readOnly }) {
 /* ---------------------------------------------------------------
    DEUSES
 ----------------------------------------------------------------*/
-function GodsView({ gods, setGods, askConfirm, readOnly }) {
+function GodsView({ gods, setGods, askConfirm }) {
   const [editing, setEditing] = useState(null);
 
   function addGod() {
-    if (readOnly) return;
     const g = { id: `god_${Date.now()}`, name: "Novo Deus", domain: "", description: "" };
     setGods((prev) => [...prev, g]);
     setEditing(g.id);
   }
   function update(id, key, value) {
-    if (readOnly) return;
     setGods((prev) => prev.map((g) => g.id === id ? { ...g, [key]: value } : g));
   }
   function remove(id, name) {
-    if (readOnly) return;
     askConfirm(`Remover o deus "${name}" do panteão? Essa ação não pode ser desfeita.`, () => {
       setGods((prev) => prev.filter((g) => g.id !== id));
     });
@@ -3090,12 +3050,12 @@ function GodsView({ gods, setGods, askConfirm, readOnly }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SectionTitle icon={Sparkles}>Panteão</SectionTitle>
-        {!readOnly && <Btn variant="primary" onClick={addGod} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Deus</Btn>}
+        <Btn variant="primary" onClick={addGod} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Deus</Btn>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
         {gods.map((g) => (
           <div key={g.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14 }}>
-            {editing === g.id && !readOnly ? (
+            {editing === g.id ? (
               <>
                 <input style={{ ...inputStyle, marginBottom: 8, fontWeight: 700 }} value={g.name} onChange={(e) => update(g.id, "name", e.target.value)} />
                 <input style={{ ...inputStyle, marginBottom: 8 }} placeholder="Domínio" value={g.domain} onChange={(e) => update(g.id, "domain", e.target.value)} />
@@ -3108,12 +3068,10 @@ function GodsView({ gods, setGods, askConfirm, readOnly }) {
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: BRASS_BRIGHT }}>{g.name}</div>
-                  {!readOnly && (
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <Btn variant="ghost" onClick={() => setEditing(g.id)}><Pencil size={13} /></Btn>
-                      <Btn variant="ghost" onClick={() => remove(g.id, g.name)}><Trash2 size={13} /></Btn>
-                    </div>
-                  )}
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <Btn variant="ghost" onClick={() => setEditing(g.id)}><Pencil size={13} /></Btn>
+                    <Btn variant="ghost" onClick={() => remove(g.id, g.name)}><Trash2 size={13} /></Btn>
+                  </div>
                 </div>
                 <div style={{ fontSize: 11, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>{g.domain}</div>
                 <p style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.5, margin: 0 }}>{g.description}</p>
@@ -3257,23 +3215,20 @@ function CoverView({ characters, onOpenCharacter }) {
 ----------------------------------------------------------------*/
 const SAGA_STATUS_COLOR = { "Em andamento": BRASS_BRIGHT, "Concluída": "#7C8F7A", "Planejada": MUTED };
 
-function SagasView({ sagas, setSagas, askConfirm, readOnly }) {
+function SagasView({ sagas, setSagas, askConfirm }) {
   const [editing, setEditing] = useState(null);
   const [openId, setOpenId] = useState(sagas[0]?.id || null);
 
   function addSaga() {
-    if (readOnly) return;
     const s = { id: `saga_${Date.now()}`, title: "Nova Saga", status: "Planejada", summary: "" };
     setSagas((prev) => [...prev, s]);
     setEditing(s.id);
     setOpenId(s.id);
   }
   function update(id, key, value) {
-    if (readOnly) return;
     setSagas((prev) => prev.map((s) => s.id === id ? { ...s, [key]: value } : s));
   }
   function remove(id, title) {
-    if (readOnly) return;
     askConfirm(`Remover a saga "${title}"? Essa ação não pode ser desfeita.`, () => {
       setSagas((prev) => prev.filter((s) => s.id !== id));
     });
@@ -3283,7 +3238,7 @@ function SagasView({ sagas, setSagas, askConfirm, readOnly }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SectionTitle icon={ScrollText}>Sagas</SectionTitle>
-        {!readOnly && <Btn variant="primary" onClick={addSaga} style={{ marginBottom: 10 }}><Plus size={13} /> Nova Saga</Btn>}
+        <Btn variant="primary" onClick={addSaga} style={{ marginBottom: 10 }}><Plus size={13} /> Nova Saga</Btn>
       </div>
 
       {sagas.length === 0 && <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhuma saga registrada ainda.</p>}
@@ -3313,7 +3268,7 @@ function SagasView({ sagas, setSagas, askConfirm, readOnly }) {
 
             {open && (
               <div style={{ padding: 16, background: "#00000020" }}>
-                {isEditing && !readOnly ? (
+                {isEditing ? (
                   <>
                     <Field label="Título">
                       <input style={inputStyle} value={s.title} onChange={(e) => update(s.id, "title", e.target.value)} />
@@ -3333,14 +3288,12 @@ function SagasView({ sagas, setSagas, askConfirm, readOnly }) {
                 ) : (
                   <>
                     <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.6, whiteSpace: "pre-wrap", margin: "0 0 14px" }}>
-                      {s.summary || (readOnly ? "Sem resumo ainda." : "Sem resumo ainda — clique em Editar para adicionar.")}
+                      {s.summary || "Sem resumo ainda — clique em Editar para adicionar."}
                     </p>
-                    {!readOnly && (
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                        <Btn variant="ghost" onClick={() => setEditing(s.id)}><Pencil size={13} /> Editar</Btn>
-                        <Btn variant="danger" onClick={() => remove(s.id, s.title)}><Trash2 size={13} /> Excluir</Btn>
-                      </div>
-                    )}
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                      <Btn variant="ghost" onClick={() => setEditing(s.id)}><Pencil size={13} /> Editar</Btn>
+                      <Btn variant="danger" onClick={() => remove(s.id, s.title)}><Trash2 size={13} /> Excluir</Btn>
+                    </div>
                   </>
                 )}
               </div>
@@ -3358,27 +3311,23 @@ function SagasView({ sagas, setSagas, askConfirm, readOnly }) {
 const OBJ_STATUS = ["Ativo", "Pausado", "Concluído"];
 const OBJ_STATUS_COLOR = { "Ativo": BRASS_BRIGHT, "Pausado": "#B0784F", "Concluído": "#7C8F7A" };
 
-function ObjectivesView({ objectives, setObjectives, askConfirm, readOnly }) {
+function ObjectivesView({ objectives, setObjectives, askConfirm }) {
   const [editing, setEditing] = useState(null);
 
   function addObjective() {
-    if (readOnly) return;
     const o = { id: `obj_${Date.now()}`, title: "Novo Objetivo", status: "Ativo", description: "" };
     setObjectives((prev) => [o, ...prev]);
     setEditing(o.id);
   }
   function update(id, key, value) {
-    if (readOnly) return;
     setObjectives((prev) => prev.map((o) => o.id === id ? { ...o, [key]: value } : o));
   }
   function remove(id, title) {
-    if (readOnly) return;
     askConfirm(`Remover o objetivo "${title}"? Essa ação não pode ser desfeita.`, () => {
       setObjectives((prev) => prev.filter((o) => o.id !== id));
     });
   }
   function cycleStatus(o) {
-    if (readOnly) return;
     const idx = OBJ_STATUS.indexOf(o.status);
     update(o.id, "status", OBJ_STATUS[(idx + 1) % OBJ_STATUS.length]);
   }
@@ -3394,7 +3343,7 @@ function ObjectivesView({ objectives, setObjectives, askConfirm, readOnly }) {
         background: PANEL_2, border: `1px solid ${o.status === "Ativo" ? BRASS : LINE}`, borderRadius: 8,
         padding: 14, marginBottom: 10, opacity: o.status === "Concluído" ? 0.7 : 1,
       }}>
-        {isEditing && !readOnly ? (
+        {isEditing ? (
           <>
             <input style={{ ...inputStyle, marginBottom: 8, fontWeight: 700 }} value={o.title} onChange={(e) => update(o.id, "title", e.target.value)} />
             <select style={{ ...inputStyle, marginBottom: 8 }} value={o.status} onChange={(e) => update(o.id, "status", e.target.value)}>
@@ -3411,23 +3360,20 @@ function ObjectivesView({ objectives, setObjectives, askConfirm, readOnly }) {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   onClick={() => cycleStatus(o)}
-                  disabled={readOnly}
-                  title={readOnly ? undefined : "Clique para mudar o status"}
+                  title="Clique para mudar o status"
                   style={{
                     width: 22, height: 22, borderRadius: "50%", border: `2px solid ${color}`, background: "transparent",
-                    display: "flex", alignItems: "center", justifyContent: "center", cursor: readOnly ? "default" : "pointer", flexShrink: 0,
+                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0,
                   }}
                 >
                   {o.status === "Concluído" && <Check size={13} color={color} />}
                 </button>
                 <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, textDecoration: o.status === "Concluído" ? "line-through" : "none" }}>{o.title}</span>
               </div>
-              {!readOnly && (
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <Btn variant="ghost" onClick={() => setEditing(o.id)}><Pencil size={12} /></Btn>
-                  <Btn variant="ghost" onClick={() => remove(o.id, o.title)}><Trash2 size={12} /></Btn>
-                </div>
-              )}
+              <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                <Btn variant="ghost" onClick={() => setEditing(o.id)}><Pencil size={12} /></Btn>
+                <Btn variant="ghost" onClick={() => remove(o.id, o.title)}><Trash2 size={12} /></Btn>
+              </div>
             </div>
             {o.description && <p style={{ fontSize: 12.5, color: MUTED, lineHeight: 1.5, margin: "8px 0 0 30px" }}>{o.description}</p>}
             <div style={{ marginLeft: 30, marginTop: 6 }}>
@@ -3446,7 +3392,7 @@ function ObjectivesView({ objectives, setObjectives, askConfirm, readOnly }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <SectionTitle icon={Target}>Objetivos do Grupo</SectionTitle>
-        {!readOnly && <Btn variant="primary" onClick={addObjective} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Objetivo</Btn>}
+        <Btn variant="primary" onClick={addObjective} style={{ marginBottom: 10 }}><Plus size={13} /> Novo Objetivo</Btn>
       </div>
 
       {active.length === 0 && others.length === 0 && <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhum objetivo registrado ainda.</p>}
@@ -3755,41 +3701,19 @@ export default function App() {
   const [grupoFilter, setGrupoFilter] = useState("c"); // abre no Grupo C (campanha principal)
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
-  const [session, setSession] = useState(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginError, setLoginError] = useState(null);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const readOnly = !session;
+  const backupInputRef = useRef(null);
 
-  function askConfirm(message, action) {
-    setConfirmState({ message, action });
+  function askConfirm(message, action, options) {
+    setConfirmState({ message, action, ...options });
   }
 
-  // Sessão do mestre (Supabase Auth, e-mail/senha). Sem login, o app fica
-  // somente-leitura (ver readOnly acima). auth.onAuthStateChange já dispara
-  // uma vez com a sessão atual ao inscrever, então cobre o carregamento
-  // inicial também — não precisa de uma chamada separada a getSession().
+  // Sem login: todo mundo com o link edita direto (RLS do Supabase já libera
+  // insert/update/delete pro papel anon). Roda uma vez na abertura do app —
+  // idempotente: só sobe pro Supabase as chaves "point-*" que ainda não
+  // existirem lá, nunca sobrescreve o que já está salvo.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChange((newSession) => {
-      setSession(newSession);
-      // idempotente: só sobe pro Supabase as chaves que ainda não existirem lá
-      if (newSession) seedFromLocalIfEmpty();
-    });
-    return unsubscribe;
+    seedFromLocalIfEmpty();
   }, []);
-
-  async function handleLogin(email, password) {
-    setLoginLoading(true);
-    setLoginError(null);
-    try {
-      await auth.signIn(email, password);
-      setShowLogin(false);
-    } catch (e) {
-      setLoginError("E-mail ou senha incorretos.");
-    } finally {
-      setLoginLoading(false);
-    }
-  }
 
   useEffect(() => {
     (async () => {
@@ -4012,6 +3936,44 @@ export default function App() {
     askConfirm(`Excluir a ficha de "${c.name}"? Essa ação não pode ser desfeita.`, () => handleDelete(c.id));
   }
 
+  // Backup manual: agora que qualquer um com o link edita e apaga direto, sem
+  // login, isso é a rede de segurança — baixa um .json com tudo (personagens +
+  // reinos/deuses/sagas/objetivos) pra poder restaurar se algo for apagado.
+  function handleExportBackup() {
+    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives });
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `point-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImportFile(file) {
+    if (!file) return;
+    let data;
+    try {
+      data = parseBackup(await file.text());
+    } catch (e) {
+      askConfirm(e.message || "Não foi possível ler esse arquivo.", () => {}, { title: "Falha ao importar", confirmLabel: "OK", icon: X, tone: EMBER });
+      return;
+    }
+    askConfirm(
+      "Importar esse arquivo substitui todos os personagens e o resto dos dados (reinos, deuses, sagas, objetivos) pelo conteúdo do backup. Essa ação não pode ser desfeita.",
+      () => {
+        setCharacters(data.characters);
+        setKingdoms(data.kingdoms);
+        setGods(data.gods);
+        setSagas(data.sagas);
+        setObjectives(data.objectives);
+      },
+      { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
+    );
+  }
+
   const TABS = [
     { id: "home", label: "Início", icon: Home },
     { id: "objectives", label: "Objetivos", icon: Target },
@@ -4065,37 +4027,27 @@ export default function App() {
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {session ? (
-            <>
-              <span style={{ fontSize: 10, color: `${PURPLE_TEXT}88`, fontFamily: "'IBM Plex Mono', monospace" }}>{session.user?.email}</span>
-              <button
-                onClick={() => auth.signOut()}
-                title="Sair"
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: `${PURPLE_TEXT}88`, display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace" }}
-              >
-                <LogOut size={12} /> Sair
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setShowLogin(true)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: `${PURPLE_TEXT}66`, fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "underline", textUnderlineOffset: 2 }}
-            >
-              Entrar como mestre
-            </button>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <input
+            ref={backupInputRef} type="file" accept="application/json" style={{ display: "none" }}
+            onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; handleImportFile(file); }}
+          />
+          <button
+            onClick={() => backupInputRef.current?.click()}
+            title="Importar backup (.json) — substitui todos os dados atuais"
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: `${PURPLE_TEXT}88`, display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace" }}
+          >
+            <Upload size={12} /> Importar
+          </button>
+          <button
+            onClick={handleExportBackup}
+            title="Baixar um backup .json com todos os dados (personagens, reinos, deuses, sagas, objetivos)"
+            style={{ background: "transparent", border: "none", cursor: "pointer", color: `${PURPLE_TEXT}88`, display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace" }}
+          >
+            <Download size={12} /> Backup
+          </button>
         </div>
       </div>
-
-      {showLogin && (
-        <LoginModal
-          error={loginError}
-          loading={loginLoading}
-          onCancel={() => { setShowLogin(false); setLoginError(null); }}
-          onSubmit={handleLogin}
-        />
-      )}
 
       <div style={{ padding: 24 }}>
         {tab === "home" && (
@@ -4105,7 +4057,7 @@ export default function App() {
           />
         )}
 
-        {tab === "objectives" && <ObjectivesView objectives={objectives} setObjectives={setObjectives} askConfirm={askConfirm} readOnly={readOnly} />}
+        {tab === "objectives" && <ObjectivesView objectives={objectives} setObjectives={setObjectives} askConfirm={askConfirm} />}
 
         {tab === "characters" && subView === "list" && (
           <div>
@@ -4148,11 +4100,9 @@ export default function App() {
                   >{f}</button>
                 ))}
               </div>
-              {!readOnly && (
-                <Btn variant="primary" onClick={() => { setEditingChar(emptyCharacter()); setSubView("form"); }}>
-                  <Plus size={14} /> Nova Ficha
-                </Btn>
-              )}
+              <Btn variant="primary" onClick={() => { setEditingChar(emptyCharacter()); setSubView("form"); }}>
+                <Plus size={14} /> Nova Ficha
+              </Btn>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
@@ -4185,16 +4135,16 @@ export default function App() {
           <CharacterSheet
             character={selected}
             onBack={() => setSubView("list")}
-            onEdit={readOnly ? undefined : (c) => { setEditingChar(c); setSubView("form"); }}
-            onRequestDelete={readOnly ? undefined : requestDeleteCharacter}
+            onEdit={(c) => { setEditingChar(c); setSubView("form"); }}
+            onRequestDelete={requestDeleteCharacter}
             onRestoreAttacks={handleRestoreDefaultAttacks}
             onPrev={() => goToAdjacentCharacter(-1)}
             onNext={() => goToAdjacentCharacter(1)}
-            onUpdateCharacter={readOnly ? undefined : updateCharacterFields}
+            onUpdateCharacter={updateCharacterFields}
           />
         )}
 
-        {tab === "characters" && subView === "form" && !readOnly && (
+        {tab === "characters" && subView === "form" && (
           <CharacterForm
             initial={editingChar}
             onSave={handleSave}
@@ -4202,17 +4152,21 @@ export default function App() {
           />
         )}
 
-        {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={readOnly ? undefined : updateCharacterFields} />}
+        {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={updateCharacterFields} />}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
-        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} readOnly={readOnly} />}
-        {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} readOnly={readOnly} />}
-        {tab === "sagas" && <SagasView sagas={sagas} setSagas={setSagas} askConfirm={askConfirm} readOnly={readOnly} />}
+        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} />}
+        {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} />}
+        {tab === "sagas" && <SagasView sagas={sagas} setSagas={setSagas} askConfirm={askConfirm} />}
       </div>
 
       {confirmState && (
         <ConfirmDialog
           message={confirmState.message}
+          title={confirmState.title}
+          confirmLabel={confirmState.confirmLabel}
+          icon={confirmState.icon}
+          tone={confirmState.tone}
           onCancel={() => setConfirmState(null)}
           onConfirm={() => { confirmState.action(); setConfirmState(null); }}
         />

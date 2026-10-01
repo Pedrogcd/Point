@@ -12,9 +12,10 @@
 --                        point-objectives, point-hp-reset-v1).
 --   2. bucket "retratos" — Storage pra imagens de personagem.
 --
--- Regra de acesso nos dois: QUALQUER UM pode ler (o app funciona em modo
--- leitura sem login); só um usuário autenticado (o mestre, logado com
--- e-mail/senha) pode escrever.
+-- Regra de acesso nos dois: QUALQUER UM pode ler e escrever (o app não exige
+-- login — ver CONTEXTO.md, "Por que tiramos a exigência de login"). As
+-- políticas liberam os papéis anon e authenticated igualmente; não há
+-- distinção de "mestre" no banco.
 
 -- ---------------------------------------------------------------------
 -- 1. Tabela chave/valor
@@ -35,22 +36,25 @@ create policy "point_kv leitura pública"
   using (true);
 
 drop policy if exists "point_kv insert autenticado" on public.point_kv;
-create policy "point_kv insert autenticado"
+drop policy if exists "point_kv insert" on public.point_kv;
+create policy "point_kv insert"
   on public.point_kv for insert
-  to authenticated
+  to anon, authenticated
   with check (true);
 
 drop policy if exists "point_kv update autenticado" on public.point_kv;
-create policy "point_kv update autenticado"
+drop policy if exists "point_kv update" on public.point_kv;
+create policy "point_kv update"
   on public.point_kv for update
-  to authenticated
+  to anon, authenticated
   using (true)
   with check (true);
 
 drop policy if exists "point_kv delete autenticado" on public.point_kv;
-create policy "point_kv delete autenticado"
+drop policy if exists "point_kv delete" on public.point_kv;
+create policy "point_kv delete"
   on public.point_kv for delete
-  to authenticated
+  to anon, authenticated
   using (true);
 
 -- Mantém updated_at em dia sozinho a cada UPDATE (o app também manda o
@@ -86,20 +90,23 @@ create policy "retratos leitura pública"
   using (bucket_id = 'retratos');
 
 drop policy if exists "retratos insert autenticado" on storage.objects;
-create policy "retratos insert autenticado"
+drop policy if exists "retratos insert" on storage.objects;
+create policy "retratos insert"
   on storage.objects for insert
-  to authenticated
+  to anon, authenticated
   with check (bucket_id = 'retratos');
 
 drop policy if exists "retratos update autenticado" on storage.objects;
-create policy "retratos update autenticado"
+drop policy if exists "retratos update" on storage.objects;
+create policy "retratos update"
   on storage.objects for update
-  to authenticated
+  to anon, authenticated
   using (bucket_id = 'retratos')
   with check (bucket_id = 'retratos');
 
 drop policy if exists "retratos delete autenticado" on storage.objects;
-create policy "retratos delete autenticado"
+drop policy if exists "retratos delete" on storage.objects;
+create policy "retratos delete"
   on storage.objects for delete
-  to authenticated
+  to anon, authenticated
   using (bucket_id = 'retratos');

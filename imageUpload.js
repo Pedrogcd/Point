@@ -1,7 +1,7 @@
 // Upload de retrato de personagem — redimensiona no navegador (canvas,
 // sem lib) antes de subir, pra não jogar fotos de celular de vários MB
-// pro bucket. Bucket "retratos": leitura pública, upload só autenticado
-// (ver supabase/schema.sql).
+// pro bucket. Bucket "retratos": leitura e escrita públicas, sem exigir
+// login (ver supabase/schema.sql).
 import { supabase } from "./supabaseClient.js";
 
 const BUCKET = "retratos";

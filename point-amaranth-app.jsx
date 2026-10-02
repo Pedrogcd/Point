@@ -18,7 +18,7 @@ import {
   migrateBrigaProfKey,
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
-import { storage, seedFromLocalIfEmpty } from "./storage.js";
+import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
@@ -470,6 +470,7 @@ function withFichaDefaults(c) {
     attacks: defaultAttacksForCharacter(),
     itens: { usaveis: [], principais: [], armadura: ["Armadura física"] },
     habilidadesFicha: { ativas: [], especial: [], racial: [], passivas: [], extras: [] },
+    abilities: [],
     procs: [],
     atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT },
     proficiencias: { ...PROFICIENCIAS_DEFAULT },
@@ -784,7 +785,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
 ];
 
 const SIDEPOINT_CHARACTERS = SIDEPOINT_CHARACTERS_RAW.map((c) => withFichaDefaults({ ...c, fichaFechada: true, grupo: "aurora" }));
-const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS];
+// Exportado (além do default App) só pro teste de smoke de render
+// (characterForm.render.test.js) — garante que os 19 personagens semente
+// (13 do Grupo C + 6 do Aurora) renderizam sem lançar exceção.
+export const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS];
 
 const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
@@ -1867,7 +1871,7 @@ function AbilityPicker({ onPick }) {
   );
 }
 
-function CharacterForm({ initial, onSave, onCancel }) {
+export function CharacterForm({ initial, onSave, onCancel }) {
   // Garante a estrutura de Raça/Classes mesmo em fichas salvas antes dela existir.
   const [c, setC] = useState(() => ({
     ...initial,
@@ -1916,17 +1920,17 @@ function CharacterForm({ initial, onSave, onCancel }) {
   }
 
   function addAbility() {
-    setC((prev) => ({ ...prev, abilities: [...prev.abilities, { name: "", grade: "E", description: "" }] }));
+    setC((prev) => ({ ...prev, abilities: [...(prev.abilities || []), { name: "", grade: "E", description: "" }] }));
   }
   function updateAbility(i, key, value) {
     setC((prev) => {
-      const abilities = [...prev.abilities];
+      const abilities = [...(prev.abilities || [])];
       abilities[i] = { ...abilities[i], [key]: value };
       return { ...prev, abilities };
     });
   }
   function removeAbility(i) {
-    setC((prev) => ({ ...prev, abilities: prev.abilities.filter((_, idx) => idx !== i) }));
+    setC((prev) => ({ ...prev, abilities: (prev.abilities || []).filter((_, idx) => idx !== i) }));
   }
 
   const habilidadesFicha = c.habilidadesFicha || { ativas: [], especial: [], racial: [], passivas: [], extras: [] };
@@ -2245,7 +2249,7 @@ function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Star}>Resumo de Poder (legado narrativo)</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>Campo antigo, mantido para os dossiês narrativos já existentes (grau E–Divino + descrição curta).</p>
-      {c.abilities.map((ab, i) => (
+      {(c.abilities || []).map((ab, i) => (
         <div key={i} style={{ display: "grid", gridTemplateColumns: "1.2fr 0.5fr 2fr auto", gap: 8, marginBottom: 8, alignItems: "start" }}>
           <input style={inputStyle} placeholder="Nome" value={ab.name} onChange={(e) => updateAbility(i, "name", e.target.value)} />
           <select style={inputStyle} value={ab.grade} onChange={(e) => updateAbility(i, "grade", e.target.value)}>
@@ -2714,7 +2718,7 @@ function makeEditableOpponent(stats) {
   };
 }
 
-function CompareView({ characters, onUpdateCharacter }) {
+export function CompareView({ characters, onUpdateCharacter }) {
   const [aId, setAId] = useState(characters[0]?.id || "");
   const [bId, setBId] = useState(EDITABLE_OPPONENT_ID);
   const [editableStats, setEditableStats] = useState({
@@ -2916,7 +2920,7 @@ function CompareView({ characters, onUpdateCharacter }) {
                   <StatBlock character={ch} />
                 </div>
                 <div style={{ marginTop: 10, fontSize: 11, color: MUTED }}>
-                  {ch.abilities.slice(0, 4).map((ab, i) => (
+                  {(ch.abilities || []).slice(0, 4).map((ab, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
                       <span>{ab.name}</span><span style={{ color: GRADE_COLOR[ab.grade] || BRASS }}>{ab.grade}</span>
                     </div>
@@ -3702,17 +3706,33 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
   const backupInputRef = useRef(null);
+  const seedCheckedRef = useRef(false);
 
   function askConfirm(message, action, options) {
     setConfirmState({ message, action, ...options });
   }
 
-  // Sem login: todo mundo com o link edita direto (RLS do Supabase já libera
-  // insert/update/delete pro papel anon). Roda uma vez na abertura do app —
-  // idempotente: só sobe pro Supabase as chaves "point-*" que ainda não
-  // existirem lá, nunca sobrescreve o que já está salvo.
+  // Blindagem contra repovoar o banco sem querer: se a tabela não tiver
+  // point-characters (banco vazio — limpeza acidental, pausa longa do
+  // projeto, migração) e o localStorage deste navegador tiver uma
+  // quantidade plausível de personagens, pergunta antes de enviar — nunca
+  // semeia silenciosamente (ver checkSeedOpportunity/commitSeedFromLocal em
+  // storage.js, e a lógica de decisão em seedGuard.js). Recusar não semeia;
+  // o ref garante que só pergunta uma vez por sessão (inclusive contra o
+  // duplo-disparo do React.StrictMode em dev).
   useEffect(() => {
-    seedFromLocalIfEmpty();
+    if (seedCheckedRef.current) return;
+    seedCheckedRef.current = true;
+    (async () => {
+      const opportunity = await checkSeedOpportunity();
+      if (!opportunity) return;
+      const { count } = opportunity;
+      askConfirm(
+        `O banco de dados do Supabase está vazio (sem personagens salvos). Este navegador tem ${count} personagem${count === 1 ? "" : "s"} salvo${count === 1 ? "" : "s"} localmente — enviar agora pra sincronizar com os outros aparelhos?`,
+        () => { commitSeedFromLocal(); },
+        { title: "Banco vazio — enviar dados locais?", confirmLabel: "Enviar", icon: Upload, tone: PURPLE }
+      );
+    })();
   }, []);
 
   useEffect(() => {
@@ -3820,7 +3840,11 @@ export default function App() {
             const racialAbility = ch.racialAbility || { name: "", description: "" };
             const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
             const classes = [0, 1].map((i) => classesSalvas[i] || { name: "", description: "" });
-            return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, atributosGerais, proficiencias };
+            // "Resumo de Poder" legado: as fichas do Grupo Aurora (e qualquer ficha
+            // salva antes desse campo existir) não têm abilities — sem isso, o
+            // CharacterForm quebrava com tela branca ao tentar .map() em undefined.
+            const abilities = Array.isArray(ch.abilities) ? ch.abilities : [];
+            return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, abilities, atributosGerais, proficiencias };
           });
           // Reset de HP/MP/SP pedido nas sessões de revisão — roda só uma vez (marcado
           // por uma flag), pra não sobrescrever ajustes manuais feitos depois.

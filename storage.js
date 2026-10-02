@@ -18,14 +18,26 @@
 //   - set(key, value): grava no cache local SEMPRE (vira o fallback pra
 //     próxima leitura offline) e tenta gravar no Supabase sempre que
 //     estiver configurado — sem checar sessão nenhuma.
-//   - seedFromLocalIfEmpty(): roda uma vez na abertura do app. Para cada
-//     chave "point-*" que existir no localStorage mas ainda não existir no
-//     Supabase, sobe o valor local — nunca sobrescreve o que já está no
-//     Supabase. Idempotente, seguro rodar em toda abertura.
+//   - checkSeedOpportunity() / commitSeedFromLocal(): substituem o antigo
+//     seedFromLocalIfEmpty(), que semeava o Supabase a partir do localStorage
+//     silenciosamente sempre que uma chave estivesse faltando lá. Isso virou
+//     um risco depois que a escrita passou a não exigir login: se a tabela
+//     ficasse vazia por engano, o PRÓXIMO VISITANTE repovoaria o banco sem
+//     ninguém saber. Agora o fluxo é em duas etapas — checkSeedOpportunity()
+//     só CONSULTA (não escreve) se vale propor um seed (ver seedGuard.js:
+//     só quando o Supabase não tem point-characters E o localStorage tem uma
+//     quantidade plausível), e commitSeedFromLocal() só deve ser chamado
+//     depois que o usuário confirmou explicitamente (ver o useEffect em
+//     point-amaranth-app.jsx que pede confirmação via askConfirm). Continua
+//     nunca sobrescrevendo o que já está no Supabase, idempotente.
 import { supabase } from "./supabaseClient.js";
+import { countPlausibleCharacters, decideSeedOpportunity, buildSeedLogEntry } from "./seedGuard.js";
 
 const KEY_PREFIX = "point-";
 const TABLE = "point_kv";
+const CHARACTERS_KEY = "point-characters";
+const SEED_LOG_KEY = "point-seed-log";
+const SEED_LOG_MAX_ENTRIES = 20;
 
 function hasLocalStorage() {
   try {
@@ -76,10 +88,35 @@ export const storage = {
   },
 };
 
-export async function seedFromLocalIfEmpty() {
-  if (!supabase || !hasLocalStorage()) return;
+// Só CONSULTA — nunca escreve. Devolve null quando não há nada a propor
+// (Supabase não configurado, sem localStorage, point-characters já existe no
+// banco, ou o localStorage está vazio/corrompido), ou { count } com quantos
+// personagens plausíveis seriam enviados. Quem chama decide se pede
+// confirmação ao usuário antes de chamar commitSeedFromLocal().
+export async function checkSeedOpportunity() {
+  if (!supabase || !hasLocalStorage()) return null;
+  let remoteHasCharacters = true; // falha ao checar conta como "tem dado" — nunca propõe por engano
+  try {
+    const { data, error } = await supabase.from(TABLE).select("key").eq("key", CHARACTERS_KEY).maybeSingle();
+    remoteHasCharacters = Boolean(error) || Boolean(data);
+  } catch (e) {
+    remoteHasCharacters = true;
+  }
+  const localCharactersJson = window.localStorage.getItem(CHARACTERS_KEY);
+  return decideSeedOpportunity({ remoteHasCharacters, localCharactersJson });
+}
 
-  const localKeys = Object.keys(window.localStorage).filter((k) => k.startsWith(KEY_PREFIX));
+// Sobe pro Supabase todas as chaves "point-*" que existirem no localStorage
+// mas ainda não existirem lá — só deve ser chamada depois que o usuário
+// confirmou explicitamente (ver checkSeedOpportunity, chamado antes pra
+// decidir se vale pedir confirmação). Nunca sobrescreve o que já está salvo
+// no Supabase, idempotente. Registra o evento (console + point-seed-log) pra
+// dar pra investigar depois quem/quando repovoou o banco.
+export async function commitSeedFromLocal() {
+  if (!supabase || !hasLocalStorage()) return [];
+
+  const localKeys = Object.keys(window.localStorage).filter((k) => k.startsWith(KEY_PREFIX) && k !== SEED_LOG_KEY);
+  const seededKeys = [];
   for (const key of localKeys) {
     try {
       const { data, error } = await supabase.from(TABLE).select("key").eq("key", key).maybeSingle();
@@ -87,8 +124,30 @@ export async function seedFromLocalIfEmpty() {
       const local = window.localStorage.getItem(key);
       if (local === null) continue;
       await supabase.from(TABLE).upsert({ key, value: JSON.parse(local) });
+      seededKeys.push(key);
     } catch (e) {
       // essa chave não subiu — segue pras outras, tenta de novo na próxima abertura do app
     }
+  }
+  if (seededKeys.length > 0) await logSeedEvent(seededKeys);
+  return seededKeys;
+}
+
+async function logSeedEvent(seededKeys) {
+  const characterCount = countPlausibleCharacters(window.localStorage.getItem(CHARACTERS_KEY));
+  const entry = buildSeedLogEntry(seededKeys, characterCount);
+  console.info(`[Point] Banco estava vazio — ${characterCount} personagem(ns) enviado(s) do localStorage pro Supabase em ${entry.at}.`, entry);
+  try {
+    let log = [];
+    const raw = readLocal(SEED_LOG_KEY);
+    if (raw?.value) {
+      try { log = JSON.parse(raw.value); } catch (e) { log = []; }
+    }
+    if (!Array.isArray(log)) log = [];
+    log.push(entry);
+    if (log.length > SEED_LOG_MAX_ENTRIES) log = log.slice(-SEED_LOG_MAX_ENTRIES);
+    await storage.set(SEED_LOG_KEY, JSON.stringify(log));
+  } catch (e) {
+    // falha ao registrar o log não pode travar o app nem desfazer o seed já feito
   }
 }

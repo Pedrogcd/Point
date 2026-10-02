@@ -4681,6 +4681,13 @@ export default function App() {
         @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
         select, input, textarea { font-family: inherit; }
         ::selection { background: ${BRASS}55; }
+        .point-nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+        .point-nav > button { flex-shrink: 0; white-space: nowrap; }
+        @media (max-width: 1100px) {
+          .point-header { padding: 12px 14px !important; }
+          .point-nav { order: 3; flex: 1 1 100%; padding-bottom: 6px; }
+        }
+        @media (max-width: 600px) { .point-conteudo { padding: 14px !important; } }
         .mundo-rich p { margin: 0 0 8px; }
         .mundo-rich ul { margin: 0 0 8px; padding-left: 20px; }
         .mundo-rich button[data-term], .mundo-rich button[data-person] { border: none; background: none; padding: 0; font: inherit; color: #2F6D61; border-bottom: 1px dotted #2F6D61; cursor: pointer; }
@@ -4691,16 +4698,17 @@ export default function App() {
         .mapa-distritos .region:hover .shape, .mapa-distritos .region:focus .shape { stroke: ${INK}; stroke-width: 2.5; }
       `}</style>
 
-      <div style={{
+      <div className="point-header" style={{
         padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center",
         background: `linear-gradient(100deg, ${PURPLE} 0%, ${PURPLE_LIGHT} 100%)`,
         boxShadow: `0 2px 10px #00000030`,
+        flexWrap: "wrap", gap: 12,
       }}>
         <div>
           <div style={{ fontFamily: "'Cinzel', serif", fontSize: 20, letterSpacing: 2, color: "#F0D98C" }}>POINT</div>
           <div style={{ fontSize: 10.5, color: `${PURPLE_TEXT}AA`, letterSpacing: 1, fontFamily: "'IBM Plex Mono', monospace" }}>DOSSIÊS TÁTICOS · AMARANTH</div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
+        <nav className="point-nav" aria-label="Seções">
           {TABS.map((t) => {
             const active = tab === t.id;
             return (
@@ -4718,7 +4726,7 @@ export default function App() {
               </button>
             );
           })}
-        </div>
+        </nav>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <ModoVisaoToggle modo={modoVisao} setModo={setModoVisao} />
           <input
@@ -4742,7 +4750,7 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ padding: 24 }}>
+      <div className="point-conteudo" style={{ padding: 24 }}>
         {tab === "home" && (
           <CoverView
             characters={characters}

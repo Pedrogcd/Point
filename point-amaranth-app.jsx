@@ -1328,7 +1328,10 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
   );
 }
 
-function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreAttacks, onPrev, onNext, onUpdateCharacter }) {
+// Exportado (além do default App) só pra teste de render — ver
+// characterForm.render.test.js. `initialTestPanelMode` também é um seam de
+// teste: a prop nunca é passada pelo App de verdade.
+export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreAttacks, onPrev, onNext, onUpdateCharacter, initialTestPanelMode = "teste" }) {
   const [rollAttr, setRollAttr] = useState(ATRIBUTOS_GERAIS_LIST[0].key);
   const [rollProf, setRollProf] = useState(PROFICIENCIAS_LIST[0].key);
   const [successThreshold, setSuccessThreshold] = useState(5);
@@ -1336,6 +1339,18 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
   const [history, setHistory] = useState([]);
   const [rolling, setRolling] = useState(false);
   const [lastRoll, setLastRoll] = useState(null);
+  // Painel "Teste — Atributo + Perícia / Ataque": dois modos escolhidos por um
+  // seletor no topo. `initialTestPanelMode` só existe pra teste de render (o
+  // app de verdade nunca passa essa prop — o modo real sempre começa em
+  // "teste", preservando o comportamento de antes da feature).
+  const [rollPanelMode, setRollPanelMode] = useState(initialTestPanelMode);
+  const [ataqueIdx, setAtaqueIdx] = useState(0);
+  const [ataqueDefesa, setAtaqueDefesa] = useState(8);
+  const [ataqueUsaArmadura, setAtaqueUsaArmadura] = useState(true);
+  const [ataqueResistArmadura, setAtaqueResistArmadura] = useState(8);
+  const [ataqueResistNatural, setAtaqueResistNatural] = useState(4);
+  const [ataqueResult, setAtaqueResult] = useState(null);
+  const [ataqueHistory, setAtaqueHistory] = useState([]);
   // Índice do espaço de habilidade aberto na tabela de 3 caixas (null = fechado).
   const [slotAberto, setSlotAberto] = useState(null);
   const habilidadesFicha = character.habilidadesFicha || { ativas: [], especial: [], racial: [], passivas: [], extras: [] };
@@ -1357,6 +1372,28 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
       setHistory((h) => [{ ...result, attr: rollAttr, prof: rollProf, id: Date.now() }, ...h].slice(0, 6));
       setRolling(false);
     }, 380);
+  }
+
+  // Modo Ataque do mesmo painel: ataques do próprio personagem (com fallback
+  // genérico, igual o Confronto) contra um alvo sintético definido na mão.
+  const ataqueOptions = character.attacks && character.attacks.length > 0
+    ? character.attacks
+    : [{ nome: "(ataque genérico)", tipo: "marcial", acerto: 0, dano: "0", ferida: "S" }];
+  const ataqueSelecionado = ataqueOptions[ataqueIdx] || ataqueOptions[0];
+  const ataqueTipoInfo = TIPOS_ATAQUE[ataqueSelecionado.tipo] || TIPOS_ATAQUE.marcial;
+  const ataqueResistLabel = ataqueTipoInfo.resistKey === "resistNaturalMagica" ? "Resistência Natural Mágica" : "Resistência Natural Física";
+
+  function rollAtaque() {
+    const r = resolveFichaAtaque({
+      character,
+      attack: ataqueSelecionado,
+      targetDefesa: ataqueDefesa,
+      targetResistNatural: ataqueResistNatural,
+      targetResistArmadura: ataqueResistArmadura,
+      targetUsaArmadura: ataqueUsaArmadura,
+    });
+    setAtaqueResult(r);
+    setAtaqueHistory((h) => [{ ...r, atkNome: ataqueSelecionado.nome, id: Date.now() }, ...h].slice(0, 6));
   }
 
   // Grava a habilidade escolhida num dos espaços da tabela. A lista `procs`
@@ -1601,92 +1638,166 @@ function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreA
               <h3 style={panelHeadStyle}>Teste — Atributo + Perícia</h3>
             </div>
 
-            <Field label="Atributo Geral">
-              <select value={rollAttr} onChange={(e) => setRollAttr(e.target.value)} style={inputStyle}>
-                {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({character.atributosGerais?.[a.key] || "E"})</option>)}
-              </select>
-            </Field>
-            <Field label="Perícia (Proficiência)">
-              <select value={rollProf} onChange={(e) => setRollProf(e.target.value)} style={inputStyle}>
-                {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({character.proficiencias?.[p.key] || "E"})</option>)}
-              </select>
-            </Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <Field label="Limiar de sucesso (dado >)">
-                <input type="number" min={0} max={9} style={inputStyle} value={successThreshold} onChange={(e) => setSuccessThreshold(Math.max(0, Math.min(9, Number(e.target.value))))} />
-              </Field>
-              <Field label="Dados extra (Ascensão)">
-                <input type="number" min={0} style={inputStyle} value={ascensaoDiff} onChange={(e) => setAscensaoDiff(Math.max(0, Number(e.target.value)))} />
-              </Field>
-            </div>
-            <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
-              Dados = grau do Atributo ({GRADE_VALUE[rollAttrGrade]}) + grau da Perícia ({GRADE_VALUE[rollProfGrade]}) + dados extra ({ascensaoDiff}) = {totalDice}d10. Sucesso se dado &gt; {successThreshold} (um 10 natural sempre conta).
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              <button
+                onClick={() => setRollPanelMode("teste")}
+                style={{
+                  flex: 1, padding: "6px 10px", borderRadius: 20, cursor: "pointer", fontSize: 11.5, fontFamily: "'IBM Plex Mono', monospace",
+                  border: `1px solid ${PURPLE}`, background: rollPanelMode === "teste" ? PURPLE : "transparent", color: rollPanelMode === "teste" ? "#fff" : PURPLE,
+                  fontWeight: rollPanelMode === "teste" ? 700 : 400,
+                }}
+              >Teste</button>
+              <button
+                onClick={() => setRollPanelMode("ataque")}
+                style={{
+                  flex: 1, padding: "6px 10px", borderRadius: 20, cursor: "pointer", fontSize: 11.5, fontFamily: "'IBM Plex Mono', monospace",
+                  border: `1px solid ${PURPLE}`, background: rollPanelMode === "ataque" ? PURPLE : "transparent", color: rollPanelMode === "ataque" ? "#fff" : PURPLE,
+                  fontWeight: rollPanelMode === "ataque" ? 700 : 400,
+                }}
+              >Ataque</button>
             </div>
 
-            <Btn variant="primary" onClick={roll} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
-              <Dices size={15} className={rolling ? "spin" : ""} /> Rolar {totalDice}d10
-            </Btn>
+            {rollPanelMode === "teste" && (
+              <>
+                <Field label="Atributo Geral">
+                  <select value={rollAttr} onChange={(e) => setRollAttr(e.target.value)} style={inputStyle}>
+                    {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({character.atributosGerais?.[a.key] || "E"})</option>)}
+                  </select>
+                </Field>
+                <Field label="Perícia (Proficiência)">
+                  <select value={rollProf} onChange={(e) => setRollProf(e.target.value)} style={inputStyle}>
+                    {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({character.proficiencias?.[p.key] || "E"})</option>)}
+                  </select>
+                </Field>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Field label="Limiar de sucesso (dado >)">
+                    <input type="number" min={0} max={9} style={inputStyle} value={successThreshold} onChange={(e) => setSuccessThreshold(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                  </Field>
+                  <Field label="Dados extra (Ascensão)">
+                    <input type="number" min={0} style={inputStyle} value={ascensaoDiff} onChange={(e) => setAscensaoDiff(Math.max(0, Number(e.target.value)))} />
+                  </Field>
+                </div>
+                <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
+                  Dados = grau do Atributo ({GRADE_VALUE[rollAttrGrade]}) + grau da Perícia ({GRADE_VALUE[rollProfGrade]}) + dados extra ({ascensaoDiff}) = {totalDice}d10. Sucesso se dado &gt; {successThreshold} (um 10 natural sempre conta).
+                </div>
 
-            {lastRoll && (
-              <div style={{ marginTop: 14, textAlign: "center" }}>
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                  {lastRoll.dice.map((d, i) => (
-                    <div key={i} style={{ textAlign: "center" }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 6, border: `1px solid ${(d === 10 || d > successThreshold) ? BRASS_BRIGHT : LINE}`,
-                        background: d === 10 ? `${EMBER}22` : "#00000010",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: (d === 10 || d > successThreshold) ? BRASS_BRIGHT : MUTED, fontSize: 13,
-                      }}>{d}</div>
-                      <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 3 }}>
-                        {onUpdateCharacter && (
-                          <>
-                            <button
-                              onClick={() => gastarMpRerolar(i)} disabled={(character.mp?.current || 0) <= 0}
-                              title="Gastar 1 MP pra re-rolar este dado"
-                              style={{
-                                width: 18, height: 18, borderRadius: "50%", border: `1px solid ${MP_COLOR}`, background: "transparent",
-                                color: MP_COLOR, fontSize: 9, cursor: (character.mp?.current || 0) > 0 ? "pointer" : "not-allowed",
-                                opacity: (character.mp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-                              }}
-                            >↻</button>
-                            <button
-                              onClick={() => gastarSpMais5(i)} disabled={(character.sp?.current || 0) <= 0}
-                              title="Gastar 1 SP pra somar +5 neste dado"
-                              style={{
-                                width: 18, height: 18, borderRadius: "50%", border: `1px solid ${SP_COLOR}`, background: "transparent",
-                                color: SP_COLOR, fontSize: 8, fontWeight: 700, cursor: (character.sp?.current || 0) > 0 ? "pointer" : "not-allowed",
-                                opacity: (character.sp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-                              }}
-                            >+5</button>
-                          </>
-                        )}
-                      </div>
+                <Btn variant="primary" onClick={roll} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
+                  <Dices size={15} className={rolling ? "spin" : ""} /> Rolar {totalDice}d10
+                </Btn>
+
+                {lastRoll && (
+                  <div style={{ marginTop: 14, textAlign: "center" }}>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                      {lastRoll.dice.map((d, i) => (
+                        <div key={i} style={{ textAlign: "center" }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 6, border: `1px solid ${(d === 10 || d > successThreshold) ? BRASS_BRIGHT : LINE}`,
+                            background: d === 10 ? `${EMBER}22` : "#00000010",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: (d === 10 || d > successThreshold) ? BRASS_BRIGHT : MUTED, fontSize: 13,
+                          }}>{d}</div>
+                          <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 3 }}>
+                            {onUpdateCharacter && (
+                              <>
+                                <button
+                                  onClick={() => gastarMpRerolar(i)} disabled={(character.mp?.current || 0) <= 0}
+                                  title="Gastar 1 MP pra re-rolar este dado"
+                                  style={{
+                                    width: 18, height: 18, borderRadius: "50%", border: `1px solid ${MP_COLOR}`, background: "transparent",
+                                    color: MP_COLOR, fontSize: 9, cursor: (character.mp?.current || 0) > 0 ? "pointer" : "not-allowed",
+                                    opacity: (character.mp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                                  }}
+                                >↻</button>
+                                <button
+                                  onClick={() => gastarSpMais5(i)} disabled={(character.sp?.current || 0) <= 0}
+                                  title="Gastar 1 SP pra somar +5 neste dado"
+                                  style={{
+                                    width: 18, height: 18, borderRadius: "50%", border: `1px solid ${SP_COLOR}`, background: "transparent",
+                                    color: SP_COLOR, fontSize: 8, fontWeight: 700, cursor: (character.sp?.current || 0) > 0 ? "pointer" : "not-allowed",
+                                    opacity: (character.sp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                                  }}
+                                >+5</button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: 12, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
-                  {lastRoll.successes} sucesso{lastRoll.successes === 1 ? "" : "s"} · {attrLabel} + {profLabel}
-                  {lastRoll.criticos > 0 && ` · ${lastRoll.criticos} crítico${lastRoll.criticos > 1 ? "s" : ""}`}
-                  {lastRoll.superSucesso && " · SUPER SUCESSO"}
-                </div>
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: 28, color: BRASS_BRIGHT, fontWeight: 700 }}>{lastRoll.successes}</div>
-                <div style={{ fontSize: 9.5, color: MUTED, fontStyle: "italic", marginTop: 2 }}>
-                  <span style={{ color: MP_COLOR }}>↻</span> re-rola (1 MP) · <span style={{ color: SP_COLOR }}>+5</span> soma no dado (1 SP)
-                </div>
-              </div>
+                    <div style={{ fontSize: 12, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                      {lastRoll.successes} sucesso{lastRoll.successes === 1 ? "" : "s"} · {attrLabel} + {profLabel}
+                      {lastRoll.criticos > 0 && ` · ${lastRoll.criticos} crítico${lastRoll.criticos > 1 ? "s" : ""}`}
+                      {lastRoll.superSucesso && " · SUPER SUCESSO"}
+                    </div>
+                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: 28, color: BRASS_BRIGHT, fontWeight: 700 }}>{lastRoll.successes}</div>
+                    <div style={{ fontSize: 9.5, color: MUTED, fontStyle: "italic", marginTop: 2 }}>
+                      <span style={{ color: MP_COLOR }}>↻</span> re-rola (1 MP) · <span style={{ color: SP_COLOR }}>+5</span> soma no dado (1 SP)
+                    </div>
+                  </div>
+                )}
+
+                {history.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+                    <div style={{ fontSize: 10, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>HISTÓRICO</div>
+                    {history.map((h) => (
+                      <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, padding: "3px 0", fontFamily: "'IBM Plex Mono', monospace" }}>
+                        <span>[{h.dice.join(",")}]</span>
+                        <span style={{ color: BRASS }}>{h.successes} suc.{h.superSucesso ? " ★" : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
-            {history.length > 0 && (
-              <div style={{ marginTop: 16, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
-                <div style={{ fontSize: 10, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>HISTÓRICO</div>
-                {history.map((h) => (
-                  <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, padding: "3px 0", fontFamily: "'IBM Plex Mono', monospace" }}>
-                    <span>[{h.dice.join(",")}]</span>
-                    <span style={{ color: BRASS }}>{h.successes} suc.{h.superSucesso ? " ★" : ""}</span>
+            {rollPanelMode === "ataque" && (
+              <>
+                <Field label="Ataque">
+                  <select value={ataqueIdx} onChange={(e) => { setAtaqueIdx(Number(e.target.value)); setAtaqueResult(null); }} style={inputStyle}>
+                    {ataqueOptions.map((atk, i) => <option key={i} value={i}>{atk.nome} ({TIPOS_ATAQUE[atk.tipo]?.label || "Marcial"})</option>)}
+                  </select>
+                </Field>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Field label="Defesa do alvo">
+                    <input type="number" style={inputStyle} value={ataqueDefesa} onChange={(e) => setAtaqueDefesa(Number(e.target.value) || 0)} />
+                  </Field>
+                  <Field label={ataqueResistLabel}>
+                    <input type="number" style={inputStyle} value={ataqueResistNatural} onChange={(e) => setAtaqueResistNatural(Number(e.target.value) || 0)} />
+                  </Field>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 0 10px", fontSize: 12, color: PARCHMENT }}>
+                  <input type="checkbox" checked={ataqueUsaArmadura} onChange={(e) => setAtaqueUsaArmadura(e.target.checked)} />
+                  O alvo usa armadura
+                </label>
+                <Field label="Resistência Armadura">
+                  <input
+                    type="number" style={inputStyle} value={ataqueResistArmadura} disabled={!ataqueUsaArmadura}
+                    onChange={(e) => setAtaqueResistArmadura(Number(e.target.value) || 0)}
+                  />
+                </Field>
+                <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
+                  Padrões (Defesa 8, Armadura 8, Natural 4): alvo com tudo em grau E, referência do balanceamento. Sem armadura, as confirmações vão direto pra {ataqueResistLabel}.
+                </div>
+
+                <Btn variant="primary" onClick={rollAtaque} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
+                  <Swords size={15} /> Rolar ataque
+                </Btn>
+
+                <div style={{ marginTop: 14 }}>
+                  <AttackResultPanel result={ataqueResult} emptyMessage="Escolha um ataque e role pra ver o resultado aqui." />
+                </div>
+
+                {ataqueHistory.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+                    <div style={{ fontSize: 10, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>HISTÓRICO</div>
+                    {ataqueHistory.map((h) => (
+                      <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, padding: "3px 0", fontFamily: "'IBM Plex Mono', monospace" }}>
+                        <span>{h.atkNome}</span>
+                        <span style={{ color: BRASS }}>{h.causaDano ? `Ferida ${h.feridaValor}` : h.contato ? "Contato" : "Falhou"}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -2290,6 +2401,230 @@ export function CharacterForm({ initial, onSave, onCancel }) {
   );
 }
 
+// Exibição de um resultado de resolveAttack(): dados de Acerto, Confirmação
+// (com a camada que cada uma enfrentou), CHAMAS/IMPACTO/ENVENENAMENTO quando
+// houver, e a ferida final. Usado pelo Confronto (DuelRoller, com re-rolagem
+// via MP/SP) e pelo modo Ataque do painel de Teste da ficha (só leitura —
+// omite modoGasto/onAcertoDieClick/onConfirmDieClick). Extraído daqui pra não
+// existir uma segunda versão divergente desse display.
+function AttackResultPanel({ result, modoGasto, onAcertoDieClick, onConfirmDieClick, emptyMessage = "Escolha um ataque à esquerda pra ver o resultado aqui." }) {
+  return (
+    <>
+      {!result && (
+        <div style={{ textAlign: "center", color: MUTED, fontSize: 12.5, padding: "20px 0" }}>
+          {emptyMessage}
+        </div>
+      )}
+
+      {result && (
+        <>
+          {result.semRolagemDeAcerto ? (
+            <div style={{ textAlign: "center", fontSize: 12.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 10 }}>
+              Este ataque não rola Acerto — considera {result.successes} sucesso{result.successes === 1 ? "" : "s"} fixo{result.successes === 1 ? "" : "s"} e vai direto pra Confirmação.
+            </div>
+          ) : (
+            <>
+              {result.desaceleracaoRoll && (
+                <div style={{ textAlign: "center", marginBottom: 8 }}>
+                  <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    ⚡ DESACELERAÇÃO: dado {result.desaceleracaoRoll.dado}{result.desaceleracaoRoll.instancias > 1 ? ` +${result.desaceleracaoRoll.instancias - 1} = ${result.desaceleracaoRoll.dadoAjustado}` : ""} → Defesa do alvo -{result.desaceleracaoRoll.reducao} nesta rolagem de Acerto
+                  </div>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                {result.dice.map((d, i) => {
+                  const flag = result.successFlags?.[i];
+                  const isCrit = flag ? flag.isCrit : d >= result.critThreshold;
+                  const critBonus = isCrit ? 1 : 0;
+                  const aceleracaoBonus = flag?.aceleracaoBonusEsteDado || 0;
+                  const thresholdEfetivo = flag?.thresholdEfetivo ?? result.threshold;
+                  const total = d + result.acertoBonus + critBonus + aceleracaoBonus;
+                  const hit = flag ? flag.success : total > thresholdEfetivo;
+                  const proc = flag?.procAtacante || flag?.procDefensor;
+                  const procNaoDisparouAqui = proc?.id === "golpe_certeiro" && !flag?.golpeCerteiroDispara;
+                  const clicavel = !!modoGasto;
+                  const corModo = modoGasto === "mp" ? MP_COLOR : SP_COLOR;
+                  return (
+                    <div key={i} style={{ textAlign: "center" }}>
+                      <button
+                        onClick={() => clicavel && onAcertoDieClick && onAcertoDieClick(i)}
+                        disabled={!clicavel}
+                        title={clicavel ? (modoGasto === "mp" ? "Clique pra re-rolar este dado (gasta 1 MP)" : "Clique pra somar +5 neste dado (gasta 1 SP)") : ""}
+                        style={{
+                          width: 40, height: 40, borderRadius: 6, padding: 0, fontFamily: "inherit",
+                          border: `1px solid ${clicavel ? corModo : (isCrit ? EMBER : hit ? BRASS_BRIGHT : LINE)}`,
+                          background: isCrit ? `${EMBER}33` : hit ? `${BRASS}33` : "#00000040",
+                          boxShadow: clicavel ? `0 0 8px ${corModo}88` : (hit ? `0 0 8px ${isCrit ? EMBER : BRASS}66` : "none"),
+                          cursor: clicavel ? "pointer" : "default",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontWeight: 700, color: PARCHMENT, fontSize: 15,
+                        }}
+                      >{d}</button>
+                      <div style={{ fontSize: 9, color: isCrit ? EMBER : MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {d} + {result.acertoBonus}{isCrit ? " + 1 (crít.)" : ""}{aceleracaoBonus > 0 ? ` + ${aceleracaoBonus} (acel.)` : ""} = {total}{thresholdEfetivo !== result.threshold ? ` vs ${thresholdEfetivo}` : ""}
+                      </div>
+                      {flag?.enraizamentoAplicado && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="ENRAIZAMENTO: este dado enfrenta a Defesa do alvo com -2">
+                          ⚡ Enraizamento
+                        </div>
+                      )}
+                      {aceleracaoBonus > 0 && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="ACELERAÇÃO: bônus crescente por sucessos em sequência">
+                          ⚡ Aceleração +{aceleracaoBonus}
+                        </div>
+                      )}
+                      {flag?.mestreCriticoUsado && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="Mestre do Crítico: limiar de crítico reduzido pra Sorte, só no primeiro crítico da rolagem">
+                          ⚡ Mestre do Crítico
+                        </div>
+                      )}
+                      {flag?.rerolado && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="Borrão: dado original re-rolado uma vez">
+                          ⚡ Borrão ({flag.dadoOriginal} → {d})
+                        </div>
+                      )}
+                      {proc && !procNaoDisparouAqui && !flag?.rerolado && !flag?.mestreCriticoUsado && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title={proc.efeito}>
+                          ⚡ {proc.nome}{flag?.sucessosGerados === 2 ? " (2 sucessos!)" : ""}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: "center", fontSize: 12.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>
+                {result.successes} sucesso{result.successes === 1 ? "" : "s"} no acerto{result.criticos > 0 ? ` · ${result.criticos} crítico${result.criticos > 1 ? "s" : ""}` : ""}{result.superSucesso ? " · SUPER SUCESSO" : ""}
+              </div>
+            </>
+          )}
+
+          {result.confirmRolls.length > 0 && (
+            <>
+              <div style={{ fontSize: 10.5, color: MUTED, textAlign: "center", marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
+                CONFIRMAÇÃO (1d10 + bônus cada, +1 extra se veio de crítico) — em ordem, contra Armadura até romper, depois Natural
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                {result.confirmRolls.map((r, i) => {
+                  const proc = r.procAtacante || r.procDefensor;
+                  const clicavel = !!modoGasto;
+                  const corModo = modoGasto === "mp" ? MP_COLOR : SP_COLOR;
+                  return (
+                    <div key={i} style={{ textAlign: "center" }}>
+                      <button
+                        onClick={() => clicavel && onConfirmDieClick && onConfirmDieClick(i)}
+                        disabled={!clicavel}
+                        title={clicavel ? (modoGasto === "mp" ? "Clique pra re-rolar este dado (gasta 1 MP)" : "Clique pra somar +5 neste dado (gasta 1 SP)") : ""}
+                        style={{
+                          width: 36, height: 36, borderRadius: 6, padding: 0, fontFamily: "inherit",
+                          border: `1px solid ${clicavel ? corModo : (r.isCrit ? EMBER : r.passou ? BRASS_BRIGHT : LINE)}`,
+                          background: r.isCrit ? `${EMBER}33` : r.passou ? `${BRASS}33` : "#00000040",
+                          boxShadow: clicavel ? `0 0 6px ${corModo}88` : "none",
+                          cursor: clicavel ? "pointer" : "default",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontWeight: 700, color: PARCHMENT, fontSize: 14,
+                        }}
+                      >{r.die}</button>
+                      <div style={{ fontSize: 8, color: MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>{r.die} + {r.confirmBonus}{r.veioDeCritico ? " (+1 crít.)" : ""} = {r.total}</div>
+                      <div style={{ fontSize: 8, color: MUTED }}>vs {r.resistUsada === "escudoDeMana" ? "Escudo" : r.resistUsada === "resistArmadura" ? "Armad." : (STAT_LIST.find((s) => s.key === r.resistUsada)?.label.replace("Resistência Natural ", "") || "Nat.")} {r.resistValor}</div>
+                      <div style={{ fontSize: 8.5, color: r.passou ? BRASS_BRIGHT : MUTED }}>{r.passou ? "confirma" : "falha"}</div>
+                      {r.rerolado && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title="Giro Defensivo: dado original re-rolado uma vez">
+                          ⚡ Giro Defensivo ({r.dadoOriginal} → {r.die})
+                        </div>
+                      )}
+                      {r.blindada && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title="Mestre em Armadura: essa confirmação superou a Armadura, mas ela ainda não quebrou">
+                          ⚡ Mestre em Armadura (aguentou)
+                        </div>
+                      )}
+                      {proc && !r.rerolado && !r.blindada && (
+                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title={proc.efeito}>
+                          ⚡ {proc.nome}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {result.impactoRoll && (
+            <div style={{ textAlign: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+                ⚡ IMPACTO ({result.impactoRoll.instancias} instância{result.impactoRoll.instancias > 1 ? "s" : ""})
+              </div>
+              <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 6, border: `1px solid ${PURPLE}`, background: `${PURPLE}22`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 14,
+                }}>{result.impactoRoll.dado}</div>
+                <div style={{ fontSize: 9, color: MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {result.impactoRoll.instancias > 1 ? `${result.impactoRoll.dado} +${result.impactoRoll.instancias - 1} = ${result.impactoRoll.dadoAjustado} → ` : ""}+{result.impactoRoll.bonus} na Confirmação
+                </div>
+              </div>
+            </div>
+          )}
+
+          {result.chamasRolls.length > 0 && (
+            <div style={{ textAlign: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+                ⚡ CHAMAS ({result.chamasRolls.length} instância{result.chamasRolls.length > 1 ? "s" : ""}, vs Resistência Natural {result.resistNatural})
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+                {result.chamasRolls.map((r, i) => (
+                  <div key={i} style={{ textAlign: "center" }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 6, border: `1px solid ${r.isCrit ? EMBER : r.passou ? PURPLE : LINE}`,
+                      background: r.isCrit ? `${EMBER}33` : r.passou ? `${PURPLE}22` : "#00000040",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 13,
+                    }}>{r.die}</div>
+                    <div style={{ fontSize: 8, color: r.passou ? PURPLE : MUTED }}>{r.passou ? "+1 ferida" : "falha"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.envenenamentoRolls && result.envenenamentoRolls.length > 0 && (
+            <div style={{ textAlign: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+                ⚡ ENVENENAMENTO ({result.envenenamentoRolls.length} instância{result.envenenamentoRolls.length > 1 ? "s" : ""})
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+                {result.envenenamentoRolls.map((r, i) => (
+                  <div key={i} style={{ textAlign: "center" }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 6, border: `1px solid ${r.isCrit ? EMBER : r.passou ? "#4A7A4E" : LINE}`,
+                      background: r.isCrit ? `${EMBER}33` : r.passou ? "#4A7A4E22" : "#00000040",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 13,
+                    }}>{r.die}</div>
+                    <div style={{ fontSize: 8, color: MUTED }}>vs Res. Mágica {r.resistValor}</div>
+                    <div style={{ fontSize: 8, color: r.passou ? "#4A7A4E" : MUTED }}>{r.passou ? "+1 ferida" : "falha"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ textAlign: "center", borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: result.causaDano ? BRASS_BRIGHT : result.contato ? "#5C86B0" : MUTED }}>
+              {result.successes === 0
+                ? "Acerto falhou — sem sucesso algum"
+                : result.causaDano
+                  ? `Causa dano! ${result.confirmedHits} confirmação${result.confirmedHits > 1 ? "ões" : ""} passaram — Ferida: ${result.feridaValor}`
+                  : "CONTATO — acertou, mas nenhuma confirmação passou"}
+            </span>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 function DuelRoller({ a, b, onUpdateCharacter }) {
   const attacksA = a.attacks && a.attacks.length > 0 ? a.attacks : [{ nome: "(ataque genérico)", tipo: "marcial", acerto: 0, dano: "0", ferida: "S" }];
   const [attackIdx, setAttackIdx] = useState(0);
@@ -2474,217 +2809,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
             </div>
           )}
 
-          {!result && (
-            <div style={{ textAlign: "center", color: MUTED, fontSize: 12.5, padding: "20px 0" }}>
-              Escolha um ataque à esquerda pra ver o resultado aqui.
-            </div>
-          )}
-
-          {result && (
-            <>
-              {result.semRolagemDeAcerto ? (
-                <div style={{ textAlign: "center", fontSize: 12.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 10 }}>
-                  Este ataque não rola Acerto — considera {result.successes} sucesso{result.successes === 1 ? "" : "s"} fixo{result.successes === 1 ? "" : "s"} e vai direto pra Confirmação.
-                </div>
-              ) : (
-                <>
-                  {result.desaceleracaoRoll && (
-                    <div style={{ textAlign: "center", marginBottom: 8 }}>
-                      <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
-                        ⚡ DESACELERAÇÃO: dado {result.desaceleracaoRoll.dado}{result.desaceleracaoRoll.instancias > 1 ? ` +${result.desaceleracaoRoll.instancias - 1} = ${result.desaceleracaoRoll.dadoAjustado}` : ""} → Defesa do alvo -{result.desaceleracaoRoll.reducao} nesta rolagem de Acerto
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    {result.dice.map((d, i) => {
-                      const flag = result.successFlags?.[i];
-                      const isCrit = flag ? flag.isCrit : d >= result.critThreshold;
-                      const critBonus = isCrit ? 1 : 0;
-                      const aceleracaoBonus = flag?.aceleracaoBonusEsteDado || 0;
-                      const thresholdEfetivo = flag?.thresholdEfetivo ?? result.threshold;
-                      const total = d + result.acertoBonus + critBonus + aceleracaoBonus;
-                      const hit = flag ? flag.success : total > thresholdEfetivo;
-                      const proc = flag?.procAtacante || flag?.procDefensor;
-                      const procNaoDisparouAqui = proc?.id === "golpe_certeiro" && !flag?.golpeCerteiroDispara;
-                      const clicavel = !!modoGasto;
-                      const corModo = modoGasto === "mp" ? MP_COLOR : SP_COLOR;
-                      return (
-                        <div key={i} style={{ textAlign: "center" }}>
-                          <button
-                            onClick={() => clicavel && clicarDadoAcerto(i)}
-                            disabled={!clicavel}
-                            title={clicavel ? (modoGasto === "mp" ? "Clique pra re-rolar este dado (gasta 1 MP)" : "Clique pra somar +5 neste dado (gasta 1 SP)") : ""}
-                            style={{
-                              width: 40, height: 40, borderRadius: 6, padding: 0, fontFamily: "inherit",
-                              border: `1px solid ${clicavel ? corModo : (isCrit ? EMBER : hit ? BRASS_BRIGHT : LINE)}`,
-                              background: isCrit ? `${EMBER}33` : hit ? `${BRASS}33` : "#00000040",
-                              boxShadow: clicavel ? `0 0 8px ${corModo}88` : (hit ? `0 0 8px ${isCrit ? EMBER : BRASS}66` : "none"),
-                              cursor: clicavel ? "pointer" : "default",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontWeight: 700, color: PARCHMENT, fontSize: 15,
-                            }}
-                          >{d}</button>
-                          <div style={{ fontSize: 9, color: isCrit ? EMBER : MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
-                            {d} + {result.acertoBonus}{isCrit ? " + 1 (crít.)" : ""}{aceleracaoBonus > 0 ? ` + ${aceleracaoBonus} (acel.)` : ""} = {total}{thresholdEfetivo !== result.threshold ? ` vs ${thresholdEfetivo}` : ""}
-                          </div>
-                          {flag?.enraizamentoAplicado && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="ENRAIZAMENTO: este dado enfrenta a Defesa do alvo com -2">
-                              ⚡ Enraizamento
-                            </div>
-                          )}
-                          {aceleracaoBonus > 0 && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="ACELERAÇÃO: bônus crescente por sucessos em sequência">
-                              ⚡ Aceleração +{aceleracaoBonus}
-                            </div>
-                          )}
-                          {flag?.mestreCriticoUsado && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="Mestre do Crítico: limiar de crítico reduzido pra Sorte, só no primeiro crítico da rolagem">
-                              ⚡ Mestre do Crítico
-                            </div>
-                          )}
-                          {flag?.rerolado && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="Borrão: dado original re-rolado uma vez">
-                              ⚡ Borrão ({flag.dadoOriginal} → {d})
-                            </div>
-                          )}
-                          {proc && !procNaoDisparouAqui && !flag?.rerolado && !flag?.mestreCriticoUsado && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title={proc.efeito}>
-                              ⚡ {proc.nome}{flag?.sucessosGerados === 2 ? " (2 sucessos!)" : ""}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ textAlign: "center", fontSize: 12.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>
-                    {result.successes} sucesso{result.successes === 1 ? "" : "s"} no acerto{result.criticos > 0 ? ` · ${result.criticos} crítico${result.criticos > 1 ? "s" : ""}` : ""}{result.superSucesso ? " · SUPER SUCESSO" : ""}
-                  </div>
-                </>
-              )}
-
-              {result.confirmRolls.length > 0 && (
-                <>
-                  <div style={{ fontSize: 10.5, color: MUTED, textAlign: "center", marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
-                    CONFIRMAÇÃO (1d10 + bônus cada, +1 extra se veio de crítico) — em ordem, contra Armadura até romper, depois Natural
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                    {result.confirmRolls.map((r, i) => {
-                      const proc = r.procAtacante || r.procDefensor;
-                      const clicavel = !!modoGasto;
-                      const corModo = modoGasto === "mp" ? MP_COLOR : SP_COLOR;
-                      return (
-                        <div key={i} style={{ textAlign: "center" }}>
-                          <button
-                            onClick={() => clicavel && clicarDadoConfirm(i)}
-                            disabled={!clicavel}
-                            title={clicavel ? (modoGasto === "mp" ? "Clique pra re-rolar este dado (gasta 1 MP)" : "Clique pra somar +5 neste dado (gasta 1 SP)") : ""}
-                            style={{
-                              width: 36, height: 36, borderRadius: 6, padding: 0, fontFamily: "inherit",
-                              border: `1px solid ${clicavel ? corModo : (r.isCrit ? EMBER : r.passou ? BRASS_BRIGHT : LINE)}`,
-                              background: r.isCrit ? `${EMBER}33` : r.passou ? `${BRASS}33` : "#00000040",
-                              boxShadow: clicavel ? `0 0 6px ${corModo}88` : "none",
-                              cursor: clicavel ? "pointer" : "default",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontWeight: 700, color: PARCHMENT, fontSize: 14,
-                            }}
-                          >{r.die}</button>
-                          <div style={{ fontSize: 8, color: MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>{r.die} + {r.confirmBonus}{r.veioDeCritico ? " (+1 crít.)" : ""} = {r.total}</div>
-                          <div style={{ fontSize: 8, color: MUTED }}>vs {r.resistUsada === "escudoDeMana" ? "Escudo" : r.resistUsada === "resistArmadura" ? "Armad." : (STAT_LIST.find((s) => s.key === r.resistUsada)?.label.replace("Resistência Natural ", "") || "Nat.")} {r.resistValor}</div>
-                          <div style={{ fontSize: 8.5, color: r.passou ? BRASS_BRIGHT : MUTED }}>{r.passou ? "confirma" : "falha"}</div>
-                          {r.rerolado && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title="Giro Defensivo: dado original re-rolado uma vez">
-                              ⚡ Giro Defensivo ({r.dadoOriginal} → {r.die})
-                            </div>
-                          )}
-                          {r.blindada && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title="Mestre em Armadura: essa confirmação superou a Armadura, mas ela ainda não quebrou">
-                              ⚡ Mestre em Armadura (aguentou)
-                            </div>
-                          )}
-                          {proc && !r.rerolado && !r.blindada && (
-                            <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title={proc.efeito}>
-                              ⚡ {proc.nome}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {result.impactoRoll && (
-                <div style={{ textAlign: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-                    ⚡ IMPACTO ({result.impactoRoll.instancias} instância{result.impactoRoll.instancias > 1 ? "s" : ""})
-                  </div>
-                  <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: 6, border: `1px solid ${PURPLE}`, background: `${PURPLE}22`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 14,
-                    }}>{result.impactoRoll.dado}</div>
-                    <div style={{ fontSize: 9, color: MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {result.impactoRoll.instancias > 1 ? `${result.impactoRoll.dado} +${result.impactoRoll.instancias - 1} = ${result.impactoRoll.dadoAjustado} → ` : ""}+{result.impactoRoll.bonus} na Confirmação
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {result.chamasRolls.length > 0 && (
-                <div style={{ textAlign: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-                    ⚡ CHAMAS ({result.chamasRolls.length} instância{result.chamasRolls.length > 1 ? "s" : ""}, vs Resistência Natural {result.resistNatural})
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                    {result.chamasRolls.map((r, i) => (
-                      <div key={i} style={{ textAlign: "center" }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: 6, border: `1px solid ${r.isCrit ? EMBER : r.passou ? PURPLE : LINE}`,
-                          background: r.isCrit ? `${EMBER}33` : r.passou ? `${PURPLE}22` : "#00000040",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 13,
-                        }}>{r.die}</div>
-                        <div style={{ fontSize: 8, color: r.passou ? PURPLE : MUTED }}>{r.passou ? "+1 ferida" : "falha"}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {result.envenenamentoRolls && result.envenenamentoRolls.length > 0 && (
-                <div style={{ textAlign: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-                    ⚡ ENVENENAMENTO ({result.envenenamentoRolls.length} instância{result.envenenamentoRolls.length > 1 ? "s" : ""})
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                    {result.envenenamentoRolls.map((r, i) => (
-                      <div key={i} style={{ textAlign: "center" }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: 6, border: `1px solid ${r.isCrit ? EMBER : r.passou ? "#4A7A4E" : LINE}`,
-                          background: r.isCrit ? `${EMBER}33` : r.passou ? "#4A7A4E22" : "#00000040",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 13,
-                        }}>{r.die}</div>
-                        <div style={{ fontSize: 8, color: MUTED }}>vs Res. Mágica {r.resistValor}</div>
-                        <div style={{ fontSize: 8, color: r.passou ? "#4A7A4E" : MUTED }}>{r.passou ? "+1 ferida" : "falha"}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ textAlign: "center", borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
-                <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: result.causaDano ? BRASS_BRIGHT : result.contato ? "#5C86B0" : MUTED }}>
-                  {result.successes === 0
-                    ? "Acerto falhou — sem sucesso algum"
-                    : result.causaDano
-                      ? `Causa dano! ${result.confirmedHits} confirmação${result.confirmedHits > 1 ? "ões" : ""} passaram — Ferida: ${result.feridaValor}`
-                      : "CONTATO — acertou, mas nenhuma confirmação passou"}
-                </span>
-              </div>
-            </>
-          )}
+          <AttackResultPanel result={result} modoGasto={modoGasto} onAcertoDieClick={clicarDadoAcerto} onConfirmDieClick={clicarDadoConfirm} />
         </div>
       </div>
     </div>
@@ -2716,6 +2841,22 @@ function makeEditableOpponent(stats) {
     abilities: [],
     procs: stats.procs || [],
   };
+}
+
+// Monta o defensor sintético do modo Ataque do painel "Teste — Atributo +
+// Perícia / Ataque" da ficha (mesma peça que o Confronto usa pro oponente
+// Editável — ver makeEditableOpponent) e resolve o ataque contra ele. Extraído
+// como função pura (exportada só pra teste) pra poder verificar, sem precisar
+// de interação de UI, que os números digitados viram exatamente o defensor
+// que o motor recebe.
+export function resolveFichaAtaque({ character, attack, targetDefesa, targetResistNatural, targetResistArmadura, targetUsaArmadura }) {
+  const defender = makeEditableOpponent({
+    defesa: targetDefesa,
+    resistNatural: targetResistNatural,
+    resistArmadura: targetResistArmadura,
+    usaArmadura: targetUsaArmadura,
+  });
+  return resolveAttack({ attacker: character, defender, attack });
 }
 
 export function CompareView({ characters, onUpdateCharacter }) {

@@ -11,18 +11,25 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { loadAppModule } from "./renderTestUtils.js";
 
-let CharacterForm, CompareView, SEED_CHARACTERS;
+let CharacterForm, CompareView, CharacterSheet, SEED_CHARACTERS;
 
 before(async () => {
   const mod = await loadAppModule();
   CharacterForm = mod.CharacterForm;
   CompareView = mod.CompareView;
+  CharacterSheet = mod.CharacterSheet;
   SEED_CHARACTERS = mod.SEED_CHARACTERS;
 });
 
 function renderCharacterForm(initial) {
   return renderToStaticMarkup(
     React.createElement(CharacterForm, { initial, onSave: () => {}, onCancel: () => {} })
+  );
+}
+
+function renderCharacterSheet(character, initialTestPanelMode) {
+  return renderToStaticMarkup(
+    React.createElement(CharacterSheet, { character, onBack: () => {}, initialTestPanelMode })
   );
 }
 
@@ -63,6 +70,26 @@ describe("CharacterForm — render de todos os personagens semente", () => {
     const merkel = SEED_CHARACTERS.find((c) => c.id === "sp_merkel");
     assert.doesNotThrow(() => renderCharacterForm({ ...merkel, abilities: null }));
   });
+});
+
+describe("CharacterSheet — painel Teste/Ataque nos dois modos, todos os personagens semente", () => {
+  const todosOsIds = [
+    "almah", "kiryu", "fate", "boda", "leona", "ookami", "kutrefas", "vientra", "sombra", "rena", "erin", "minerva", "mercurio",
+    "sp_leon", "sp_merkel", "sp_raiko", "sp_akira", "sp_k", "sp_ishran",
+  ];
+
+  for (const id of todosOsIds) {
+    it(`renderiza sem lançar no modo Teste — ${id}`, () => {
+      const character = SEED_CHARACTERS.find((c) => c.id === id);
+      assert.ok(character, `personagem semente "${id}" não encontrado em SEED_CHARACTERS`);
+      assert.doesNotThrow(() => renderCharacterSheet(character, "teste"));
+    });
+
+    it(`renderiza sem lançar no modo Ataque — ${id}`, () => {
+      const character = SEED_CHARACTERS.find((c) => c.id === id);
+      assert.doesNotThrow(() => renderCharacterSheet(character, "ataque"));
+    });
+  }
 });
 
 describe("Confronto (CompareView) — personagem do Aurora selecionado", () => {

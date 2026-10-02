@@ -9,6 +9,9 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `engine.test.js` — suíte de testes automatizados do motor
 - `sidepoint.js` — funções puras do Grupo Aurora (Sidepoint): classificação de grupo e reposição idempotente das fichas semente
 - `sidepoint.test.js` — testes automatizados do `sidepoint.js` (cenários de carregamento e idempotência)
+- `mundoDados.js` — conteúdo fixo do Mundo: Katalão (casas, etiquetas, mapa) e a cidade de Frontier (distritos, NPCs, forças, mesa do mestre), com versão pública (`pub`) e do mestre (`gm`)
+- `mundo.js` / `mundo.test.js` — funções puras do Mundo (o que cada modo Jogador/GM enxerga, agrupamento de NPCs, pinos do mapa) e seus testes, incluindo uma checagem de que segredos do mestre não aparecem no modo Jogador
+- `public/mundo/` — mapa do mundo, mapa e imagem de Katalão, retratos dos NPCs
 - `cidades.js` — funções puras das cidades semente do Mundo: reposição idempotente (ex: Frontier em Katalão) em quem já tinha reinos salvos, respeitando as cidades apagadas de propósito (`point-cidades-removidas`)
 - `cidades.test.js` — testes automatizados do `cidades.js`
 - `public/sidepoint/frontier.html` — guia de jogadores de Frontier (Sidepoint), página estática publicada em https://pedrogcd.github.io/Point/sidepoint/frontier.html e aberta pelo botão "Abrir guia" da cidade na aba Mundo
@@ -31,15 +34,17 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 
 | Aba | O que faz |
 |---|---|
-| **Início** | Vitrine de uma mesa por vez (Grupo C ou Grupo Aurora) e arco atual |
+| **Início** | Um quadrado por mesa (Grupo C, Grupo Aurora) que leva para os personagens daquele grupo, e quadradinhos dos reinos que levam para as fichas e os NPCs de cada reino |
 | **Objetivos** | Metas da campanha com estados (Ativo/Pausado/Concluído) |
-| **Personagens** | Fichas completas dos 19 personagens (13 do Grupo C + 6 do Grupo Aurora), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
+| **Personagens** | Fichas completas dos 19 personagens (13 do Grupo C + 6 do Grupo Aurora) e a seleção "NPCs do mundo" (cartões por reino e cidade, ex.: Katalão › Frontier), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
-| **Mundo** | 6 reinos e suas cidades — cidades com guia próprio (ex: Frontier, em Katalão) têm um botão "Abrir guia" que abre a página em nova aba |
+| **Mundo** | Mapa do mundo clicável; cada reino com abas (Visão geral, Cidades e, em Katalão, Casas, Etiquetas e Mapa do reino); cidades com conteúdo próprio (Frontier) abrem com sub-abas: Visão geral, Distritos (mapa clicável), Personagens, Forças e, no modo GM, Mesa do mestre |
 | **Deuses** | 7 deidades do panteão |
 | **Sagas** | Arcos narrativos da campanha |
+
+**Ver como Jogador / GM**: o seletor no canto superior direito esconde ou mostra o conteúdo do mestre (segredos e ganchos dos NPCs, versões do mestre de distritos e termos, aba Mesa do mestre). Começa em Jogador e fica salvo no navegador. Por enquanto qualquer um pode trocar; o conteúdo do mestre está no código publicado, então não é segredo de verdade para quem procurar.
 
 O app **não exige login**: qualquer pessoa com o link edita, exclui, salva e gasta MP/SP direto, a qualquer momento (uso atual é só entre pessoas de confiança). Ver "Dados (Supabase) e backup" abaixo — inclusive o botão de backup manual, já que sem login qualquer um também pode apagar algo sem querer.
 

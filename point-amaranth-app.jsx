@@ -3,7 +3,7 @@ import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
-  Upload, Download,
+  Upload, Download, ExternalLink,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -18,6 +18,7 @@ import {
   migrateBrigaProfKey,
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
+import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
@@ -792,7 +793,9 @@ export const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), .
 
 const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
-  { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]", cities: [] },
+  { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]", cities: [
+    { id: "frontier", name: "Frontier", description: "Cidade grande na fronteira nordeste, colada em Hoshon (Maxis). Regida pela Casa Brennard, vassala dos Pendragons. Ningens do Cadastro Brennard na Vila Nova, dentro da muralha nova; o Barro dos sem-etiqueta do lado de fora.", link: "sidepoint/frontier.html" },
+  ] },
   { id: "maxis", name: "Maxis Power", description: "Potência industrial e militar, lar de famílias como Mason e Ayamato. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "suth", name: "Suth", description: "Império matriarcal sustentado por três Pilares: a Imperatriz, a Santa e a Parteira. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "goethia", name: "Goethia", description: "Nação unida pela conexão emocional coletiva com sua Santa, Erin Genova, sob o governo do Tzar. [Rascunho — refine comigo quando quiser.]", cities: [] },
@@ -999,7 +1002,7 @@ function SectionTitle({ children, icon: Icon }) {
   );
 }
 
-function Btn({ children, onClick, variant = "default", style, ...props }) {
+function Btn({ children, onClick, variant = "default", style, href, ...props }) {
   const base = {
     fontFamily: "'Cinzel', serif", fontSize: 12.5, letterSpacing: 0.6, padding: "8px 16px",
     borderRadius: 4, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
@@ -1011,6 +1014,14 @@ function Btn({ children, onClick, variant = "default", style, ...props }) {
     danger: { background: "transparent", color: EMBER, border: `1px solid ${EMBER}66` },
     ghost: { background: "transparent", color: MUTED, border: "1px solid transparent" },
   };
+  // Com `href`, vira um link com a mesma cara de botão (ex: abrir guia em nova aba).
+  if (href) {
+    return (
+      <a href={href} onClick={onClick} style={{ ...base, textDecoration: "none", ...variants[variant], ...style }} {...props}>
+        {children}
+      </a>
+    );
+  }
   return (
     <button onClick={onClick} style={{ ...base, ...variants[variant], ...style }} {...props}>
       {children}
@@ -3094,9 +3105,23 @@ function WorldView({ kingdoms, setKingdoms, askConfirm }) {
     setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: [...k.cities, { name: draft.name, description: draft.description || "" }] } : k));
     setNewCity((p) => ({ ...p, [kid]: { name: "", description: "" } }));
   }
-  function removeCity(kid, idx, cityName) {
-    askConfirm(`Remover a cidade "${cityName}"? Essa ação não pode ser desfeita.`, () => {
+  function removeCity(kid, idx, city) {
+    askConfirm(`Remover a cidade "${city.name}"? Essa ação não pode ser desfeita.`, () => {
       setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: k.cities.filter((_, i) => i !== idx) } : k));
+      // Cidade semente apagada de propósito entra numa lista de exclusões, pra
+      // reposição automática (ver cidades.js) não trazer ela de volta.
+      if (city.id && idsCidadesSemente(SEED_KINGDOMS).includes(city.id)) {
+        (async () => {
+          let lista = [];
+          try {
+            const rem = await storage.get("point-cidades-removidas");
+            lista = rem?.value ? JSON.parse(rem.value) : [];
+          } catch (e) { lista = []; }
+          if (!Array.isArray(lista)) lista = [];
+          if (!lista.includes(city.id)) lista.push(city.id);
+          try { await storage.set("point-cidades-removidas", JSON.stringify(lista)); } catch (e) {}
+        })();
+      }
     });
   }
   function updateDescription(kid, value) {
@@ -3143,10 +3168,21 @@ function WorldView({ kingdoms, setKingdoms, askConfirm }) {
                 {k.cities.map((city, idx) => (
                   <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${LINE}` }}>
                     <div>
-                      <div style={{ fontSize: 13, color: PARCHMENT, fontWeight: 600 }}>{city.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13, color: PARCHMENT, fontWeight: 600 }}>{city.name}</span>
+                        {city.link && (
+                          <Btn
+                            variant="ghost" href={`${import.meta.env.BASE_URL}${city.link}`}
+                            target="_blank" rel="noopener"
+                            style={{ padding: "2px 6px", fontSize: 11 }}
+                          >
+                            <ExternalLink size={12} /> Abrir guia
+                          </Btn>
+                        )}
+                      </div>
                       <div style={{ fontSize: 11.5, color: MUTED }}>{city.description}</div>
                     </div>
-                    <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city.name)}><X size={13} /></Btn>
+                    <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city)}><X size={13} /></Btn>
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
@@ -4021,7 +4057,18 @@ export default function App() {
       } catch (e) {}
       try {
         const k = await storage.get("point-kingdoms");
-        if (k?.value) setKingdoms(JSON.parse(k.value));
+        if (k?.value) {
+          // Cidades semente novas (ex: Frontier) entram em quem já tinha reinos
+          // salvos, de forma idempotente e por cidade (ver rationale em cidades.js).
+          let reinos = JSON.parse(k.value);
+          let cidadesRemovidas = [];
+          try {
+            const rem = await storage.get("point-cidades-removidas");
+            cidadesRemovidas = rem?.value ? JSON.parse(rem.value) : [];
+          } catch (e) { cidadesRemovidas = []; }
+          reinos = reporCidadesSemente(reinos, SEED_KINGDOMS, cidadesRemovidas);
+          setKingdoms(reinos);
+        }
       } catch (e) {}
       try {
         const g = await storage.get("point-gods");

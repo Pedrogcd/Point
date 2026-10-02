@@ -9,6 +9,9 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `engine.test.js` — suíte de testes automatizados do motor
 - `sidepoint.js` — funções puras do Grupo Aurora (Sidepoint): classificação de grupo e reposição idempotente das fichas semente
 - `sidepoint.test.js` — testes automatizados do `sidepoint.js` (cenários de carregamento e idempotência)
+- `cidades.js` — funções puras das cidades semente do Mundo: reposição idempotente (ex: Frontier em Katalão) em quem já tinha reinos salvos, respeitando as cidades apagadas de propósito (`point-cidades-removidas`)
+- `cidades.test.js` — testes automatizados do `cidades.js`
+- `public/sidepoint/frontier.html` — guia de jogadores de Frontier (Sidepoint), página estática publicada em https://pedrogcd.github.io/Point/sidepoint/frontier.html e aberta pelo botão "Abrir guia" da cidade na aba Mundo
 - `storage.js` — camada de armazenamento: Supabase como fonte de verdade (sincroniza entre aparelhos), localStorage como cache offline
 - `supabaseClient.js` / `imageUpload.js` — cliente Supabase, upload de retrato
 - `backup.js` — exportar/importar o estado inteiro do app em `.json` (sem depender de File/Blob do navegador, testável)
@@ -34,7 +37,7 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
-| **Mundo** | 6 reinos e suas cidades |
+| **Mundo** | 6 reinos e suas cidades — cidades com guia próprio (ex: Frontier, em Katalão) têm um botão "Abrir guia" que abre a página em nova aba |
 | **Deuses** | 7 deidades do panteão |
 | **Sagas** | Arcos narrativos da campanha |
 
@@ -94,7 +97,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora, o backup e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `backup.test.js` e `seedGuard.test.js` — 99 testes ao todo:
+O motor de combate, o Grupo Aurora, as cidades semente, o backup e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `backup.test.js` e `seedGuard.test.js` — 108 testes ao todo:
 
 ```
 npm test

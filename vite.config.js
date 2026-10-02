@@ -43,7 +43,7 @@ export default defineConfig({
         // rede real é o @import de fontes do Google Fonts (Cinzel/Spectral/IBM Plex Mono,
         // ver point-amaranth-app.jsx) — sem cache de runtime pra ela, offline de verdade
         // cairia pra fonte padrão do sistema.
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
+        globPatterns: ["**/*.{js,css,html,svg,png,jpg,ico,webmanifest}"],
         navigateFallback: `${BASE}index.html`,
         // Páginas estáticas próprias (ex: guia de Frontier em public/sidepoint/)
         // são servidas como estão — sem isso, navegar até elas cairia no

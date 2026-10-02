@@ -3,7 +3,7 @@ import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
-  Upload, Download, ExternalLink,
+  Upload, Download, ExternalLink, Eye, EyeOff,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -19,6 +19,8 @@ import {
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
+import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
+import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
@@ -3092,13 +3094,367 @@ export function CompareView({ characters, onUpdateCharacter }) {
   );
 }
 
+// Conteúdo fixo por reino e por cidade (ver mundoDados.js). Reinos/cidades que
+// não estão aqui continuam só com a descrição editável de sempre.
+const REINO_INFO = { katalao: KATALAO_INFO };
+const CIDADE_INFO = { frontier: FRONTIER };
+const assetUrl = (p) => `${import.meta.env.BASE_URL}${p}`;
+
+// Paleta das variáveis CSS usadas pelo SVG do mapa de distritos de Frontier.
+const MAPA_CSS_VARS = {
+  "--bg": "#F3E9D2", "--paper": "#FBF5E6", "--ink": INK, "--muted": MUTED, "--line": LINE,
+  "--brass": BRASS, "--brass-soft": "#EBD9AE", "--red": EMBER, "--red-soft": "#F0D5CC",
+  "--verd": "#2F6D61", "--verd-soft": "#D2E6E0", "--field": "#DDD3A3", "--mud": "#B9A58A", "--water": "#9FB6B0",
+};
+
+const NPC_GRUPO_COR = { pend: EMBER, gov: BRASS, mil: EMBER, barro: "#2F6D61", fora: MUTED, crime: INK };
+
+function GmBadge() {
+  return (
+    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: 0.8, color: EMBER, border: `1px dashed ${EMBER}`, borderRadius: 3, padding: "1px 5px", textTransform: "uppercase" }}>
+      só GM
+    </span>
+  );
+}
+
+// Seletor Jogador / GM do canto superior direito.
+function ModoVisaoToggle({ modo, setModo }) {
+  return (
+    <div role="group" aria-label="Ver como" style={{ display: "flex", alignItems: "center", gap: 2, border: `1px solid ${PURPLE_TEXT}55`, borderRadius: 6, padding: 2 }}>
+      <span style={{ fontSize: 9.5, color: `${PURPLE_TEXT}99`, fontFamily: "'IBM Plex Mono', monospace", padding: "0 6px" }}>VER COMO</span>
+      {[["jogador", "Jogador", Eye], ["gm", "GM", EyeOff]].map(([id, label, Icon]) => {
+        const ativo = modo === id;
+        return (
+          <button
+            key={id} aria-pressed={ativo} onClick={() => setModo(id)}
+            style={{
+              display: "flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 4, cursor: "pointer",
+              border: "none", background: ativo ? "#F0D98C" : "transparent", color: ativo ? INK : `${PURPLE_TEXT}CC`,
+              fontFamily: "'Cinzel', serif", fontSize: 11, letterSpacing: 0.5,
+            }}
+          >
+            <Icon size={12} /> {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// HTML do conteúdo fixo, com botões internos (data-term / data-person /
+// data-region) que abrem pop-ups pelo onAcao.
+function RichText({ html, onAcao, style }) {
+  if (!html) return null;
+  return (
+    <div
+      className="mundo-rich"
+      style={{ fontSize: 14, lineHeight: 1.6, color: PARCHMENT, ...style }}
+      onClick={(e) => {
+        const el = e.target.closest("[data-term],[data-person],[data-region]");
+        if (!el || !onAcao) return;
+        e.preventDefault();
+        if (el.dataset.term) onAcao({ tipo: "termo", id: el.dataset.term });
+        else if (el.dataset.person) onAcao({ tipo: "npc", id: el.dataset.person.startsWith("frontier_") ? el.dataset.person : `frontier_${el.dataset.person}` });
+        else if (el.dataset.region) onAcao({ tipo: "distrito", id: el.dataset.region });
+      }}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function MundoModal({ onClose, children, largura = 560 }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 }}
+    >
+      <div role="dialog" aria-modal="true" style={{ background: PANEL, border: `1px solid ${LINE}`, borderRadius: 8, padding: 20, width: `min(100%, ${largura}px)`, maxHeight: "86vh", overflowY: "auto", boxShadow: "0 0 30px #00000080" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+          <Btn variant="ghost" onClick={onClose} style={{ padding: "4px 10px" }}><X size={13} /> Fechar</Btn>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function NpcCard({ npc, gm, onOpen }) {
+  const v = npcVisivel(npc, gm);
+  const cor = NPC_GRUPO_COR[v.grupo] || BRASS;
+  return (
+    <button
+      onClick={() => onOpen(npc.id)}
+      style={{ textAlign: "left", background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, cursor: "pointer", color: "inherit", display: "flex", gap: 10, alignItems: "center" }}
+    >
+      {v.img ? (
+        <img src={assetUrl(v.img)} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `1px solid ${LINE}` }} />
+      ) : (
+        <div style={{ width: 44, height: 44, borderRadius: 8, background: "#00000018", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Users size={18} color={cor} />
+        </div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT }}>{v.nome}</div>
+        <div style={{ fontSize: 11, color: BRASS, fontStyle: "italic" }}>{v.papel}</div>
+        <div style={{ fontSize: 10, color: cor, fontFamily: "'IBM Plex Mono', monospace", marginTop: 2 }}>{textoVisivel(NPC_GRUPOS[v.grupo], gm) || ""}</div>
+      </div>
+    </button>
+  );
+}
+
+function NpcDetalhe({ npcId, gm, onAcao }) {
+  const npc = NPCS.find((n) => n.id === npcId);
+  if (!npc) return <p style={{ color: MUTED }}>Personagem não encontrado.</p>;
+  const v = npcVisivel(npc, gm);
+  const cidade = CIDADE_INFO[v.cidade];
+  return (
+    <div>
+      {v.img && <img src={assetUrl(v.img)} alt={`Retrato de ${v.nome}`} style={{ float: "right", width: "min(40%, 180px)", margin: "0 0 10px 14px", borderRadius: 6, border: `1px solid ${LINE}` }} />}
+      <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+        {(cidade?.nome || v.cidade)} · {textoVisivel(NPC_GRUPOS[v.grupo], gm)}
+      </div>
+      <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 20, margin: "4px 0 2px", color: PARCHMENT }}>{v.nome}</h2>
+      <div style={{ fontSize: 12.5, color: BRASS, fontStyle: "italic", marginBottom: 12 }}>{v.papel}</div>
+      {Object.keys(v.kv).length > 0 && (
+        <dl style={{ display: "grid", gridTemplateColumns: "auto minmax(0,1fr)", gap: "4px 12px", fontSize: 13, margin: "0 0 12px" }}>
+          {Object.entries(v.kv).map(([k, val]) => (
+            <React.Fragment key={k}>
+              <dt style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, textTransform: "uppercase", paddingTop: 2 }}>{k}</dt>
+              <dd style={{ margin: 0 }}>{val}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      )}
+      <RichText html={`<p>${v.texto}</p>`} onAcao={onAcao} />
+      {gm && v.segredo && (
+        <div style={{ clear: "both", border: `1px dashed ${EMBER}`, background: "#F0D5CC", borderRadius: 6, padding: "10px 12px", marginTop: 10 }}>
+          <div style={{ marginBottom: 4 }}><GmBadge /> <span style={{ fontFamily: "'Cinzel', serif", fontSize: 12, color: EMBER }}>Segredo do mestre</span></div>
+          <RichText html={`<p style="margin:0">${v.segredo}</p>`} onAcao={onAcao} style={{ fontSize: 13.5 }} />
+        </div>
+      )}
+      {gm && v.ganchos.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ marginBottom: 4 }}><GmBadge /> <span style={{ fontFamily: "'Cinzel', serif", fontSize: 12, color: EMBER }}>Ganchos</span></div>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.5 }}>{v.ganchos.map((h, i) => <li key={i}>{h}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pop-up genérico do Mundo: termo, distrito, casa ou NPC.
+function MundoPopup({ acao, gm, onClose, onAcao }) {
+  let corpo = null;
+  if (acao.tipo === "npc") corpo = <NpcDetalhe npcId={acao.id} gm={gm} onAcao={onAcao} />;
+  else if (acao.tipo === "termo" || acao.tipo === "distrito") {
+    const fonte = acao.tipo === "termo" ? FRONTIER.termos : FRONTIER.distritos;
+    const t = fonte[acao.id];
+    const html = t ? textoVisivel(t, gm) : null;
+    corpo = (
+      <div>
+        <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{acao.tipo === "distrito" ? "Distrito de Frontier" : "Frontier"}</div>
+        <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 19, margin: "4px 0 10px" }}>{t?.titulo || "Sem informação"}</h2>
+        {html ? <RichText html={html} onAcao={onAcao} /> : <p style={{ color: MUTED }}>Nada que os jogadores saibam ainda.</p>}
+        {gm && t?.gm && t?.pub && <div style={{ marginTop: 8 }}><GmBadge /> <span style={{ fontSize: 11.5, color: MUTED }}>Mostrando a versão do mestre.</span></div>}
+      </div>
+    );
+  } else if (acao.tipo === "casa") {
+    const c = KATALAO_INFO.casas.find((x) => x.id === acao.id);
+    corpo = c && (
+      <div>
+        {c.img && <img src={assetUrl(c.img)} alt="" style={{ float: "right", width: "min(38%, 170px)", margin: "0 0 10px 14px", borderRadius: 6, border: `1px solid ${LINE}` }} />}
+        <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{c.papel}</div>
+        <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 19, margin: "4px 0 10px" }}>{c.nome}</h2>
+        <RichText html={textoVisivel(c, gm)} onAcao={onAcao} />
+      </div>
+    );
+  }
+  return <MundoModal onClose={onClose}>{corpo}</MundoModal>;
+}
+
+function SubAbas({ abas, ativa, setAtiva }) {
+  return (
+    <div role="tablist" style={{ display: "flex", gap: 4, flexWrap: "wrap", borderBottom: `1px solid ${LINE}`, marginBottom: 14 }}>
+      {abas.map((a) => {
+        const on = a.id === ativa;
+        return (
+          <button
+            key={a.id} role="tab" aria-selected={on} onClick={() => setAtiva(a.id)}
+            style={{
+              padding: "7px 12px", border: "none", borderBottom: `2px solid ${on ? BRASS : "transparent"}`, marginBottom: -1,
+              background: "transparent", cursor: "pointer", fontFamily: "'Cinzel', serif", fontSize: 12, letterSpacing: 0.5,
+              color: on ? BRASS_BRIGHT : MUTED, display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {a.label}{a.gm && <GmBadge />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const cardBox = { background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14 };
+const rotulo = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 };
+
+/* --- Cidade (conteúdo fixo, ex: Frontier) --- */
+function CidadeView({ cidade, gm, onVoltar, nomeReino, onAcao }) {
+  const [aba, setAba] = useState("geral");
+  const [boato, setBoato] = useState(null);
+  const npcs = NPCS.filter((n) => n.cidade === cidade.id);
+  const abas = [
+    { id: "geral", label: "Visão geral" },
+    { id: "distritos", label: "Distritos" },
+    { id: "personagens", label: `Personagens (${npcs.length})` },
+    { id: "forcas", label: "Forças" },
+    ...(gm ? [{ id: "mestre", label: "Mesa do mestre", gm: true }] : []),
+  ];
+  const abaAtual = abas.some((a) => a.id === aba) ? aba : "geral";
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+        <Btn variant="ghost" onClick={onVoltar} style={{ padding: "4px 8px" }}><ChevronLeft size={14} /> Voltar para {nomeReino}</Btn>
+      </div>
+      <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 24, margin: "0 0 2px", color: PARCHMENT }}>{cidade.nome}</h2>
+      <div style={{ fontStyle: "italic", color: EMBER, marginBottom: 14 }}>{cidade.subtitulo}</div>
+      <SubAbas abas={abas} ativa={abaAtual} setAtiva={setAba} />
+
+      {abaAtual === "geral" && (
+        <div className="mundo-grid2">
+          <div style={cardBox}>
+            <div style={rotulo}>O conceito</div>
+            <RichText html={textoVisivel(cidade.conceito, gm)} onAcao={onAcao} />
+          </div>
+          <div style={cardBox}>
+            <div style={rotulo}>Ficha rápida</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <tbody>
+                {cidade.ficha.map(([k, val]) => (
+                  <tr key={k} style={{ borderBottom: `1px solid ${LINE}` }}>
+                    <th style={{ textAlign: "left", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, fontWeight: 400, padding: "6px 10px 6px 0", verticalAlign: "top", textTransform: "uppercase" }}>{k}</th>
+                    <td style={{ padding: "6px 0" }}>{textoVisivel(val, gm)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ ...cardBox, gridColumn: "1 / -1" }}>
+            <div style={rotulo}>A chegada pela estrada de Maxis</div>
+            <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 8, fontSize: 13.5, lineHeight: 1.5 }}>
+              {cidade.chegada.map(([t, d]) => <li key={t}><b style={{ fontFamily: "'Cinzel', serif" }}>{t}.</b> {d}</li>)}
+            </ol>
+          </div>
+          <div style={cardBox}>
+            <div style={rotulo}>Estética</div>
+            <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4, fontSize: 13.5, lineHeight: 1.5 }}>{cidade.estetica.map((e) => <li key={e}>{e}</li>)}</ul>
+          </div>
+          <div style={cardBox}>
+            <div style={rotulo}>Os medos da cidade</div>
+            <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
+              {entradasVisiveis(cidade.medos, gm).map((m, i) => (
+                <li key={i}><RichText html={textoVisivel(m, gm)} onAcao={onAcao} style={{ fontSize: 13.5, lineHeight: 1.5 }} />{gm && !m.pub && <GmBadge />}</li>
+              ))}
+            </ul>
+          </div>
+          {cidade.guiaJogadores && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Btn variant="ghost" href={assetUrl(cidade.guiaJogadores)} target="_blank" rel="noopener" style={{ padding: "4px 8px", fontSize: 11 }}>
+                <ExternalLink size={12} /> Abrir o guia dos jogadores numa página separada
+              </Btn>
+            </div>
+          )}
+        </div>
+      )}
+
+      {abaAtual === "distritos" && (
+        <div>
+          <div style={{ fontSize: 12, color: MUTED, marginBottom: 8 }}>Norte em cima, Maxis ao norte. Toque num distrito.</div>
+          <div className="mapa-distritos" style={{ ...MAPA_CSS_VARS, border: `1px solid ${LINE}`, borderRadius: 8, overflowX: "auto", background: "#FBF5E6" }}>
+            <div style={{ minWidth: 620 }}>
+              <RichText html={cidade.mapaSvg} onAcao={onAcao} style={{ lineHeight: 0 }} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", marginTop: 12 }}>
+            {Object.entries(cidade.distritos).filter(([, d]) => textoVisivel(d, gm)).map(([id, d]) => (
+              <button key={id} onClick={() => onAcao({ tipo: "distrito", id })} style={{ ...cardBox, padding: 10, textAlign: "left", cursor: "pointer", color: "inherit", fontFamily: "'Cinzel', serif", fontSize: 13 }}>
+                {d.titulo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {abaAtual === "personagens" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
+          {npcs.map((n) => <NpcCard key={n.id} npc={n} gm={gm} onOpen={(id) => onAcao({ tipo: "npc", id })} />)}
+        </div>
+      )}
+
+      {abaAtual === "forcas" && (
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
+          {cidade.forcas.map((f, i) => (
+            <div key={i} style={{ ...cardBox, borderTop: `3px solid ${i % 2 ? BRASS : EMBER}` }}>
+              <div style={rotulo}>{textoVisivel(f.rotulo, gm)}</div>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, marginBottom: 6 }}>{textoVisivel(f.titulo, gm)}</div>
+              <RichText html={`<p style="margin:0 0 8px">${textoVisivel(f, gm)}</p>`} onAcao={onAcao} style={{ fontSize: 13.5, lineHeight: 1.5 }} />
+              {f.npc && <Btn variant="ghost" onClick={() => onAcao({ tipo: "npc", id: f.npc })} style={{ padding: "3px 8px", fontSize: 11 }}><Users size={12} /> Ver personagem</Btn>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {abaAtual === "mestre" && gm && (
+        <div className="mundo-grid2">
+          <div style={cardBox}>
+            <div style={rotulo}>Quem pode entregar as tarefas</div>
+            <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6, fontSize: 13.5, lineHeight: 1.5 }}>
+              {cidade.gm.entregadores.map(([a, b]) => <li key={a}><b>{a}.</b> {b}</li>)}
+            </ul>
+          </div>
+          <div style={cardBox}>
+            <div style={rotulo}>Gatilhos para soltar quando a cena parar</div>
+            <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 6, fontSize: 13.5, lineHeight: 1.5 }}>
+              {cidade.gm.gatilhos.map((g) => <li key={g}>{g}</li>)}
+            </ul>
+          </div>
+          <div style={{ ...cardBox, gridColumn: "1 / -1" }}>
+            <div style={rotulo}>Boatos da taverna (d{cidade.gm.boatos.length})</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <Btn onClick={() => setBoato(Math.floor(Math.random() * cidade.gm.boatos.length))}><Dices size={14} /> Rolar boato</Btn>
+              {boato != null && <span style={{ fontStyle: "italic", fontSize: 15 }}>{boato + 1}: “{cidade.gm.boatos[boato]}”</span>}
+            </div>
+            <ol style={{ margin: "12px 0 0", paddingLeft: 22, display: "grid", gap: 4, fontSize: 13, color: MUTED }}>
+              {cidade.gm.boatos.map((b) => <li key={b}>{b}</li>)}
+            </ol>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------
-   MUNDO — reinos e cidades
+   MUNDO — mapa, reinos, cidades
 ----------------------------------------------------------------*/
-function WorldView({ kingdoms, setKingdoms, askConfirm }) {
-  const [openId, setOpenId] = useState(null);
+function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
+  const [reinoId, setReinoId] = useState(null);
+  const [abaReino, setAbaReino] = useState("geral");
+  const [cidadeId, setCidadeId] = useState(null);
+  const [popup, setPopup] = useState(null);
   const [newCity, setNewCity] = useState({});
 
+  const reino = kingdoms.find((k) => k.id === reinoId) || null;
+  const info = reino ? REINO_INFO[reino.id] : null;
+
+  function abrirReino(id) {
+    setReinoId(id); setAbaReino("geral"); setCidadeId(null);
+  }
   function addCity(kid) {
     const draft = newCity[kid];
     if (!draft?.name) return;
@@ -3128,81 +3484,200 @@ function WorldView({ kingdoms, setKingdoms, askConfirm }) {
     setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, description: value } : k));
   }
 
+  const cidadeInfo = cidadeId ? CIDADE_INFO[cidadeId] : null;
+  const abasReino = [
+    { id: "geral", label: "Visão geral" },
+    { id: "cidades", label: `Cidades (${reino?.cities?.length || 0})` },
+    ...(info ? [{ id: "casas", label: "Casas" }, { id: "etiquetas", label: "Etiquetas" }, { id: "mapa", label: "Mapa do reino" }] : []),
+  ];
+
   return (
     <div>
-      <SectionTitle icon={MapIcon}>Mapa do Mundo</SectionTitle>
-      <div style={{
-        height: 220, borderRadius: 8, border: `1px dashed ${LINE}`, background: PANEL_2,
-        display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20, color: MUTED, fontSize: 12.5,
-        flexDirection: "column", gap: 6,
-      }}>
-        <MapIcon size={26} color={MUTED} />
-        Espaço reservado para a imagem do mapa do mundo de Amaranth.
-      </div>
+      {popup && <MundoPopup acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup} />}
 
-      {kingdoms.map((k) => {
-        const open = openId === k.id;
-        return (
-          <div key={k.id} style={{ border: `1px solid ${LINE}`, borderRadius: 8, marginBottom: 10, overflow: "hidden" }}>
-            <button
-              onClick={() => setOpenId(open ? null : k.id)}
-              style={{
-                width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-                padding: "12px 16px", background: PANEL_2, border: "none", cursor: "pointer",
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Landmark size={16} color={FACTION_SEAL[k.name] || BRASS} />
-                <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT }}>{k.name}</span>
-              </span>
-              {open ? <ChevronDown size={16} color={MUTED} /> : <ChevronRight size={16} color={MUTED} />}
-            </button>
-            {open && (
-              <div style={{ padding: 16, background: "#00000020" }}>
+      {!cidadeInfo && (
+        <>
+          <SectionTitle icon={MapIcon}>Mapa do Mundo</SectionTitle>
+          <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${LINE}`, marginBottom: 12 }}>
+            <img src={assetUrl(MAPA_MUNDO.imagem)} alt="Mapa do continente com os seis reinos" style={{ display: "block", width: "100%", height: "auto" }} />
+            {kingdoms.map((k) => {
+              const pino = MAPA_MUNDO.pinos[k.id];
+              if (!pino) return null;
+              const ativo = k.id === reinoId;
+              return (
+                <button
+                  key={k.id} onClick={() => abrirReino(k.id)} aria-label={`Abrir ${k.name}`}
+                  style={{
+                    position: "absolute", left: `${pino.x}%`, top: `${pino.y}%`, transform: "translate(-50%, -50%)",
+                    padding: "3px 8px", borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
+                    border: `1.5px solid ${ativo ? "#F0D98C" : "#FFFFFFAA"}`, background: ativo ? PURPLE : "#2B2116CC",
+                    color: "#F3E9D2", fontFamily: "'Cinzel', serif", fontSize: "clamp(9px, 1.3vw, 12.5px)", boxShadow: "0 1px 4px #00000080",
+                  }}
+                >
+                  {k.name}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+            {kingdoms.map((k) => (
+              <button
+                key={k.id} onClick={() => abrirReino(k.id)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 20, cursor: "pointer",
+                  border: `1px solid ${k.id === reinoId ? (FACTION_SEAL[k.name] || BRASS) : LINE}`,
+                  background: k.id === reinoId ? `${FACTION_SEAL[k.name] || BRASS}22` : "transparent", color: PARCHMENT,
+                  fontFamily: "'Cinzel', serif", fontSize: 12,
+                }}
+              >
+                <Landmark size={13} color={FACTION_SEAL[k.name] || BRASS} /> {k.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {!reino && !cidadeInfo && <p style={{ color: MUTED, fontSize: 13 }}>Escolha um reino no mapa ou na lista.</p>}
+
+      {reino && cidadeInfo && (
+        <CidadeView cidade={cidadeInfo} gm={gm} nomeReino={reino.name} onVoltar={() => { setCidadeId(null); setAbaReino("cidades"); }} onAcao={setPopup} />
+      )}
+
+      {reino && !cidadeInfo && (
+        <div style={{ border: `1px solid ${LINE}`, borderRadius: 8, padding: 16, background: "#00000008" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <Landmark size={18} color={FACTION_SEAL[reino.name] || BRASS} />
+            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 20, margin: 0 }}>{reino.name}</h2>
+          </div>
+          <SubAbas abas={abasReino} ativa={abaReino} setAtiva={setAbaReino} />
+
+          {abaReino === "geral" && (
+            <div style={{ display: "grid", gap: 14 }}>
+              {info && <RichText html={textoVisivel(info.visaoGeral, gm)} onAcao={setPopup} />}
+              <div>
+                <div style={rotulo}>Anotações do reino (editável)</div>
                 <textarea
-                  style={{ ...inputStyle, minHeight: 70, resize: "vertical", marginBottom: 12 }}
-                  value={k.description}
-                  onChange={(e) => updateDescription(k.id, e.target.value)}
+                  style={{ ...inputStyle, minHeight: 70, resize: "vertical" }}
+                  value={reino.description}
+                  onChange={(e) => updateDescription(reino.id, e.target.value)}
                 />
-                <div style={{ fontSize: 11, color: MUTED, marginBottom: 8, fontFamily: "'IBM Plex Mono', monospace" }}>CIDADES</div>
-                {k.cities.map((city, idx) => (
-                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${LINE}` }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13, color: PARCHMENT, fontWeight: 600 }}>{city.name}</span>
-                        {city.link && (
-                          <Btn
-                            variant="ghost" href={`${import.meta.env.BASE_URL}${city.link}`}
-                            target="_blank" rel="noopener"
-                            style={{ padding: "2px 6px", fontSize: 11 }}
-                          >
-                            <ExternalLink size={12} /> Abrir guia
-                          </Btn>
-                        )}
+              </div>
+            </div>
+          )}
+
+          {abaReino === "cidades" && (
+            <div>
+              {reino.cities.length === 0 && <p style={{ color: MUTED, fontSize: 13 }}>Nenhuma cidade cadastrada ainda.</p>}
+              <div style={{ display: "grid", gap: 10 }}>
+                {reino.cities.map((city, idx) => {
+                  const temGuia = city.id && CIDADE_INFO[city.id];
+                  return (
+                    <div key={idx} style={{ ...cardBox, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: PARCHMENT }}>{city.name}</div>
+                        <div style={{ fontSize: 12.5, color: MUTED }}>{city.description}</div>
                       </div>
-                      <div style={{ fontSize: 11.5, color: MUTED }}>{city.description}</div>
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        {temGuia && <Btn onClick={() => setCidadeId(city.id)}><MapIcon size={13} /> Abrir cidade</Btn>}
+                        <Btn variant="ghost" onClick={() => removeCity(reino.id, idx, city)} aria-label={`Remover ${city.name}`}><X size={13} /></Btn>
+                      </div>
                     </div>
-                    <Btn variant="ghost" onClick={() => removeCity(k.id, idx, city)}><X size={13} /></Btn>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <input
+                  style={inputStyle} placeholder="Nova cidade"
+                  value={newCity[reino.id]?.name || ""}
+                  onChange={(e) => setNewCity((p) => ({ ...p, [reino.id]: { ...p[reino.id], name: e.target.value } }))}
+                />
+                <input
+                  style={inputStyle} placeholder="Descrição curta"
+                  value={newCity[reino.id]?.description || ""}
+                  onChange={(e) => setNewCity((p) => ({ ...p, [reino.id]: { ...p[reino.id], description: e.target.value } }))}
+                />
+                <Btn onClick={() => addCity(reino.id)}><Plus size={13} /></Btn>
+              </div>
+            </div>
+          )}
+
+          {abaReino === "casas" && info && (
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))" }}>
+              {info.casas.map((c) => (
+                <button key={c.id} onClick={() => setPopup({ tipo: "casa", id: c.id })} style={{ ...cardBox, textAlign: "left", cursor: "pointer", color: "inherit" }}>
+                  <div style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>{c.tag}</div>
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14.5, margin: "2px 0" }}>{c.nome}</div>
+                  <div style={{ fontSize: 12, color: MUTED }}>{c.papel}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {abaReino === "etiquetas" && info && (
+            <div>
+              <p style={{ fontSize: 13.5, margin: "0 0 10px" }}>Todo morador usa no pescoço uma etiqueta de metal com <b>nome, sobrenome e brasão da casa</b>. O metal diz o lugar da casa no reino.</p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {info.etiquetas.map((t) => (
+                  <div key={t.metal} style={{ ...cardBox, display: "flex", gap: 12, alignItems: "center", padding: 10 }}>
+                    <span aria-hidden="true" style={{ width: 44, height: 28, borderRadius: 14, background: t.cor, border: "1.5px solid #00000055", flexShrink: 0, boxShadow: "inset 0 1px 0 #FFFFFF70" }} />
+                    <div><div style={{ fontFamily: "'Cinzel', serif", fontSize: 14 }}>{t.metal}</div><div style={{ fontSize: 12.5, color: MUTED }}>{t.texto}</div></div>
                   </div>
                 ))}
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <input
-                    style={inputStyle} placeholder="Nova cidade"
-                    value={newCity[k.id]?.name || ""}
-                    onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], name: e.target.value } }))}
-                  />
-                  <input
-                    style={inputStyle} placeholder="Descrição curta"
-                    value={newCity[k.id]?.description || ""}
-                    onChange={(e) => setNewCity((p) => ({ ...p, [k.id]: { ...p[k.id], description: e.target.value } }))}
-                  />
-                  <Btn onClick={() => addCity(k.id)}><Plus size={13} /></Btn>
-                </div>
               </div>
-            )}
+              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 10 }}>
+                {info.marcas.map(([t, d]) => (
+                  <div key={t} style={{ border: `1px dashed ${BRASS}`, borderRadius: 6, padding: 10, fontSize: 13 }}><b style={{ fontFamily: "'Cinzel', serif" }}>{t}</b><br />{d}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {abaReino === "mapa" && info && (
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
+              <figure style={{ margin: 0 }}>
+                <img src={assetUrl(info.mapa)} alt={`Mapa de ${reino.name}`} style={{ width: "100%", borderRadius: 6, border: `1px solid ${LINE}` }} />
+                <figcaption style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>{info.mapaLegenda}</figcaption>
+              </figure>
+              {info.imagem && (
+                <figure style={{ margin: 0 }}>
+                  <img src={assetUrl(info.imagem)} alt={`Uma cidade de ${reino.name}`} style={{ width: "100%", borderRadius: 6, border: `1px solid ${LINE}` }} />
+                  <figcaption style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>Referência visual de uma cidade de {reino.name}.</figcaption>
+                </figure>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* --- Aba Personagens: NPCs por reino e cidade --- */
+function NpcsMundoView({ gm, factionFilter }) {
+  const [popup, setPopup] = useState(null);
+  const grupos = npcsPorReinoECidade(NPCS);
+  const nomeReino = (id) => (id === "katalao" ? "Katalão" : id);
+  const visiveis = grupos.filter((r) => factionFilter === "Todos" || nomeReino(r.reino) === factionFilter);
+  return (
+    <div>
+      {popup && <MundoPopup acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup} />}
+      {visiveis.length === 0 && <p style={{ color: MUTED, fontSize: 13 }}>Nenhum NPC cadastrado para esse filtro.</p>}
+      {visiveis.map((r) => (
+        <div key={r.reino} style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <Landmark size={15} color={FACTION_SEAL[nomeReino(r.reino)] || BRASS} />
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16 }}>{nomeReino(r.reino)}</span>
           </div>
-        );
-      })}
+          {r.cidades.map((c) => (
+            <div key={c.cidade} style={{ marginLeft: 6, paddingLeft: 12, borderLeft: `2px solid ${LINE}`, marginBottom: 12 }}>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: BRASS_BRIGHT, marginBottom: 8 }}>{CIDADE_INFO[c.cidade]?.nome || c.cidade}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
+                {c.npcs.map((n) => <NpcCard key={n.id} npc={n} gm={gm} onOpen={(id) => setPopup({ tipo: "npc", id })} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -3274,17 +3749,18 @@ const GRUPO_CHAMADA = {
   aurora: "Os mercenários de Beltezu e a mesa paralela do Sidepoint — mesmo mundo, outra história.",
 };
 
-function CoverView({ characters, onOpenCharacter }) {
-  // Qual mesa a capa está mostrando. Abre no Grupo C, a campanha principal.
-  const [grupoAtivo, setGrupoAtivo] = useState("c");
-  // Cada grupo tem a sua vitrine. O Grupo C segue a ordem manual (líder e sub-líder
-  // primeiro); o resto de cada grupo entra na ordem em que estiver.
+// Reinos que aparecem como quadradinhos na capa (mesma grafia das facções).
+const REINOS_CAPA = ["Hetalion", "Katalão", "Maxis Power", "Suth", "Goethia", "Amaranth/Omem"];
+const REINO_ID_POR_NOME = { "Hetalion": "hetalion", "Katalão": "katalao", "Maxis Power": "maxis", "Suth": "suth", "Goethia": "goethia", "Amaranth/Omem": "amaranth" };
+
+function CoverView({ characters, onOpenGrupo, onOpenReino }) {
   const doGrupo = (gid) => characters.filter((c) => grupoDoPersonagem(c) === gid);
+  // O Grupo C segue a ordem manual (líder e sub-líder primeiro) também nas miniaturas.
   const rosterC = GRUPO_C_ORDER
     .map((id) => characters.find((c) => c.id === id))
     .filter(Boolean)
     .concat(doGrupo("c").filter((c) => !GRUPO_C_ORDER.includes(c.id)));
-  const rosterAurora = doGrupo("aurora");
+  const roster = { c: rosterC, aurora: doGrupo("aurora") };
 
   return (
     <div>
@@ -3296,97 +3772,81 @@ function CoverView({ characters, onOpenCharacter }) {
         <div style={{ fontSize: 11, letterSpacing: 4, color: `${PURPLE_TEXT}99`, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>UNIVERSO AMARANTH</div>
         <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: 40, letterSpacing: 6, color: "#F0D98C", margin: "0 0 8px", textShadow: `0 2px 8px #00000040` }}>POINT</h1>
         <p style={{ color: PURPLE_TEXT, fontSize: 13.5, maxWidth: 480, margin: "0 auto", lineHeight: 1.6, fontStyle: "italic" }}>
-          {GRUPO_CHAMADA[grupoAtivo] || GRUPO_CHAMADA.c}
+          Escolha uma mesa ou um reino para ver os personagens.
         </p>
       </div>
 
-      {/* Escolha da mesa: a capa mostra um grupo de cada vez */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22, flexWrap: "wrap", justifyContent: "center" }}>
+      {/* Mesas: um quadrado por grupo, leva para Personagens daquele grupo */}
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: MUTED, marginBottom: 10 }}>Mesas</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginBottom: 28 }}>
         {GRUPOS.map((g) => {
-          const ativo = grupoAtivo === g.id;
-          const qtd = doGrupo(g.id).length;
+          const membros = roster[g.id] || doGrupo(g.id);
           return (
             <button
               key={g.id}
-              onClick={() => setGrupoAtivo(g.id)}
+              onClick={() => onOpenGrupo(g.id)}
               style={{
-                textAlign: "center", cursor: "pointer", borderRadius: 8, padding: "10px 20px",
-                border: `1px solid ${ativo ? g.cor : LINE}`,
-                background: ativo ? `${g.cor}1E` : "transparent", color: "inherit",
-                boxShadow: ativo ? `0 0 14px ${g.cor}22` : "none",
+                textAlign: "left", cursor: "pointer", color: "inherit", borderRadius: 10, padding: 18,
+                minHeight: 170, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 14,
+                background: `linear-gradient(160deg, ${g.cor}22 0%, ${PANEL_2} 70%)`, border: `1.5px solid ${g.cor}`,
+                boxShadow: `0 2px 14px ${g.cor}22`,
               }}
             >
-              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: ativo ? g.cor : PARCHMENT }}>
-                {g.label} <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>({qtd})</span>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {g.id === "c" ? <Crown size={18} color={g.cor} /> : <Swords size={18} color={g.cor} />}
+                  <span style={{ fontFamily: "'Cinzel', serif", fontSize: 20, letterSpacing: 1, color: g.cor }}>{g.label}</span>
+                </div>
+                <div style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>{g.subtitulo}</div>
               </div>
-              <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{g.subtitulo}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex" }}>
+                  {membros.slice(0, 7).map((c, i) => (
+                    <span key={c.id} title={c.name} style={{
+                      width: 34, height: 34, borderRadius: "50%", marginLeft: i ? -8 : 0, overflow: "hidden",
+                      border: `2px solid ${PANEL_2}`, background: "#00000030", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {c.imageUrl
+                        ? <img src={c.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
+                        : <ShieldHalf size={15} color={FACTION_SEAL[c.faction] || BRASS} />}
+                    </span>
+                  ))}
+                </div>
+                <span style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: MUTED, whiteSpace: "nowrap" }}>
+                  {membros.length} personagens <ChevronRight size={12} style={{ verticalAlign: "middle" }} />
+                </span>
+              </div>
             </button>
           );
         })}
       </div>
 
-      {[
-        { gid: "c", titulo: "Vitrine do Grupo C", roster: rosterC, cor: BRASS, icone: Crown },
-        { gid: "aurora", titulo: "Vitrine do Grupo Aurora", roster: rosterAurora, cor: "#B5654A", icone: Swords },
-      ].filter((v) => v.gid === grupoAtivo).map((v) => {
-        const Icone = v.icone;
-        const g = GRUPOS.find((x) => x.id === v.gid);
-        return (
-          <div key={v.gid} style={{ marginBottom: 28 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-              <Icone size={16} color={v.cor} style={{ alignSelf: "center" }} />
-              <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: v.cor, margin: 0 }}>
-                {v.titulo}
-              </h3>
-              <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{g?.subtitulo}</span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 14 }}>
-              {v.roster.map((c) => {
-                const role = v.gid === "c" ? GRUPO_C_ROLE[c.id] : null;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => onOpenCharacter(c.id)}
-                    style={{
-                      position: "relative", textAlign: "left", cursor: "pointer", color: "inherit",
-                      background: PANEL_2, border: `1px solid ${role ? BRASS : LINE}`, borderRadius: 8,
-                      padding: "16px 12px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-                      boxShadow: role ? `0 0 14px ${BRASS}33` : "none",
-                    }}
-                  >
-                    {role && (
-                      <span style={{
-                        position: "absolute", top: -9, display: "flex", alignItems: "center", gap: 3,
-                        background: PURPLE, border: `1px solid ${BRASS}`, borderRadius: 20, padding: "2px 8px",
-                        fontSize: 9, color: "#F0D98C", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5,
-                      }}>
-                        <Crown size={9} /> {role.includes("Sub") ? "SUB-LÍDER" : "LÍDER"}
-                      </span>
-                    )}
-                    <div style={{
-                      width: 54, height: 54, borderRadius: "50%", background: "#00000030",
-                      border: `2px solid ${FACTION_SEAL[c.faction] || BRASS}`, display: "flex",
-                      alignItems: "center", justifyContent: "center", marginTop: role ? 6 : 0, overflow: "hidden",
-                    }}>
-                      {c.imageUrl
-                        ? <img src={c.imageUrl} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
-                        : <ShieldHalf size={24} color={FACTION_SEAL[c.faction] || BRASS} />}
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PARCHMENT, lineHeight: 1.3 }}>{c.name}</div>
-                      <div style={{ fontSize: 10, color: BRASS, fontStyle: "italic", marginTop: 2, lineHeight: 1.3 }}>{c.epithet}</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            {v.roster.length === 0 && (
-              <p style={{ color: MUTED, fontSize: 12.5, fontStyle: "italic" }}>Nenhum personagem nesta mesa ainda.</p>
-            )}
-          </div>
-        );
-      })}
+      {/* Reinos: quadradinhos que levam para Personagens filtrado pelo reino */}
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: MUTED, marginBottom: 10 }}>Reinos</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+        {REINOS_CAPA.map((nome) => {
+          const cor = FACTION_SEAL[nome] || BRASS;
+          const pcs = characters.filter((c) => c.faction === nome).length;
+          const npcs = NPCS.filter((n) => n.reino === REINO_ID_POR_NOME[nome]).length;
+          return (
+            <button
+              key={nome}
+              onClick={() => onOpenReino(nome)}
+              style={{
+                aspectRatio: "1 / 1", cursor: "pointer", color: "inherit", borderRadius: 8, padding: 10,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, textAlign: "center",
+                background: PANEL_2, border: `1px solid ${LINE}`, borderTop: `3px solid ${cor}`,
+              }}
+            >
+              <Landmark size={22} color={cor} />
+              <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT, lineHeight: 1.2 }}>{nome}</span>
+              <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>
+                {pcs} {pcs === 1 ? "ficha" : "fichas"}{npcs ? ` · ${npcs} NPCs` : ""}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -3880,6 +4340,18 @@ export default function App() {
   const [editingChar, setEditingChar] = useState(null);
   const [factionFilter, setFactionFilter] = useState("Todos");
   const [grupoFilter, setGrupoFilter] = useState("c"); // abre no Grupo C (campanha principal)
+  // Ver como Jogador ou GM: esconde/mostra o conteúdo do mestre no Mundo e
+  // nos NPCs. Sem login por enquanto: qualquer um pode trocar. Fica salvo só
+  // neste navegador; começa em Jogador.
+  const [modoVisao, setModoVisaoState] = useState(() => {
+    try { return normalizarModo(localStorage.getItem(CHAVE_MODO)); } catch (e) { return normalizarModo(null); }
+  });
+  const setModoVisao = (m) => {
+    const v = normalizarModo(m);
+    setModoVisaoState(v);
+    try { localStorage.setItem(CHAVE_MODO, v); } catch (e) {}
+  };
+  const gm = modoVisao === "gm";
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
   const backupInputRef = useRef(null);
@@ -4209,6 +4681,14 @@ export default function App() {
         @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
         select, input, textarea { font-family: inherit; }
         ::selection { background: ${BRASS}55; }
+        .mundo-rich p { margin: 0 0 8px; }
+        .mundo-rich ul { margin: 0 0 8px; padding-left: 20px; }
+        .mundo-rich button[data-term], .mundo-rich button[data-person] { border: none; background: none; padding: 0; font: inherit; color: #2F6D61; border-bottom: 1px dotted #2F6D61; cursor: pointer; }
+        .mundo-grid2 { display: grid; gap: 14px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+        @media (max-width: 760px) { .mundo-grid2 { grid-template-columns: minmax(0,1fr); } }
+        .mapa-distritos svg { display: block; width: 100%; height: auto; }
+        .mapa-distritos .region { cursor: pointer; }
+        .mapa-distritos .region:hover .shape, .mapa-distritos .region:focus .shape { stroke: ${INK}; stroke-width: 2.5; }
       `}</style>
 
       <div style={{
@@ -4239,7 +4719,8 @@ export default function App() {
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <ModoVisaoToggle modo={modoVisao} setModo={setModoVisao} />
           <input
             ref={backupInputRef} type="file" accept="application/json" style={{ display: "none" }}
             onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; handleImportFile(file); }}
@@ -4265,7 +4746,8 @@ export default function App() {
         {tab === "home" && (
           <CoverView
             characters={characters}
-            onOpenCharacter={(id) => { setSelectedId(id); setTab("characters"); setSubView("detail"); }}
+            onOpenGrupo={(gid) => { setGrupoFilter(gid); setFactionFilter("Todos"); setTab("characters"); setSubView("list"); }}
+            onOpenReino={(nome) => { setGrupoFilter("todos"); setFactionFilter(nome); setTab("characters"); setSubView("list"); }}
           />
         )}
 
@@ -4275,9 +4757,9 @@ export default function App() {
           <div>
             {/* Seletor de GRUPO (mesa) — separa o Grupo C do Grupo Aurora */}
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {[...GRUPOS, { id: "todos", label: "Todos", subtitulo: "As duas mesas juntas", cor: MUTED }].map((g) => {
+              {[...GRUPOS, { id: "todos", label: "Todos", subtitulo: "As duas mesas juntas", cor: MUTED }, { id: "npcs", label: "NPCs do mundo", subtitulo: "Por reino e cidade", cor: "#2F6D61" }].map((g) => {
                 const ativo = grupoFilter === g.id;
-                const qtd = g.id === "todos" ? characters.length : characters.filter((c) => grupoDoPersonagem(c) === g.id).length;
+                const qtd = g.id === "todos" ? characters.length : g.id === "npcs" ? NPCS.length : characters.filter((c) => grupoDoPersonagem(c) === g.id).length;
                 return (
                   <button
                     key={g.id}
@@ -4312,12 +4794,16 @@ export default function App() {
                   >{f}</button>
                 ))}
               </div>
-              <Btn variant="primary" onClick={() => { setEditingChar(emptyCharacter()); setSubView("form"); }}>
-                <Plus size={14} /> Nova Ficha
-              </Btn>
+              {grupoFilter !== "npcs" && (
+                <Btn variant="primary" onClick={() => { setEditingChar(emptyCharacter()); setSubView("form"); }}>
+                  <Plus size={14} /> Nova Ficha
+                </Btn>
+              )}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+            {grupoFilter === "npcs" && <NpcsMundoView gm={gm} factionFilter={factionFilter} />}
+
+            {grupoFilter !== "npcs" && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
               {filtered.map((c) => (
                 <button
                   key={c.id}
@@ -4339,7 +4825,18 @@ export default function App() {
                   <div style={{ marginTop: 10, fontSize: 10.5, color: FACTION_SEAL[c.faction] || BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{c.faction}</div>
                 </button>
               ))}
-            </div>
+            </div>}
+
+            {/* Vindo de um reino (capa ou filtro): mostra também os NPCs daquele reino, por cidade */}
+            {grupoFilter === "todos" && factionFilter !== "Todos" && NPCS.some((n) => n.reino === REINO_ID_POR_NOME[factionFilter]) && (
+              <div style={{ marginTop: 22 }}>
+                <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: MUTED, marginBottom: 10 }}>NPCs de {factionFilter}</div>
+                <NpcsMundoView gm={gm} factionFilter={factionFilter} />
+              </div>
+            )}
+            {grupoFilter !== "npcs" && filtered.length === 0 && (
+              <p style={{ color: MUTED, fontSize: 13, fontStyle: "italic" }}>Nenhuma ficha de personagem neste filtro.</p>
+            )}
           </div>
         )}
 
@@ -4367,7 +4864,7 @@ export default function App() {
         {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={updateCharacterFields} />}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
-        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} />}
+        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} gm={gm} />}
         {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} />}
         {tab === "sagas" && <SagasView sagas={sagas} setSagas={setSagas} askConfirm={askConfirm} />}
       </div>

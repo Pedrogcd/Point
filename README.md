@@ -30,7 +30,7 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 |---|---|
 | **Início** | Vitrine de uma mesa por vez (Grupo C ou Grupo Aurora) e arco atual |
 | **Objetivos** | Metas da campanha com estados (Ativo/Pausado/Concluído) |
-| **Personagens** | Fichas completas dos 19 personagens (13 do Grupo C + 6 do Grupo Aurora), com edição e seletor de mesa |
+| **Personagens** | Fichas completas dos 19 personagens (13 do Grupo C + 6 do Grupo Aurora), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
@@ -49,6 +49,7 @@ O app **não exige login**: qualquer pessoa com o link edita, exclui, salva e ga
 - **Estatísticas de Combate**: Defesa, Resistência Armadura, Resistência Natural Física, Resistência Natural Mágica, Geral. Acerto não é estatística fixa — é calculado por tipo de ataque (corpo a corpo, arma de fogo, mágico)
 - **Recursos**: HP (definido por Vigor), MP (azul), SP (verde)
 - **Habilidades Passivas de Combate**: até 3 espaços por personagem, clicáveis — a Singularidade não ocupa espaço
+- **Painel Teste/Ataque**: seletor com dois modos — Teste (Atributo+Perícia, igual sempre) e Ataque (rola um ataque do personagem contra um alvo sintético com Defesa/Resistências definidas ali mesmo, sem precisar abrir o Confronto)
 
 ## Dados (Supabase) e backup
 

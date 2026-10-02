@@ -3374,7 +3374,7 @@ function CidadeView({ cidade, gm, onVoltar, nomeReino, onAcao }) {
 
       {abaAtual === "distritos" && (
         <div>
-          <div style={{ fontSize: 12, color: MUTED, marginBottom: 8 }}>Norte em cima, Maxis ao norte. Toque num distrito.</div>
+          <div style={{ fontSize: 12, color: MUTED, marginBottom: 8 }}>Norte em cima. Quem chega vem pelo leste, dos entrepostos, e entra pelo portão leste no mercado. Toque num distrito.</div>
           <div className="mapa-distritos" style={{ ...MAPA_CSS_VARS, border: `1px solid ${LINE}`, borderRadius: 8, overflowX: "auto", background: "#FBF5E6" }}>
             <div style={{ minWidth: 620 }}>
               <RichText html={cidade.mapaSvg} onAcao={onAcao} style={{ lineHeight: 0 }} />

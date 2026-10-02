@@ -5,11 +5,13 @@
 // definidas (build sem os secrets configurados, ex: CI de fork, ou um
 // checkout local sem .env), `supabase` fica `null` e `supabaseConfigured`
 // fica `false` — o resto do app trata isso como "sempre offline" em vez de
-// quebrar.
+// quebrar. `import.meta.env` também não existe fora do Vite (ex: quando os
+// testes importam point-amaranth-app.jsx direto, sem bundler) — o `?.`
+// evita que isso quebre o import nesse caso.
 import { createClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env?.VITE_SUPABASE_URL;
+const anonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
 
 export const supabaseConfigured = Boolean(url && anonKey);
 

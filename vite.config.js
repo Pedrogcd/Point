@@ -45,6 +45,11 @@ export default defineConfig({
         // cairia pra fonte padrão do sistema.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
         navigateFallback: `${BASE}index.html`,
+        // Páginas estáticas próprias (ex: guia de Frontier em public/sidepoint/)
+        // são servidas como estão — sem isso, navegar até elas cairia no
+        // index.html do app. O guia (~430 KB) fica abaixo do limite padrão de
+        // precache do workbox (2 MiB), então continua no precache sem mexer nele.
+        navigateFallbackDenylist: [/\/sidepoint\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

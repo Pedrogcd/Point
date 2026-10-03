@@ -129,6 +129,10 @@ export const FRONTIER = {
    "Nordeste de Katalão, colada em Hoshon (Maxis)"
   ],
   [
+   "Entrada",
+   "Pelos entrepostos do condado, depois o portão leste (3 h de estrada)"
+  ],
+  [
    "Casa regente",
    "Casa Brennard, vassala dos Pendragons"
   ],
@@ -165,49 +169,54 @@ export const FRONTIER = {
   ],
   [
    "Problema",
-   "O Barro cresce e o inverno chega"
+   "Gente demais chegando, campos fracos e o inverno vindo"
   ]
  ],
  "conceito": {
-  "pub": "<p><button data-term='katalao'>Katalão</button> é feudal, medieval e steampunk: cada cidade tem um lorde por sangue, cada pessoa nasce com um papel e carrega no pescoço a <button data-term='chapa'>etiqueta de metal</button> com nome, sobrenome e brasão da casa. O metal diz quanto a casa vale. Os refugiados ningens que chegam de Maxis não têm etiqueta. Pela lei não são criminosos nem inimigos: simplesmente não existem.</p><p>Frontier não é cruel. Ela só não tem uma palavra para essa gente, e tem medo do dia em que os <button data-term='pendragons'>Pendragons</button> decidirem resolver por ela. O Lorde Otto respondeu com o <button data-term='cadastro'>Cadastro Brennard</button> e com uma muralha nova.</p>"
+  "pub": "<p><button data-term='katalao'>Katalão</button> é feudal, medieval e steampunk: cada cidade tem um lorde por sangue, cada pessoa nasce com um papel e carrega no pescoço a <button data-term='chapa'>etiqueta de metal</button> com nome, sobrenome e brasão da casa. O metal diz quanto a casa vale. Os refugiados ningens que chegam de Maxis não têm etiqueta. Pela lei, não existem.</p><p>Frontier não é cruel. Ela só não tinha uma palavra para essa gente, e tem medo do dia em que os <button data-term='pendragons'>Pendragons</button> decidirem resolver por ela. O Lorde Otto respondeu com o <button data-term='cadastro'>Cadastro Brennard</button>: entrepostos que registram todo mundo na estrada, cabaninhas que dão nome e trabalho no mercado e uma parte nova da cidade sendo erguida para eles.</p>"
  },
  "chegada": [
   [
-   "Os campos pisoteados",
-   "Cercas quebradas, cevada colhida verde por gente com fome. Um trator a vapor parado no meio do campo, com a caldeira fria."
+   "As torres na estrada",
+   "Muito antes de Frontier, torres de vigia de pedra e ferro aparecem ao longo de todas as estradas e no meio dos campos abertos, uma à vista da outra. Tropas a cavalo e a vapor se aproximam de todo mundo que chega, pedem nome, origem e destino."
   ],
   [
-   "O Barro, do lado de fora",
-   "A favela dos sem-etiqueta encostada numa muralha nova, de pedra limpa e andaimes: lona de carga com logos da Mason e da Revol, caldeiras viradas fogão, crianças descalças, um altar à Isha com flores que brotam rápido demais."
+   "Os campos sem força",
+   "Quilômetros e quilômetros de plantação de cevada de cada lado da estrada, ainda crescendo, mas fracos, ralos, de um verde pálido. Colheitadeiras a vapor do tamanho de casas atravessam os campos devagar, soltando fumaça."
   ],
   [
-   "O Portão Novo e o leitor",
-   "As etiquetas de mercenário do grupo tocam a campainha. Com a K, a máquina não faz som nenhum. \"A cadela é serva de vocês? Então vai precisar de uma etiqueta de latão com o brasão de vocês. Senão fica do lado de fora.\""
+   "O entreposto",
+   "A alfândega do condado: um posto fortificado com guaritas, balanças, escrivães e filas. Todo mundo que entra é registrado, e os ningens são cadastrados ali mesmo. Em volta, um acampamento de lona: o Barro, de quem foi recusado ou ainda espera a vez."
   ],
   [
-   "A Vila Nova",
-   "Fileiras de casas iguais, brasões novos pintados nas portas, ningens com latão no pescoço que baixam os olhos quando um humano passa."
+   "A etiqueta provisória",
+   "As etiquetas de mercenário do grupo são anotadas e devolvidas. A K é cadastrada e sai com uma etiqueta de latão provisória, sem brasão de casa: \"O nome de família você recebe em Frontier. Até lá, isto é quem você é.\""
   ],
   [
-   "O Rio Parado e a Ponte da Etiqueta",
-   "Água que não corre e não reflete. Segundo leitor, guarita de ferro, cavaleiros a vapor."
+   "Três horas de estrada",
+   "Mais torres, mais campos, a patrulha das estradas passando. A fumaça das caldeiras de Frontier aparece no horizonte muito antes da muralha."
   ],
   [
-   "O Arrabalde e o portão norte",
-   "Moinhos com a roda quase parada, curtumes, lavadeiras. Depois, a muralha velha."
+   "A muralha leste",
+   "Portão de pedra antiga, guardas e o leitor de etiquetas. Cada etiqueta é encaixada, a máquina clica e toca a campainha. Só entra quem tem a sua."
+  ],
+  [
+   "O mercado e as cabaninhas",
+   "O portão leste dá direto no Bairro do Bronze, o mercado. Entre as bancas, cabaninhas de madeira recebem os recém-chegados: escrivães de avental anotam ofícios, distribuem nomes de família e apontam onde tem trabalho e onde começar a vida, na parte nova da cidade que está sendo construída."
   ],
   [
    "Dentro da muralha",
-   "Os armazéns e o Celeiro Grande, sinos, cheiro de pão. Ao fundo, no centro, o solar. Todo mundo educado, e todo mundo olhando para o norte, com medo."
+   "Feira, sinos, cheiro de pão. Ao fundo, no centro, o solar. Todo mundo educado, e todo mundo de olho em quem tem etiqueta nova no pescoço."
   ]
  ],
  "estetica": [
   "Aldeia europeia antiga com máquinas a vapor: enxaimel, ardósia, moinhos com engrenagens de latão, catedral gótica pequena com lampiões a gás.",
-  "Tratores e colheitadeiras de ferro com chaminé.",
+  "Colheitadeiras a vapor do tamanho de casas atravessando quilômetros de cevada.",
   "Lavradores com próteses de latão: braço-foice, perna de mola.",
   "Arauto com megafone de latão lendo os editos.",
   "Brasão Brennard em ferro fundido; acima, maior e mais novo, o dragão vermelho e dourado dos Pendragons.",
-  "Dirigíveis de carga no céu limpo; do lado de Maxis, fumaça negra."
+  "Dirigíveis de carga no céu limpo; do lado de Maxis, fumaça negra.",
+  "Torres de vigia de pedra e ferro ao longo das estradas e dos campos, uma à vista da outra."
  ],
  "medos": [
   {
@@ -231,6 +240,12 @@ export const FRONTIER = {
   }
  ],
  "forcas": [
+  {
+   "titulo": "Os entrepostos e as torres",
+   "rotulo": "Fiscalização",
+   "npc": "frontier_oruvel",
+   "pub": "Postos fortificados na estrada de Maxis, a três horas da muralha, e torres de vigia ao longo de todas as estradas e campos. Registram todo mundo que entra no condado e cadastram os ningens."
+  },
   {
    "titulo": "A Linha dos Fortins",
    "rotulo": "Cabeça militar",
@@ -269,25 +284,25 @@ export const FRONTIER = {
    "gm": "Fachada: Contratos de Colheita Grimm & Filhos. Vende etiquetas de latão falsas que passam no leitor, prende ningens em dívidas e compra os grãos desviados pelo Oruvel. Hoje é quem dá comida ao Barro."
   }
  ],
- "mapaSvg": "<svg viewBox=\"0 0 900 880\" role=\"img\" aria-label=\"Mapa de Frontier por distritos. Norte em cima: o Barro fora da muralha nova, a Vila Nova, o Rio Parado, o Arrabalde e a cidade murada com o Distrito do Lorde no centro e portões nos quatro lados.\">\n          <rect x=\"0\" y=\"0\" width=\"900\" height=\"880\" fill=\"var(--field)\" opacity=\".45\"/>\n          <g class=\"region\" tabindex=\"0\" data-region=\"campos\"><path class=\"shape\" d=\"M8 120 H92 V808 H808 V120 H892 V872 H8 Z\" fill=\"var(--field)\" stroke=\"var(--line)\"/><text x=\"50\" y=\"470\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"13\" fill=\"var(--ink)\" transform=\"rotate(-90 50 470)\">CAMPOS DE CEVADA</text><text x=\"850\" y=\"470\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"13\" fill=\"var(--ink)\" transform=\"rotate(90 850 470)\">CAMPOS · ESTRADA DOS FORTINS</text><text x=\"450\" y=\"845\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"13\" fill=\"var(--ink)\" >CAMPOS · estrada para Atlarin e Atlas ↓</text></g>\n          <text x=\"400\" y=\"14\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >↑ estrada de Maxis (Hoshon)</text>\n          <g class=\"region\" tabindex=\"0\" data-region=\"barro\"><rect class=\"shape\" x=\"110\" y=\"22\" width=\"580\" height=\"64\" rx=\"6\" fill=\"var(--mud)\" stroke=\"var(--verd)\" stroke-dasharray=\"3 3\"/><text x=\"400\" y=\"48\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"19\" fill=\"var(--ink)\" >O Barro</text><text x=\"400\" y=\"66\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >favela dos sem-etiqueta · fora da muralha nova</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"fortins\"><rect class=\"shape\" x=\"702\" y=\"22\" width=\"188\" height=\"66\" rx=\"6\" fill=\"var(--red-soft)\" stroke=\"var(--red)\" /><text x=\"796\" y=\"50\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Fortins</text><text x=\"796\" y=\"68\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >fronteira · Maxis</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"muralhanova\"><path class=\"shape\" d=\"M112 330 V112 Q112 100 124 100 H776 Q788 100 788 112 V330\" fill=\"none\" stroke=\"var(--brass)\" stroke-width=\"6\" stroke-dasharray=\"18 5\"/></g>\n          <rect x=\"405\" y=\"93\" width=\"90\" height=\"16\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"450.0\" y=\"104.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" >PORTÃO NOVO</text>\n          <g class=\"region\" tabindex=\"0\" data-region=\"vilanova\"><rect class=\"shape\" x=\"126\" y=\"116\" width=\"648\" height=\"58\" rx=\"6\" fill=\"var(--verd-soft)\" stroke=\"var(--verd)\" /><text x=\"450\" y=\"140\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"18\" fill=\"var(--ink)\" >Vila Nova Brennard</text><text x=\"450\" y=\"158\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >casas das famílias do cadastro · latão · toque de recolher</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"rio\"><path class=\"shape\" d=\"M0 192 C 150 176, 300 214, 450 196 S 750 178, 900 194 L 900 220 C 750 204, 600 240, 450 222 S 150 202, 0 218 Z\" fill=\"var(--water)\" stroke=\"var(--verd)\"/><text x=\"220\" y=\"212\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"12\" fill=\"var(--ink)\" >RIO PARADO</text><text x=\"690\" y=\"210\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"12\" fill=\"var(--ink)\" >RIO PARADO</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"linha\"><rect class=\"shape\" x=\"420\" y=\"180\" width=\"60\" height=\"54\" rx=\"3\" fill=\"var(--bg)\" stroke=\"var(--red)\" stroke-width=\"2\" stroke-dasharray=\"5 3\"/><text x=\"450\" y=\"204\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--red)\" >PONTE</text><text x=\"450\" y=\"217\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--red)\" >ETIQUETA</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"arrabalde\"><rect class=\"shape\" x=\"126\" y=\"242\" width=\"648\" height=\"62\" rx=\"6\" fill=\"var(--paper)\" stroke=\"var(--line)\" /><text x=\"450\" y=\"266\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"17\" fill=\"var(--ink)\" >Arrabalde do Rio</text><text x=\"450\" y=\"284\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >residencial · latão · moinhos, curtumes e lavadeiras</text></g>\n          <rect x=\"112\" y=\"318\" width=\"676\" height=\"462\" rx=\"40\" fill=\"none\" stroke=\"var(--muted)\" stroke-width=\"7\" opacity=\".85\"/>\n          <rect x=\"425\" y=\"310\" width=\"50\" height=\"16\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"450.0\" y=\"321.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" >PORTÃO</text>\n          <rect x=\"425\" y=\"772\" width=\"50\" height=\"16\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"450.0\" y=\"783.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" >PORTÃO</text>\n          <rect x=\"104\" y=\"523\" width=\"16\" height=\"52\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"112.0\" y=\"552.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" transform=\"rotate(-90 112.0 552.0)\">PORTÃO</text>\n          <rect x=\"780\" y=\"523\" width=\"16\" height=\"52\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"788.0\" y=\"552.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" transform=\"rotate(-90 788.0 552.0)\">PORTÃO</text>\n          <g class=\"region\" tabindex=\"0\" data-region=\"colina\"><rect class=\"shape\" x=\"132\" y=\"336\" width=\"200\" height=\"104\" rx=\"6\" fill=\"var(--brass-soft)\" stroke=\"var(--brass)\" /><text x=\"232\" y=\"380\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Colina de Prata</text><text x=\"232\" y=\"398\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >residencial alto</text><text x=\"232\" y=\"414\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >prata e ouro</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"praca\"><rect class=\"shape\" x=\"342\" y=\"336\" width=\"216\" height=\"104\" rx=\"6\" fill=\"var(--paper)\" stroke=\"var(--ink)\" /><text x=\"450\" y=\"376\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Armazéns</text><text x=\"450\" y=\"394\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >celeiros · silos · estoques</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"guarnicao\"><rect class=\"shape\" x=\"568\" y=\"336\" width=\"200\" height=\"104\" rx=\"6\" fill=\"var(--red-soft)\" stroke=\"var(--red)\" /><text x=\"668\" y=\"382\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Guarnição</text><text x=\"668\" y=\"400\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >quartel · necrotério</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"balanca\"><rect class=\"shape\" x=\"350\" y=\"410\" width=\"82\" height=\"24\" rx=\"3\" fill=\"var(--paper)\" stroke=\"var(--ink)\" stroke-dasharray=\"4 3\"/><text x=\"391\" y=\"426\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--ink)\" >Grimm &amp; F.</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"torre\"><circle class=\"shape\" cx=\"770\" cy=\"314\" r=\"20\" fill=\"var(--paper)\" stroke=\"var(--red)\" stroke-width=\"2\"/><text x=\"770\" y=\"318\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--red)\" >TORRE</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"claustro\"><rect class=\"shape\" x=\"132\" y=\"450\" width=\"160\" height=\"310\" rx=\"6\" fill=\"var(--verd-soft)\" stroke=\"var(--verd)\" /><text x=\"212\" y=\"595\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Claustro</text><text x=\"212\" y=\"613\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >catedral · templos</text><text x=\"212\" y=\"629\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >mosteiros · cemitério</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"solar\"><rect class=\"shape\" x=\"302\" y=\"450\" width=\"296\" height=\"150\" rx=\"72\" fill=\"var(--brass-soft)\" stroke=\"var(--brass)\" stroke-width=\"2.5\"/><text x=\"450\" y=\"521\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"19\" fill=\"var(--ink)\" >Distrito do Lorde</text><text x=\"450\" y=\"539\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >solar · registro · tribunal</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"caldeiras\"><rect class=\"shape\" x=\"302\" y=\"610\" width=\"296\" height=\"150\" rx=\"6\" fill=\"var(--bg)\" stroke=\"var(--muted)\" /><text x=\"450\" y=\"679\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Caldeiras</text><text x=\"450\" y=\"697\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >forjas · cervejarias · estação do Mula</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"bronze\"><rect class=\"shape\" x=\"608\" y=\"450\" width=\"160\" height=\"310\" rx=\"6\" fill=\"var(--paper)\" stroke=\"var(--brass)\" /><text x=\"688\" y=\"587\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"15\" fill=\"var(--ink)\" >Bairro do Bronze</text><text x=\"688\" y=\"605\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >residencial · ofícios</text><text x=\"688\" y=\"621\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >artesãos · feiras</text><text x=\"688\" y=\"637\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >o mercado da cidade</text></g>\n          <text x=\"880\" y=\"866\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" text-anchor=\"end\">N ↑</text>\n        </svg>",
+ "mapaSvg": "<svg viewBox=\"0 0 900 880\" role=\"img\" aria-label=\"Mapa de Frontier por distritos. Norte em cima: campos do norte, a Vila Nova dentro da muralha nova, o Rio Parado, o Arrabalde e a cidade murada com o Distrito do Lorde no centro. Quem chega vem pelo leste, dos entrepostos, e entra pelo portão leste no mercado.\">\n          <rect x=\"0\" y=\"0\" width=\"900\" height=\"880\" fill=\"var(--field)\" opacity=\".45\"/>\n          <g class=\"region\" tabindex=\"0\" data-region=\"campos\"><path class=\"shape\" d=\"M8 120 H92 V808 H808 V120 H892 V872 H8 Z\" fill=\"var(--field)\" stroke=\"var(--line)\"/><text x=\"50\" y=\"470\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"13\" fill=\"var(--ink)\" transform=\"rotate(-90 50 470)\">CAMPOS DE CEVADA</text><text x=\"850\" y=\"350\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"13\" fill=\"var(--ink)\" transform=\"rotate(90 850 350)\">CAMPOS · TORRES DE VIGIA</text><text x=\"450\" y=\"845\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"13\" fill=\"var(--ink)\" >CAMPOS · estrada para Atlarin e Atlas ↓</text></g><g class=\"region\" tabindex=\"0\" data-region=\"barro\"><rect class=\"shape\" x=\"812\" y=\"586\" width=\"80\" height=\"150\" rx=\"6\" fill=\"var(--mud)\" stroke=\"var(--verd)\" stroke-dasharray=\"3 3\"/><text x=\"852\" y=\"612\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--ink)\">ESTRADA</text><text x=\"852\" y=\"625\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--ink)\">DE MAXIS</text><text x=\"852\" y=\"652\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"12\" fill=\"var(--ink)\">Entrepostos</text><text x=\"852\" y=\"668\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"12\" fill=\"var(--ink)\">e o Barro</text><text x=\"852\" y=\"692\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--muted)\">3 h a leste</text><text x=\"852\" y=\"716\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"14\" fill=\"var(--ink)\">→</text></g><path d=\"M 796 549 L 852 549 L 852 586\" fill=\"none\" stroke=\"var(--muted)\" stroke-width=\"3\" stroke-dasharray=\"6 4\"/>\n          <text x=\"400\" y=\"14\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >↑ Hoshon (Maxis)</text>\n          <g class=\"region\" tabindex=\"0\" data-region=\"camposnorte\"><rect class=\"shape\" x=\"110\" y=\"22\" width=\"580\" height=\"64\" rx=\"6\" fill=\"var(--field)\" stroke=\"var(--line)\"/><text x=\"400\" y=\"50\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"17\" fill=\"var(--ink)\">Campos do norte</text><text x=\"400\" y=\"68\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\">cevada fraca este ano · trabalho dos cadastrados</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"fortins\"><rect class=\"shape\" x=\"702\" y=\"22\" width=\"188\" height=\"66\" rx=\"6\" fill=\"var(--red-soft)\" stroke=\"var(--red)\" /><text x=\"796\" y=\"50\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Fortins</text><text x=\"796\" y=\"68\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >fronteira · Maxis</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"muralhanova\"><path class=\"shape\" d=\"M112 330 V112 Q112 100 124 100 H776 Q788 100 788 112 V330\" fill=\"none\" stroke=\"var(--brass)\" stroke-width=\"6\" stroke-dasharray=\"18 5\"/></g>\n          <rect x=\"405\" y=\"93\" width=\"90\" height=\"16\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"450.0\" y=\"104.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" >PORTÃO NOVO</text>\n          <g class=\"region\" tabindex=\"0\" data-region=\"vilanova\"><rect class=\"shape\" x=\"126\" y=\"116\" width=\"648\" height=\"58\" rx=\"6\" fill=\"var(--verd-soft)\" stroke=\"var(--verd)\" /><text x=\"450\" y=\"140\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"18\" fill=\"var(--ink)\" >Vila Nova Brennard</text><text x=\"450\" y=\"158\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >casas das famílias do cadastro · latão · toque de recolher</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"rio\"><path class=\"shape\" d=\"M0 192 C 150 176, 300 214, 450 196 S 750 178, 900 194 L 900 220 C 750 204, 600 240, 450 222 S 150 202, 0 218 Z\" fill=\"var(--water)\" stroke=\"var(--verd)\"/><text x=\"220\" y=\"212\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"12\" fill=\"var(--ink)\" >RIO PARADO</text><text x=\"690\" y=\"210\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"12\" fill=\"var(--ink)\" >RIO PARADO</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"linha\"><rect class=\"shape\" x=\"420\" y=\"180\" width=\"60\" height=\"54\" rx=\"3\" fill=\"var(--bg)\" stroke=\"var(--red)\" stroke-width=\"2\" stroke-dasharray=\"5 3\"/><text x=\"450\" y=\"204\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--red)\" >PONTE</text><text x=\"450\" y=\"217\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--red)\" >ETIQUETA</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"arrabalde\"><rect class=\"shape\" x=\"126\" y=\"242\" width=\"648\" height=\"62\" rx=\"6\" fill=\"var(--paper)\" stroke=\"var(--line)\" /><text x=\"450\" y=\"266\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"17\" fill=\"var(--ink)\" >Arrabalde do Rio</text><text x=\"450\" y=\"284\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >residencial · latão · moinhos, curtumes e lavadeiras</text></g>\n          <rect x=\"112\" y=\"318\" width=\"676\" height=\"462\" rx=\"40\" fill=\"none\" stroke=\"var(--muted)\" stroke-width=\"7\" opacity=\".85\"/>\n          <rect x=\"425\" y=\"310\" width=\"50\" height=\"16\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"450.0\" y=\"321.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" >PORTÃO</text>\n          <rect x=\"425\" y=\"772\" width=\"50\" height=\"16\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"450.0\" y=\"783.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" >PORTÃO</text>\n          <rect x=\"104\" y=\"523\" width=\"16\" height=\"52\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"112.0\" y=\"552.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" transform=\"rotate(-90 112.0 552.0)\">PORTÃO</text>\n          <rect x=\"780\" y=\"523\" width=\"16\" height=\"52\" fill=\"var(--bg)\" stroke=\"var(--muted)\"/><text x=\"788.0\" y=\"552.0\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"9\" fill=\"var(--ink)\" transform=\"rotate(-90 788.0 552.0)\">LESTE</text>\n          <g class=\"region\" tabindex=\"0\" data-region=\"colina\"><rect class=\"shape\" x=\"132\" y=\"336\" width=\"200\" height=\"104\" rx=\"6\" fill=\"var(--brass-soft)\" stroke=\"var(--brass)\" /><text x=\"232\" y=\"380\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Colina de Prata</text><text x=\"232\" y=\"398\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >residencial alto</text><text x=\"232\" y=\"414\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >prata e ouro</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"praca\"><rect class=\"shape\" x=\"342\" y=\"336\" width=\"216\" height=\"104\" rx=\"6\" fill=\"var(--paper)\" stroke=\"var(--ink)\" /><text x=\"450\" y=\"376\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Armazéns</text><text x=\"450\" y=\"394\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >celeiros · silos · estoques</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"guarnicao\"><rect class=\"shape\" x=\"568\" y=\"336\" width=\"200\" height=\"104\" rx=\"6\" fill=\"var(--red-soft)\" stroke=\"var(--red)\" /><text x=\"668\" y=\"382\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Guarnição</text><text x=\"668\" y=\"400\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >quartel · necrotério</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"balanca\"><rect class=\"shape\" x=\"350\" y=\"410\" width=\"82\" height=\"24\" rx=\"3\" fill=\"var(--paper)\" stroke=\"var(--ink)\" stroke-dasharray=\"4 3\"/><text x=\"391\" y=\"426\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--ink)\" >Grimm &amp; F.</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"torre\"><circle class=\"shape\" cx=\"770\" cy=\"314\" r=\"20\" fill=\"var(--paper)\" stroke=\"var(--red)\" stroke-width=\"2\"/><text x=\"770\" y=\"318\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"10\" fill=\"var(--red)\" >TORRE</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"claustro\"><rect class=\"shape\" x=\"132\" y=\"450\" width=\"160\" height=\"310\" rx=\"6\" fill=\"var(--verd-soft)\" stroke=\"var(--verd)\" /><text x=\"212\" y=\"595\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Claustro</text><text x=\"212\" y=\"613\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >catedral · templos</text><text x=\"212\" y=\"629\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >mosteiros · cemitério</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"solar\"><rect class=\"shape\" x=\"302\" y=\"450\" width=\"296\" height=\"150\" rx=\"72\" fill=\"var(--brass-soft)\" stroke=\"var(--brass)\" stroke-width=\"2.5\"/><text x=\"450\" y=\"521\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"19\" fill=\"var(--ink)\" >Distrito do Lorde</text><text x=\"450\" y=\"539\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >solar · registro · tribunal</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"caldeiras\"><rect class=\"shape\" x=\"302\" y=\"610\" width=\"296\" height=\"150\" rx=\"6\" fill=\"var(--bg)\" stroke=\"var(--muted)\" /><text x=\"450\" y=\"679\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"16\" fill=\"var(--ink)\" >Caldeiras</text><text x=\"450\" y=\"697\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >forjas · cervejarias · estação do Mula</text></g>\n          <g class=\"region\" tabindex=\"0\" data-region=\"bronze\"><rect class=\"shape\" x=\"608\" y=\"450\" width=\"160\" height=\"310\" rx=\"6\" fill=\"var(--paper)\" stroke=\"var(--brass)\" /><text x=\"688\" y=\"587\" text-anchor=\"middle\" font-family=\"Cinzel, serif\" font-size=\"15\" fill=\"var(--ink)\" >Bairro do Bronze</text><text x=\"688\" y=\"605\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >residencial · ofícios</text><text x=\"688\" y=\"621\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >artesãos · feiras</text><text x=\"688\" y=\"637\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" >o mercado da cidade</text><text x=\"688\" y=\"653\" text-anchor=\"middle\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--verd)\">cabaninhas de recepção</text></g>\n          <text x=\"880\" y=\"866\" font-family=\"IBM Plex Mono, monospace\" font-size=\"11\" fill=\"var(--muted)\" text-anchor=\"end\">N ↑</text>\n        </svg>",
  "distritos": {
   "campos": {
    "titulo": "Os campos de cevada",
-   "pub": "<p>Cevada até o horizonte a oeste, a leste e ao sul. Tratores e colheitadeiras a vapor, cercas de pedra.</p><ul><li><b>Portão oeste:</b> estrada dos peregrinos e das fazendas.</li><li><b>Portão leste:</b> estrada dos Fortins, por onde sai a patrulha das estradas.</li><li><b>Portão sul:</b> estrada para Atlarin e Atlas.</li></ul><p>Ao norte, perto do Barro, os campos estão pisoteados.</p>"
+   "pub": "<p>Quilômetros de cevada a oeste, a leste e ao sul, cortados por estradas com torres de vigia, uma à vista da outra. Colheitadeiras a vapor do tamanho de casas. Este ano a plantação cresce sem força: inverno cedo, solo cansado e gente demais.</p><ul><li><b>Portão leste:</b> estrada de Maxis, pelos entrepostos (3 h). É por onde todo mundo chega.</li><li><b>Portão oeste:</b> estrada dos peregrinos e das fazendas.</li><li><b>Portão sul:</b> estrada para Atlarin e Atlas.</li></ul>"
   },
   "barro": {
-   "titulo": "O Barro",
-   "pub": "<p>A favela dos <b>sem-etiqueta</b>, ao norte, do lado de fora da muralha nova. Lona de carga de Maxis com logos da Mason e da Revol, caldeiras viradas fogão, rodas de trator como cerca, o altar à Isha.</p><p>Quem tem latão dorme do lado de dentro; quem não tem fica aqui, olhando o portão. Líder: Ossa.</p>",
-   "gm": "<p>A favela dos <b>sem-etiqueta</b>, ao norte, <b>do lado de fora da muralha nova</b>. Lona de carga de Maxis com logos da Mason e da Revol, caldeiras viradas fogão, rodas de trator como cerca, o altar à Isha.</p><p>A muralha nova separou os ningens em dois: quem tem latão dorme do lado de dentro; quem não tem fica aqui, olhando o portão.</p><p>Líder: Ossa. Voz radical: Faísca. Quem manda no escuro: a Balança.</p>"
+   "titulo": "Os entrepostos e o Barro",
+   "pub": "<p>A <b>alfândega do condado</b>, a cerca de três horas a leste da muralha, na estrada de Maxis. Postos fortificados com guaritas, balanças e escrivães: todo mundo que entra é registrado, e os ningens são cadastrados ali e saem com uma <b>etiqueta de latão provisória</b>.</p><p>Em volta dos entrepostos cresceu um acampamento de lona: <b>o Barro</b>. Fica ali quem foi recusado ou ainda espera a vez. Lona de carga de Maxis com logos da Mason e da Revol, caldeiras viradas fogão, o altar à Isha. Líder: Ossa.</p>",
+   "gm": "<p>A <b>alfândega do condado</b>, a cerca de três horas a leste da muralha, na estrada de Maxis. Postos fortificados com guaritas, balanças e escrivães: todo mundo que entra é registrado, e os ningens são cadastrados ali e saem com uma <b>etiqueta de latão provisória</b>.</p><p>Em volta dos entrepostos cresceu um acampamento de lona: <b>o Barro</b>, de quem foi recusado ou ainda espera a vez. Líder: Ossa. Voz radical: Faísca.</p><ul><li>A fila é onde a <b>Balança</b> trabalha: vende lugar na frente, etiquetas provisórias falsas e 'contratos de colheita' para quem desistiu de esperar.</li><li>As tropas dos entrepostos respondem ao Oruvel; a patrulha do Sir Vasco faz a ligação entre eles e a cidade.</li><li>Longe da muralha e dos olhos do lorde: se houver chacina, é aqui que ela acontece.</li></ul>"
   },
   "vilanova": {
    "titulo": "Vila Nova Brennard",
-   "pub": "<p><b>Distrito dos novos ningens</b>, entre a muralha nova e o Rio Parado. Fileiras de casas iguais de madeira e pedra, das famílias do cadastro, cada porta com o brasão novo de uma família de latão sob o dos Brennard.</p><ul><li>Trabalho, ração e <b>toque de recolher</b>: o sino da noite fecha a Ponte da Etiqueta.</li><li>A maioria trabalha nos campos, nos armazéns e nas caldeiras.</li><li>Têm parentes do lado de fora, no Barro. Isso é o que mais pesa.</li></ul><p>No papel do Lorde Otto é Vila Nova. Na boca da cidade, ainda é 'o Barro'.</p>"
+   "pub": "<p><b>Distrito dos novos ningens</b>, entre a muralha nova e o Rio Parado. Fileiras de casas iguais de madeira e pedra, das famílias do cadastro, cada porta com o brasão novo de uma família de latão sob o dos Brennard.</p><ul><li>Trabalho, ração e <b>toque de recolher</b>: o sino da noite fecha a Ponte da Etiqueta.</li><li>A maioria trabalha nos campos, nos armazéns e nas caldeiras.</li><li>Muitos têm parentes ainda esperando no Barro, nos entrepostos. Isso é o que mais pesa.</li></ul><p>É a <b>parte nova da cidade, ainda em construção</b>: andaimes, madeira fresca, ruas de terra. É para cá que as cabaninhas do mercado mandam os recém-chegados.</p>"
   },
   "muralhanova": {
    "titulo": "A muralha nova",
-   "pub": "<p>Obra do Lorde Otto: pedra nova e ferro, ainda com andaimes em alguns trechos. Parte das duas pontas da muralha velha e fecha o Arrabalde, o rio e a Vila Nova.</p><p>O <b>Portão Novo</b>, ao norte, fica de frente para a estrada de Maxis, com leitor de etiquetas e a patrulha do Sir Vasco.</p>",
-   "gm": "<p>Obra do Lorde Otto: pedra nova e ferro, ainda com andaimes em alguns trechos. Parte das duas pontas da muralha velha e fecha o Arrabalde, o rio e a Vila Nova.</p><ul><li><b>Portão Novo</b>, ao norte, de frente para a estrada de Maxis, com leitor de etiquetas. A patrulha do Sir Vasco reforça a guarda aqui.</li><li>Para o lorde: proteger o investimento e mostrar aos Pendragons que a cidade cresce. Para o Barro: a prova de que 'cadastro' quer dizer 'muro'.</li><li>Os trechos de andaime são por onde a Balança passa coisas e gente de noite.</li></ul>"
+   "pub": "<p>Obra do Lorde Otto: pedra nova e ferro, ainda com andaimes em alguns trechos. Parte das duas pontas da muralha velha e fecha o Arrabalde, o rio e a Vila Nova, a parte da cidade que cresce para o norte.</p><p>O <b>Portão Novo</b>, ao norte, dá para os campos do norte, por onde os moradores da Vila Nova saem para trabalhar na colheita.</p>",
+   "gm": "<p>Obra do Lorde Otto: pedra nova e ferro, ainda com andaimes em alguns trechos. Parte das duas pontas da muralha velha e fecha o Arrabalde, o rio e a Vila Nova.</p><ul><li>O <b>Portão Novo</b>, ao norte, dá para os campos do norte, por onde os cadastrados saem para trabalhar.</li><li>Para o lorde: proteger o investimento e mostrar aos Pendragons que a cidade cresce.</li><li>Os trechos de andaime são por onde a Balança passa coisas e gente de noite.</li></ul>"
   },
   "rio": {
    "titulo": "O Rio Parado",
@@ -334,8 +349,8 @@ export const FRONTIER = {
   },
   "bronze": {
    "titulo": "Bairro do Bronze",
-   "pub": "<p><b>Residencial, ofícios e o mercado da cidade</b>, no leste, junto ao portão leste. Casas de enxaimel de famílias de bronze: ferreiros, mestres-cervejeiros, carpinteiros, tecelões, escrivães menores.</p><ul><li><b>A Praça da Feira</b>: feira semanal, bancas, leilão de gado e o patíbulo antigo.</li><li>A estalagem onde correm os boatos.</li></ul>",
-   "gm": "<p><b>Residencial, ofícios e o mercado da cidade</b>, no leste, junto ao portão leste. Casas de enxaimel de famílias de bronze: ferreiros, mestres-cervejeiros, carpinteiros, tecelões, escrivães menores.</p><ul><li><b>A Praça da Feira</b>: feira semanal, bancas, leilão de gado. O <b>patíbulo antigo</b> fica aqui, palco do julgamento.</li><li>A estalagem onde correm os boatos.</li><li>Gente que subiu do latão em gerações de trabalho e vê o cadastro com sentimento misturado: 'nós levamos cem anos para chegar aqui'.</li></ul>"
+   "pub": "<p><b>Residencial, ofícios e o mercado da cidade</b>, no leste, logo depois do portão leste: é a primeira coisa que quem chega vê. Casas de enxaimel de famílias de bronze: ferreiros, mestres-cervejeiros, carpinteiros, tecelões, escrivães menores.</p><ul><li><b>As cabaninhas de recepção</b>, entre as bancas, logo depois do portão leste: escrivães anotam ofícios, distribuem os nomes de família do cadastro e mandam cada recém-chegado para um trabalho e para a parte nova da cidade.</li><li><b>A Praça da Feira</b>: feira semanal, bancas, leilão de gado e o patíbulo antigo.</li><li>A estalagem onde correm os boatos.</li></ul>",
+   "gm": "<p><b>Residencial, ofícios e o mercado da cidade</b>, no leste, logo depois do portão leste: é a primeira coisa que quem chega vê. Casas de enxaimel de famílias de bronze: ferreiros, mestres-cervejeiros, carpinteiros, tecelões, escrivães menores.</p><ul><li><b>As cabaninhas de recepção</b>, entre as bancas, logo depois do portão leste: escrivães anotam ofícios, distribuem os nomes de família do cadastro e mandam cada recém-chegado para um trabalho e para a parte nova da cidade.</li><li><b>A Praça da Feira</b>: feira semanal, bancas, leilão de gado. O <b>patíbulo antigo</b> fica aqui, palco do julgamento.</li><li>A estalagem onde correm os boatos.</li><li>Gente que subiu do latão em gerações de trabalho e vê o cadastro com sentimento misturado: 'nós levamos cem anos para chegar aqui'.</li><li>As cabaninhas são onde o cadastro do Otto vira gente de verdade, e onde a Balança tenta passar na frente oferecendo \"trabalho melhor\".</li></ul>"
   },
   "caldeiras": {
    "titulo": "Distrito das Caldeiras",
@@ -351,6 +366,10 @@ export const FRONTIER = {
    "titulo": "A Linha dos Fortins",
    "pub": "<p>Fortes pequenos de pedra e ferro ao longo da fronteira com Maxis, a nordeste, ligados por telégrafo e pelo trem blindado a vapor Mula. Comandante Hildegard Valk.</p>",
    "gm": "<p>Fortes pequenos de pedra e ferro ao longo da fronteira com Maxis, a nordeste, ligados por telégrafo e pelo trem blindado a vapor Mula. Comandante Hildegard Valk.</p><p>Um deles parou de responder.</p>"
+  },
+  "camposnorte": {
+   "titulo": "Os campos do norte",
+   "pub": "<p>Cevada a perder de vista entre a muralha nova e Hoshon, em Maxis. Os moradores da Vila Nova trabalham aqui na colheita, saindo pelo Portão Novo de manhã e voltando antes do sino.</p><p>A plantação está fraca este ano: o inverno chega cedo, o solo está cansado e há gente demais tirando dela.</p>"
   }
  },
  "termos": {
@@ -370,8 +389,8 @@ export const FRONTIER = {
   },
   "barro": {
    "titulo": "O Barro",
-   "pub": "<p>Os ningens de Frontier, em duas metades. A <b>Vila Nova Brennard</b>, das famílias do cadastro, fica dentro da muralha nova, ao norte do Rio Parado. A favela dos <b>sem-etiqueta</b> ficou do lado de fora: lona de Maxis, peças de máquinas abandonadas e um altar à Isha. A cidade chama as duas de 'o Barro'.</p><p>Líder: Ossa. Voz radical: Faísca.</p>",
-   "gm": "<p>Os ningens de Frontier, em duas metades. A <b>Vila Nova Brennard</b>, das famílias do cadastro, fica dentro da muralha nova, ao norte do Rio Parado. A favela dos <b>sem-etiqueta</b> ficou do lado de fora: lona de Maxis, peças de máquinas abandonadas e um altar à Isha. A cidade chama as duas de 'o Barro'.</p><p>Líder: Ossa. Voz radical: Faísca. Quem manda de verdade no escuro: a Balança.</p>"
+   "pub": "<p>O acampamento de lona em volta dos <b>entrepostos</b> do condado, a três horas da muralha: ningens recusados ou ainda esperando o cadastro. Lona de Maxis, peças de máquinas abandonadas e um altar à Isha.</p><p>Quem é cadastrado segue para Frontier e vai morar na <b>Vila Nova</b>, a parte nova da cidade. A cidade ainda chama todos eles de 'o Barro'.</p><p>Líder: Ossa. Voz radical: Faísca.</p>",
+   "gm": "<p>O acampamento de lona em volta dos <b>entrepostos</b> do condado, a três horas da muralha: ningens recusados ou ainda esperando o cadastro.</p><p>Quem é cadastrado segue para Frontier e vai morar na <b>Vila Nova</b>. A cidade ainda chama todos eles de 'o Barro'.</p><p>Líder: Ossa. Voz radical: Faísca. Quem manda de verdade na fila e no escuro: a Balança.</p>"
   },
   "berços": {
    "titulo": "Os berços vazios",
@@ -380,8 +399,8 @@ export const FRONTIER = {
   },
   "cadastro": {
    "titulo": "O Cadastro Brennard",
-   "pub": "<p>Iniciativa do Lorde Otto: os foragidos que se registram recebem <b>uma função, um nome de família e uma etiqueta de latão</b>, gravados pela prensa do Escrivão Hollan.</p><ul><li>Toda família nova começa <b>subalterna e pequena</b>, com o brasão dela sob o dos Brennard.</li><li>Os cadastrados moram na Vila Nova, têm trabalho, ração e toque de recolher.</li><li>Quem não se cadastrou ficou do lado de fora da muralha nova.</li></ul>",
-   "gm": "<p>Iniciativa do Lorde Otto: os foragidos que se registram recebem <b>uma função e um nome de família</b>, gravados pela prensa do Escrivão Hollan.</p><ul><li>Toda família nova começa <b>subalterna e pequena</b>, com <b>etiqueta de latão</b> e o brasão dela sob o dos Brennard.</li><li>Para o lorde: braços para a cevada, uma cidade maior e gente que deve tudo a ele.</li><li>Para a Balança: o fim do negócio de chapas falsas. Eles sabotam o cadastro.</li><li>Para os Pendragons: se descobrirem o tamanho, ambição de vassalo.</li><li>Para quem fica de fora: o Barro agora se divide entre cadastrados e não cadastrados.</li></ul>"
+   "pub": "<p>Iniciativa do Lorde Otto, em três etapas:</p><ul><li><b>Nos entrepostos</b>, na estrada: todo mundo que entra no condado é registrado; os ningens recebem uma <b>etiqueta de latão provisória</b>, sem brasão.</li><li><b>Nas cabaninhas do mercado</b>, já em Frontier: recebem uma função e um <b>nome de família</b>, gravado pela prensa do Escrivão Hollan. Toda família nova começa subalterna e pequena, com o brasão dela sob o dos Brennard.</li><li><b>Na Vila Nova</b>: casa na parte nova da cidade, trabalho, ração e toque de recolher.</li></ul>",
+   "gm": "<p>Iniciativa do Lorde Otto, em três etapas: registro e etiqueta provisória nos <b>entrepostos</b>; função e <b>nome de família</b> nas cabaninhas do mercado (prensa do Hollan); casa, trabalho e toque de recolher na <b>Vila Nova</b>.</p><ul><li>Para o lorde: braços para a cevada, uma cidade maior e gente que deve tudo a ele.</li><li>Para a Balança: o fim do negócio de etiquetas falsas. Eles sabotam o cadastro e exploram a fila.</li><li>Para os Pendragons: se descobrirem o tamanho, ambição de vassalo.</li><li>Para quem fica de fora: o Barro dos entrepostos.</li></ul>"
   },
   "semsal": {
    "titulo": "O mal sem sal",
@@ -446,11 +465,10 @@ export const FRONTIER = {
    "Quer latão bom? Fala com o Grimm. Etiqueta dele toca a campainha.",
    "A Laian, a estrategista de alfaiates, passou por aqui indo para Atlarin. Deixou recado para uns tais de Aurora."
   ]
- },
- "guiaJogadores": "sidepoint/frontier.html"
+ }
 };
 
-export const NPC_GRUPOS = {"pend": "Pendragons", "gov": "Governo e igreja", "mil": "Militar", "barro": "O Barro", "fora": "Força de fora", "crime": {"pub": "Comércio", "gm": "Crime"}};
+export const NPC_GRUPOS = {"pend":"Pendragons","gov":"Governo e igreja","mil":"Militar","barro":"O Barro","fora":"Força de fora","crime":{"pub":"Comércio","gm":"Crime"}};
 
 export const NPCS = [
  {
@@ -499,7 +517,7 @@ export const NPCS = [
    "Etiqueta": "Ouro",
    "Projeto": "O Cadastro Brennard"
   },
-  "texto": "Rígido, de poucas palavras e nenhuma pressa. Diante da onda de ningens, criou o <button class='term' data-term='cadastro'>Cadastro Brennard</button> e mandou erguer a muralha nova em volta da Vila Nova. Fala em fazer Frontier crescer.",
+  "texto": "Rígido, de poucas palavras e nenhuma pressa. Diante da onda de ningens, criou o <button class='term' data-term='cadastro'>Cadastro Brennard</button>: entrepostos na estrada, cabaninhas no mercado e uma parte nova da cidade sendo construída. Fala em fazer Frontier crescer.",
   "gm": {
    "kv": {
     "Raça": "Humano, mana estática",
@@ -605,7 +623,7 @@ export const NPCS = [
   "kv": {
    "Família": "Muitos netos, os últimos que nasceram na cidade"
   },
-  "texto": "Fala pelos camponeses. Não odeia os ningens; tem medo de passar fome por eles. O moinho dela, no Arrabalde, quase não gira desde que o rio desacelerou.",
+  "texto": "Fala pelos camponeses. Não odeia os ningens; tem medo de passar fome por eles. O moinho dela, no Arrabalde, quase não gira desde que o rio desacelerou. Diz que nunca viu a cevada tão fraca.",
   "gm": {
    "kv": {
     "Família": "Muitos netos, os últimos que nasceram"
@@ -654,7 +672,7 @@ export const NPCS = [
    "Raça": "Humano",
    "Linha": "Dura"
   },
-  "texto": "Comanda a guarda de Frontier a partir da Guarnição. Acha que o Barro é um barril de pólvora e não esconde isso de ninguém.",
+  "texto": "Comanda a guarda de Frontier e as tropas dos entrepostos. Acha que o Barro é um barril de pólvora e não esconde isso de ninguém.",
   "gm": {
    "kv": {
     "Raça": "Humano, mana estática",
@@ -674,19 +692,19 @@ export const NPCS = [
   "cidade": "frontier",
   "reino": "katalao",
   "nome": "Ossa",
-  "papel": "Líder do Barro",
+  "papel": "Líder do Barro, nos entrepostos",
   "grupo": "barro",
   "kv": {
    "Raça": "Ningen caçadora (ursa)",
    "Origem": "Fábricas de Maxis"
   },
-  "texto": "Idosa e firme. Tenta manter a paz entre os ningens, dos dois lados da muralha nova, e negociar com a cidade com dignidade.",
+  "texto": "Idosa e firme. Lidera o acampamento do Barro, em volta dos entrepostos, e negocia com os escrivães e as tropas com dignidade, um nome por vez.",
   "gm": {
    "kv": {
     "Raça": "Ningen caçadora (ursa)",
     "Origem": "Fábrica de Maxis"
    },
-   "texto": "Idosa e firme. Tenta manter a paz no Barro e negociar com dignidade.",
+   "texto": "Idosa e firme. Lidera o acampamento do Barro em volta dos entrepostos e tenta manter a paz na fila. Negocia com dignidade.",
    "ganchos": [
     "Representante dos ningens na tarefa do Celeiro.",
     "Pode reconhecer a K dos tempos da fábrica."
@@ -703,7 +721,7 @@ export const NPCS = [
   "kv": {
    "Raça": "Ningen corredor (galgo)"
   },
-  "texto": "Jovem e raivoso. Acha a Ossa fraca e fala em tomar à força o que falta antes do inverno.",
+  "texto": "Jovem e raivoso, cansado da fila dos entrepostos. Acha a Ossa fraca e fala em tomar à força o que falta antes do inverno.",
   "gm": {
    "kv": {
     "Raça": "Ningen corredor (galgo)",
@@ -729,7 +747,7 @@ export const NPCS = [
    "Garu": "Ningen caçador (lobo), viúvo",
    "Pipa": "7 anos"
   },
-  "texto": "Pai e filha do Barro. Garu não fala muito; Pipa fala com quem se agacha para falar com ela.",
+  "texto": "Pai e filha do Barro, no acampamento dos entrepostos. Garu não fala muito; Pipa fala com quem se agacha para falar com ela.",
   "gm": {
    "texto": "Garu matou o Sargento Aldric para proteger a Pipa. O primeiro golpe foi defesa; o segundo, com Aldric caído, foi raiva.",
    "ganchos": [
@@ -752,7 +770,7 @@ export const NPCS = [
    "Cargo": "Patrulha as estradas da região norte",
    "Dom da casa": "Fumaça quente, como a de um vulcão"
   },
-  "texto": "Cavaleiro de armadura de prata cravejada de rubis e capa vermelha, sempre com cara de quem queria estar em outro lugar. Veio reforçar a patrulha de Frontier por causa dos ningens. Exige as etiquetas na estrada e não tem paciência com quem não tem nenhuma.",
+  "texto": "Cavaleiro de armadura de prata cravejada de rubis e capa vermelha, sempre com cara de quem queria estar em outro lugar. Veio reforçar a patrulha entre os entrepostos e Frontier por causa dos ningens. Exige as etiquetas na estrada e não tem paciência com quem não tem nenhuma.",
   "gm": {
    "kv": {
     "Raça": "Humano, mana estática",

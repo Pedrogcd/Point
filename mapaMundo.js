@@ -72,16 +72,24 @@ export function calcularRecorte(poligono, folga = 0.08) {
 }
 
 // Converte uma cidade do formato antigo ({name, description}) pro novo
-// ({id, name, x, y, capital, description}), sem perder nenhum campo já
-// existente (ex: link) — só completa o que falta. Uma cidade que já está no
-// formato novo passa praticamente intacta. `idsExistentes` evita colisão de
-// id dentro do mesmo reino (muta o Set recebido).
+// ({id, name, x, y, capital, resumo, visaoGeral, imageUrl, distritos,
+// pessoas}), sem perder nenhum campo já existente (ex: link) — só completa o
+// que falta. `description` virou `resumo` (o texto curto de sempre, usado no
+// modal/hover do mapa) — o conteúdo migra, o campo antigo some depois de
+// migrado. `visaoGeral` fica vazio pro usuário preencher. Uma cidade que já
+// está no formato novo passa praticamente intacta (idempotente). `idsExistentes`
+// evita colisão de id dentro do mesmo reino (muta o Set recebido).
 export function migrarCidade(cidade, idsExistentes = new Set()) {
   const c = { ...(cidade || {}) };
   if (typeof c.x !== "number") c.x = null;
   if (typeof c.y !== "number") c.y = null;
   if (typeof c.capital !== "boolean") c.capital = false;
-  if (typeof c.description !== "string") c.description = c.description || "";
+  if (typeof c.resumo !== "string") c.resumo = typeof c.description === "string" ? c.description : "";
+  delete c.description;
+  if (typeof c.visaoGeral !== "string") c.visaoGeral = "";
+  if (typeof c.imageUrl !== "string") c.imageUrl = "";
+  if (!Array.isArray(c.distritos)) c.distritos = [];
+  if (!Array.isArray(c.pessoas)) c.pessoas = [];
   if (!c.id) {
     const base = slugificar(c.name);
     let id = base;
@@ -91,6 +99,14 @@ export function migrarCidade(cidade, idsExistentes = new Set()) {
   }
   idsExistentes.add(c.id);
   return c;
+}
+
+// Resolve o personagem vinculado a uma pessoa de interesse, se houver. Um
+// `personagemId` ausente ou apontando pra um personagem que foi apagado
+// devolve null — tratado igual: vínculo ausente, sem quebrar nada.
+export function personagemDaPessoa(pessoa, characters) {
+  if (!pessoa?.personagemId) return null;
+  return (Array.isArray(characters) ? characters : []).find((c) => c.id === pessoa.personagemId) || null;
 }
 
 // Migra a lista inteira de cidades de um reino, preservando ordem e nunca

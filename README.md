@@ -14,13 +14,17 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `public/mundo/` — mapa do mundo, mapa e imagem de Katalão, retratos dos NPCs
 - `cidades.js` — funções puras das cidades semente do Mundo: reposição idempotente (ex: Frontier em Katalão) em quem já tinha reinos salvos, respeitando as cidades apagadas de propósito (`point-cidades-removidas`)
 - `cidades.test.js` — testes automatizados do `cidades.js`
-- `mapaMundo.js` — funções puras do mapa interativo dos reinos: conversão de coordenada normalizada (0 a 1) pra porcentagem, caixa delimitadora e enquadramento (scale/translate) de um polígono, e migração do formato antigo de cidade ({name, description}) pro novo (com id/x/y/capital)
-- `mapaMundo.test.js` — testes automatizados do `mapaMundo.js` e um smoke test da aba Mundo renderizando com e sem dados de mapa
+- `mapaMundo.js` — funções puras do mapa interativo dos reinos: conversão de coordenada normalizada (0 a 1) pra porcentagem, caixa delimitadora e enquadramento (scale/translate) de um polígono, migração do formato antigo de cidade (`{name, description}`) pro novo (com `id`/`x`/`y`/`capital`/`resumo`/`visaoGeral`/`imageUrl`/`distritos`/`pessoas`), e `personagemDaPessoa` (resolve o vínculo opcional de uma pessoa de interesse com uma ficha de personagem existente, ou `null` se não tiver vínculo ou a ficha tiver sido apagada)
+- `mapaMundo.test.js` — testes automatizados do `mapaMundo.js`, incluindo a migração `description` → `resumo` (idempotente, sem perder texto), `personagemDaPessoa` e um smoke test da aba Mundo e da página da cidade (`CidadePaginaView`) renderizando nas três abas, com e sem dados
 - `public/sidepoint/frontier.html` — guia de jogadores de Frontier (Sidepoint), página estática publicada em https://pedrogcd.github.io/Point/sidepoint/frontier.html e aberta pelo botão "Abrir guia" da cidade na aba Mundo
 - `storage.js` — camada de armazenamento: Supabase como fonte de verdade (sincroniza entre aparelhos), localStorage como cache offline
 - `supabaseClient.js` / `imageUpload.js` — cliente Supabase, upload de retrato
-- `backup.js` — exportar/importar o estado inteiro do app em `.json` (sem depender de File/Blob do navegador, testável)
+- `backup.js` — exportar/importar o estado inteiro do app em `.json` (sem depender de File/Blob do navegador, testável); só valida a forma geral (as 5 listas existem), não migra nada — quem importa (`handleImportFile`) aplica `normalizarEstado` depois, senão um backup salvo num formato antigo restauraria com campo em branco ou quebraria a UI
 - `backup.test.js` — testes automatizados do `backup.js`, incluindo o ciclo exportar → importar
+- `personagens.js` — migração de personagem (formato antigo de ataques/atributos/estatísticas → novo, `grupo`/`racialAbility`/`classes`/`abilities`/`hp`/`mp`/`sp` ausentes ganham default), extraída do que antes era só um bloco inline no carregamento, pra poder ser testada e reutilizada na importação de backup também
+- `personagens.test.js` — testes automatizados do `personagens.js`
+- `normalizar.js` — a função única (`normalizarEstado`) que aplica `personagens.js` (personagens) e `migrarCidade`/`migrarCidades` de `mapaMundo.js` (cidades) num estado `{characters, kingdoms, gods, sagas, objectives}` — usada tanto no carregamento normal (via storage.js) quanto na importação de backup (`handleImportFile`), pra garantir que os dois caminhos corrigem exatamente os mesmos formatos antigos
+- `normalizar.test.js` — testes automatizados do `normalizar.js`, incluindo o cenário de importar um backup no formato antigo (cidade com `description`, personagem sem `abilities`/`hp`/`mp`/`sp`) e conferir que sai normalizado sem perder conteúdo
 - `seedGuard.js` — decide quando é seguro propor enviar o localStorage pro Supabase (blindagem contra repovoar o banco sem querer)
 - `seedGuard.test.js` — testes automatizados do `seedGuard.js`
 - `supabase/schema.sql` — SQL pra rodar uma vez no projeto Supabase (tabela + bucket de imagens)
@@ -42,7 +46,7 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
-| **Mundo** | Mapa do mundo interativo: reinos com `mapa` definido (Katalão) ganham território desenhado por polígono (hover mostra nome/descrição, clique "recorta" com zoom e mostra as cidades posicionadas) — reino sem `mapa` segue com o pino de sempre. Botão "Editar mapa" liga um modo pra traçar a fronteira e posicionar/arrastar/remover cidades, tudo salvo via storage.js. Cada reino também tem abas de texto (Visão geral, Cidades e, em Katalão, Casas, Etiquetas e Mapa do reino); cidades com conteúdo próprio (Frontier) abrem com sub-abas: Visão geral, Distritos (mapa clicável), Personagens, Forças e, no modo GM, Mesa do mestre |
+| **Mundo** | Mapa do mundo interativo: reinos com `mapa` definido (Katalão) ganham território desenhado por polígono (hover mostra nome/descrição, clique "recorta" com zoom e mostra as cidades posicionadas) — reino sem `mapa` segue com o pino de sempre. Botão "Editar mapa" liga um modo pra traçar a fronteira e posicionar/arrastar/remover cidades, tudo salvo via storage.js. Cada reino também tem abas de texto (Visão geral, Cidades e, em Katalão, Casas, Etiquetas e Mapa do reino); cidades com conteúdo próprio (Frontier) abrem com sub-abas: Visão geral, Distritos (mapa clicável), Personagens, Forças e, no modo GM, Mesa do mestre. Clicar numa cidade no mapa interativo abre um modal-resumo (nome, reino, resumo curto) com três botões — **Visão geral**, **Distritos** e **Pessoas de interesse** — que levam pra página da cidade (`CidadePaginaView`), uma sub-tela do Mundo no mesmo espírito da ficha de personagem: cabeçalho roxo com nome + reino, trilha "Mundo > Reino > Cidade" (cada nível clicável) e as três seções como abas. Visão geral tem textos editáveis (resumo e visão geral longa) e imagem (mesmo upload dos retratos); Distritos é uma lista de cartões (nome, descrição, notas) editável, com adicionar/remover; Pessoas de interesse são registros leves (nome, papel, descrição, facção, imagem opcional) — **não é ficha de personagem** — com um vínculo opcional (`personagemId`) pra uma ficha já existente, que mostra um botão "Abrir ficha"; sem vínculo, ou se a ficha vinculada foi apagada, o registro continua funcionando normal, só sem o botão. Cidades sem distritos/pessoas (as 11 de Katalão, por exemplo) mostram um estado vazio convidativo em vez de área em branco |
 | **Deuses** | 7 deidades do panteão |
 | **Sagas** | Arcos narrativos da campanha |
 
@@ -104,7 +108,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora, as cidades semente, o backup e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `backup.test.js` e `seedGuard.test.js` — 108 testes ao todo:
+O motor de combate, o Grupo Aurora, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `seedGuard.test.js`, `characterForm.render.test.js` e `rollPanel.test.js` — 252 testes ao todo:
 
 ```
 npm test

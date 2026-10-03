@@ -15,18 +15,19 @@ import {
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
   attrBonus, computeMaxHP, computeMaxSP, parseFlatBonus, limiarDaHabilidade, attrLabelDaHabilidade,
   findTriggeredProc, resolveConfirmationPhase, resolveAttack, computeStat, rollSuccessDice,
-  migrateBrigaProfKey,
+  defaultAttacksForCharacter,
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import {
   slugificar, paraPercentual, bboxPoligono, calcularRecorte,
-  migrarCidade, migrarCidades, cidadesPosicionadas,
+  cidadesPosicionadas, personagemDaPessoa,
 } from "./mapaMundo.js";
 import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
 import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
+import { normalizarEstado } from "./normalizar.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
 /* ---------------------------------------------------------------
@@ -458,14 +459,6 @@ const SEED_CHARACTERS_RAW = [
 // Aplica os campos da Ficha Base nova (Acerto/Defesa/Ataques/Itens/traços/XP)
 // como padrão a cada dossiê semente já existente, sem sobrescrever o que já
 // estava preenchido (singularidade, história, atributos, habilidades antigas).
-function defaultAttacksForCharacter() {
-  const pick = (id) => BASE_ATTACK_TYPES.find((t) => t.id === id);
-  return [pick("soco"), pick("arma_branca"), pick("revolver"), pick("shin")].filter(Boolean).map((t) => ({
-    nome: t.nome, tipo: t.tipo, acerto: t.acerto,
-    dano: t.dano, ferida: t.ferida, efeito: t.modificadores ? t.modificadores.join(", ") : "", profKey: t.profKey,
-  }));
-}
-
 function withFichaDefaults(c) {
   return {
     traits: "",
@@ -805,17 +798,17 @@ const SEED_KINGDOMS = [
     // Sem coordenadas de propósito: elas são posicionadas ali, não aqui.
     mapa: { cor: "#C9A227", poligono: [] },
     cities: [
-      { id: "katalao_cidade", name: "Katalão", description: "", x: null, y: null, capital: true },
-      { id: "kingsyard", name: "Kingsyard", description: "", x: null, y: null, capital: false },
-      { id: "mundis", name: "Mundis", description: "", x: null, y: null, capital: false },
-      { id: "frontier", name: "Frontier", description: "Cidade grande na fronteira nordeste, colada em Hoshon (Maxis). Regida pela Casa Brennard, vassala dos Pendragons. Ningens do Cadastro Brennard na Vila Nova, dentro da muralha nova; o Barro dos sem-etiqueta do lado de fora.", link: "sidepoint/frontier.html", x: null, y: null, capital: false },
-      { id: "riviera", name: "Riviéra", description: "", x: null, y: null, capital: false },
-      { id: "atlarin", name: "Atlarin", description: "", x: null, y: null, capital: false },
-      { id: "atlas", name: "Atlas", description: "", x: null, y: null, capital: false },
-      { id: "promet", name: "Promet", description: "", x: null, y: null, capital: false },
-      { id: "kil", name: "Kil", description: "", x: null, y: null, capital: false },
-      { id: "pompeia", name: "Pompeia", description: "", x: null, y: null, capital: false },
-      { id: "tengov", name: "Tengov", description: "", x: null, y: null, capital: false },
+      { id: "katalao_cidade", name: "Katalão", resumo: "", x: null, y: null, capital: true },
+      { id: "kingsyard", name: "Kingsyard", resumo: "", x: null, y: null, capital: false },
+      { id: "mundis", name: "Mundis", resumo: "", x: null, y: null, capital: false },
+      { id: "frontier", name: "Frontier", resumo: "Cidade grande na fronteira nordeste, colada em Hoshon (Maxis). Regida pela Casa Brennard, vassala dos Pendragons. Ningens do Cadastro Brennard na Vila Nova, dentro da muralha nova; o Barro dos sem-etiqueta do lado de fora.", link: "sidepoint/frontier.html", x: null, y: null, capital: false },
+      { id: "riviera", name: "Riviéra", resumo: "", x: null, y: null, capital: false },
+      { id: "atlarin", name: "Atlarin", resumo: "", x: null, y: null, capital: false },
+      { id: "atlas", name: "Atlas", resumo: "", x: null, y: null, capital: false },
+      { id: "promet", name: "Promet", resumo: "", x: null, y: null, capital: false },
+      { id: "kil", name: "Kil", resumo: "", x: null, y: null, capital: false },
+      { id: "pompeia", name: "Pompeia", resumo: "", x: null, y: null, capital: false },
+      { id: "tengov", name: "Tengov", resumo: "", x: null, y: null, capital: false },
     ] },
   { id: "maxis", name: "Maxis Power", description: "Potência industrial e militar, lar de famílias como Mason e Ayamato. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "suth", name: "Suth", description: "Império matriarcal sustentado por três Pilares: a Imperatriz, a Santa e a Parteira. [Rascunho — refine comigo quando quiser.]", cities: [] },
@@ -3558,7 +3551,7 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
       const base = slugificar(nome);
       let id = base, i = 2;
       while (idsExistentes.has(id)) id = `${base}_${i++}`;
-      return { ...k, cities: [...cidades, { id, name: nome, description: "", x, y, capital: false }] };
+      return { ...k, cities: [...cidades, { id, name: nome, resumo: "", x, y, capital: false }] };
     }));
     setPontoPendente(null);
     setNomeCidadeInput("");
@@ -3689,7 +3682,7 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
                     setPontoPendente(null);
                     onAbrirCidade(reinoDaCidade, c);
                   }}
-                  onMouseEnter={() => setHover({ reinoId: `cidade-${c.id}`, nome: c.name, descricao: c.description, ponto: [c.x, c.y] })}
+                  onMouseEnter={() => setHover({ reinoId: `cidade-${c.id}`, nome: c.name, descricao: c.resumo, ponto: [c.x, c.y] })}
                   onMouseLeave={() => setHover((h) => (h?.reinoId === `cidade-${c.id}` ? null : h))}
                   style={{
                     display: "flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 10, whiteSpace: "nowrap",
@@ -3805,14 +3798,246 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
 }
 
 // Exportado (além do default App) só pra teste de render — ver mapaMundo.test.js.
-export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
+// Página de uma cidade (sub-tela da aba Mundo, mesmo espírito da ficha de
+// personagem como sub-tela de Personagens). Três abas — Visão geral,
+// Distritos, Pessoas de interesse — tudo editável direto (sem modo de
+// edição separado, igual as "Anotações do reino"). `reinoId`/`cidadeId` (não
+// os objetos em si) garantem que a página sempre lê o dado mais recente de
+// `kingdoms`, mesmo depois de uma edição. Exportado só pra teste de render.
+export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, abaInicial, characters, askConfirm, onVoltarMundo, onVoltarReino, onAbrirFicha }) {
+  const [aba, setAba] = useState(abaInicial || "geral");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const reino = kingdoms.find((k) => k.id === reinoId) || null;
+  const cidade = reino ? (reino.cities || []).find((c) => c.id === cidadeId) || null : null;
+
+  function atualizarCidade(patch) {
+    setKingdoms((prev) => prev.map((k) => (
+      k.id !== reinoId ? k : { ...k, cities: (k.cities || []).map((c) => (c.id === cidadeId ? { ...c, ...patch } : c)) }
+    )));
+  }
+  function addDistrito() {
+    atualizarCidade({ distritos: [...(cidade.distritos || []), { id: `distrito_${Date.now()}`, nome: "", descricao: "", notas: "" }] });
+  }
+  function updateDistrito(id, key, value) {
+    atualizarCidade({ distritos: (cidade.distritos || []).map((d) => (d.id === id ? { ...d, [key]: value } : d)) });
+  }
+  function removeDistrito(id, nome) {
+    askConfirm(`Remover o distrito "${nome || "sem nome"}"? Essa ação não pode ser desfeita.`, () => {
+      atualizarCidade({ distritos: (cidade.distritos || []).filter((d) => d.id !== id) });
+    });
+  }
+  function addPessoa() {
+    atualizarCidade({ pessoas: [...(cidade.pessoas || []), { id: `pessoa_${Date.now()}`, nome: "", papel: "", descricao: "", faccao: "", imageUrl: "", personagemId: "" }] });
+  }
+  function updatePessoa(id, key, value) {
+    atualizarCidade({ pessoas: (cidade.pessoas || []).map((p) => (p.id === id ? { ...p, [key]: value } : p)) });
+  }
+  function removePessoa(id, nome) {
+    askConfirm(`Remover "${nome || "essa pessoa"}" da lista? Essa ação não pode ser desfeita.`, () => {
+      atualizarCidade({ pessoas: (cidade.pessoas || []).filter((p) => p.id !== id) });
+    });
+  }
+  async function handlePickImage(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !cidade) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const url = await uploadPortrait(file, cidade.id);
+      atualizarCidade({ imageUrl: url });
+    } catch (err) {
+      setUploadError(err.message || "Falha ao enviar a imagem.");
+    } finally {
+      setUploading(false);
+    }
+  }
+  function handleRemoveImage() {
+    removePortrait(cidade.imageUrl); // best-effort, não bloqueia a UI
+    atualizarCidade({ imageUrl: "" });
+  }
+
+  if (!reino || !cidade) {
+    return (
+      <div>
+        <p style={{ color: MUTED, fontSize: 13 }}>Essa cidade não existe mais.</p>
+        <Btn onClick={onVoltarMundo}><ChevronLeft size={14} /> Voltar ao Mundo</Btn>
+      </div>
+    );
+  }
+
+  const distritos = cidade.distritos || [];
+  const pessoas = cidade.pessoas || [];
+  const abas = [
+    { id: "geral", label: "Visão geral" },
+    { id: "distritos", label: `Distritos (${distritos.length})` },
+    { id: "pessoas", label: `Pessoas de interesse (${pessoas.length})` },
+  ];
+
+  return (
+    <div>
+      {/* Mundo > Katalão > Frontier — cada nível clicável, menos o atual. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 12, flexWrap: "wrap", fontFamily: "'IBM Plex Mono', monospace" }}>
+        <button onClick={onVoltarMundo} style={{ background: "transparent", border: "none", color: BRASS, cursor: "pointer", padding: 0 }}>Mundo</button>
+        <ChevronRight size={11} color={MUTED} />
+        <button onClick={onVoltarReino} style={{ background: "transparent", border: "none", color: BRASS, cursor: "pointer", padding: 0 }}>{reino.name}</button>
+        <ChevronRight size={11} color={MUTED} />
+        <span style={{ color: PARCHMENT }}>{cidade.name}</span>
+      </div>
+
+      {/* Barra roxa, mesmo estilo do cabeçalho da ficha de personagem. */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderRadius: 8,
+        background: `linear-gradient(100deg, ${PURPLE} 0%, ${PURPLE_LIGHT} 100%)`, marginBottom: 16,
+      }}>
+        <button onClick={onVoltarReino} title="Voltar" style={{ background: "transparent", border: "none", cursor: "pointer", color: PURPLE_TEXT, display: "flex" }}>
+          <ChevronLeft size={18} />
+        </button>
+        <div style={{ textAlign: "center" }}>
+          <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 18, color: "#F0D98C", margin: 0, letterSpacing: 1 }}>{cidade.name}</h2>
+          <div style={{ fontSize: 10.5, color: `${PURPLE_TEXT}AA`, fontFamily: "'IBM Plex Mono', monospace" }}>{reino.name}</div>
+        </div>
+        <div style={{ width: 18 }} />
+      </div>
+
+      <SubAbas abas={abas} ativa={aba} setAtiva={setAba} />
+
+      {aba === "geral" && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 16, alignItems: "start" }}>
+          <div>
+            <Field label="Resumo curto (aparece no modal do mapa e no hover)">
+              <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={cidade.resumo || ""} onChange={(e) => atualizarCidade({ resumo: e.target.value })} />
+            </Field>
+            <Field label="Visão geral">
+              <textarea
+                style={{ ...inputStyle, minHeight: 140, resize: "vertical" }} value={cidade.visaoGeral || ""}
+                placeholder="Ainda sem texto — escreva aqui." onChange={(e) => atualizarCidade({ visaoGeral: e.target.value })}
+              />
+            </Field>
+          </div>
+          <div style={{ width: 160 }}>
+            <div style={{ width: 160, aspectRatio: "1", borderRadius: 8, background: PANEL_2, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8 }}>
+              {cidade.imageUrl ? (
+                <img src={cidade.imageUrl} alt={cidade.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
+              ) : (
+                <Landmark size={30} color={MUTED} />
+              )}
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePickImage} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <Btn onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                <Upload size={12} /> {uploading ? "Enviando..." : "Enviar imagem"}
+              </Btn>
+              {cidade.imageUrl && <Btn variant="ghost" onClick={handleRemoveImage}><X size={12} /> Remover</Btn>}
+            </div>
+            {uploadError && <p style={{ color: EMBER, fontSize: 11, margin: "6px 0 0" }}>{uploadError}</p>}
+          </div>
+        </div>
+      )}
+
+      {aba === "distritos" && (
+        <div>
+          {distritos.length === 0 && (
+            <div style={{ ...cardBox, textAlign: "center", marginBottom: 12 }}>
+              <p style={{ margin: "0 0 10px", fontSize: 13, color: MUTED }}>Nenhum distrito cadastrado ainda — distritos ajudam a organizar bairros, zonas ou pontos notáveis da cidade.</p>
+              <Btn variant="primary" onClick={addDistrito}><Plus size={13} /> Adicionar distrito</Btn>
+            </div>
+          )}
+          {distritos.length > 0 && (
+            <>
+              <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
+                {distritos.map((d) => (
+                  <div key={d.id} style={cardBox}>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <input style={{ ...inputStyle, fontWeight: 700 }} placeholder="Nome do distrito" value={d.nome || ""} onChange={(e) => updateDistrito(d.id, "nome", e.target.value)} />
+                      <Btn variant="ghost" onClick={() => removeDistrito(d.id, d.nome)} aria-label={`Remover ${d.nome || "distrito"}`}><X size={13} /></Btn>
+                    </div>
+                    <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical", marginBottom: 8 }} placeholder="Descrição" value={d.descricao || ""} onChange={(e) => updateDistrito(d.id, "descricao", e.target.value)} />
+                    <textarea style={{ ...inputStyle, minHeight: 40, resize: "vertical" }} placeholder="Notas (referência própria, ex: do mestre)" value={d.notas || ""} onChange={(e) => updateDistrito(d.id, "notas", e.target.value)} />
+                  </div>
+                ))}
+              </div>
+              <Btn onClick={addDistrito}><Plus size={13} /> Adicionar distrito</Btn>
+            </>
+          )}
+        </div>
+      )}
+
+      {aba === "pessoas" && (
+        <div>
+          {pessoas.length === 0 && (
+            <div style={{ ...cardBox, textAlign: "center", marginBottom: 12 }}>
+              <p style={{ margin: "0 0 10px", fontSize: 13, color: MUTED }}>Nenhuma pessoa de interesse cadastrada ainda — não precisa de ficha completa, é só um registro leve (nome, papel, descrição).</p>
+              <Btn variant="primary" onClick={addPessoa}><Plus size={13} /> Adicionar pessoa</Btn>
+            </div>
+          )}
+          {pessoas.length > 0 && (
+            <>
+              <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", marginBottom: 12 }}>
+                {pessoas.map((p) => {
+                  const vinculado = personagemDaPessoa(p, characters);
+                  return (
+                    <div key={p.id} style={cardBox}>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                        <input style={{ ...inputStyle, fontWeight: 700 }} placeholder="Nome" value={p.nome || ""} onChange={(e) => updatePessoa(p.id, "nome", e.target.value)} />
+                        <Btn variant="ghost" onClick={() => removePessoa(p.id, p.nome)} aria-label={`Remover ${p.nome || "pessoa"}`}><X size={13} /></Btn>
+                      </div>
+                      <input style={{ ...inputStyle, marginBottom: 6 }} placeholder="Papel (ex: Chefe da Casa Brennard)" value={p.papel || ""} onChange={(e) => updatePessoa(p.id, "papel", e.target.value)} />
+                      <input style={{ ...inputStyle, marginBottom: 6 }} placeholder="Facção" value={p.faccao || ""} onChange={(e) => updatePessoa(p.id, "faccao", e.target.value)} />
+                      <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical", marginBottom: 6 }} placeholder="Descrição" value={p.descricao || ""} onChange={(e) => updatePessoa(p.id, "descricao", e.target.value)} />
+                      <input style={{ ...inputStyle, marginBottom: 6 }} placeholder="URL da imagem (opcional)" value={p.imageUrl || ""} onChange={(e) => updatePessoa(p.id, "imageUrl", e.target.value)} />
+                      <Field label="Vincular a um personagem (opcional)">
+                        <select style={inputStyle} value={p.personagemId || ""} onChange={(e) => updatePessoa(p.id, "personagemId", e.target.value)}>
+                          <option value="">— nenhum —</option>
+                          {(characters || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                      </Field>
+                      {vinculado && (
+                        <Btn onClick={() => onAbrirFicha(vinculado.id)} style={{ marginTop: 8, width: "100%", justifyContent: "center" }}>
+                          <Users size={13} /> Abrir ficha
+                        </Btn>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <Btn onClick={addPessoa}><Plus size={13} /> Adicionar pessoa</Btn>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, onAbrirFicha }) {
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
   const [popup, setPopup] = useState(null);
   const [newCity, setNewCity] = useState({});
   const [editandoMapa, setEditandoMapa] = useState(false);
-  const [cidadeMapaAberta, setCidadeMapaAberta] = useState(null); // { reino, cidade }
+  // Guardam só os ids (não os objetos) — assim sempre leem o dado mais
+  // recente de `kingdoms`, mesmo depois de uma edição na própria página.
+  const [cidadeMapaAberta, setCidadeMapaAberta] = useState(null); // { reinoId, cidadeId }
+  const [cidadePaginaAberta, setCidadePaginaAberta] = useState(null); // { reinoId, cidadeId, abaInicial }
+
+  function abrirPaginaCidade(rId, cId, aba) {
+    setCidadeMapaAberta(null);
+    setCidadePaginaAberta({ reinoId: rId, cidadeId: cId, abaInicial: aba });
+  }
+  function voltarAoMundoDaPaginaCidade() {
+    setCidadePaginaAberta(null);
+    setReinoId(null);
+  }
+  function voltarAoReinoDaPaginaCidade() {
+    if (cidadePaginaAberta) setReinoId(cidadePaginaAberta.reinoId);
+    setAbaReino("cidades");
+    setCidadePaginaAberta(null);
+  }
 
   const reino = kingdoms.find((k) => k.id === reinoId) || null;
   const info = reino ? REINO_INFO[reino.id] : null;
@@ -3823,8 +4048,8 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
   function addCity(kid) {
     const draft = newCity[kid];
     if (!draft?.name) return;
-    setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: [...k.cities, { name: draft.name, description: draft.description || "" }] } : k));
-    setNewCity((p) => ({ ...p, [kid]: { name: "", description: "" } }));
+    setKingdoms((prev) => prev.map((k) => k.id === kid ? { ...k, cities: [...k.cities, { name: draft.name, resumo: draft.resumo || "" }] } : k));
+    setNewCity((p) => ({ ...p, [kid]: { name: "", resumo: "" } }));
   }
   function removeCity(kid, idx, city) {
     askConfirm(`Remover a cidade "${city.name}"? Essa ação não pode ser desfeita.`, () => {
@@ -3859,16 +4084,34 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
   return (
     <div>
       {popup && <MundoPopup acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup} />}
-      {cidadeMapaAberta && (
-        <MundoModal onClose={() => setCidadeMapaAberta(null)}>
-          <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{cidadeMapaAberta.reino.name}</div>
-          <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 19, margin: "4px 0 10px" }}>{cidadeMapaAberta.cidade.name}</h2>
-          <p style={{ fontSize: 13.5, color: cidadeMapaAberta.cidade.description ? PARCHMENT : MUTED, lineHeight: 1.6, margin: 0 }}>
-            {cidadeMapaAberta.cidade.description || "Sem descrição ainda."}
-          </p>
-        </MundoModal>
-      )}
+      {cidadeMapaAberta && (() => {
+        const reinoModal = kingdoms.find((k) => k.id === cidadeMapaAberta.reinoId);
+        const cidadeModal = reinoModal ? (reinoModal.cities || []).find((c) => c.id === cidadeMapaAberta.cidadeId) : null;
+        if (!reinoModal || !cidadeModal) return null; // cidade/reino removido nesse meio tempo — não quebra, só não mostra
+        return (
+          <MundoModal onClose={() => setCidadeMapaAberta(null)}>
+            <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{reinoModal.name}</div>
+            <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 19, margin: "4px 0 10px" }}>{cidadeModal.name}</h2>
+            <p style={{ fontSize: 13.5, color: cidadeModal.resumo ? PARCHMENT : MUTED, lineHeight: 1.6, margin: "0 0 14px" }}>
+              {cidadeModal.resumo || "Sem descrição ainda."}
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Btn variant="primary" onClick={() => abrirPaginaCidade(reinoModal.id, cidadeModal.id, "geral")}>Visão geral</Btn>
+              <Btn variant="primary" onClick={() => abrirPaginaCidade(reinoModal.id, cidadeModal.id, "distritos")}>Distritos</Btn>
+              <Btn variant="primary" onClick={() => abrirPaginaCidade(reinoModal.id, cidadeModal.id, "pessoas")}>Pessoas de interesse</Btn>
+            </div>
+          </MundoModal>
+        );
+      })()}
 
+      {cidadePaginaAberta ? (
+        <CidadePaginaView
+          kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} characters={characters}
+          reinoId={cidadePaginaAberta.reinoId} cidadeId={cidadePaginaAberta.cidadeId} abaInicial={cidadePaginaAberta.abaInicial}
+          onVoltarMundo={voltarAoMundoDaPaginaCidade} onVoltarReino={voltarAoReinoDaPaginaCidade} onAbrirFicha={onAbrirFicha}
+        />
+      ) : (
+      <>
       {!cidadeInfo && (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
@@ -3884,7 +4127,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
           <MapaMundoInterativo
             kingdoms={kingdoms} setKingdoms={setKingdoms} removeCity={removeCity}
             reinoAbertoId={reinoId} onAbrirReino={abrirReino}
-            onAbrirCidade={(reino, cidade) => setCidadeMapaAberta({ reino, cidade })}
+            onAbrirCidade={(reino, cidade) => setCidadeMapaAberta({ reinoId: reino.id, cidadeId: cidade.id })}
             editando={editandoMapa}
           />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
@@ -3943,7 +4186,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
                     <div key={idx} style={{ ...cardBox, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: PARCHMENT }}>{city.name}</div>
-                        <div style={{ fontSize: 12.5, color: MUTED }}>{city.description}</div>
+                        <div style={{ fontSize: 12.5, color: MUTED }}>{city.resumo}</div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                         {temGuia && <Btn onClick={() => setCidadeId(city.id)}><MapIcon size={13} /> Abrir cidade</Btn>}
@@ -3961,8 +4204,8 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
                 />
                 <input
                   style={inputStyle} placeholder="Descrição curta"
-                  value={newCity[reino.id]?.description || ""}
-                  onChange={(e) => setNewCity((p) => ({ ...p, [reino.id]: { ...p[reino.id], description: e.target.value } }))}
+                  value={newCity[reino.id]?.resumo || ""}
+                  onChange={(e) => setNewCity((p) => ({ ...p, [reino.id]: { ...p[reino.id], resumo: e.target.value } }))}
                 />
                 <Btn onClick={() => addCity(reino.id)}><Plus size={13} /></Btn>
               </div>
@@ -4015,6 +4258,8 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -4758,111 +5003,14 @@ export default function App() {
         const c = await storage.get("point-characters");
         if (c?.value) {
           const loadedChars = JSON.parse(c.value);
-          // Migração automática e não-destrutiva:
-          // 1) renomeia "Soco"→"Ataque desarmado" e "Mosquetão"→"Mosquete" (nomes antigos),
-          //    e ajusta o Mosquetão/Revólver salvos para os novos valores de Acerto/Dano;
-          // 2) remove "Chute" (agora redundante, já coberto por "Ataque desarmado");
-          // 3) em ataques salvos no formato antigo (sem "tipo", com atributoBase/zona),
-          //    identifica pelo nome e preenche o "tipo" correto (ou "marcial" se for
-          //    um ataque customizado desconhecido) — a Ferida escalar ou não já vem
-          //    direto do Tipo (Marcial escala, Arma de fogo/Mágico é fixa);
-          // 4) preenche ataques padrão (Ataque desarmado/Arma branca/Revólver/Shin) em quem foi
-          //    salvo antes dessa funcionalidade existir;
-          // 5) corrige a base de Defesa (era 0, agora 5) e Resistência Natural (era 2 ou 6,
-          //    agora 1, e agora dividida em Física/Mágica) pra quem ainda estava no valor
-          //    padrão antigo — não mexe em quem já tinha um valor diferente (provavelmente
-          //    editado manualmente);
-          // 6) adiciona o item "Armadura física" em quem não tiver nenhuma armadura
-          //    cadastrada em Itens — necessário pra Resistência Armadura contar no combate;
-          // 7) converte atributos do formato antigo (Força/Percepção/Agilidade/Resistência/
-          //    Inteligência/Determinação) pro novo formato Fire-Emblem-like (Força/Magia/
-          //    Destreza/Técnica/Sorte/Defesa/Resistência Física/Resistência Mágica) —
-          //    mapeamento: Percepção→Destreza, Agilidade→Técnica, Inteligência→Magia,
-          //    Determinação→Sorte, Resistência→Física e Mágica (mesmo grau nas duas),
-          //    Defesa (atributo novo) começa em "D" já que não existia antes.
-          const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
-          const REMOVED_NAMES = new Set(["chute"]);
-          const OLD_DEFAULT_DEFESA = new Set([0, 5, undefined]);
-          const OLD_DEFAULT_RESIST_NATURAL = new Set([1, 2, 6, undefined]);
-          const OLD_DEFAULT_RESIST_ARMADURA = new Set([7, undefined]);
-          const migrateAttributes = (attrs) => {
-            if (!attrs || !attrs.percepcao) return attrs; // já está no formato novo (ou vazio)
-            return {
-              forca: attrs.forca || "E",
-              magia: attrs.inteligencia || "E",
-              destreza: attrs.percepcao || "E",
-              tecnica: attrs.agilidade || "E",
-              sorte: attrs.determinacao || "E",
-              defesaAttr: "D",
-              resistFisica: attrs.resistencia || "E",
-              resistMagica: attrs.resistencia || "E",
-            };
-          };
-          const migrated = loadedChars.map((ch) => {
-            const isAlmah = ch.id === "almah" || (ch.name || "").trim().toLowerCase() === "almah mason";
-            const withoutRemoved = (ch.attacks || []).filter((atk) => {
-              const nomeLower = (atk.nome || "").trim().toLowerCase();
-              if (REMOVED_NAMES.has(nomeLower)) return false;
-              if (isAlmah && nomeLower === "ataque desarmado") return false; // pedido específico: Almah não tem desarmado
-              return true;
-            });
-            const renamedAttacks = withoutRemoved.map((atk) => {
-              const key = (atk.nome || "").trim().toLowerCase();
-              const alias = NAME_ALIASES[key];
-              if (!alias) return atk;
-              // Ao renomear Mosquetão -> Mosquete, também atualiza os valores pros novos padrões.
-              if (key === "mosquetão" || key === "mosquetao") {
-                const base = BASE_ATTACK_TYPES.find((t) => t.id === "mosquetao");
-                return { ...atk, nome: alias, acerto: base.acerto, dano: base.dano, ferida: base.ferida, tipo: base.tipo };
-              }
-              return { ...atk, nome: alias };
-            });
-            // 9) A Proficiencia "Briga" foi eliminada: Ataque desarmado passou a usar
-            //    Combate Corpo a Corpo, como qualquer outro ataque marcial.
-            const semBriga = migrateBrigaProfKey(renamedAttacks);
-            const fixedAttacks = semBriga.map((atk) => {
-              if (atk.tipo) return atk;
-              const base = BASE_ATTACK_TYPES.find((t) => t.nome.trim().toLowerCase() === (atk.nome || "").trim().toLowerCase());
-              return { ...atk, tipo: base?.tipo || "marcial" };
-            });
-            const existingNames = new Set(fixedAttacks.map((a) => (a.nome || "").trim().toLowerCase()));
-            const missing = ch.fichaFechada ? [] : defaultAttacksForCharacter().filter((a) => {
-              const nomeLower = a.nome.trim().toLowerCase();
-              if (existingNames.has(nomeLower)) return false;
-              if (isAlmah && nomeLower === "ataque desarmado") return false; // não repor pra Almah
-              return true;
-            });
-            const statBase = { ...(ch.statBase || {}) };
-            if (OLD_DEFAULT_DEFESA.has(statBase.defesa)) statBase.defesa = STAT_BASE_DEFAULTS.defesa;
-            if (OLD_DEFAULT_RESIST_ARMADURA.has(statBase.resistArmadura)) statBase.resistArmadura = STAT_BASE_DEFAULTS.resistArmadura;
-            if (statBase.resistNatural !== undefined && statBase.resistNaturalFisica === undefined) {
-              // campo antigo unico -> divide nos dois novos, aplicando a mesma logica de "valor padrao antigo"
-              const val = OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNatural) ? STAT_BASE_DEFAULTS.resistNaturalFisica : statBase.resistNatural;
-              statBase.resistNaturalFisica = val;
-              statBase.resistNaturalMagica = val;
-              delete statBase.resistNatural;
-            }
-            if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalFisica)) statBase.resistNaturalFisica = STAT_BASE_DEFAULTS.resistNaturalFisica;
-            if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalMagica)) statBase.resistNaturalMagica = STAT_BASE_DEFAULTS.resistNaturalMagica;
-            const itensArmadura = (ch.itens?.armadura || []);
-            const itens = (itensArmadura.length > 0 || ch.fichaFechada) ? ch.itens : { ...(ch.itens || { usaveis: [], principais: [] }), armadura: ["Armadura física"] };
-            const attributes = migrateAttributes(ch.attributes);
-            const procs = Array.isArray(ch.procs) ? ch.procs.slice(0, MAX_PROCS) : [];
-            const atributosGerais = { ...ATRIBUTOS_GERAIS_DEFAULT, ...(ch.atributosGerais || {}) };
-            const proficiencias = { ...PROFICIENCIAS_DEFAULT, ...(ch.proficiencias || {}) };
-            delete proficiencias.briga; // proficiencia eliminada do sistema
-            // 10) Grupo (Grupo C / Grupo Aurora) e a tabela de Raça + Classes (ainda a
-            //     definir no sistema) em quem foi salvo antes desses campos existirem.
-            const grupo = ch.grupo || grupoDoPersonagem(ch);
-            const racialAbility = ch.racialAbility || { name: "", description: "" };
-            const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
-            const classes = [0, 1].map((i) => classesSalvas[i] || { name: "", description: "" });
-            // "Resumo de Poder" legado: as fichas do Grupo Aurora (e qualquer ficha
-            // salva antes desse campo existir) não têm abilities — sem isso, o
-            // CharacterForm quebrava com tela branca ao tentar .map() em undefined.
-            const abilities = Array.isArray(ch.abilities) ? ch.abilities : [];
-            return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, abilities, atributosGerais, proficiencias };
-          });
+          // Migração de formato antigo -> novo (renomeia/remove ataques legados,
+          // tipa ataques sem "tipo", repõe ataques padrão, corrige defaults de
+          // Defesa/Resistência, atributos no formato antigo, Grupo/Raça+Classes,
+          // `abilities` ausente, etc.) — extraída pra personagens.js, e chamada
+          // via normalizarEstado tanto aqui quanto na importação de backup
+          // (handleImportFile), pra um backup salvo num formato antigo não ficar
+          // com campos em branco ou quebrar a UI quando restaurado.
+          const migrated = normalizarEstado({ characters: loadedChars }).characters;
           // Reset de HP/MP/SP pedido nas sessões de revisão — roda só uma vez (marcado
           // por uma flag), pra não sobrescrever ajustes manuais feitos depois.
           // storage.get devolve undefined quando a chave não existe (ver storage.js),
@@ -4901,10 +5049,12 @@ export default function App() {
           // Cidades semente novas (ex: Frontier) entram em quem já tinha reinos
           // salvos, de forma idempotente e por cidade (ver rationale em cidades.js).
           let reinos = JSON.parse(k.value);
-          // Mapa interativo (02/10): cidades no formato antigo ({name, description})
-          // ganham id/x/y/capital sem perder nada — ver mapaMundo.js. Roda antes da
+          // Cidades no formato antigo ({name, description}) ganham id/x/y/capital/
+          // resumo/visaoGeral/distritos/pessoas sem perder nada — mesma função
+          // (normalizarEstado, que por sua vez chama migrarCidades em mapaMundo.js)
+          // usada na importação de backup, ver handleImportFile. Roda antes da
           // reposição de sementes pra elas já chegarem no formato novo também.
-          reinos = reinos.map((rk) => ({ ...rk, cities: migrarCidades(rk.cities) }));
+          reinos = normalizarEstado({ kingdoms: reinos }).kingdoms;
           let cidadesRemovidas = [];
           try {
             const rem = await storage.get("point-cidades-removidas");
@@ -5020,11 +5170,17 @@ export default function App() {
     askConfirm(
       "Importar esse arquivo substitui todos os personagens e o resto dos dados (reinos, deuses, sagas, objetivos) pelo conteúdo do backup. Essa ação não pode ser desfeita.",
       () => {
-        setCharacters(data.characters);
-        setKingdoms(data.kingdoms);
-        setGods(data.gods);
-        setSagas(data.sagas);
-        setObjectives(data.objectives);
+        // Um backup pode ter sido baixado antes de uma migração existir (ex:
+        // cidade ainda com `description`, personagem sem `abilities`) — aplica
+        // a mesma normalização do carregamento normal (normalizarEstado, usada
+        // também no useEffect de carregamento acima) pra não restaurar dado
+        // com campo em branco ou formato que quebra a UI.
+        const normalizado = normalizarEstado(data);
+        setCharacters(normalizado.characters);
+        setKingdoms(normalizado.kingdoms);
+        setGods(normalizado.gods);
+        setSagas(normalizado.sagas);
+        setObjectives(normalizado.objectives);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );
@@ -5244,7 +5400,13 @@ export default function App() {
         {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={updateCharacterFields} />}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
-        {tab === "world" && <WorldView kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} gm={gm} />}
+        {tab === "world" && (
+          <WorldView
+            kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} gm={gm}
+            characters={characters}
+            onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
+          />
+        )}
         {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} />}
         {tab === "sagas" && <SagasView sagas={sagas} setSagas={setSagas} askConfirm={askConfirm} />}
       </div>

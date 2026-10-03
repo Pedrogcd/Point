@@ -67,3 +67,17 @@ test("distritos do mapa SVG têm texto", () => {
   const ids = [...FRONTIER.mapaSvg.matchAll(/data-region="([^"]+)"/g)].map((m) => m[1]);
   for (const id of ids) assert.ok(FRONTIER.distritos[id], `distrito sem texto: ${id}`);
 });
+
+test("conteúdo do Mundo não cita protagonistas nem os grupos de jogadores", () => {
+  // Nomes dos personagens dos grupos (Grupo C e Grupo Aurora) e dos próprios grupos.
+  // Cidades e reinos são descritos sem os protagonistas; no máximo os lordes locais.
+  const texto = JSON.stringify({ KATALAO_INFO, FRONTIER: { ...FRONTIER, mapaSvg: "" }, NPCS });
+  const proibidos = [
+    "Almah", "Kiryu", "Leona", "Ookami", "Boda", "Erin Genova", "Fate", "Kutrefas", "Mercúrio", "Minerva",
+    "Rena", "Vientra", "Leon ", "Merkel", "Winters", "Raiko", "Akira", "Kanny", "Mevil", "Ishran",
+    "Aurora", "Grupo C", "Jack",
+  ];
+  for (const nome of proibidos) assert.ok(!texto.includes(nome), `cita protagonista/grupo: ${nome}`);
+  assert.ok(!/[^A-Za-zÀ-ú]K[^A-Za-zÀ-ú'"]/.test(texto.replace(/<[^>]+>/g, " ")), "cita a K");
+  assert.ok(!/\bo grupo\b/.test(texto), "cita 'o grupo'");
+});

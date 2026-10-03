@@ -19,6 +19,10 @@ import {
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
+import {
+  slugificar, paraPercentual, bboxPoligono, calcularRecorte,
+  migrarCidade, migrarCidades, cidadesPosicionadas,
+} from "./mapaMundo.js";
 import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
 import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
@@ -795,9 +799,24 @@ export const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), .
 
 const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
-  { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]", cities: [
-    { id: "frontier", name: "Frontier", description: "Cidade grande na fronteira nordeste, colada em Hoshon (Maxis). Regida pela Casa Brennard, vassala dos Pendragons. Ningens do Cadastro Brennard na Vila Nova, dentro da muralha nova; o Barro dos sem-etiqueta do lado de fora.", link: "sidepoint/frontier.html" },
-  ] },
+  { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]",
+    // Lido pela cor dos nomes no mapa (amarelo parece ser Katalão) — o Pedro
+    // confirma e corrige pelo editor (botão "Editar mapa" na aba Mundo).
+    // Sem coordenadas de propósito: elas são posicionadas ali, não aqui.
+    mapa: { cor: "#C9A227", poligono: [] },
+    cities: [
+      { id: "katalao_cidade", name: "Katalão", description: "", x: null, y: null, capital: true },
+      { id: "kingsyard", name: "Kingsyard", description: "", x: null, y: null, capital: false },
+      { id: "mundis", name: "Mundis", description: "", x: null, y: null, capital: false },
+      { id: "frontier", name: "Frontier", description: "Cidade grande na fronteira nordeste, colada em Hoshon (Maxis). Regida pela Casa Brennard, vassala dos Pendragons. Ningens do Cadastro Brennard na Vila Nova, dentro da muralha nova; o Barro dos sem-etiqueta do lado de fora.", link: "sidepoint/frontier.html", x: null, y: null, capital: false },
+      { id: "riviera", name: "Riviéra", description: "", x: null, y: null, capital: false },
+      { id: "atlarin", name: "Atlarin", description: "", x: null, y: null, capital: false },
+      { id: "atlas", name: "Atlas", description: "", x: null, y: null, capital: false },
+      { id: "promet", name: "Promet", description: "", x: null, y: null, capital: false },
+      { id: "kil", name: "Kil", description: "", x: null, y: null, capital: false },
+      { id: "pompeia", name: "Pompeia", description: "", x: null, y: null, capital: false },
+      { id: "tengov", name: "Tengov", description: "", x: null, y: null, capital: false },
+    ] },
   { id: "maxis", name: "Maxis Power", description: "Potência industrial e militar, lar de famílias como Mason e Ayamato. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "suth", name: "Suth", description: "Império matriarcal sustentado por três Pilares: a Imperatriz, a Santa e a Parteira. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "goethia", name: "Goethia", description: "Nação unida pela conexão emocional coletiva com sua Santa, Erin Genova, sob o governo do Tzar. [Rascunho — refine comigo quando quiser.]", cities: [] },
@@ -3098,7 +3117,9 @@ export function CompareView({ characters, onUpdateCharacter }) {
 // não estão aqui continuam só com a descrição editável de sempre.
 const REINO_INFO = { katalao: KATALAO_INFO };
 const CIDADE_INFO = { frontier: FRONTIER };
-const assetUrl = (p) => `${import.meta.env.BASE_URL}${p}`;
+// `import.meta.env` só existe sob o Vite — o `?.` evita quebrar quando este
+// arquivo é importado direto num teste (sem bundler), igual supabaseClient.js.
+const assetUrl = (p) => `${import.meta.env?.BASE_URL || "/"}${p}`;
 
 // Paleta das variáveis CSS usadas pelo SVG do mapa de distritos de Frontier.
 const MAPA_CSS_VARS = {
@@ -3442,12 +3463,356 @@ function CidadeView({ cidade, gm, onVoltar, nomeReino, onAcao }) {
 /* ---------------------------------------------------------------
    MUNDO — mapa, reinos, cidades
 ----------------------------------------------------------------*/
-function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
+// Mapa interativo dos reinos — overlay de SVG sobre a imagem do mapa do
+// mundo. Cada reino com `mapa.poligono` (>=3 pontos) ganha um território
+// clicável; clicar entra no "recorte" (zoom via transform/scale, nunca
+// recortando a imagem — ver calcularRecorte em mapaMundo.js) e mostra as
+// cidades posicionadas como botões. Reino sem `mapa` continua só com o pino
+// de sempre, sem overlay nenhum — nada quebra pra quem ainda não foi mapeado.
+//
+// Modo de edição (prop `editando`): clicar num reino (pino ou território) o
+// seleciona pra editar; "Traçar fronteira" acrescenta um ponto ao polígono
+// por clique (com desfazer/fechar); "Posicionar cidade" cria ou reposiciona
+// uma cidade pelo nome no ponto clicado; marcadores existentes arrastam
+// (pointer events) e têm um botão de remover. Tudo passa por `setKingdoms`,
+// que o App já persiste via storage.js — nenhuma escrita própria aqui.
+function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId, onAbrirReino, onAbrirCidade, editando }) {
+  const containerRef = useRef(null);
+  const [hover, setHover] = useState(null); // { nome, descricao, ponto }
+  const [recorteReinoId, setRecorteReinoId] = useState(null);
+  const [reinoEditandoId, setReinoEditandoId] = useState(null);
+  const [modoEdicao, setModoEdicao] = useState(null); // null | "tracando" | "posicionando"
+  const [draftPoligono, setDraftPoligono] = useState([]);
+  const [pontoPendente, setPontoPendente] = useState(null);
+  const [nomeCidadeInput, setNomeCidadeInput] = useState("");
+  const [arrastando, setArrastando] = useState(null);
+
+  const reinoEditando = reinoEditandoId ? kingdoms.find((k) => k.id === reinoEditandoId) : null;
+  const reinoRecorte = recorteReinoId ? kingdoms.find((k) => k.id === recorteReinoId) : null;
+  // Com uma ferramenta ativa (traçando/posicionando), um clique em cima do
+  // próprio território (ou de um pino) precisa virar ponto/posição, não
+  // re-selecionar o reino — por isso os dois cliques abaixo checam isso antes
+  // de agir e deixam o evento borbulhar pro onContainerClick quando for o caso.
+  const ferramentaAtiva = editando && !!reinoEditandoId && !!modoEdicao;
+  const recorte = reinoRecorte ? calcularRecorte(reinoRecorte.mapa?.poligono) : null;
+
+  function pontoDoEvento(e) {
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    return [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000];
+  }
+  // Mesma composição scale+translate(centro) do CSS do contêiner (ver
+  // calcularRecorte), pra posicionar a tooltip num tamanho fixo mesmo com
+  // zoom ativo — sem isso ela cresceria/encolheria junto com o mapa.
+  function paraTela([x, y]) {
+    if (!recorte) return [x, y];
+    return [
+      (x - 0.5 + recorte.translateX / 100) * recorte.scale + 0.5,
+      (y - 0.5 + recorte.translateY / 100) * recorte.scale + 0.5,
+    ];
+  }
+
+  function selecionarReino(k) {
+    if (editando) {
+      setReinoEditandoId(k.id);
+      setModoEdicao(null);
+      setDraftPoligono(k.mapa?.poligono || []);
+      setRecorteReinoId(null);
+      return;
+    }
+    setRecorteReinoId(k.id);
+  }
+  function onPinoClick(k) {
+    if (editando) return selecionarReino(k);
+    onAbrirReino(k.id);
+  }
+
+  function onContainerClick(e) {
+    if (!editando || !reinoEditandoId || !modoEdicao) return;
+    const p = pontoDoEvento(e);
+    if (modoEdicao === "tracando") setDraftPoligono((prev) => [...prev, p]);
+    else if (modoEdicao === "posicionando") setPontoPendente(p);
+  }
+  function fecharTracado() {
+    if (draftPoligono.length < 3) return;
+    setKingdoms((prev) => prev.map((k) => (
+      k.id === reinoEditandoId ? { ...k, mapa: { cor: k.mapa?.cor || BRASS, poligono: draftPoligono } } : k
+    )));
+    setModoEdicao(null);
+  }
+  function confirmarCidade() {
+    const nome = nomeCidadeInput.trim();
+    if (!nome || !pontoPendente) return;
+    const [x, y] = pontoPendente;
+    setKingdoms((prev) => prev.map((k) => {
+      if (k.id !== reinoEditandoId) return k;
+      const cidades = k.cities || [];
+      const idx = cidades.findIndex((c) => (c.name || "").trim().toLowerCase() === nome.toLowerCase());
+      if (idx >= 0) {
+        const novas = [...cidades];
+        novas[idx] = { ...novas[idx], x, y };
+        return { ...k, cities: novas };
+      }
+      const idsExistentes = new Set(cidades.map((c) => c.id).filter(Boolean));
+      const base = slugificar(nome);
+      let id = base, i = 2;
+      while (idsExistentes.has(id)) id = `${base}_${i++}`;
+      return { ...k, cities: [...cidades, { id, name: nome, description: "", x, y, capital: false }] };
+    }));
+    setPontoPendente(null);
+    setNomeCidadeInput("");
+  }
+
+  // Arrastar um marcador já posicionado: ouve o ponteiro na window enquanto
+  // durar o gesto, independente de onde ele saiu do marcador.
+  useEffect(() => {
+    if (!arrastando) return;
+    function onMove(e) {
+      const [x, y] = pontoDoEvento(e);
+      setKingdoms((prev) => prev.map((k) => (
+        k.id !== reinoEditandoId ? k : { ...k, cities: k.cities.map((c) => (c.id === arrastando ? { ...c, x, y } : c)) }
+      )));
+    }
+    function onUp() { setArrastando(null); }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrastando, reinoEditandoId]);
+
+  const aspect = `${MAPA_MUNDO.largura} / ${MAPA_MUNDO.altura}`;
+  const transformEstilo = recorte
+    ? { transform: `scale(${recorte.scale}) translate(${recorte.translateX}%, ${recorte.translateY}%)`, transition: "transform 0.4s ease" }
+    : { transform: "none", transition: "transform 0.4s ease" };
+
+  return (
+    <div>
+      <div
+        ref={containerRef} onClick={onContainerClick}
+        style={{
+          position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${LINE}`, marginBottom: 12,
+          aspectRatio: aspect, background: "#00000010",
+          cursor: editando && modoEdicao ? "crosshair" : "default",
+        }}
+      >
+        <div style={{ position: "absolute", inset: 0, ...transformEstilo }}>
+          <img
+            src={assetUrl(MAPA_MUNDO.imagem)} alt="Mapa do continente com os seis reinos"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }}
+          />
+          {/* viewBox é um quadrado unitário (0 a 1), mas o contêiner não é quadrado
+              (segue a proporção real da imagem via aspectRatio no CSS) — então
+              precisa de preserveAspectRatio="none" pra esticar sem letterbox e
+              coincidir com a conta de clique (fração simples de largura/altura). */}
+          <svg viewBox="0 0 1 1" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            {kingdoms.map((k) => {
+              const poligono = k.mapa?.poligono;
+              if (!poligono || poligono.length < 3) return null;
+              const cor = k.mapa.cor || BRASS;
+              const emFoco = hover?.reinoId === k.id || reinoEditandoId === k.id;
+              return (
+                <polygon
+                  key={k.id}
+                  points={poligono.map(([x, y]) => `${x},${y}`).join(" ")}
+                  fill={cor} fillOpacity={emFoco ? 0.22 : 0.12} stroke={cor} strokeWidth={0.0035}
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={() => {
+                    const bbox = bboxPoligono(poligono);
+                    setHover({ reinoId: k.id, nome: k.name, descricao: k.description, ponto: [(bbox.minX + bbox.maxX) / 2, (bbox.minY + bbox.maxY) / 2] });
+                  }}
+                  onMouseLeave={() => setHover((h) => (h?.reinoId === k.id ? null : h))}
+                  onClick={(e) => { if (ferramentaAtiva) return; e.stopPropagation(); selecionarReino(k); }}
+                />
+              );
+            })}
+            {modoEdicao === "tracando" && draftPoligono.length > 0 && (
+              <g pointerEvents="none">
+                {draftPoligono.length > 1 && (
+                  <polyline points={draftPoligono.map(([x, y]) => `${x},${y}`).join(" ")} fill="none" stroke={BRASS_BRIGHT} strokeWidth={0.003} />
+                )}
+                {draftPoligono.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r={0.006} fill={BRASS_BRIGHT} />)}
+              </g>
+            )}
+          </svg>
+
+          {/* Nome do reino no centro do território — só na visão do mundo (sem recorte ativo pra outro reino). */}
+          {!recorteReinoId && kingdoms.map((k) => {
+            const bbox = bboxPoligono(k.mapa?.poligono);
+            if (!bbox) return null;
+            return (
+              <div
+                key={k.id} style={{
+                  position: "absolute", ...paraPercentual([(bbox.minX + bbox.maxX) / 2, (bbox.minY + bbox.maxY) / 2]),
+                  transform: "translate(-50%, -50%)", pointerEvents: "none", textAlign: "center",
+                  fontFamily: "'Cinzel', serif", fontSize: "clamp(10px, 1.4vw, 14px)", color: PARCHMENT,
+                  textShadow: "0 1px 3px #F3E9D2CC, 0 0 2px #F3E9D2", fontWeight: 700,
+                }}
+              >
+                {k.name}
+              </div>
+            );
+          })}
+
+          {/* Pinos de sempre — somem durante o recorte pra não disputar espaço com as cidades. */}
+          {!recorteReinoId && kingdoms.map((k) => {
+            const pino = MAPA_MUNDO.pinos[k.id];
+            if (!pino) return null;
+            const ativo = k.id === reinoAbertoId || k.id === reinoEditandoId;
+            return (
+              <button
+                key={k.id} onClick={(e) => { if (ferramentaAtiva) return; e.stopPropagation(); onPinoClick(k); }} aria-label={`Abrir ${k.name}`}
+                style={{
+                  position: "absolute", left: `${pino.x}%`, top: `${pino.y}%`, transform: "translate(-50%, -50%)",
+                  padding: "3px 8px", borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
+                  border: `1.5px solid ${ativo ? "#F0D98C" : "#FFFFFFAA"}`, background: ativo ? PURPLE : "#2B2116CC",
+                  color: "#F3E9D2", fontFamily: "'Cinzel', serif", fontSize: "clamp(9px, 1.3vw, 12.5px)", boxShadow: "0 1px 4px #00000080",
+                }}
+              >
+                {k.name}
+              </button>
+            );
+          })}
+
+          {/* Cidades posicionadas do reino em recorte, ou do reino sendo editado (pra poder posicionar/arrastar vendo o resultado). */}
+          {(reinoRecorte || reinoEditando) && cidadesPosicionadas((reinoRecorte || reinoEditando).cities).map((c) => {
+            const reinoDaCidade = reinoRecorte || reinoEditando;
+            return (
+              <div key={c.id} style={{ position: "absolute", ...paraPercentual([c.x, c.y]), transform: "translate(-50%, -50%)" }}>
+                <button
+                  onPointerDown={(e) => { if (editando && reinoEditandoId === reinoDaCidade.id) { e.stopPropagation(); setArrastando(c.id); } }}
+                  onClick={(e) => {
+                    if (ferramentaAtiva && reinoEditandoId === reinoDaCidade.id) return; // deixa borbulhar pro traçar/posicionar
+                    e.stopPropagation();
+                    if (editando && reinoEditandoId === reinoDaCidade.id) return;
+                    setHover(null);
+                    setPontoPendente(null);
+                    onAbrirCidade(reinoDaCidade, c);
+                  }}
+                  onMouseEnter={() => setHover({ reinoId: `cidade-${c.id}`, nome: c.name, descricao: c.description, ponto: [c.x, c.y] })}
+                  onMouseLeave={() => setHover((h) => (h?.reinoId === `cidade-${c.id}` ? null : h))}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 10, whiteSpace: "nowrap",
+                    border: `1px solid ${c.capital ? "#F0D98C" : "#FFFFFFCC"}`, background: c.capital ? PURPLE : "#2B2116DD",
+                    color: "#F3E9D2", fontFamily: "'Cinzel', serif", fontSize: "clamp(8px, 1.1vw, 11px)", cursor: editando ? "grab" : "pointer",
+                    boxShadow: "0 1px 3px #00000080",
+                  }}
+                >
+                  {c.capital && <Crown size={9} />}
+                  {c.name}
+                </button>
+                {editando && reinoEditandoId === reinoDaCidade.id && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeCity(reinoDaCidade.id, reinoDaCidade.cities.findIndex((x) => x.id === c.id), c); }}
+                    title={`Remover ${c.name} do mapa`}
+                    style={{ position: "absolute", top: -6, right: -6, width: 15, height: 15, borderRadius: "50%", background: EMBER, border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                  >
+                    <X size={9} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {hover && (() => {
+          const [sx, sy] = paraTela(hover.ponto);
+          return (
+            <div style={{
+              position: "absolute", left: `${sx * 100}%`, top: `${sy * 100}%`, transform: "translate(-50%, -130%)",
+              pointerEvents: "none", zIndex: 20, background: PANEL, border: `1px solid ${LINE}`, borderRadius: 6,
+              padding: "6px 10px", boxShadow: "0 2px 10px #00000060", maxWidth: 220,
+            }}>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: BRASS_BRIGHT }}>{hover.nome}</div>
+              {hover.descricao && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4, marginTop: 2 }}>{hover.descricao}</div>}
+            </div>
+          );
+        })()}
+
+        {recorteReinoId && (
+          <Btn variant="ghost" onClick={() => setRecorteReinoId(null)} style={{ position: "absolute", top: 8, left: 8, background: "#2B2116CC", color: "#F3E9D2", zIndex: 10 }}>
+            <ChevronLeft size={13} /> Voltar ao mundo
+          </Btn>
+        )}
+
+        {editando && pontoPendente && (
+          <div style={{
+            position: "absolute", ...paraPercentual(pontoPendente), transform: "translate(-50%, 8px)", zIndex: 30,
+            background: PANEL, border: `1px solid ${LINE}`, borderRadius: 6, padding: 8, boxShadow: "0 2px 10px #00000060", width: 190,
+          }} onClick={(e) => e.stopPropagation()}>
+            <input
+              autoFocus value={nomeCidadeInput} onChange={(e) => setNomeCidadeInput(e.target.value)}
+              placeholder="Nome da cidade" style={{ ...inputStyle, fontSize: 12, padding: "5px 8px", marginBottom: 6 }}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmarCidade(); if (e.key === "Escape") { setPontoPendente(null); setNomeCidadeInput(""); } }}
+            />
+            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+              <Btn variant="ghost" onClick={() => { setPontoPendente(null); setNomeCidadeInput(""); }}><X size={12} /></Btn>
+              <Btn variant="primary" onClick={confirmarCidade}><Check size={12} /></Btn>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {editando && (
+        <div style={{ ...cardBox, marginBottom: 14 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: BRASS, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
+            Modo de edição do mapa
+          </div>
+          {!reinoEditando && <p style={{ fontSize: 12.5, color: MUTED, margin: 0 }}>Clique num reino (pino ou território) pra editar o mapa dele.</p>}
+          {reinoEditando && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT }}>{reinoEditando.name}</span>
+              <Btn
+                variant={modoEdicao === "tracando" ? "primary" : "default"}
+                onClick={() => setModoEdicao(modoEdicao === "tracando" ? null : "tracando")}
+              >
+                <MapIcon size={13} /> Traçar fronteira
+              </Btn>
+              {modoEdicao === "tracando" && (
+                <>
+                  <Btn variant="ghost" onClick={() => setDraftPoligono((prev) => prev.slice(0, -1))} disabled={draftPoligono.length === 0}>
+                    <ChevronLeft size={13} /> Desfazer último ponto
+                  </Btn>
+                  <Btn variant="primary" onClick={fecharTracado} disabled={draftPoligono.length < 3}>
+                    <Check size={13} /> Fechar traçado ({draftPoligono.length} pontos)
+                  </Btn>
+                </>
+              )}
+              <Btn
+                variant={modoEdicao === "posicionando" ? "primary" : "default"}
+                onClick={() => setModoEdicao(modoEdicao === "posicionando" ? null : "posicionando")}
+              >
+                <Plus size={13} /> Posicionar cidade
+              </Btn>
+              <Btn variant="ghost" onClick={() => { setReinoEditandoId(null); setModoEdicao(null); setDraftPoligono([]); }}>
+                <X size={13} /> Sair deste reino
+              </Btn>
+            </div>
+          )}
+          {reinoEditando && modoEdicao === "tracando" && (
+            <p style={{ fontSize: 11, color: MUTED, margin: "8px 0 0" }}>Clique no mapa pra acrescentar um ponto à fronteira. Precisa de pelo menos 3 pontos pra fechar.</p>
+          )}
+          {reinoEditando && modoEdicao === "posicionando" && (
+            <p style={{ fontSize: 11, color: MUTED, margin: "8px 0 0" }}>Clique no mapa onde fica a cidade e digite o nome (se já existir na lista, só reposiciona).</p>
+          )}
+          {reinoEditando && !modoEdicao && (
+            <p style={{ fontSize: 11, color: MUTED, margin: "8px 0 0" }}>Arraste um marcador de cidade já posicionado pra mover, ou use o × pra remover.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Exportado (além do default App) só pra teste de render — ver mapaMundo.test.js.
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
   const [popup, setPopup] = useState(null);
   const [newCity, setNewCity] = useState({});
+  const [editandoMapa, setEditandoMapa] = useState(false);
+  const [cidadeMapaAberta, setCidadeMapaAberta] = useState(null); // { reino, cidade }
 
   const reino = kingdoms.find((k) => k.id === reinoId) || null;
   const info = reino ? REINO_INFO[reino.id] : null;
@@ -3494,31 +3859,34 @@ function WorldView({ kingdoms, setKingdoms, askConfirm, gm }) {
   return (
     <div>
       {popup && <MundoPopup acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup} />}
+      {cidadeMapaAberta && (
+        <MundoModal onClose={() => setCidadeMapaAberta(null)}>
+          <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{cidadeMapaAberta.reino.name}</div>
+          <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 19, margin: "4px 0 10px" }}>{cidadeMapaAberta.cidade.name}</h2>
+          <p style={{ fontSize: 13.5, color: cidadeMapaAberta.cidade.description ? PARCHMENT : MUTED, lineHeight: 1.6, margin: 0 }}>
+            {cidadeMapaAberta.cidade.description || "Sem descrição ainda."}
+          </p>
+        </MundoModal>
+      )}
 
       {!cidadeInfo && (
         <>
-          <SectionTitle icon={MapIcon}>Mapa do Mundo</SectionTitle>
-          <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${LINE}`, marginBottom: 12 }}>
-            <img src={assetUrl(MAPA_MUNDO.imagem)} alt="Mapa do continente com os seis reinos" style={{ display: "block", width: "100%", height: "auto" }} />
-            {kingdoms.map((k) => {
-              const pino = MAPA_MUNDO.pinos[k.id];
-              if (!pino) return null;
-              const ativo = k.id === reinoId;
-              return (
-                <button
-                  key={k.id} onClick={() => abrirReino(k.id)} aria-label={`Abrir ${k.name}`}
-                  style={{
-                    position: "absolute", left: `${pino.x}%`, top: `${pino.y}%`, transform: "translate(-50%, -50%)",
-                    padding: "3px 8px", borderRadius: 14, cursor: "pointer", whiteSpace: "nowrap",
-                    border: `1.5px solid ${ativo ? "#F0D98C" : "#FFFFFFAA"}`, background: ativo ? PURPLE : "#2B2116CC",
-                    color: "#F3E9D2", fontFamily: "'Cinzel', serif", fontSize: "clamp(9px, 1.3vw, 12.5px)", boxShadow: "0 1px 4px #00000080",
-                  }}
-                >
-                  {k.name}
-                </button>
-              );
-            })}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <SectionTitle icon={MapIcon}>Mapa do Mundo</SectionTitle>
+            <Btn
+              variant={editandoMapa ? "primary" : "ghost"}
+              onClick={() => setEditandoMapa((v) => !v)}
+              style={{ marginBottom: 10 }}
+            >
+              <Pencil size={13} /> {editandoMapa ? "Sair da edição" : "Editar mapa"}
+            </Btn>
           </div>
+          <MapaMundoInterativo
+            kingdoms={kingdoms} setKingdoms={setKingdoms} removeCity={removeCity}
+            reinoAbertoId={reinoId} onAbrirReino={abrirReino}
+            onAbrirCidade={(reino, cidade) => setCidadeMapaAberta({ reino, cidade })}
+            editando={editandoMapa}
+          />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
             {kingdoms.map((k) => (
               <button
@@ -4533,6 +4901,10 @@ export default function App() {
           // Cidades semente novas (ex: Frontier) entram em quem já tinha reinos
           // salvos, de forma idempotente e por cidade (ver rationale em cidades.js).
           let reinos = JSON.parse(k.value);
+          // Mapa interativo (02/10): cidades no formato antigo ({name, description})
+          // ganham id/x/y/capital sem perder nada — ver mapaMundo.js. Roda antes da
+          // reposição de sementes pra elas já chegarem no formato novo também.
+          reinos = reinos.map((rk) => ({ ...rk, cities: migrarCidades(rk.cities) }));
           let cidadesRemovidas = [];
           try {
             const rem = await storage.get("point-cidades-removidas");

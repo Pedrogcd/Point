@@ -19,8 +19,12 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `public/sidepoint/frontier.html` — guia de jogadores de Frontier (Sidepoint), página estática publicada em https://pedrogcd.github.io/Point/sidepoint/frontier.html e aberta pelo botão "Abrir guia" da cidade na aba Mundo
 - `storage.js` — camada de armazenamento: Supabase como fonte de verdade (sincroniza entre aparelhos), localStorage como cache offline
 - `supabaseClient.js` / `imageUpload.js` — cliente Supabase, upload de retrato
-- `backup.js` — exportar/importar o estado inteiro do app em `.json` (sem depender de File/Blob do navegador, testável)
+- `backup.js` — exportar/importar o estado inteiro do app em `.json` (sem depender de File/Blob do navegador, testável); só valida a forma geral (as 5 listas existem), não migra nada — quem importa (`handleImportFile`) aplica `normalizarEstado` depois, senão um backup salvo num formato antigo restauraria com campo em branco ou quebraria a UI
 - `backup.test.js` — testes automatizados do `backup.js`, incluindo o ciclo exportar → importar
+- `personagens.js` — migração de personagem (formato antigo de ataques/atributos/estatísticas → novo, `grupo`/`racialAbility`/`classes`/`abilities`/`hp`/`mp`/`sp` ausentes ganham default), extraída do que antes era só um bloco inline no carregamento, pra poder ser testada e reutilizada na importação de backup também
+- `personagens.test.js` — testes automatizados do `personagens.js`
+- `normalizar.js` — a função única (`normalizarEstado`) que aplica `personagens.js` (personagens) e `migrarCidade`/`migrarCidades` de `mapaMundo.js` (cidades) num estado `{characters, kingdoms, gods, sagas, objectives}` — usada tanto no carregamento normal (via storage.js) quanto na importação de backup (`handleImportFile`), pra garantir que os dois caminhos corrigem exatamente os mesmos formatos antigos
+- `normalizar.test.js` — testes automatizados do `normalizar.js`, incluindo o cenário de importar um backup no formato antigo (cidade com `description`, personagem sem `abilities`/`hp`/`mp`/`sp`) e conferir que sai normalizado sem perder conteúdo
 - `seedGuard.js` — decide quando é seguro propor enviar o localStorage pro Supabase (blindagem contra repovoar o banco sem querer)
 - `seedGuard.test.js` — testes automatizados do `seedGuard.js`
 - `supabase/schema.sql` — SQL pra rodar uma vez no projeto Supabase (tabela + bucket de imagens)
@@ -104,7 +108,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora, as cidades semente, o backup e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `backup.test.js` e `seedGuard.test.js` — 108 testes ao todo:
+O motor de combate, o Grupo Aurora, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `seedGuard.test.js`, `characterForm.render.test.js` e `rollPanel.test.js` — 252 testes ao todo:
 
 ```
 npm test

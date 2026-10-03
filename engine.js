@@ -403,6 +403,17 @@ export const BASE_ATTACK_TYPES = [
   },
 ];
 
+// Os 4 ataques padrão (Ataque desarmado/Arma branca/Revólver/Shin) que todo
+// personagem novo ganha, e que a migração de personagens antigos também usa
+// pra repor quem foi salvo antes dessa funcionalidade existir.
+export function defaultAttacksForCharacter() {
+  const pick = (id) => BASE_ATTACK_TYPES.find((t) => t.id === id);
+  return [pick("soco"), pick("arma_branca"), pick("revolver"), pick("shin")].filter(Boolean).map((t) => ({
+    nome: t.nome, tipo: t.tipo, acerto: t.acerto,
+    dano: t.dano, ferida: t.ferida, efeito: t.modificadores ? t.modificadores.join(", ") : "", profKey: t.profKey,
+  }));
+}
+
 export function attrBonus(grade) {
   // E=0, D=1, C=2, B=3, A=4
   return Math.max(0, (GRADE_VALUE[grade] || 1) - 1);

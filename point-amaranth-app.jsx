@@ -15,18 +15,19 @@ import {
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
   attrBonus, computeMaxHP, computeMaxSP, parseFlatBonus, limiarDaHabilidade, attrLabelDaHabilidade,
   findTriggeredProc, resolveConfirmationPhase, resolveAttack, computeStat, rollSuccessDice,
-  migrateBrigaProfKey,
+  defaultAttacksForCharacter,
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import {
   slugificar, paraPercentual, bboxPoligono, calcularRecorte,
-  migrarCidade, migrarCidades, cidadesPosicionadas, personagemDaPessoa,
+  cidadesPosicionadas, personagemDaPessoa,
 } from "./mapaMundo.js";
 import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
 import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
+import { normalizarEstado } from "./normalizar.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
 /* ---------------------------------------------------------------
@@ -458,14 +459,6 @@ const SEED_CHARACTERS_RAW = [
 // Aplica os campos da Ficha Base nova (Acerto/Defesa/Ataques/Itens/traços/XP)
 // como padrão a cada dossiê semente já existente, sem sobrescrever o que já
 // estava preenchido (singularidade, história, atributos, habilidades antigas).
-function defaultAttacksForCharacter() {
-  const pick = (id) => BASE_ATTACK_TYPES.find((t) => t.id === id);
-  return [pick("soco"), pick("arma_branca"), pick("revolver"), pick("shin")].filter(Boolean).map((t) => ({
-    nome: t.nome, tipo: t.tipo, acerto: t.acerto,
-    dano: t.dano, ferida: t.ferida, efeito: t.modificadores ? t.modificadores.join(", ") : "", profKey: t.profKey,
-  }));
-}
-
 function withFichaDefaults(c) {
   return {
     traits: "",
@@ -5010,111 +5003,14 @@ export default function App() {
         const c = await storage.get("point-characters");
         if (c?.value) {
           const loadedChars = JSON.parse(c.value);
-          // Migração automática e não-destrutiva:
-          // 1) renomeia "Soco"→"Ataque desarmado" e "Mosquetão"→"Mosquete" (nomes antigos),
-          //    e ajusta o Mosquetão/Revólver salvos para os novos valores de Acerto/Dano;
-          // 2) remove "Chute" (agora redundante, já coberto por "Ataque desarmado");
-          // 3) em ataques salvos no formato antigo (sem "tipo", com atributoBase/zona),
-          //    identifica pelo nome e preenche o "tipo" correto (ou "marcial" se for
-          //    um ataque customizado desconhecido) — a Ferida escalar ou não já vem
-          //    direto do Tipo (Marcial escala, Arma de fogo/Mágico é fixa);
-          // 4) preenche ataques padrão (Ataque desarmado/Arma branca/Revólver/Shin) em quem foi
-          //    salvo antes dessa funcionalidade existir;
-          // 5) corrige a base de Defesa (era 0, agora 5) e Resistência Natural (era 2 ou 6,
-          //    agora 1, e agora dividida em Física/Mágica) pra quem ainda estava no valor
-          //    padrão antigo — não mexe em quem já tinha um valor diferente (provavelmente
-          //    editado manualmente);
-          // 6) adiciona o item "Armadura física" em quem não tiver nenhuma armadura
-          //    cadastrada em Itens — necessário pra Resistência Armadura contar no combate;
-          // 7) converte atributos do formato antigo (Força/Percepção/Agilidade/Resistência/
-          //    Inteligência/Determinação) pro novo formato Fire-Emblem-like (Força/Magia/
-          //    Destreza/Técnica/Sorte/Defesa/Resistência Física/Resistência Mágica) —
-          //    mapeamento: Percepção→Destreza, Agilidade→Técnica, Inteligência→Magia,
-          //    Determinação→Sorte, Resistência→Física e Mágica (mesmo grau nas duas),
-          //    Defesa (atributo novo) começa em "D" já que não existia antes.
-          const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
-          const REMOVED_NAMES = new Set(["chute"]);
-          const OLD_DEFAULT_DEFESA = new Set([0, 5, undefined]);
-          const OLD_DEFAULT_RESIST_NATURAL = new Set([1, 2, 6, undefined]);
-          const OLD_DEFAULT_RESIST_ARMADURA = new Set([7, undefined]);
-          const migrateAttributes = (attrs) => {
-            if (!attrs || !attrs.percepcao) return attrs; // já está no formato novo (ou vazio)
-            return {
-              forca: attrs.forca || "E",
-              magia: attrs.inteligencia || "E",
-              destreza: attrs.percepcao || "E",
-              tecnica: attrs.agilidade || "E",
-              sorte: attrs.determinacao || "E",
-              defesaAttr: "D",
-              resistFisica: attrs.resistencia || "E",
-              resistMagica: attrs.resistencia || "E",
-            };
-          };
-          const migrated = loadedChars.map((ch) => {
-            const isAlmah = ch.id === "almah" || (ch.name || "").trim().toLowerCase() === "almah mason";
-            const withoutRemoved = (ch.attacks || []).filter((atk) => {
-              const nomeLower = (atk.nome || "").trim().toLowerCase();
-              if (REMOVED_NAMES.has(nomeLower)) return false;
-              if (isAlmah && nomeLower === "ataque desarmado") return false; // pedido específico: Almah não tem desarmado
-              return true;
-            });
-            const renamedAttacks = withoutRemoved.map((atk) => {
-              const key = (atk.nome || "").trim().toLowerCase();
-              const alias = NAME_ALIASES[key];
-              if (!alias) return atk;
-              // Ao renomear Mosquetão -> Mosquete, também atualiza os valores pros novos padrões.
-              if (key === "mosquetão" || key === "mosquetao") {
-                const base = BASE_ATTACK_TYPES.find((t) => t.id === "mosquetao");
-                return { ...atk, nome: alias, acerto: base.acerto, dano: base.dano, ferida: base.ferida, tipo: base.tipo };
-              }
-              return { ...atk, nome: alias };
-            });
-            // 9) A Proficiencia "Briga" foi eliminada: Ataque desarmado passou a usar
-            //    Combate Corpo a Corpo, como qualquer outro ataque marcial.
-            const semBriga = migrateBrigaProfKey(renamedAttacks);
-            const fixedAttacks = semBriga.map((atk) => {
-              if (atk.tipo) return atk;
-              const base = BASE_ATTACK_TYPES.find((t) => t.nome.trim().toLowerCase() === (atk.nome || "").trim().toLowerCase());
-              return { ...atk, tipo: base?.tipo || "marcial" };
-            });
-            const existingNames = new Set(fixedAttacks.map((a) => (a.nome || "").trim().toLowerCase()));
-            const missing = ch.fichaFechada ? [] : defaultAttacksForCharacter().filter((a) => {
-              const nomeLower = a.nome.trim().toLowerCase();
-              if (existingNames.has(nomeLower)) return false;
-              if (isAlmah && nomeLower === "ataque desarmado") return false; // não repor pra Almah
-              return true;
-            });
-            const statBase = { ...(ch.statBase || {}) };
-            if (OLD_DEFAULT_DEFESA.has(statBase.defesa)) statBase.defesa = STAT_BASE_DEFAULTS.defesa;
-            if (OLD_DEFAULT_RESIST_ARMADURA.has(statBase.resistArmadura)) statBase.resistArmadura = STAT_BASE_DEFAULTS.resistArmadura;
-            if (statBase.resistNatural !== undefined && statBase.resistNaturalFisica === undefined) {
-              // campo antigo unico -> divide nos dois novos, aplicando a mesma logica de "valor padrao antigo"
-              const val = OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNatural) ? STAT_BASE_DEFAULTS.resistNaturalFisica : statBase.resistNatural;
-              statBase.resistNaturalFisica = val;
-              statBase.resistNaturalMagica = val;
-              delete statBase.resistNatural;
-            }
-            if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalFisica)) statBase.resistNaturalFisica = STAT_BASE_DEFAULTS.resistNaturalFisica;
-            if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalMagica)) statBase.resistNaturalMagica = STAT_BASE_DEFAULTS.resistNaturalMagica;
-            const itensArmadura = (ch.itens?.armadura || []);
-            const itens = (itensArmadura.length > 0 || ch.fichaFechada) ? ch.itens : { ...(ch.itens || { usaveis: [], principais: [] }), armadura: ["Armadura física"] };
-            const attributes = migrateAttributes(ch.attributes);
-            const procs = Array.isArray(ch.procs) ? ch.procs.slice(0, MAX_PROCS) : [];
-            const atributosGerais = { ...ATRIBUTOS_GERAIS_DEFAULT, ...(ch.atributosGerais || {}) };
-            const proficiencias = { ...PROFICIENCIAS_DEFAULT, ...(ch.proficiencias || {}) };
-            delete proficiencias.briga; // proficiencia eliminada do sistema
-            // 10) Grupo (Grupo C / Grupo Aurora) e a tabela de Raça + Classes (ainda a
-            //     definir no sistema) em quem foi salvo antes desses campos existirem.
-            const grupo = ch.grupo || grupoDoPersonagem(ch);
-            const racialAbility = ch.racialAbility || { name: "", description: "" };
-            const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
-            const classes = [0, 1].map((i) => classesSalvas[i] || { name: "", description: "" });
-            // "Resumo de Poder" legado: as fichas do Grupo Aurora (e qualquer ficha
-            // salva antes desse campo existir) não têm abilities — sem isso, o
-            // CharacterForm quebrava com tela branca ao tentar .map() em undefined.
-            const abilities = Array.isArray(ch.abilities) ? ch.abilities : [];
-            return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, abilities, atributosGerais, proficiencias };
-          });
+          // Migração de formato antigo -> novo (renomeia/remove ataques legados,
+          // tipa ataques sem "tipo", repõe ataques padrão, corrige defaults de
+          // Defesa/Resistência, atributos no formato antigo, Grupo/Raça+Classes,
+          // `abilities` ausente, etc.) — extraída pra personagens.js, e chamada
+          // via normalizarEstado tanto aqui quanto na importação de backup
+          // (handleImportFile), pra um backup salvo num formato antigo não ficar
+          // com campos em branco ou quebrar a UI quando restaurado.
+          const migrated = normalizarEstado({ characters: loadedChars }).characters;
           // Reset de HP/MP/SP pedido nas sessões de revisão — roda só uma vez (marcado
           // por uma flag), pra não sobrescrever ajustes manuais feitos depois.
           // storage.get devolve undefined quando a chave não existe (ver storage.js),
@@ -5153,10 +5049,12 @@ export default function App() {
           // Cidades semente novas (ex: Frontier) entram em quem já tinha reinos
           // salvos, de forma idempotente e por cidade (ver rationale em cidades.js).
           let reinos = JSON.parse(k.value);
-          // Mapa interativo (02/10): cidades no formato antigo ({name, description})
-          // ganham id/x/y/capital sem perder nada — ver mapaMundo.js. Roda antes da
+          // Cidades no formato antigo ({name, description}) ganham id/x/y/capital/
+          // resumo/visaoGeral/distritos/pessoas sem perder nada — mesma função
+          // (normalizarEstado, que por sua vez chama migrarCidades em mapaMundo.js)
+          // usada na importação de backup, ver handleImportFile. Roda antes da
           // reposição de sementes pra elas já chegarem no formato novo também.
-          reinos = reinos.map((rk) => ({ ...rk, cities: migrarCidades(rk.cities) }));
+          reinos = normalizarEstado({ kingdoms: reinos }).kingdoms;
           let cidadesRemovidas = [];
           try {
             const rem = await storage.get("point-cidades-removidas");
@@ -5272,11 +5170,17 @@ export default function App() {
     askConfirm(
       "Importar esse arquivo substitui todos os personagens e o resto dos dados (reinos, deuses, sagas, objetivos) pelo conteúdo do backup. Essa ação não pode ser desfeita.",
       () => {
-        setCharacters(data.characters);
-        setKingdoms(data.kingdoms);
-        setGods(data.gods);
-        setSagas(data.sagas);
-        setObjectives(data.objectives);
+        // Um backup pode ter sido baixado antes de uma migração existir (ex:
+        // cidade ainda com `description`, personagem sem `abilities`) — aplica
+        // a mesma normalização do carregamento normal (normalizarEstado, usada
+        // também no useEffect de carregamento acima) pra não restaurar dado
+        // com campo em branco ou formato que quebra a UI.
+        const normalizado = normalizarEstado(data);
+        setCharacters(normalizado.characters);
+        setKingdoms(normalizado.kingdoms);
+        setGods(normalizado.gods);
+        setSagas(normalizado.sagas);
+        setObjectives(normalizado.objectives);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );

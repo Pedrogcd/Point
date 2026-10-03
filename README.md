@@ -14,6 +14,8 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `public/mundo/` — mapa do mundo, mapa e imagem de Katalão, retratos dos NPCs
 - `cidades.js` — funções puras das cidades semente do Mundo: reposição idempotente (ex: Frontier em Katalão) em quem já tinha reinos salvos, respeitando as cidades apagadas de propósito (`point-cidades-removidas`)
 - `cidades.test.js` — testes automatizados do `cidades.js`
+- `mapaMundo.js` — funções puras do mapa interativo dos reinos: conversão de coordenada normalizada (0 a 1) pra porcentagem, caixa delimitadora e enquadramento (scale/translate) de um polígono, e migração do formato antigo de cidade ({name, description}) pro novo (com id/x/y/capital)
+- `mapaMundo.test.js` — testes automatizados do `mapaMundo.js` e um smoke test da aba Mundo renderizando com e sem dados de mapa
 - `public/sidepoint/frontier.html` — guia de jogadores de Frontier (Sidepoint), página estática publicada em https://pedrogcd.github.io/Point/sidepoint/frontier.html e aberta pelo botão "Abrir guia" da cidade na aba Mundo
 - `storage.js` — camada de armazenamento: Supabase como fonte de verdade (sincroniza entre aparelhos), localStorage como cache offline
 - `supabaseClient.js` / `imageUpload.js` — cliente Supabase, upload de retrato
@@ -40,7 +42,7 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
-| **Mundo** | Mapa do mundo clicável; cada reino com abas (Visão geral, Cidades e, em Katalão, Casas, Etiquetas e Mapa do reino); cidades com conteúdo próprio (Frontier) abrem com sub-abas: Visão geral, Distritos (mapa clicável), Personagens, Forças e, no modo GM, Mesa do mestre |
+| **Mundo** | Mapa do mundo interativo: reinos com `mapa` definido (Katalão) ganham território desenhado por polígono (hover mostra nome/descrição, clique "recorta" com zoom e mostra as cidades posicionadas) — reino sem `mapa` segue com o pino de sempre. Botão "Editar mapa" liga um modo pra traçar a fronteira e posicionar/arrastar/remover cidades, tudo salvo via storage.js. Cada reino também tem abas de texto (Visão geral, Cidades e, em Katalão, Casas, Etiquetas e Mapa do reino); cidades com conteúdo próprio (Frontier) abrem com sub-abas: Visão geral, Distritos (mapa clicável), Personagens, Forças e, no modo GM, Mesa do mestre |
 | **Deuses** | 7 deidades do panteão |
 | **Sagas** | Arcos narrativos da campanha |
 

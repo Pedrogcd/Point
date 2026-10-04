@@ -187,9 +187,11 @@ describe("Aba Mundo (WorldView) — renderiza com e sem dados de mapa", () => {
 
 describe("CidadePaginaView — página da cidade nas três abas", () => {
   let CidadePaginaView;
+  let SEED_KINGDOMS;
   before(async () => {
     const mod = await loadAppModule();
     CidadePaginaView = mod.CidadePaginaView;
+    SEED_KINGDOMS = mod.SEED_KINGDOMS;
   });
 
   const characters = [{ id: "almah", name: "Almah Mason" }];
@@ -259,5 +261,78 @@ describe("CidadePaginaView — página da cidade nas três abas", () => {
         characters, askConfirm: () => {}, onVoltarMundo: () => {}, onVoltarReino: () => {}, onAbrirFicha: () => {},
       })
     ));
+  });
+
+  // Bug real (PR #14, antes do merge): a aba "Visão geral" ficava em branco
+  // pra toda cidade que só tinha `resumo` (migrado de `description`) e ainda
+  // não tinha `visaoGeral` escrito — parecia defeito, não campo a preencher.
+  describe("aba Visão geral — nunca em branco quando a cidade tem algum texto", () => {
+    it("cidade só com resumo: mostra esse texto (não fica em branco)", () => {
+      const cidade = { id: "x", name: "X", resumo: "Resumo curto de verdade.", visaoGeral: "", distritos: [], pessoas: [] };
+      const html = render(cidade, "geral");
+      assert.ok(html.includes("Resumo curto de verdade."));
+    });
+
+    it("cidade com resumo e visaoGeral: mostra os dois, resumo como abertura e visaoGeral abaixo", () => {
+      const cidade = { id: "x", name: "X", resumo: "Abertura.", visaoGeral: "Corpo mais longo.", distritos: [], pessoas: [] };
+      const html = render(cidade, "geral");
+      assert.ok(html.includes("Abertura."));
+      assert.ok(html.includes("Corpo mais longo."));
+      assert.ok(html.indexOf("Abertura.") < html.indexOf("Corpo mais longo."));
+    });
+
+    it("cidade sem texto nenhum: mostra o estado vazio convidativo", () => {
+      const cidade = { id: "x", name: "X", resumo: "", visaoGeral: "", distritos: [], pessoas: [] };
+      const html = render(cidade, "geral");
+      assert.ok(html.includes("Nenhum texto ainda"));
+    });
+
+    it("cidade com `link` (guia dos jogadores, ex: Frontier): mostra o botão de abrir o guia", () => {
+      const cidade = { id: "frontier", name: "Frontier", resumo: "r", visaoGeral: "", link: "sidepoint/frontier.html", distritos: [], pessoas: [] };
+      const html = render(cidade, "geral");
+      assert.ok(html.includes("Abrir guia dos jogadores"));
+    });
+  });
+
+  // Auditoria pedida depois do bug acima: nenhum campo de texto de nenhuma
+  // cidade semente (as 11 de Katalão, inclusive Frontier) pode ficar sem
+  // aparecer em NENHUMA das três abas — isso seria perda de conteúdo real.
+  it("nenhuma cidade semente (SEED_KINGDOMS) tem texto preenchido que a página não exiba em alguma aba", () => {
+    const falhas = [];
+    for (const reino of SEED_KINGDOMS) {
+      for (const cidade of reino.cities || []) {
+        const htmlCombinado = ["geral", "distritos", "pessoas"]
+          .map((aba) => renderToStaticMarkup(
+            React.createElement(CidadePaginaView, {
+              kingdoms: [{ ...reino, cities: [cidade] }], setKingdoms: () => {}, reinoId: reino.id, cidadeId: cidade.id, abaInicial: aba,
+              characters, askConfirm: () => {}, onVoltarMundo: () => {}, onVoltarReino: () => {}, onAbrirFicha: () => {},
+            })
+          ))
+          .join("\n");
+        for (const campo of ["resumo", "visaoGeral", "link"]) {
+          const valor = cidade[campo];
+          if (typeof valor === "string" && valor.trim() && !htmlCombinado.includes(valor)) {
+            falhas.push(`${reino.name} > ${cidade.name}: campo "${campo}" tem texto mas não aparece em nenhuma aba`);
+          }
+        }
+        for (const d of cidade.distritos || []) {
+          for (const campo of ["nome", "descricao", "notas"]) {
+            const valor = d[campo];
+            if (typeof valor === "string" && valor.trim() && !htmlCombinado.includes(valor)) {
+              falhas.push(`${reino.name} > ${cidade.name}: distrito "${d.nome || d.id}" campo "${campo}" não aparece em nenhuma aba`);
+            }
+          }
+        }
+        for (const p of cidade.pessoas || []) {
+          for (const campo of ["nome", "papel", "descricao", "faccao"]) {
+            const valor = p[campo];
+            if (typeof valor === "string" && valor.trim() && !htmlCombinado.includes(valor)) {
+              falhas.push(`${reino.name} > ${cidade.name}: pessoa "${p.nome || p.id}" campo "${campo}" não aparece em nenhuma aba`);
+            }
+          }
+        }
+      }
+    }
+    assert.deepEqual(falhas, []);
   });
 });

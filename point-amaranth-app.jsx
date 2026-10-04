@@ -790,7 +790,7 @@ const SIDEPOINT_CHARACTERS = SIDEPOINT_CHARACTERS_RAW.map((c) => withFichaDefaul
 // (13 do Grupo C + 6 do Aurora) renderizam sem lançar exceção.
 export const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS];
 
-const SEED_KINGDOMS = [
+export const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
   { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]",
     // Lido pela cor dos nomes no mapa (amarelo parece ser Katalão) — o Pedro
@@ -3871,6 +3871,8 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
 
   const distritos = cidade.distritos || [];
   const pessoas = cidade.pessoas || [];
+  const temResumo = !!(cidade.resumo && cidade.resumo.trim());
+  const temVisaoGeral = !!(cidade.visaoGeral && cidade.visaoGeral.trim());
   const abas = [
     { id: "geral", label: "Visão geral" },
     { id: "distritos", label: `Distritos (${distritos.length})` },
@@ -3912,11 +3914,42 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
               <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={cidade.resumo || ""} onChange={(e) => atualizarCidade({ resumo: e.target.value })} />
             </Field>
             <Field label="Visão geral">
+              {/* Nunca pode aparecer vazia quando a cidade tem algum texto: se
+                  `visaoGeral` ainda não foi escrita, mostra o `resumo` como
+                  corpo (deixa claro que é o resumo, não um texto "perdido");
+                  se os dois existem, resumo vem como parágrafo de abertura. */}
+              {(temResumo || temVisaoGeral) ? (
+                <div style={{ ...cardBox, marginBottom: 10 }}>
+                  {temResumo && (
+                    <p style={{ margin: temVisaoGeral ? "0 0 10px" : 0, fontSize: 14, lineHeight: 1.6, color: PARCHMENT }}>{cidade.resumo}</p>
+                  )}
+                  {temVisaoGeral && (
+                    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: PARCHMENT, whiteSpace: "pre-wrap" }}>{cidade.visaoGeral}</p>
+                  )}
+                  {temResumo && !temVisaoGeral && (
+                    <p style={{ margin: "8px 0 0", fontSize: 11.5, color: MUTED, fontStyle: "italic" }}>
+                      Mostrando o resumo curto enquanto a Visão geral não é preenchida — escreva abaixo pra ter um texto próprio.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div style={{ ...cardBox, marginBottom: 10 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Nenhum texto ainda — escreva um resumo curto acima ou uma visão geral completa abaixo.</p>
+                </div>
+              )}
               <textarea
                 style={{ ...inputStyle, minHeight: 140, resize: "vertical" }} value={cidade.visaoGeral || ""}
-                placeholder="Ainda sem texto — escreva aqui." onChange={(e) => atualizarCidade({ visaoGeral: e.target.value })}
+                placeholder="Escreva aqui uma visão geral mais longa (enquanto isso, o resumo curto acima aparece sozinho)."
+                onChange={(e) => atualizarCidade({ visaoGeral: e.target.value })}
               />
             </Field>
+            {cidade.link && (
+              <div style={{ marginTop: 10 }}>
+                <Btn variant="ghost" href={assetUrl(cidade.link)} target="_blank" rel="noopener" style={{ padding: "4px 8px", fontSize: 11 }}>
+                  <ExternalLink size={12} /> Abrir guia dos jogadores numa página separada
+                </Btn>
+              </div>
+            )}
           </div>
           <div style={{ width: 160 }}>
             <div style={{ width: 160, aspectRatio: "1", borderRadius: 8, background: PANEL_2, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8 }}>

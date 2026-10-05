@@ -4,7 +4,8 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 
 ## O que tem aqui
 
-- `point-amaranth-app.jsx` — o aplicativo completo (React)
+- `point-amaranth-app.jsx` — o aplicativo completo (React), incluindo o componente `Retrato` (miniatura unificada de `character.imageUrl`, usada na ficha, nos cards da lista de Personagens, no Confronto e na vitrine da Capa — ver "Retrato e enquadramento" abaixo)
+- `retrato.render.test.js` — testes automatizados do componente `Retrato`: mostra `<img>` com imageUrl, cai pro ícone de escudo sem imageUrl (ou se a imagem falhar), aplica `objectPosition`/`transform` a partir de `imagemPos`
 - `engine.js` — o motor de combate (regras puras, sem React), importado pelo app
 - `engine.test.js` — suíte de testes automatizados do motor
 - `sidepoint.js` — funções puras de classificação de grupo (`grupoDoPersonagem`, Grupo C/Aurora/Suth) e reposição idempotente de fichas semente (`reporSidepoint`, reusada pelo Aurora e pelo Suth)
@@ -71,6 +72,9 @@ O app **não exige login**: qualquer pessoa com o link edita, exclui, salva e ga
 - **Habilidades Passivas de Combate**: até 3 espaços por personagem, clicáveis — a Singularidade não ocupa espaço
 - **Painel Teste/Ataque**: seletor com dois modos — Teste (Atributo+Perícia, igual sempre) e Ataque (rola um ataque do personagem contra um alvo sintético com Defesa/Resistências definidas ali mesmo, sem precisar abrir o Confronto)
 
+### Retrato e enquadramento
+`character.imageUrl` é desenhado em todo lugar pelo mesmo componente, `Retrato` (`point-amaranth-app.jsx`) — ficha aberta, cards da lista de Personagens, Confronto (atacante/defensor) e vitrine de cada mesa na Capa. Sem `imageUrl`, ou se a imagem falhar ao carregar, cai pro ícone de escudo com a cor da facção; nunca lança exceção mesmo com personagem incompleto. `imagemPos: { y: 0-100, zoom: 1-3 }` (padrão `{ y: 50, zoom: 1 }`) controla o recorte: `y` move o enquadramento vertical (`objectPosition`), `zoom` amplia a imagem (`transform: scale`) mantendo o mesmo ponto de ancoragem. No formulário de edição, ao enviar/colar uma imagem aparecem dois sliders ("Altura do recorte", "Zoom"), um botão "Centralizar" e duas prévias ao vivo (no formato da ficha e no formato do card da lista). Salvo por personagem, igual ao resto da ficha — persiste no Supabase/local, entra em backup/importação (fichas antigas sem o campo ganham o padrão ao migrar, via `personagens.js`) e nunca é sobrescrito pela reposição idempotente de sementes (Aurora/Suth).
+
 ## Dados (Supabase) e backup
 
 Os dados da campanha (personagens, mundo, deuses, sagas, objetivos) ficam num projeto Supabase — sincronizados entre qualquer aparelho que abrir o app, sem precisar de login. Sem conexão, o app cai pro cache local (localStorage) e continua funcionando; a próxima vez que conseguir falar com o Supabase, ele volta a ser a fonte de verdade.
@@ -114,7 +118,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora, o Grupo Suth, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `cidadeOverrides.test.js`, `seedGuard.test.js`, `characterForm.render.test.js`, `rollPanel.test.js`, `suth.test.js` e `suthStats.test.js` — 366 testes ao todo:
+O motor de combate, o Grupo Aurora, o Grupo Suth, o componente de retrato, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `cidadeOverrides.test.js`, `seedGuard.test.js`, `characterForm.render.test.js`, `rollPanel.test.js`, `suth.test.js`, `suthStats.test.js` e `retrato.render.test.js` — 378 testes ao todo:
 
 ```
 npm test

@@ -145,6 +145,23 @@ describe("migrarPersonagem", () => {
   });
 });
 
+describe("migrarPersonagem — imagemPos (enquadramento do retrato)", () => {
+  it("ficha salva antes do campo `imagemPos` existir ganha o padrão centralizado/sem zoom", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.deepEqual(migrado.imagemPos, { y: 50, zoom: 1 });
+  });
+
+  it("preserva um imagemPos customizado já salvo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", imagemPos: { y: 20, zoom: 2 } });
+    assert.deepEqual(migrado.imagemPos, { y: 20, zoom: 2 });
+  });
+
+  it("completa campos parciais de um imagemPos salvo incompleto (ex: só y)", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", imagemPos: { y: 30 } });
+    assert.deepEqual(migrado.imagemPos, { y: 30, zoom: 1 });
+  });
+});
+
 describe("migrarPersonagens", () => {
   it("migra uma lista inteira", () => {
     const migrados = migrarPersonagens([{ id: "a", name: "A" }, { id: "b", name: "B" }]);

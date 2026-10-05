@@ -2706,11 +2706,195 @@ const FICHA_NOVA_FATE = {
   "grupo": "suth"
 };
 
+// Grupo Goethia — 10 fichas novas (a Erin Genova, 11ª pessoa do material,
+// NÃO entra aqui: ela já existe em SEED_CHARACTERS_RAW, no Grupo C — ver
+// nota abaixo). Diferente do Suth, o material de origem (dossiês em prosa,
+// sem nenhum número) não trouxe estatísticas prontas — por decisão do Pedro,
+// essas 10 fichas entram como RASCUNHO, grau E em tudo (mesmo padrão dos 13
+// personagens originais do Grupo C): sem fichaFechada, sem atributosGerais/
+// proficiencias/procs/attacks/itens definidos aqui, pra herdar os defaults
+// de withFichaDefaults (grau E, sem procs, ataques e armadura padrão) —
+// prontas pra alguém preencher os números depois pela própria interface.
+const GOETHIA_CHARACTERS_RAW = [
+  {
+    id: "goethia_giovana", name: "Giovana Brunhild Goetus II", epithet: "Tzar de Goethia · Guardião da Fortaleza dos Extremos",
+    race: "Goethiano puro (Dinastia Goetus)", faction: "Goethia",
+    affiliation: "Tzar de Goethia · Dinastia Goetus", height: "2,05m",
+    deity: "—", weapon: "Rifle sniper personalizado (forjado por Zed)",
+    traits: "Magro, mas com presença marcante; sempre em uniforme militar formal cinza-escuro e vermelho-vinho, luvas, capa com pelugem e quepe militar. Cabelos brancos lisos, olhos dourados penetrantes e frios, anel de platina com o brasão de Goethia. Frio, calculista, diplomata estratégico — prefere converter inimigos a enfrentá-los. Despreza a tradição em segredo, mas finge respeitá-la pra não desestabilizar o reino. Gosta: estratégia, xadrez político. Não gosta: incompetência, perder o controle da situação.",
+    xp: 0,
+    singularity: { name: "O Olho do Tzar", level: "A · Natural", description: "Visão sempre ativa com percepção de 360°; com foco, vê a quilômetros de distância com clareza absoluta. Usando mana, enxerga através de paredes e barreiras físicas. Permite estudar um campo de batalha inteiro sem estar presente." },
+    racialAbility: { name: "Goethiano puro — linhagem Goetus", description: "Herdeiro da dinastia que governa Goethia há gerações; tomou o trono do próprio pai por golpe." },
+    classes: [
+      { name: "Atirador de precisão", description: "Evita combate corpo a corpo; prefere uma sniper personalizada e abater o inimigo de longe, antes que perceba sua presença." },
+      { name: "Tzar de Goethia — governante supremo", description: "Comanda o reino com pragmatismo; planeja unir Goethia e Suth por meio de um casamento político com a Imperadora Emphes Alpha." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Tomou o trono de seu pai, Brunhild, através de um golpe de estado, prendendo-o nos calabouços de Goethia (Skuld, que o protegia, foi enganado e forçado a jurar lealdade ao novo Tzar pra salvar a vida de Brunhild). Hoje governa com pragmatismo, odiando em segredo boa parte das tradições goethianas, mas mantendo a fachada de respeito a elas pra não colapsar o reino. Sua jogada política mais ambiciosa é o plano de casamento com Emphes Alpha, Imperadora de Suth, pra unir os dois reinos numa só superpotência — um movimento calculado, sem apego sentimental. Atua secretamente contra outros reinos, quebrando acordos e acolhendo criminosos políticos em troca de informação estratégica. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_krish", name: "Krish Rostnamov", epithet: "Voz da Tempestade · Coordenadora da Irmandade da Tempestade",
+    race: "Goethiana (nobre de Lavkhekh)", faction: "Goethia",
+    affiliation: "Irmandade da Tempestade · Coordenadora", height: "2,20m",
+    deity: "—", weapon: "Dois machados encantados (herdados da mãe e do irmão)",
+    traits: "Olhos frios e focados, pele marcada por tatuagens cerimoniais da tempestade (fogo, gelo e eletricidade), cabelos brancos trançados e adornados. Intensa, contraditória, maternal e fria ao mesmo tempo — impulsiva mas astuta. Vê a magia como liberdade, a via que a libertou do destino de casamentos políticos imposto às nobres goethianas. Gosta: liberdade, outras mulheres escolhendo seu próprio caminho. Não gosta: Hetalion (desprezo herdado das invasões a Lavkhekh), generais tradicionalistas que veem mulheres como frágeis.",
+    xp: 0,
+    singularity: { name: "—", level: "—", description: "Não possui singularidade nata. Seu poder vem do domínio pessoal da magia combinado a dois machados encantados com almas familiares: o da mãe controla chamas vivas, o do irmão manifesta e molda gelo absoluto. Dependente de mana; sem as armas, torna-se vulnerável." },
+    racialAbility: { name: "Goethiana", description: "Filha do lorde de Lavkhekh; recusou a vida de casamentos e alianças políticas da nobreza e buscou na magia a única via de poder aberta a mulheres em Goethia." },
+    classes: [
+      { name: "Maga elemental (fogo e gelo)", description: "Combina os elementos dos dois machados encantados com sua própria versatilidade arcana." },
+      { name: "Coordenadora da Irmandade da Tempestade", description: "Organiza, comanda e representa a Irmandade nas decisões estratégicas — a Santa Erin é a líder espiritual, mas é Krish quem administra de fato." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Cresceu entre o luxo e as tradições rígidas da nobreza de Lavkhekh; recusou o destino de casamentos políticos e ingressou na Irmandade da Tempestade como noviça, subindo até se tornar sua voz mais potente. Desconfia profundamente do Tzar Giovana, mas segue sua autoridade por respeito a Erin. É mãe de Victor Elena Rostnamov, de quem viveu afastada — abandono que pesa na relação das duas, ainda que o vínculo de sangue nunca tenha sido negado. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_victor", name: "Victor Elena Rostnamov", epithet: "A Tempestade Viva",
+    race: "Goethiana", faction: "Goethia",
+    affiliation: "Irmandade da Tempestade · Sacerdotisa de Batalha · Comandante da Tropa Pessoal do Tzar", height: "2,1m",
+    deity: "Gigas", weapon: "—",
+    traits: "Baixa pros padrões goethianos, mas com presença maior que a estatura. Cabelos platinados longos e soltos, olhos vermelho-carmesim penetrantes, veste-se com roupas formais masculinas elegantes; em campo usa armadura leve roxo-clara com capa de pelos branca. Leveza encantadora, carismática, odeia estagnação. Fascinada (em segredo) pela estética e cultura de Suth. Gosta: ideias sendo questionadas, vento, mudança. Não gosta: hierarquia pela hierarquia, estagnação.",
+    xp: 0,
+    singularity: { name: "Bênção de Gigas — Domínio dos Ventos Elementais", level: "B · Divino (herdado)", description: "Não cria o vento — encontra, direciona e intensifica correntes existentes, podendo resfriar ou aquecer o clima do campo de batalha. Mais estratégica que destrutiva. Depende de ambiente aberto e de mana; não conjura vento onde não há." },
+    racialAbility: { name: "Goethiana", description: "Filha de Krish Rostnamov; cresceu afastada da mãe, criada por uma comunidade em Lavkhekh. Subiu por mérito, não por apadrinhamento." },
+    classes: [
+      { name: "Sacerdotisa de Batalha da Irmandade da Tempestade", description: "Combina fé, magia dos ventos e combate — respeitada, mas subestimada por sua idade dentro da Irmandade." },
+      { name: "Comandante da Tropa Pessoal do Tzar", description: "Lidera uma tropa que responde exclusivamente a Giovana; confidente e instrumento de ação do Tzar, numa relação de pacto, não de subordinação." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Herdou o sangue da tempestade da mãe, Krish Rostnamov, mas não o abrigo familiar — cresceu longe dela, criada por uma comunidade de criadoras em Lavkhekh. Giovana a reconheceu por sua força e lealdade inabalável à ideia de uma nova Goethia, e hoje os dois compartilham segredos, visões e estratégias numa relação de confiança mútua. Deseja o posto da mãe, não por rancor, mas por desejo de superação e renovação. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_skuld", name: "Skuld", epithet: "O Punho Imortal · General Supremo de Goethia",
+    race: "Goethiano (Imortal, geração antiga)", faction: "Goethia",
+    affiliation: "General Supremo de Goethia (em guerra total) · General de Grande Goethia", height: "2,60m",
+    deity: "—", weapon: "Punhos (desarmado, estado berserker)",
+    traits: "Titã musculoso, cabelos longos verdes e selvagens, manto preto e branco com braceletes dourados e um colar com uma pedra verde — onde reside a alma de sua esposa falecida. Relaxado, confiante, sempre com um sorriso provocador. Extremamente carismático, caloroso e festeiro; trata soldados como irmãos. Aceitou os ningens de braços abertos, treinando-os como guerreiros de verdade. Gosta: festas, combate, camaradagem. Não gosta: morrer de velhice (seu maior medo — quer uma morte gloriosa em batalha).",
+    xp: 0,
+    singularity: { name: "Ira da Santa", level: "A · Passiva/Involuntária", description: "A alma de sua esposa falecida, guardada num colar, desperta em combates intensos e se funde a ele, tornando-o sobre-humano: reflexos ao extremo, força triplicada, movimentos imprevisíveis como se guiado pelo destino. Não pode ser ativada por vontade própria — só desperta em momentos de combate intenso — e se perde se o colar for removido ou destruído." },
+    racialAbility: { name: "Goethiano Imortal", description: "432 anos; um dos últimos sobreviventes da era em que os goethianos eram imortais, antes da libertação de Sharkan encerrar essa condição." },
+    classes: [
+      { name: "Guerreiro berserker (combate corpo a corpo)", description: "Luta sempre na linha de frente, ao lado dos soldados, nunca de um gabinete." },
+      { name: "General Supremo de Goethia", description: "O general mais popular do exército; não deseja governar, mas poderia dividir as tropas numa rebelião se quisesse — prefere observar até onde Giovana levará Goethia." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Protegeu Brunhild, pai de Giovana, durante o golpe de estado, mas foi enganado pelo novo Tzar, que capturou Brunhild sem precisar derrotá-lo em combate — pra salvar a vida do antigo Tzar, Skuld foi forçado a jurar lealdade a Giovana. Hoje vê o jovem Tzar como um pirralho arrogante, mas reconhece (sem conseguir entender completamente) sua visão e inteligência estratégica. Não é leal a Giovana, mas tem lealdade absoluta à Santa e forte senso de dever com o reino. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_zed", name: "Zed", epithet: "O Espírito do Fogo · Guardião de Goethia",
+    race: "Guardião (raça primordial)", faction: "Goethia",
+    affiliation: "Irmandade da Forja · Espírito da Forja (cargo simbólico mais alto)", height: "1,80m",
+    deity: "—", weapon: "—",
+    traits: "Forma de homem alto e musculoso, coberto por uma armadura negra que parece estar derretendo lentamente — só a boca, sempre num sorriso largo e inquietante, fica visível. Carrega sempre um relógio de bolso ornamentado pra cronometrar jogos e apostas. Energético, sorridente, bem-humorado, viciado em jogos e apostas; não acredita em moralidade universal, só em contratos e regras. Gosta: jogos, apostas, desafios interessantes. Não gosta: tédio (sua única inimiga de verdade).",
+    xp: 0,
+    singularity: { name: "Agitação Molecular", level: "EX · Guardião", description: "Agita moléculas à vontade, gerando calor, combustão ou derretimento absoluto — compreende a base vibracional da matéria. Forja com o toque, incendeia com o olhar, funde mundos com um sopro. Por ser Guardião, seu poder se conecta diretamente à mana do mundo (quase ilimitado), mas está preso a contratos antigos e à própria compulsão por criar jogos onde pode perder." },
+    racialAbility: { name: "Guardião — raça primordial", description: "Raça secreta criada na origem do mundo como contrapeso ao poder dos deuses. Entregue a Goethia por Lord Omem como parte de um pacto de equilíbrio entre as nações — cada reino recebeu um Guardião, exceto Amaranth, que recebeu dois." },
+    classes: [
+      { name: "Ferreiro primordial", description: "Forjador original da Irmandade da Forja, de onde vem seu título simbólico — anterior à própria instituição." },
+      { name: "Guardião de Goethia", description: "Obedece ao Tzar não por respeito, mas por contrato; vê todos os líderes de Goethia como 'jogadores temporários' num jogo maior." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Ligado ao trono goethiano por contrato primordial desde que foi entregue ao reino por Lord Omem. Instrui Paulão Ivanovich na arte da forja, considerando-o um jogo que vale a pena acompanhar, e reforjou a armadura e a arma de Suzane Bruth, oferecendo paz às almas ali contidas — que optaram por continuar ao lado de Suzane. Não se impressiona com o próprio poder; usa-o como ferramenta pra brincar com as regras do mundo, contanto que o jogo permaneça interessante. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_hildr", name: "Hildr", epithet: "O Guardião da Fronteira · General de Lavkhekh",
+    race: "Goethiano (primeira geração de generais)", faction: "Goethia",
+    affiliation: "General de Lavkhekh", height: "2,35m",
+    deity: "—", weapon: "Espada com alma de um antigo amigo de combate + escudo com a alma da filha",
+    traits: "Alto, robusto, marcado por cicatrizes; cabelos loiros curtos e bagunçados, grisalhos nas laterais. Rosto de feições duras, sobrancelhas grossas, olhos azuis intensos. Sarcástico e direto, não gosta de rodeios; respeita força e inteligência, despreza fraqueza e indecisão. Cansado, mas determinado a lutar enquanto for necessário. Gosta: veteranos competentes, silêncio. Não gosta: rodeios, ser tratado como monumento vivo.",
+    xp: 0,
+    singularity: { name: "—", level: "—", description: "Não possui Singularidade, mas compensa com um controle absoluto de alma, mana e corpo — talvez o melhor combatente puro de todos os reinos, capaz de enfrentar até as Singularidades mais poderosas com técnica e estratégia pura." },
+    racialAbility: { name: "Goethiano", description: "Um dos primeiros grandes generais do reino, com 346 anos de idade; viveu guerras e viu o exército e a cultura goethiana evoluírem." },
+    classes: [
+      { name: "Veterano de combate corpo a corpo", description: "Cada golpe calculado pra ser decisivo; evita desperdício de recursos humanos em batalha." },
+      { name: "General de Lavkhekh (ex-General Supremo)", description: "Aposentou-se do cargo mais alto pra formar novas gerações, mas retornou à ativa após a traição do antigo general de Lavkhekh." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Parte da primeira geração de generais de Goethia, foi essencial pra manter o reino unido por mais de um século. Aposentou-se do posto de General Supremo pra se tornar tutor de novas gerações, suavizando seu temperamento, mas retomou um cargo militar recentemente, após a traição do antigo general de Lavkhekh — e se interessou pela liderança de Giovana, a quem reconhece como um jovem astuto, apesar de vê-lo como um revolucionário perigoso. Carrega a alma de um antigo amigo de combate na espada e a alma de sua própria filha no escudo. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_mustafar", name: "Mustafar", epithet: "O Guardião dos Exilados · General de Krakovsk",
+    race: "Ningen Raposa", faction: "Goethia",
+    affiliation: "General de Krakovsk · Protetor dos Exilados", height: "—",
+    deity: "União", weapon: "Garras / espada cerimonial",
+    traits: "Alto, robusto e imponente; pelagem predominantemente cinza e branca. Olhos perspicazes, sempre analisando a situação com calma. Veste kimono preto e branco de corte militar com detalhes dourados. Racional e prático, com forte senso de justiça; não busca conflito desnecessário, mas nunca recua de uma luta necessária. Vê os ningens como parte essencial do futuro de Goethia. Gosta: justiça, integração. Não gosta: preconceito contra ningens, conflito desnecessário.",
+    xp: 0,
+    singularity: { name: "Pele Adaptável", level: "B · Divino", description: "Pode alterar a propriedade de sua pelagem, tornando-a extremamente fria, extremamente quente ou rígida como aço — uma bênção do deus União, que o vê como um abridor de caminhos e um símbolo de que será preciso flexibilidade pra integrar os ningens em Goethia." },
+    racialAbility: { name: "Ningen Raposa", description: "Raça frequentemente menosprezada nos outros reinos; chegou como refugiado de Novolar. Lutou na guerra de cerca de 5 anos atrás entre Goethia e Suth, destacando-se e entrando pro exército goethiano." },
+    classes: [
+      { name: "Guerreiro de guerrilha", description: "Luta de forma fluida e adaptativa, misturando velocidade e precisão; foca em emboscadas e uso do terreno." },
+      { name: "General de Krakovsk", description: "Ascendeu por mérito e lealdade, não por tradição; governa com equilíbrio entre disciplina e empatia, tratando soldados como irmãos." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Veio como refugiado de Novolar e se destacou na guerra entre Goethia e Suth de cerca de 5 anos atrás; em 3 anos se tornou general, pela liderança que exerceu sobre outros ningens e pelo respeito que conquistou dos goethianos. Sua competência convenceu o pai de Giovana a nomeá-lo General de Krakovsk; hoje tem ótima relação com o próprio Giovana. É o maior defensor dos ningens dentro do exército goethiano, lutando por oportunidades iguais, mas também exigindo que eles se provem. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_suzane", name: "Suzane Bruth", epithet: "O Ferreiro Silencioso · General de Libish",
+    race: "Goethiano", faction: "Goethia",
+    affiliation: "General de Libish · Supervisor da Irmandade da Forja", height: "2,15m",
+    deity: "—", weapon: "Porrete de aço (alma da filha) + escudo-espírito (alma da esposa)",
+    traits: "Corpo largo e denso, movimentos contidos; cabelos e barba ruivo-escuros, longos e desgrenhados. Rosto marcado por tatuagens cerimoniais ligadas à alma da esposa e da filha falecidas. Silencioso e atento, carrega mais do que deixa transparecer. Antes extremamente tradicionalista, hoje adaptável e prático. Gosta: honrar a memória da família, forja. Não gosta: ostentação, ser lembrado por ter falhado em proteger Libish.",
+    xp: 0,
+    singularity: { name: "—", level: "—", description: "Não possui singularidade natural — todo o poder vem da simbiose com armadura e arma encantadas pelas almas da esposa e da filha falecidas. A armadura gera escudos de mana autônomos e tem 'mente' própria; a arma pode se duplicar, permitindo lutar com quatro bastões simultâneos através de braços astrais." },
+    racialAbility: { name: "Goethiano", description: "Filho de uma boa família, cresceu em meio às forjas de Libish; foi mão direita do antigo lorde da cidade." },
+    classes: [
+      { name: "Guerreiro de porrete (armas de alma)", description: "Mestre em combate corpo a corpo com um porrete de aço; gera braços astrais e duplica a própria arma em combate." },
+      { name: "General de Libish e Supervisor da Irmandade da Forja", description: "Supervisiona a qualidade das armas fornecidas às tropas, aprimorando pessoalmente os equipamentos de outros generais." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Foi mão direita do antigo lorde de Libish e, mesmo após a morte dele numa invasão de Hetalion e Amaranth, conquistou o respeito da população — até ser derrotado pela guerreira lendária Maria, perdendo o título, que recuperou depois através de trabalho duro. A derrota o mudou: de extremamente tradicionalista pra um líder adaptável e prático, hoje apoiado por Giovana, a quem se sente em dívida por ter restaurado seu cargo. Zed reforjou sua armadura e sua arma, oferecendo paz às almas da esposa e da filha ali contidas — que optaram por permanecer ao lado dele. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_paulao", name: "Paulão Ivanovich Dragunov", epithet: "O Coração de Ferro · Alto-Artificer da Irmandade da Forja",
+    race: "Goethiano", faction: "Goethia",
+    affiliation: "Comandante Especial do Exército do Tzar · Irmandade da Forja · Discípulo de Zed", height: "—",
+    deity: "Deus da Alma", weapon: "Armadura viva (voo, garras, cauda, fogo)",
+    traits: "Alto e musculoso, ombros largos, postura imponente; cabelos longos loiros bem cuidados, barba loira aparada, olhos azuis intensos com brilho de provocação. Rosto delicado com maquiagem sutil contrastando com o corpo robusto. Acolhedor e festivo fora de combate, brutal dentro dele; odeia política, mas respeita profundamente Giovana. Abertamente homossexual num reino tradicionalista — figura polêmica e símbolo de mudança. Gosta: criar livremente, ser quem é com orgulho. Não gosta: esconder quem é, política.",
+    xp: 0,
+    singularity: { name: "Forja da Alma", level: "A · Divino (Deus da Alma)", description: "Capacidade de criar almas artificiais pra armas e equipamentos — cada arma ganha uma 'vontade' única, aumentando a sinergia com o portador. Sua própria armadura tem alma própria: voo, garras metálicas, cauda como extensão de ataque, cuspir fogo e aura de intimidação contra dragões e criaturas mágicas. Sem a armadura, seu combate é significativamente menos eficaz." },
+    racialAbility: { name: "Goethiano", description: "Filho de um ferreiro da Irmandade da Forja; reconhecido desde jovem por um talento anormal pra forja e criação de armamentos." },
+    classes: [
+      { name: "Artífice de almas (combate com armadura viva)", description: "Luta vestindo sua própria criação: uma armadura com alma própria, capaz de voo, garras, cauda e fogo." },
+      { name: "Alto-Artificer da Irmandade da Forja", description: "Discípulo e sucessor natural de Zed; recentemente indicado para se tornar Cavaleiro de Omem." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Amigo de infância de Giovana, a quem deve sua ascensão — foi o Tzar quem lhe abriu as portas após sofrer forte rejeição social por ser abertamente homossexual desde criança. Tornou-se discípulo de Zed e rapidamente se destacou como seu sucessor natural. Mantém rivalidade acirrada (mas com respeito técnico mútuo) com Suzane Bruth. Idolatrado por grupos progressistas e criticado por conservadores, sua popularidade cresce entre os jovens da Irmandade da Forja. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+  {
+    id: "goethia_mistake", name: "Mistake", epithet: "O Erro Leal · Comandante das Forças Especiais do Tzar",
+    race: "Meio-orc goethiano", faction: "Goethia",
+    affiliation: "Comandante das Forças Especiais do Tzar", height: "—",
+    deity: "—", weapon: "Armamento variado (armas de fogo, facas, explosivos)",
+    traits: "Alto, pele verde muito clara (quase branca), dentes proeminentes, olhos cansados e profundos, cabelos longos lisos escuros. Uniforme militar leve à prova de balas, luvas negras constantes. Presença fria, metódica, controlada — impessoal e quase misericordiosa ao mesmo tempo. Calado, metódico, extremamente prático e profissional; capaz de atos extremos sem hesitação, mas nunca sem necessidade. Gosta: cumprir a missão. Não gosta: ser inútil.",
+    xp: 0,
+    singularity: { name: "Sangue Corrompido (Meio-Orc)", level: "B · Natural (herança divina corrompida)", description: "Resultado do sangue corrompido de uma deusa consumido pela mãe durante a gestação — não se tornou orc completo, nem permaneceu humano. Dá força e resistência física muito acima do normal, regeneração acelerada, imunidade a venenos e toxinas e estamina quase inesgotável." },
+    racialAbility: { name: "Meio-orc goethiano", description: "Nascido de uma goethiana que consumiu sangue de uma deusa corrompida; rejeitado pela mãe, criado pelo pai apenas por dever legal, sem amor — nomeado 'Mistake' em registro." },
+    classes: [
+      { name: "Especialista em CQC e infiltração", description: "Combate corpo a corpo de curta distância, infiltração, execução rápida, resgate, assassinato e extração." },
+      { name: "Comandante das Forças Especiais do Tzar", description: "Subordinado apenas a Giovana; opera fora da cadeia de comando tradicional, temido e respeitado pelos generais." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Dedicou-se desde jovem a servir Goethia, o único lugar que, mesmo friamente, lhe ofereceu estrutura e sobrevivência depois de ser rejeitado pela própria mãe. Giovana o descobriu e o acolheu como soldado fiel — hoje tem lealdade total ao Tzar, vendo-o como sua razão de existir. Visto pelo povo goethiano como um espectro: crianças contam histórias sobre ele, adultos evitam dizer seu nome. Sua filosofia pessoal resume quem ele é: 'Um erro pode ser corrigido se for útil o suficiente.' [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "goethia",
+  },
+];
+
+const GOETHIA_CHARACTERS = GOETHIA_CHARACTERS_RAW.map((c) => withFichaDefaults(c));
+
 // Exportado (além do default App) só pro teste de smoke de render
 // (characterForm.render.test.js) — garante que os personagens semente (Grupo
-// C + Aurora + Suth) renderizam sem lançar exceção.
+// C + Aurora + Suth + Goethia) renderizam sem lançar exceção.
 export const SEED_CHARACTERS = aplicarFichaSuthDoFate(
-  [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS, ...SUTH_CHARACTERS],
+  [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS, ...SUTH_CHARACTERS, ...GOETHIA_CHARACTERS],
   FICHA_NOVA_FATE
 );
 
@@ -2848,7 +3032,49 @@ const SEED_KINGDOMS_RAW = [
       { id: "suth_risel", name: "Risel", resumo: "Cidade de Suth marcada no mapa (grafia a confirmar); ainda sem descrição.", x: null, y: null, capital: false, documentada: false },
     ],
   },
-  { id: "goethia", name: "Goethia", description: "Nação unida pela conexão emocional coletiva com sua Santa, Erin Genova, sob o governo do Tzar. [Rascunho — refine comigo quando quiser.]", cities: [] },
+  { id: "goethia", name: "Goethia",
+    description: "Reino de guerreiros moldado pelo sangue e pelo ferro, unido pela conexão emocional coletiva com sua Santa, Erin Genova, e governado pelo Tzar Giovana Brunhild Goetus II — o primeiro, em mais de mil anos, a desafiar abertamente o status quo goethiano.",
+    visaoGeral: "Goethia é marcado por climas extremos — frio intenso no centro, rios de lava no leste — e por cidades gigantescas com biomas distintos dentro de uma mesma muralha. Os goethianos têm estatura imponente (média de 2 metros) e uma tradição peculiar: homens recebem nomes considerados femininos em outras culturas, e mulheres, nomes tidos como masculinos.\n\nA sociedade prioriza o bem coletivo sobre o indivíduo — não há fome, pobreza ou miséria dentro das muralhas, pois os recursos são distribuídos igualmente a quem serve ao Estado. Quem desrespeita as leis é declarado \"morto\" e exilado pras favelas que se formam fora das muralhas, sem direito de reentrar. Apesar da rigidez, o povo aprecia festivais e música, oscilando entre frieza e impulsividade.\n\nO reino foi fundado por Lady Ulher, esposa de Lord Omem, que encontrou seguidores na região após deixar Amaranth e ajudou tribos locais contra dragões. Ferida pela entidade primordial Sharkan, foi forçada a partir — mas Sharkan foi derrotada, seu corpo esquartejado e selado em quatro fontes, que deram origem às grandes cidades de Goethia. Por séculos essas águas concederam juventude eterna aos goethianos, sustentando uma sociedade sem dinheiro, baseada na contribuição obrigatória ao Estado. Há 20 anos, porém, Sharkan foi libertada, encerrando a imortalidade — e o povo de Goethia hoje enfrenta a própria mortalidade pela primeira vez na história.",
+    rebeliao: {
+      titulo: "A Libertação de Sharkan",
+      texto: "Sharkan, entidade primordial que feriu a fundadora Lady Ulher, foi derrotada havia séculos e teve seu corpo esquartejado e selado em quatro fontes — as mesmas que deram origem às grandes cidades de Goethia e concediam juventude eterna aos goethianos. Há 20 anos, Sharkan foi libertada, encerrando de uma vez a imortalidade dos goethianos modernos. O primeiro Tzar havia governado 1.200 anos estabilizando o reino sob essa promessa de eternidade; hoje, pela primeira vez na história, o povo goethiano precisa lidar com a própria mortalidade — um dos pano de fundo da tensão entre tradição e mudança que marca o reinado de Giovana.",
+    },
+    economia: [
+      "Sistema sem moeda: cidadãos têm acesso a tudo que precisam, desde que sirvam ao Estado.",
+      "Perda da cidadania: quem falha em contribuir é declarado \"morto\" e exilado das cidades.",
+      "Favelas de exilados se formam nas áreas externas das cidades; os \"mortos\" são proibidos de reentrar nas muralhas.",
+      "Armas que incorporam almas são uma tecnologia única de Goethia — algumas famílias de guerreiros lutam lado a lado com seus ancestrais através delas.",
+    ],
+    relacoes: [
+      { reino: "Suth", tipo: "Guerra recente e aliança em formação", texto: "Guerra de cerca de 5 anos atrás entre os dois reinos; hoje o Tzar Giovana planeja um casamento político com a Imperadora Emphes Alpha, de Suth, para uni-los numa só superpotência." },
+      { reino: "Hetalion", tipo: "Desprezo histórico", texto: "Invasões passadas contra Lavkhekh e Libish alimentam um desprezo profundo, sobretudo dentro da Irmandade da Tempestade." },
+      { reino: "Amaranth/Omem", tipo: "Pacto dos Guardiões", texto: "Lord Omem entregou um Guardião a cada reino (Zed, em Goethia) como parte de um pacto de equilíbrio entre as nações — Amaranth, sede dos Cavaleiros de Omem, recebeu dois." },
+    ],
+    glossario: [
+      { termo: "Tzar", texto: "Governante supremo de Goethia; título hereditário da Dinastia Goetus." },
+      { termo: "Arquiduque", texto: "Governador de uma cidade goethiana; autonomia local, mas presta tributo ao Tzar." },
+      { termo: "Irmandade da Tempestade", texto: "Facção espiritual e mágica ligada à Santa; neutra politicamente, mas de forte influência espiritual." },
+      { termo: "Irmandade da Forja", texto: "Controla a produção de armas do reino; pode favorecer aliados." },
+      { termo: "Irmandade dos Contos", texto: "Influencia a cultura e a educação de Goethia." },
+      { termo: "Guardião", texto: "Raça secreta criada na origem do mundo como contrapeso ao poder dos deuses; cada reino recebeu um — Amaranth recebeu dois." },
+      { termo: "\"Morto\" (status civil)", texto: "Quem desrespeita as leis de Goethia ou falha em contribuir ao Estado é declarado \"morto\" e exilado das cidades, sem direito de retorno." },
+    ],
+    notasDoMestre: [
+      "A cidade grafada \"Lavkhehk\" no dossiê pessoal de Hildr foi padronizada para \"Lavkhekh\" (grafia do relatório oficial do reino).",
+      "Erin Genova já existia como personagem do Grupo C, com ficha fechada e estatísticas completas, antes deste material chegar. O dossiê novo só enriqueceu a aba Pessoas/relações do reino — a ficha mecânica dela não foi tocada.",
+      "As outras 10 fichas de Goethia entraram em rascunho (grau E em tudo), por decisão do Pedro — o material de origem é só prosa, sem nenhum número de combate.",
+      "Nomes citados nos dossiês sem ficha própria neste material: Aisha Zeke (diplomata da Irmandade dos Contos), a mãe e o irmão de Krish, a esposa de Skuld, a esposa e a filha de Suzane, o amigo de combate e a filha de Hildr, Brunhild (pai de Giovana, preso nos calabouços), a guerreira Maria (derrotou Suzane) e FATE/Hetalion Seguintes (citadas só como rivalidade simbólica de Erin).",
+    ],
+    cities: [
+      { id: "goethia_grande", name: "Grande Goethia", resumo: "Capital do reino (Leste). Centro administrativo e político; sede do Tzar e do Sangue do Tzar, responsável pela ordem e segurança. Maior cidade de Goethia, onde se concentram as decisões estratégicas.", x: null, y: null, capital: true, documentada: true },
+      { id: "goethia_krakovsk", name: "Krakovsk", resumo: "Norte, gélida e brutal. Região congelada de temperaturas extremamente baixas; seus habitantes são guerreiros endurecidos pelo frio, conhecida por suas arenas de combate e treinos brutais.", x: null, y: null, capital: false, documentada: true },
+      { id: "goethia_changhek", name: "Changhek", resumo: "Sul, cidade espiritual. Cidade sagrada e sede da Irmandade da Tempestade; centro de conhecimento sobre reencarnação e rituais, local de formação dos monges e magas de Goethia.", x: null, y: null, capital: false, documentada: true },
+      { id: "goethia_libish", name: "Libish", resumo: "Oeste, comércio e defesa. Principal centro comercial e militar de defesa do reino; controla as rotas de transporte e é ponto-chave para negociações, com grandes fortalezas protegendo as fronteiras ocidentais.", x: null, y: null, capital: false, documentada: true },
+      { id: "goethia_vantohrk", name: "Vantohrk", resumo: "Noroeste, agricultura e recursos. Responsável pela produção de alimentos e distribuição de recursos básicos; terra fértil que garante abastecimento estável para o resto do reino.", x: null, y: null, capital: false, documentada: true },
+      { id: "goethia_lavkhekh", name: "Lavkhekh", resumo: "Sudoeste, cidade de guerreiros. Treinamentos militares e berço de guerreiros excepcionais; forte influência da Irmandade da Tempestade, combinando fé e combate, também contribui com recursos estratégicos.", x: null, y: null, capital: false, documentada: true },
+      { id: "goethia_santorum", name: "Goethia Santorum", resumo: "Sudeste, região arruinada. Antiga cidade tomada por uma maldição desconhecida; evitada pela maioria dos goethianos, mas ainda guarda segredos ocultos.", x: null, y: null, capital: false, documentada: true },
+    ],
+  },
   { id: "amaranth", name: "Amaranth/Omem", description: "Sede da Academia de Omem e dos Cavaleiros de Omem, centro do grupo principal da campanha. [Rascunho — refine comigo quando quiser.]", cities: [] },
 ];
 
@@ -2857,6 +3083,10 @@ const SEED_KINGDOMS_RAW = [
 // própria entrada "suth" acima em SEED_KINGDOMS já tem esse conteúdo
 // definitivo pra quem abre o app sem nada salvo ainda.
 const DADOS_SUTH = SEED_KINGDOMS_RAW.find((k) => k.id === "suth");
+
+// Mesmo raciocínio, agora pro reino de Goethia (preencherReinoSuth é
+// genérica — já olhava só pro id do reino, não precisou de função nova).
+const DADOS_GOETHIA = SEED_KINGDOMS_RAW.find((k) => k.id === "goethia");
 
 // Pessoas do reino Suth (Pilares, relações, genealogias) — ver pessoasReino.js
 // pra como isso é semeado (reporPessoasDoReino) e exibido (aba "Pessoas" em
@@ -3277,9 +3507,121 @@ export const DADOS_PESSOAS_SUTH = {
   ]
 };
 
+// Pessoas do reino Goethia (Tzar/Irmandades/generais, relações e as duas
+// genealogias — família Rostnamov e as almas vinculadas a armas/armaduras).
+// A Erin Genova aparece aqui pelo id já existente "erin" (Grupo C) — não tem
+// ficha nova sendo criada pra ela, só o vínculo na estrutura/relações.
+export const DADOS_PESSOAS_GOETHIA = {
+  estrutura: {
+    titulo: "Tzar, Irmandades e Generais de Goethia",
+    grupos: [
+      {
+        id: "tzar", nome: "Tzar e Comando Direto", funcao: "Governo supremo de Goethia e as forças que respondem só a ele",
+        membros: [
+          { personagemId: "goethia_giovana", cargo: "Tzar de Goethia", ordem: 1 },
+          { personagemId: "goethia_victor", cargo: "Comandante da Tropa Pessoal do Tzar", ordem: 2 },
+          { personagemId: "goethia_mistake", cargo: "Comandante das Forças Especiais do Tzar", ordem: 3 },
+        ],
+      },
+      {
+        id: "tempestade", nome: "Irmandade da Tempestade", funcao: "Facção espiritual e mágica; forte influência espiritual, neutra politicamente",
+        membros: [
+          { personagemId: "erin", cargo: "A Santa de Goethia (figura espiritual suprema)", ordem: 1 },
+          { personagemId: "goethia_krish", cargo: "Coordenadora — organiza e comanda a Irmandade na prática", ordem: 2 },
+        ],
+      },
+      {
+        id: "forja", nome: "Irmandade da Forja", funcao: "Controla a produção de armas de Goethia",
+        membros: [
+          { personagemId: "goethia_zed", cargo: "Espírito da Forja (cargo simbólico mais alto, anterior à própria Irmandade)", ordem: 1 },
+          { personagemId: "goethia_suzane", cargo: "Supervisor da Irmandade da Forja · General de Libish", ordem: 2 },
+          { personagemId: "goethia_paulao", cargo: "Alto-Artificer · discípulo de Zed", ordem: 3 },
+        ],
+      },
+      {
+        id: "generais", nome: "Generais Regionais", funcao: "Comandam o exército goethiano nas cidades-chave do reino",
+        membros: [
+          { personagemId: "goethia_skuld", cargo: "General Supremo de Goethia · General de Grande Goethia", ordem: 1 },
+          { personagemId: "goethia_hildr", cargo: "General de Lavkhekh", ordem: 2 },
+          { personagemId: "goethia_mustafar", cargo: "General de Krakovsk", ordem: 3 },
+          { nomeLivre: "Aisha Zeke", cargo: "Diplomata da Irmandade dos Contos", ordem: 4, nota: "Dossiê pendente" },
+        ],
+      },
+    ],
+  },
+  relacoes: [
+    { de: "goethia_giovana", para: "goethia_skuld", tipo: "hierarquia", rotulo: "respeito tenso — Skuld não é leal a Giovana, mas tem senso de dever com o reino" },
+    { de: "goethia_giovana", para: "goethia_zed", tipo: "alianca", rotulo: "vínculo por contrato, não por afeto" },
+    { de: "goethia_giovana", para: "goethia_krish", tipo: "alianca", rotulo: "aliados políticos — compartilham a visão de um reino mais aberto" },
+    { de: "goethia_giovana", para: "goethia_victor", tipo: "alianca", rotulo: "pacto de confiança mútua, não de subordinação" },
+    { de: "goethia_giovana", para: "goethia_mistake", tipo: "hierarquia", rotulo: "lealdade total — Mistake o vê como sua razão de existir" },
+    { de: "goethia_giovana", para: "goethia_paulao", tipo: "alianca", rotulo: "amigos de infância; protegido político do Tzar" },
+    { de: "goethia_giovana", para: "goethia_mustafar", tipo: "alianca", rotulo: "ótima relação — Mustafar deve o posto de general a Giovana" },
+    { de: "goethia_giovana", para: "suth_emphes", tipo: "alianca", rotulo: "plano de casamento político pra unir Goethia e Suth numa só superpotência" },
+    { de: "goethia_krish", para: "goethia_victor", tipo: "familia", rotulo: "mãe e filha — cresceram afastadas, mas o vínculo de sangue nunca foi negado" },
+    { de: "goethia_krish", para: "goethia_giovana", tipo: "rivalidade", rotulo: "desconfiança mútua, mas seguem juntas por respeito à Santa Erin" },
+    { de: "goethia_zed", para: "goethia_suzane", tipo: "alianca", rotulo: "reforjou armadura e arma de Suzane, oferecendo paz às almas ali contidas" },
+    { de: "goethia_zed", para: "goethia_paulao", tipo: "mentoria", rotulo: "mestre e mentor na arte da forja" },
+    { de: "goethia_paulao", para: "goethia_suzane", tipo: "rivalidade", rotulo: "rivalidade acirrada, com respeito técnico mútuo" },
+    { de: "goethia_hildr", para: "goethia_skuld", tipo: "alianca", rotulo: "respeito mútuo; divergem sobre a necessidade do conflito" },
+    { de: "goethia_hildr", para: "goethia_mustafar", tipo: "alianca", rotulo: "respeita Mustafar, mas ainda vê ningens como \"outsiders\"" },
+    { de: "goethia_mustafar", para: "goethia_skuld", tipo: "alianca", rotulo: "admira a força de Skuld, mas considera sua obsessão pela guerra perigosa" },
+    { de: "erin", para: "goethia_giovana", tipo: "alianca", rotulo: "aliados diretos — hoje ela confia nele plenamente" },
+    { de: "erin", para: "goethia_victor", tipo: "alianca", rotulo: "aliadas diretas" },
+    { de: "erin", para: "goethia_paulao", tipo: "alianca", rotulo: "aliados diretos" },
+    { de: "erin", para: "goethia_mistake", tipo: "alianca", rotulo: "aliados diretos" },
+    { de: "erin", para: "kiryu", tipo: "alianca", rotulo: "aliada direta de Kiryu, do Grupo C" },
+    { de: "erin", para: "fate", tipo: "rivalidade", rotulo: "rivalidade simbólica entre as Santas de Goethia e de Suth, criada pela população dos dois reinos" },
+  ],
+  genealogias: [
+    {
+      id: "rostnamov", titulo: "Família Rostnamov",
+      nos: [
+        { id: "mae_krish", nome: "Mãe de Krish (falecida)", nota: "Deu origem ao machado de fogo que Krish carrega até hoje." },
+        { id: "krish", personagemId: "goethia_krish" },
+        { id: "victor", personagemId: "goethia_victor" },
+      ],
+      ligacoes: [
+        { pais: ["mae_krish"], filho: "krish", tipo: "mãe e filha" },
+        { pais: ["krish"], filho: "victor", tipo: "mãe e filha" },
+      ],
+      notas: [
+        "O irmão de Krish (fonte do machado de gelo) também é mencionado no dossiê, mas sem nome — não entra na árvore por falta de dado (é irmão de Krish, não ascendente nem descendente).",
+        "Victor Elena cresceu afastada de Krish, criada por uma comunidade em Lavkhekh — mas o vínculo de sangue entre as duas nunca foi negado.",
+      ],
+    },
+    {
+      id: "almas_vinculadas", titulo: "Almas Vinculadas a Armas e Armaduras",
+      nos: [
+        { id: "esposa_suzane", nome: "Esposa de Suzane (falecida)", nota: "Sua alma habita a armadura de Suzane, reforjada por Zed." },
+        { id: "filha_suzane", nome: "Filha de Suzane (falecida)", nota: "Sua alma habita o porrete de aço de Suzane." },
+        { id: "suzane", personagemId: "goethia_suzane" },
+        { id: "esposa_skuld", nome: "Esposa de Skuld (falecida)", nota: "Sua alma habita o colar de Skuld — a fonte da singularidade Ira da Santa." },
+        { id: "skuld", personagemId: "goethia_skuld" },
+        { id: "amigo_hildr", nome: "Antigo amigo de combate de Hildr (falecido)", nota: "Sua alma habita a espada de Hildr." },
+        { id: "filha_hildr", nome: "Filha de Hildr (falecida)", nota: "Sua alma habita o escudo de Hildr." },
+        { id: "hildr", personagemId: "goethia_hildr" },
+      ],
+      ligacoes: [
+        { pais: ["esposa_suzane"], filho: "suzane", tipo: "alma vinculada à armadura", tracejado: true },
+        { pais: ["filha_suzane"], filho: "suzane", tipo: "alma vinculada à arma", tracejado: true },
+        { pais: ["esposa_skuld"], filho: "skuld", tipo: "alma vinculada ao colar (singularidade)", tracejado: true },
+        { pais: ["amigo_hildr"], filho: "hildr", tipo: "alma vinculada à espada", tracejado: true },
+        { pais: ["filha_hildr"], filho: "hildr", tipo: "alma vinculada ao escudo", tracejado: true },
+      ],
+      notas: [
+        "Goethia tem uma tecnologia única de armas que incorporam almas — não é parentesco de sangue, por isso toda ligação aqui é tracejada.",
+      ],
+    },
+  ],
+};
+
 // Sementes de "pessoas do reino" (ver reporPessoasDoReino em pessoasReino.js)
-// — hoje só Suth; outro reino que ganhar esse formato entra aqui também.
-const SEMENTES_PESSOAS_REINO = [{ reinoId: "suth", pessoas: DADOS_PESSOAS_SUTH }];
+// — Suth e Goethia por agora; outro reino que ganhar esse formato entra aqui.
+const SEMENTES_PESSOAS_REINO = [
+  { reinoId: "suth", pessoas: DADOS_PESSOAS_SUTH },
+  { reinoId: "goethia", pessoas: DADOS_PESSOAS_GOETHIA },
+];
 
 // Aplicado aqui (e não só na reposição do useEffect de carregamento) pelo
 // mesmo motivo do Grupo Aurora/Suth em SEED_CHARACTERS: num app sem nada
@@ -3308,11 +3650,12 @@ const GRUPO_C_ORDER = ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kut
 
 // Conceito de GRUPO (mesa): cada personagem pertence a uma campanha. "c" é o
 // Grupo C (a campanha principal), "aurora" é o Sidepoint, "suth" é a mesa do
-// Império de Suth.
+// Império de Suth, "goethia" é a mesa do reino de Goethia.
 const GRUPOS = [
   { id: "c", label: "Grupo C", subtitulo: "Cavaleiros de Omem · campanha principal", cor: BRASS },
   { id: "aurora", label: "Grupo Aurora", subtitulo: "Mercenários de Beltezu · mesa Sidepoint", cor: "#B5654A" },
   { id: "suth", label: "Grupo Suth", subtitulo: "Três Pilares do Império de Suth", cor: EMBER },
+  { id: "goethia", label: "Grupo Goethia", subtitulo: "Tzar, Irmandades e generais de Goethia", cor: FACTION_SEAL["Goethia"] },
 ];
 
 const SEED_SAGAS = [
@@ -8532,6 +8875,15 @@ export default function App() {
           } catch (e) { apagadosSuth = []; }
           finalChars = reporSidepoint(finalChars, SUTH_CHARACTERS, apagadosSuth);
           finalChars = aplicarFichaSuthDoFate(finalChars, FICHA_NOVA_FATE);
+          // Goethia: mesma reposição idempotente por personagem — a Erin Genova
+          // não entra aqui, ela já é semente do Grupo C (id "erin") e não recebeu
+          // ficha nova (só enriquecemos Pessoas/relações do reino pra ela).
+          let apagadosGoethia = [];
+          try {
+            const remGoethia = await storage.get("point-goethia-removidos");
+            apagadosGoethia = remGoethia?.value ? JSON.parse(remGoethia.value) : [];
+          } catch (e) { apagadosGoethia = []; }
+          finalChars = reporSidepoint(finalChars, GOETHIA_CHARACTERS, apagadosGoethia);
           setCharacters(finalChars);
         }
       } catch (e) {}
@@ -8553,11 +8905,13 @@ export default function App() {
             cidadesRemovidas = rem?.value ? JSON.parse(rem.value) : [];
           } catch (e) { cidadesRemovidas = []; }
           reinos = reporCidadesSemente(reinos, SEED_KINGDOMS, cidadesRemovidas);
-          // Reino Suth: preenche visão geral/pilares/rebelião/economia/relações/
+          // Reino Suth/Goethia: preenche visão geral/rebelião/economia/relações/
           // glossário/notas do mestre só enquanto a descrição ainda for o
-          // rascunho antigo — não sobrescreve edição já feita (ver suth.js).
+          // rascunho antigo — não sobrescreve edição já feita (preencherReinoSuth
+          // é genérica, reusada aqui pra Goethia também, ver suth.js).
           reinos = preencherReinoSuth(reinos, DADOS_SUTH);
-          // Pessoas do reino (Pilares/relações/genealogias): semeia só quem
+          reinos = preencherReinoSuth(reinos, DADOS_GOETHIA);
+          // Pessoas do reino (estrutura/relações/genealogias): semeia só quem
           // ainda não tem `pessoas` — idempotente, não sobrescreve edição do
           // GM nem um conteúdo semeado antes (ver pessoasReino.js).
           reinos = reporPessoasDoReino(reinos, SEMENTES_PESSOAS_REINO);
@@ -8650,6 +9004,20 @@ export default function App() {
         if (!Array.isArray(lista)) lista = [];
         if (!lista.includes(id)) lista.push(id);
         try { await storage.set("point-suth-removidos", JSON.stringify(lista)); } catch (e) {}
+      })();
+    }
+    // Mesma lógica pra uma ficha semente do grupo Goethia (a Erin não entra
+    // aqui: ela é semente do Grupo C, não do GOETHIA_CHARACTERS).
+    if (GOETHIA_CHARACTERS.some((ch) => ch.id === id)) {
+      (async () => {
+        let lista = [];
+        try {
+          const rem = await storage.get("point-goethia-removidos");
+          lista = rem?.value ? JSON.parse(rem.value) : [];
+        } catch (e) { lista = []; }
+        if (!Array.isArray(lista)) lista = [];
+        if (!lista.includes(id)) lista.push(id);
+        try { await storage.set("point-goethia-removidos", JSON.stringify(lista)); } catch (e) {}
       })();
     }
   }

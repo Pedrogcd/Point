@@ -43,6 +43,13 @@ describe("grupoDoPersonagem", () => {
     // explicitamente o id "fate" continua caindo no Grupo C por padrão.
     assert.equal(grupoDoPersonagem({ id: "fate", fichaSuthAplicada: true }), "c");
   });
+  it("sem campo grupo, classifica pelo prefixo goethia_ do id", () => {
+    assert.equal(grupoDoPersonagem({ id: "goethia_giovana" }), "goethia");
+  });
+  it("a Erin (id 'erin') NÃO é reclassificada pra goethia — fica no Grupo C", () => {
+    assert.equal(grupoDoPersonagem({ id: "erin" }), "c");
+    assert.equal(grupoDoPersonagem({ id: "erin", faction: "Goethia" }), "c");
+  });
 });
 
 // Cenários de carregamento verificados manualmente (ver INSTRUCAO-claude-code-

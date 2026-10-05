@@ -28,6 +28,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
+import { mesclarCidadeComOverride, normalizarItemLista, paraItemLista } from "./cidadeOverrides.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
 /* ---------------------------------------------------------------
@@ -3326,6 +3327,88 @@ function SubAbas({ abas, ativa, setAtiva }) {
 const cardBox = { background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14 };
 const rotulo = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 };
 
+// Bloco de conteúdo do dossiê com edição pelo GM: sempre mostra o conteúdo
+// (renderLeitura); só no modo mestre aparece "Editar" (troca pra Salvar/
+// Cancelar) e, quando já existe um override nesse campo, "Restaurar
+// original" (apaga só esse campo do override — nunca toca mundoDados.js).
+// No modo Jogador nenhum controle aparece — é só renderLeitura().
+function BlocoEditavel({ gm, temOverride, valorInicial, onSalvar, onRestaurar, renderLeitura, renderEdicao }) {
+  const [editando, setEditando] = useState(false);
+  const [draft, setDraft] = useState(valorInicial);
+  if (!gm) return renderLeitura();
+  if (!editando) {
+    return (
+      <div>
+        {renderLeitura()}
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <Btn variant="ghost" onClick={() => { setDraft(valorInicial); setEditando(true); }} style={{ padding: "3px 8px", fontSize: 11 }}>
+            <Pencil size={11} /> Editar
+          </Btn>
+          {temOverride && (
+            <Btn variant="ghost" onClick={onRestaurar} style={{ padding: "3px 8px", fontSize: 11, color: MUTED }}>
+              Restaurar original
+            </Btn>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div>
+      {renderEdicao(draft, setDraft)}
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <Btn variant="primary" onClick={() => { onSalvar(draft); setEditando(false); }} style={{ padding: "3px 10px", fontSize: 11 }}>
+          <Save size={11} /> Salvar
+        </Btn>
+        <Btn variant="ghost" onClick={() => setEditando(false)} style={{ padding: "3px 10px", fontSize: 11 }}>
+          <X size={11} /> Cancelar
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+// Editor de lista pro GM (ficha/chegada têm rótulo; estética/medos não):
+// cada item tem texto + a caixa "Só o mestre vê" (padrão desmarcada — item
+// novo nasce visível ao jogador), e dá pra adicionar/remover itens.
+function EditorDeItensLista({ itens, setItens, comRotulo, placeholderRotulo }) {
+  function atualizar(i, patch) {
+    setItens((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  }
+  function remover(i) {
+    setItens((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function adicionar() {
+    setItens((prev) => [...prev, { rotulo: "", texto: "", soMestre: false }]);
+  }
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      {itens.map((it, i) => (
+        <div key={i} style={{ ...cardBox, padding: 10 }}>
+          {comRotulo && (
+            <input
+              style={{ ...inputStyle, fontWeight: 700, marginBottom: 6 }} placeholder={placeholderRotulo || "Rótulo"}
+              value={it.rotulo || ""} onChange={(e) => atualizar(i, { rotulo: e.target.value })}
+            />
+          )}
+          <textarea
+            style={{ ...inputStyle, minHeight: 50, resize: "vertical", marginBottom: 6 }} placeholder="Texto"
+            value={it.texto || ""} onChange={(e) => atualizar(i, { texto: e.target.value })}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: MUTED, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!it.soMestre} onChange={(e) => atualizar(i, { soMestre: e.target.checked })} />
+              Só o mestre vê
+            </label>
+            <Btn variant="ghost" onClick={() => remover(i)} aria-label="Remover item" style={{ padding: "2px 6px" }}><X size={12} /></Btn>
+          </div>
+        </div>
+      ))}
+      <Btn onClick={adicionar} style={{ padding: "4px 10px", fontSize: 11 }}><Plus size={12} /> Adicionar</Btn>
+    </div>
+  );
+}
+
 /* --- Cidade (conteúdo fixo/dossiê, ex: Frontier — ver mundoDados.js).
    kingdom.cities[] cobre só a geografia (x/y, resumo curto pro mapa); este é
    o CONTEÚDO da cidade, ligado pelo id. Aberto tanto pelo botão "Abrir
@@ -3333,10 +3416,62 @@ const rotulo = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color
    WorldView) — os dois caminhos levam aqui, com a mesma trilha Mundo >
    Reino > Cidade da página leve (CidadePaginaView). */
 // Exportado só pra teste de render — ver mapaMundo.test.js.
-export function CidadeView({ cidade, gm, onVoltar, onVoltarMundo, nomeReino, abaInicial, onAcao }) {
+export function CidadeView({
+  cidade, gm, onVoltar, onVoltarMundo, nomeReino, abaInicial, onAcao,
+  overrideAtivo, onEditarCampo, onRestaurarCampo, kingdoms, setKingdoms, reinoId, cidadeId,
+}) {
   const [aba, setAba] = useState(abaInicial || "geral");
   const [boato, setBoato] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const fileInputRef = useRef(null);
   const npcs = NPCS.filter((n) => n.cidade === cidade.id);
+  const overrideSeguro = overrideAtivo || {};
+
+  // Geografia da cidade (kingdom.cities[]: x/y, resumo curto, imagem) —
+  // separada do conteúdo do dossiê, ligada só pelo id. Resolvida por id (não
+  // guardada como objeto) pra sempre ler o dado mais recente de `kingdoms`.
+  const reinoGeografia = kingdoms?.find((k) => k.id === reinoId) || null;
+  const cidadeGeografia = reinoGeografia ? (reinoGeografia.cities || []).find((c) => c.id === cidadeId) || null : null;
+  function atualizarGeografia(patch) {
+    setKingdoms((prev) => prev.map((k) => (
+      k.id !== reinoId ? k : { ...k, cities: (k.cities || []).map((c) => (c.id === cidadeId ? { ...c, ...patch } : c)) }
+    )));
+  }
+  async function handlePickImage(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !cidadeGeografia) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const url = await uploadPortrait(file, cidadeGeografia.id);
+      atualizarGeografia({ imageUrl: url });
+    } catch (err) {
+      setUploadError(err.message || "Falha ao enviar a imagem.");
+    } finally {
+      setUploading(false);
+    }
+  }
+  function handleRemoveImage() {
+    removePortrait(cidadeGeografia.imageUrl); // best-effort, não bloqueia a UI
+    atualizarGeografia({ imageUrl: "" });
+  }
+
+  // Ficha/chegada (rótulo + valor) <-> itens do editor ({rotulo, texto, soMestre}).
+  function paraItensComRotulo(lista) {
+    return (lista || []).map(([rotuloItem, valor]) => ({ rotulo: rotuloItem || "", ...normalizarItemLista(valor) }));
+  }
+  function deItensComRotulo(itens) {
+    return (itens || []).map((it) => [it.rotulo || "", paraItemLista(it)]);
+  }
+  // Estética/medos (só valor) <-> itens do editor ({texto, soMestre}).
+  function paraItensSemRotulo(lista) {
+    return (lista || []).map((valor) => normalizarItemLista(valor));
+  }
+  function deItensSemRotulo(itens) {
+    return (itens || []).map((it) => paraItemLista(it));
+  }
   const abas = [
     { id: "geral", label: "Visão geral" },
     { id: "distritos", label: "Distritos" },
@@ -3359,51 +3494,139 @@ export function CidadeView({ cidade, gm, onVoltar, onVoltarMundo, nomeReino, aba
         <span style={{ color: PARCHMENT }}>{cidade.nome}</span>
       </div>
       <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 24, margin: "0 0 2px", color: PARCHMENT }}>{cidade.nome}</h2>
-      <div style={{ fontStyle: "italic", color: EMBER, marginBottom: 14 }}>{cidade.subtitulo}</div>
+      <BlocoEditavel
+        gm={gm} temOverride={"subtitulo" in overrideSeguro} valorInicial={cidade.subtitulo || ""}
+        onSalvar={(v) => onEditarCampo("subtitulo", v)} onRestaurar={() => onRestaurarCampo("subtitulo")}
+        renderLeitura={() => <div style={{ fontStyle: "italic", color: EMBER, marginBottom: 14 }}>{cidade.subtitulo}</div>}
+        renderEdicao={(draft, setDraft) => (
+          <input
+            style={{ ...inputStyle, fontStyle: "italic", marginBottom: 6 }} value={draft}
+            onChange={(e) => setDraft(e.target.value)} placeholder="Epígrafe da cidade"
+          />
+        )}
+      />
       <SubAbas abas={abas} ativa={abaAtual} setAtiva={setAba} />
 
       {abaAtual === "geral" && (
         <div className="mundo-grid2">
           <div style={cardBox}>
             <div style={rotulo}>O conceito</div>
-            <RichText html={textoVisivel(cidade.conceito, gm)} onAcao={onAcao} />
+            <BlocoEditavel
+              gm={gm} temOverride={"conceito" in overrideSeguro} valorInicial={textoVisivel(cidade.conceito, true) || ""}
+              onSalvar={(v) => onEditarCampo("conceito", { pub: v })} onRestaurar={() => onRestaurarCampo("conceito")}
+              renderLeitura={() => <RichText html={textoVisivel(cidade.conceito, gm)} onAcao={onAcao} />}
+              renderEdicao={(draft, setDraft) => (
+                <textarea
+                  style={{ ...inputStyle, minHeight: 100, resize: "vertical" }} value={draft}
+                  onChange={(e) => setDraft(e.target.value)} placeholder="Texto do conceito (aceita HTML simples, igual o original)"
+                />
+              )}
+            />
           </div>
           <div style={cardBox}>
             <div style={rotulo}>Ficha rápida</div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <tbody>
-                {cidade.ficha.map(([k, val]) => (
-                  <tr key={k} style={{ borderBottom: `1px solid ${LINE}` }}>
-                    <th style={{ textAlign: "left", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, fontWeight: 400, padding: "6px 10px 6px 0", verticalAlign: "top", textTransform: "uppercase" }}>{k}</th>
-                    <td style={{ padding: "6px 0" }}>{textoVisivel(val, gm)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <BlocoEditavel
+              gm={gm} temOverride={"ficha" in overrideSeguro} valorInicial={paraItensComRotulo(cidade.ficha)}
+              onSalvar={(itens) => onEditarCampo("ficha", deItensComRotulo(itens))} onRestaurar={() => onRestaurarCampo("ficha")}
+              renderLeitura={() => (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <tbody>
+                    {cidade.ficha.filter(([, val]) => textoVisivel(val, gm) != null).map(([k, val], i) => (
+                      <tr key={`${k}-${i}`} style={{ borderBottom: `1px solid ${LINE}` }}>
+                        <th style={{ textAlign: "left", fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, fontWeight: 400, padding: "6px 10px 6px 0", verticalAlign: "top", textTransform: "uppercase" }}>{k}</th>
+                        <td style={{ padding: "6px 0" }}>{textoVisivel(val, gm)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              renderEdicao={(draft, setDraft) => (
+                <EditorDeItensLista itens={draft} setItens={setDraft} comRotulo placeholderRotulo="Rótulo (ex: Onde)" />
+              )}
+            />
           </div>
           <div style={{ ...cardBox, gridColumn: "1 / -1" }}>
             <div style={rotulo}>A chegada pela estrada de Maxis</div>
-            <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 8, fontSize: 13.5, lineHeight: 1.5 }}>
-              {cidade.chegada.map(([t, d]) => <li key={t}><b style={{ fontFamily: "'Cinzel', serif" }}>{t}.</b> {d}</li>)}
-            </ol>
+            <BlocoEditavel
+              gm={gm} temOverride={"chegada" in overrideSeguro} valorInicial={paraItensComRotulo(cidade.chegada)}
+              onSalvar={(itens) => onEditarCampo("chegada", deItensComRotulo(itens))} onRestaurar={() => onRestaurarCampo("chegada")}
+              renderLeitura={() => (
+                <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 8, fontSize: 13.5, lineHeight: 1.5 }}>
+                  {cidade.chegada.filter(([, d]) => textoVisivel(d, gm) != null).map(([t, d], i) => (
+                    <li key={`${t}-${i}`}><b style={{ fontFamily: "'Cinzel', serif" }}>{t}.</b> {textoVisivel(d, gm)}</li>
+                  ))}
+                </ol>
+              )}
+              renderEdicao={(draft, setDraft) => (
+                <EditorDeItensLista itens={draft} setItens={setDraft} comRotulo placeholderRotulo="Título do passo" />
+              )}
+            />
           </div>
           <div style={cardBox}>
             <div style={rotulo}>Estética</div>
-            <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4, fontSize: 13.5, lineHeight: 1.5 }}>{cidade.estetica.map((e) => <li key={e}>{e}</li>)}</ul>
+            <BlocoEditavel
+              gm={gm} temOverride={"estetica" in overrideSeguro} valorInicial={paraItensSemRotulo(cidade.estetica)}
+              onSalvar={(itens) => onEditarCampo("estetica", deItensSemRotulo(itens))} onRestaurar={() => onRestaurarCampo("estetica")}
+              renderLeitura={() => (
+                <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4, fontSize: 13.5, lineHeight: 1.5 }}>
+                  {cidade.estetica.filter((e) => textoVisivel(e, gm) != null).map((e, i) => <li key={i}>{textoVisivel(e, gm)}</li>)}
+                </ul>
+              )}
+              renderEdicao={(draft, setDraft) => <EditorDeItensLista itens={draft} setItens={setDraft} />}
+            />
           </div>
           <div style={cardBox}>
             <div style={rotulo}>Os medos da cidade</div>
-            <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
-              {entradasVisiveis(cidade.medos, gm).map((m, i) => (
-                <li key={i}><RichText html={textoVisivel(m, gm)} onAcao={onAcao} style={{ fontSize: 13.5, lineHeight: 1.5 }} />{gm && !m.pub && <GmBadge />}</li>
-              ))}
-            </ul>
+            <BlocoEditavel
+              gm={gm} temOverride={"medos" in overrideSeguro} valorInicial={paraItensSemRotulo(cidade.medos)}
+              onSalvar={(itens) => onEditarCampo("medos", deItensSemRotulo(itens))} onRestaurar={() => onRestaurarCampo("medos")}
+              renderLeitura={() => (
+                <ul style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 4 }}>
+                  {entradasVisiveis(cidade.medos, gm).map((m, i) => (
+                    <li key={i}><RichText html={textoVisivel(m, gm)} onAcao={onAcao} style={{ fontSize: 13.5, lineHeight: 1.5 }} />{gm && !m.pub && <GmBadge />}</li>
+                  ))}
+                </ul>
+              )}
+              renderEdicao={(draft, setDraft) => <EditorDeItensLista itens={draft} setItens={setDraft} />}
+            />
           </div>
           {cidade.guiaJogadores && (
             <div style={{ gridColumn: "1 / -1" }}>
               <Btn variant="ghost" href={assetUrl(cidade.guiaJogadores)} target="_blank" rel="noopener" style={{ padding: "4px 8px", fontSize: 11 }}>
                 <ExternalLink size={12} /> Abrir o guia dos jogadores numa página separada
               </Btn>
+            </div>
+          )}
+          {gm && (
+            <div style={{ ...cardBox, gridColumn: "1 / -1" }}>
+              <div style={rotulo}>Resumo curto (mapa/hover) e imagem — sincronizado com a página leve</div>
+              {cidadeGeografia ? (
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 16, alignItems: "start" }}>
+                  <textarea
+                    style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={cidadeGeografia.resumo || ""}
+                    onChange={(e) => atualizarGeografia({ resumo: e.target.value })} placeholder="Resumo curto"
+                  />
+                  <div style={{ width: 120 }}>
+                    <div style={{ width: 120, aspectRatio: "1", borderRadius: 8, background: PANEL_2, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8 }}>
+                      {cidadeGeografia.imageUrl ? (
+                        <img src={cidadeGeografia.imageUrl} alt={cidade.nome} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
+                      ) : (
+                        <Landmark size={24} color={MUTED} />
+                      )}
+                    </div>
+                    <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePickImage} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <Btn onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ fontSize: 11 }}>
+                        <Upload size={11} /> {uploading ? "Enviando..." : "Enviar imagem"}
+                      </Btn>
+                      {cidadeGeografia.imageUrl && <Btn variant="ghost" onClick={handleRemoveImage} style={{ fontSize: 11 }}><X size={11} /> Remover</Btn>}
+                    </div>
+                    {uploadError && <p style={{ color: EMBER, fontSize: 10.5, margin: "6px 0 0" }}>{uploadError}</p>}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>Esta cidade ainda não foi posicionada no mapa — posicione-a primeiro ("Editar mapa" na aba Mundo) pra editar resumo/imagem aqui.</p>
+              )}
             </div>
           )}
         </div>
@@ -3928,11 +4151,12 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
         <div style={{ width: 18 }} />
       </div>
 
-      {/* Aviso só aparece pra quem não tem dossiê completo (CIDADE_INFO) —
-          deixa claro que isso é um ponto de partida leve, não um defeito. */}
+      {/* Nota informativa, não aviso de erro: essa cidade só ainda não ganhou
+          um dossiê rico (texto longo, mapa de distritos, forças, NPCs) — o
+          essencial abaixo já é editável normalmente, sem limitação nenhuma. */}
       {!CIDADE_INFO[cidade.id] && (
-        <p style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>
-          Esta cidade ainda não tem um dossiê completo (visão geral rica, mapa de distritos, forças, NPCs) — por enquanto, só o essencial abaixo.
+        <p style={{ fontSize: 11.5, color: MUTED, margin: "0 0 10px" }}>
+          Ponto de partida desta cidade — edite o que quiser abaixo. (Um dossiê completo, com visão geral rica, distritos e NPCs, é opcional e pode ser adicionado depois.)
         </p>
       )}
 
@@ -3941,6 +4165,9 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
       {aba === "geral" && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 16, alignItems: "start" }}>
           <div>
+            <Field label="Epígrafe (frase curta sob o nome da cidade)">
+              <input style={inputStyle} value={cidade.subtitulo || ""} onChange={(e) => atualizarCidade({ subtitulo: e.target.value })} placeholder="ex: A cidade sem lugar para quem chega" />
+            </Field>
             <Field label="Resumo curto (aparece no modal do mapa e no hover)">
               <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={cidade.resumo || ""} onChange={(e) => atualizarCidade({ resumo: e.target.value })} />
             </Field>
@@ -4077,7 +4304,7 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
   );
 }
 
-export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, onAbrirFicha }) {
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, onAbrirFicha }) {
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
@@ -4165,6 +4392,25 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
   }
 
   const cidadeInfo = cidadeId ? CIDADE_INFO[cidadeId] : null;
+  // Edições do GM sobre o dossiê (mundoDados.js nunca é reescrito — ver
+  // cidadeOverrides.js): overrideDaCidade é só os campos editados dessa
+  // cidade; cidadeMesclada é o que a CidadeView de fato mostra (override
+  // quando existir, senão o original).
+  const overrideDaCidade = cidadeId ? (cidadesOverrides[cidadeId] || {}) : {};
+  const cidadeMesclada = cidadeInfo ? mesclarCidadeComOverride(cidadeInfo, overrideDaCidade) : null;
+  function editarCampoDossie(campo, valor) {
+    setCidadesOverrides((prev) => ({ ...prev, [cidadeId]: { ...(prev[cidadeId] || {}), [campo]: valor } }));
+  }
+  function restaurarCampoDossie(campo) {
+    setCidadesOverrides((prev) => {
+      if (!prev[cidadeId]) return prev;
+      const restante = { ...prev[cidadeId] };
+      delete restante[campo];
+      const novo = { ...prev };
+      if (Object.keys(restante).length === 0) delete novo[cidadeId]; else novo[cidadeId] = restante;
+      return novo;
+    });
+  }
   const abasReino = [
     { id: "geral", label: "Visão geral" },
     { id: "cidades", label: `Cidades (${reino?.cities?.length || 0})` },
@@ -4242,7 +4488,9 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
 
       {reino && cidadeInfo && (
         <CidadeView
-          cidade={cidadeInfo} gm={gm} nomeReino={reino.name} abaInicial={abaCidadeInicial}
+          cidade={cidadeMesclada} overrideAtivo={overrideDaCidade} onEditarCampo={editarCampoDossie} onRestaurarCampo={restaurarCampoDossie}
+          kingdoms={kingdoms} setKingdoms={setKingdoms} reinoId={reino.id} cidadeId={cidadeId}
+          gm={gm} nomeReino={reino.name} abaInicial={abaCidadeInicial}
           onVoltar={voltarAoReinoDoDossie} onVoltarMundo={voltarAoMundoDoDossie} onAcao={setPopup}
         />
       )}
@@ -5037,6 +5285,11 @@ function RulesView() {
 export default function App() {
   const [characters, setCharacters] = useState(SEED_CHARACTERS);
   const [kingdoms, setKingdoms] = useState(SEED_KINGDOMS);
+  // Edições do GM sobre o dossiê de uma cidade (conteúdo fixo em
+  // mundoDados.js) — nunca reescreve mundoDados.js, fica num objeto separado
+  // { [cidadeId]: { campo: valor } }, mesclado na hora de exibir (ver
+  // cidadeOverrides.js e CidadeView em WorldView).
+  const [cidadesOverrides, setCidadesOverrides] = useState({});
   const [gods, setGods] = useState(SEED_GODS);
   const [sagas, setSagas] = useState(SEED_SAGAS);
   const [objectives, setObjectives] = useState(SEED_OBJECTIVES);
@@ -5158,6 +5411,10 @@ export default function App() {
         }
       } catch (e) {}
       try {
+        const ov = await storage.get("point-cidades-overrides");
+        if (ov?.value) setCidadesOverrides(normalizarEstado({ cidadesOverrides: JSON.parse(ov.value) }).cidadesOverrides);
+      } catch (e) {}
+      try {
         const g = await storage.get("point-gods");
         if (g?.value) setGods(JSON.parse(g.value));
       } catch (e) {}
@@ -5175,6 +5432,7 @@ export default function App() {
 
   useEffect(() => { if (loaded) storage.set("point-characters", JSON.stringify(characters)).catch(() => {}); }, [characters, loaded]);
   useEffect(() => { if (loaded) storage.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-cidades-overrides", JSON.stringify(cidadesOverrides)).catch(() => {}); }, [cidadesOverrides, loaded]);
   useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
   useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
   useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
@@ -5239,7 +5497,7 @@ export default function App() {
   // login, isso é a rede de segurança — baixa um .json com tudo (personagens +
   // reinos/deuses/sagas/objetivos) pra poder restaurar se algo for apagado.
   function handleExportBackup() {
-    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives });
+    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -5274,6 +5532,7 @@ export default function App() {
         setGods(normalizado.gods);
         setSagas(normalizado.sagas);
         setObjectives(normalizado.objectives);
+        setCidadesOverrides(normalizado.cidadesOverrides);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );
@@ -5497,6 +5756,7 @@ export default function App() {
           <WorldView
             kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} gm={gm}
             characters={characters}
+            cidadesOverrides={cidadesOverrides} setCidadesOverrides={setCidadesOverrides}
             onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
           />
         )}

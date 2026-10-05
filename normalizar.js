@@ -9,6 +9,23 @@
 import { migrarCidades } from "./mapaMundo.js";
 import { migrarPersonagens } from "./personagens.js";
 
+function isPlainObject(v) {
+  return !!v && typeof v === "object" && !Array.isArray(v);
+}
+
+// cidadesOverrides: { [cidadeId]: { campo: valor } } — guardado à parte
+// (ver cidadeOverrides.js), não dentro de kingdoms. Qualquer formato
+// inesperado (array, string, chave que não aponta pra um objeto) some sem
+// quebrar nada — mesma blindagem já aplicada aos outros campos.
+function normalizarCidadesOverrides(valor) {
+  if (!isPlainObject(valor)) return {};
+  const normalizado = {};
+  for (const [cidadeId, campos] of Object.entries(valor)) {
+    if (isPlainObject(campos)) normalizado[cidadeId] = campos;
+  }
+  return normalizado;
+}
+
 export function normalizarEstado(state) {
   const characters = migrarPersonagens(state?.characters);
   const kingdoms = (Array.isArray(state?.kingdoms) ? state.kingdoms : []).map((rk) => ({
@@ -17,5 +34,6 @@ export function normalizarEstado(state) {
   const gods = Array.isArray(state?.gods) ? state.gods : [];
   const sagas = Array.isArray(state?.sagas) ? state.sagas : [];
   const objectives = Array.isArray(state?.objectives) ? state.objectives : [];
-  return { characters, kingdoms, gods, sagas, objectives };
+  const cidadesOverrides = normalizarCidadesOverrides(state?.cidadesOverrides);
+  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides };
 }

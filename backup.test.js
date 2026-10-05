@@ -14,6 +14,7 @@ function sampleState() {
     gods: [{ id: "kronos", name: "Kronos" }],
     sagas: [{ id: "saga_casamento", title: "O Casamento em Suth" }],
     objectives: [{ id: "obj_1", title: "Derrotar o Pendragon" }],
+    cidadesOverrides: {},
   };
 }
 
@@ -84,7 +85,7 @@ describe("ciclo exportar → importar", () => {
   });
 
   it("funciona com listas vazias (campanha nova, sem nada salvo ainda)", () => {
-    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [] };
+    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {} };
     const serializado = JSON.stringify(buildBackup(original));
     const restaurado = parseBackup(serializado);
     assert.deepEqual(restaurado, original);
@@ -98,9 +99,37 @@ describe("ciclo exportar → importar", () => {
         classes: [{ name: "Duelista de Estoc", description: "..." }, { name: "Mercador", description: "..." }],
         hp: { current: 3, max: 3 },
       }],
-      kingdoms: [], gods: [], sagas: [], objectives: [],
+      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {},
     };
     const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
     assert.deepEqual(restaurado, original);
+  });
+});
+
+describe("cidadesOverrides no backup — edições do GM no dossiê da cidade", () => {
+  it("buildBackup inclui cidadesOverrides; ausente no estado vira {}", () => {
+    assert.deepEqual(buildBackup({ characters: [] }).cidadesOverrides, {});
+  });
+
+  it("ciclo exportar → importar preserva as edições de override", () => {
+    const original = {
+      ...sampleState(),
+      cidadesOverrides: { frontier: { subtitulo: "Novo subtítulo", ficha: [["Onde", "Editado"]] } },
+    };
+    const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
+    assert.deepEqual(restaurado.cidadesOverrides, original.cidadesOverrides);
+  });
+
+  it("backup ANTIGO, sem a chave cidadesOverrides, carrega normal (vira {})", () => {
+    const backupAntigo = { characters: [{ id: "almah" }], kingdoms: [], gods: [], sagas: [], objectives: [] };
+    const restaurado = parseBackup(JSON.stringify(backupAntigo));
+    assert.deepEqual(restaurado.cidadesOverrides, {});
+  });
+
+  it("cidadesOverrides com formato inválido (array, string, número) vira {}, não quebra", () => {
+    for (const invalido of [[], "x", 42, null]) {
+      const restaurado = parseBackup(JSON.stringify({ characters: [], cidadesOverrides: invalido }));
+      assert.deepEqual(restaurado.cidadesOverrides, {});
+    }
   });
 });

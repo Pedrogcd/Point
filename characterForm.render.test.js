@@ -39,11 +39,17 @@ const SUTH_IDS = [
   "suth_farron", "suth_athermis",
 ];
 
+const GOETHIA_IDS = [
+  "goethia_giovana", "goethia_krish", "goethia_victor", "goethia_skuld", "goethia_zed",
+  "goethia_hildr", "goethia_mustafar", "goethia_suzane", "goethia_paulao", "goethia_mistake",
+];
+
 describe("CharacterForm — render de todos os personagens semente", () => {
-  it("SEED_CHARACTERS tem os 33 personagens (13 Grupo C + 6 Aurora + 14 Suth)", () => {
-    assert.equal(SEED_CHARACTERS.length, 33);
+  it("SEED_CHARACTERS tem os 43 personagens (13 Grupo C + 6 Aurora + 14 Suth + 10 Goethia)", () => {
+    assert.equal(SEED_CHARACTERS.length, 43);
     assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("sp_")).length, 6);
     assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("suth_")).length, 14);
+    assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("goethia_")).length, 10);
   });
 
   for (const nome of ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kutrefas", "vientra", "sombra", "rena", "erin", "minerva", "mercurio"]) {
@@ -64,6 +70,14 @@ describe("CharacterForm — render de todos os personagens semente", () => {
 
   for (const id of SUTH_IDS) {
     it(`renderiza sem lançar — Grupo Suth: ${id}`, () => {
+      const character = SEED_CHARACTERS.find((c) => c.id === id);
+      assert.ok(character, `personagem semente "${id}" não encontrado em SEED_CHARACTERS`);
+      assert.doesNotThrow(() => renderCharacterForm(character));
+    });
+  }
+
+  for (const id of GOETHIA_IDS) {
+    it(`renderiza sem lançar — Grupo Goethia: ${id}`, () => {
       const character = SEED_CHARACTERS.find((c) => c.id === id);
       assert.ok(character, `personagem semente "${id}" não encontrado em SEED_CHARACTERS`);
       assert.doesNotThrow(() => renderCharacterForm(character));
@@ -91,7 +105,7 @@ describe("CharacterSheet — painel Teste/Ataque nos dois modos, todos os person
   const todosOsIds = [
     "almah", "kiryu", "fate", "boda", "leona", "ookami", "kutrefas", "vientra", "sombra", "rena", "erin", "minerva", "mercurio",
     "sp_leon", "sp_merkel", "sp_raiko", "sp_akira", "sp_k", "sp_ishran",
-    ...SUTH_IDS,
+    ...SUTH_IDS, ...GOETHIA_IDS,
   ];
 
   for (const id of todosOsIds) {
@@ -138,6 +152,18 @@ describe("Confronto (CompareView) — personagem do Aurora selecionado", () => {
       const suth = SEED_CHARACTERS.find((c) => c.id === id);
       const resto = SEED_CHARACTERS.filter((c) => c.id !== id);
       const characters = [suth, ...resto];
+      assert.doesNotThrow(
+        () => renderToStaticMarkup(React.createElement(CompareView, { characters, onUpdateCharacter: () => {} })),
+        `Confronto quebrou com ${id} selecionado`
+      );
+    }
+  });
+
+  it("renderiza sem lançar pra cada um dos 10 personagens do Goethia como seleção inicial", () => {
+    for (const id of GOETHIA_IDS) {
+      const goethia = SEED_CHARACTERS.find((c) => c.id === id);
+      const resto = SEED_CHARACTERS.filter((c) => c.id !== id);
+      const characters = [goethia, ...resto];
       assert.doesNotThrow(
         () => renderToStaticMarkup(React.createElement(CompareView, { characters, onUpdateCharacter: () => {} })),
         `Confronto quebrou com ${id} selecionado`

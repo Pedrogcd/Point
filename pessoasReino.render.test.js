@@ -11,7 +11,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { loadAppModule } from "./renderTestUtils.js";
 
-let CardMembroReino, LinhaRelacao, ArvoreGenealogica, SEED_CHARACTERS, DADOS_PESSOAS_SUTH;
+let CardMembroReino, LinhaRelacao, ArvoreGenealogica, SEED_CHARACTERS, DADOS_PESSOAS_SUTH, DADOS_PESSOAS_GOETHIA;
 
 before(async () => {
   const mod = await loadAppModule();
@@ -20,6 +20,7 @@ before(async () => {
   ArvoreGenealogica = mod.ArvoreGenealogica;
   SEED_CHARACTERS = mod.SEED_CHARACTERS;
   DADOS_PESSOAS_SUTH = mod.DADOS_PESSOAS_SUTH;
+  DADOS_PESSOAS_GOETHIA = mod.DADOS_PESSOAS_GOETHIA;
 });
 
 describe("CardMembroReino", () => {
@@ -90,20 +91,43 @@ describe("ArvoreGenealogica", () => {
   });
 });
 
+function idsReferenciados(dadosPessoas) {
+  const referenciados = new Set();
+  for (const grupo of dadosPessoas.estrutura.grupos) {
+    for (const m of grupo.membros) if (m.personagemId) referenciados.add(m.personagemId);
+  }
+  for (const r of dadosPessoas.relacoes) { referenciados.add(r.de); referenciados.add(r.para); }
+  for (const gen of dadosPessoas.genealogias) {
+    for (const n of gen.nos) if (n.personagemId) referenciados.add(n.personagemId);
+  }
+  return referenciados;
+}
+
 describe("Varredura de ids — DADOS_PESSOAS_SUTH x SEED_CHARACTERS", () => {
   it("todo personagemId referenciado em estrutura/relacoes/genealogias existe em SEED_CHARACTERS", () => {
     const idsConhecidos = new Set(SEED_CHARACTERS.map((c) => c.id));
-    const referenciados = new Set();
-    for (const grupo of DADOS_PESSOAS_SUTH.estrutura.grupos) {
-      for (const m of grupo.membros) if (m.personagemId) referenciados.add(m.personagemId);
-    }
-    for (const r of DADOS_PESSOAS_SUTH.relacoes) { referenciados.add(r.de); referenciados.add(r.para); }
-    for (const gen of DADOS_PESSOAS_SUTH.genealogias) {
-      for (const n of gen.nos) if (n.personagemId) referenciados.add(n.personagemId);
-    }
+    const referenciados = idsReferenciados(DADOS_PESSOAS_SUTH);
     assert.ok(referenciados.size > 0, "deveria haver pelo menos um id referenciado");
     for (const id of referenciados) {
       assert.ok(idsConhecidos.has(id), `personagemId "${id}" referenciado em DADOS_PESSOAS_SUTH não existe em SEED_CHARACTERS`);
+    }
+  });
+});
+
+describe("Varredura de ids — DADOS_PESSOAS_GOETHIA x SEED_CHARACTERS", () => {
+  it("todo personagemId referenciado em estrutura/relacoes/genealogias existe em SEED_CHARACTERS", () => {
+    const idsConhecidos = new Set(SEED_CHARACTERS.map((c) => c.id));
+    const referenciados = idsReferenciados(DADOS_PESSOAS_GOETHIA);
+    assert.ok(referenciados.size > 0, "deveria haver pelo menos um id referenciado");
+    for (const id of referenciados) {
+      assert.ok(idsConhecidos.has(id), `personagemId "${id}" referenciado em DADOS_PESSOAS_GOETHIA não existe em SEED_CHARACTERS`);
+    }
+  });
+
+  it("inclui referências cross-reino (Erin do Grupo C, Kiryu, Fate, Emphes Alpha de Suth)", () => {
+    const referenciados = idsReferenciados(DADOS_PESSOAS_GOETHIA);
+    for (const id of ["erin", "kiryu", "fate", "suth_emphes"]) {
+      assert.ok(referenciados.has(id), `esperava encontrar a referência cross-reino "${id}"`);
     }
   });
 });

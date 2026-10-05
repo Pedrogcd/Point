@@ -30,6 +30,22 @@ describe("normalizarEstado", () => {
     assert.deepEqual(normalizado.characters[0].abilities, []);
   });
 
+  it("personagem sem imagemPos (backup de formato antigo) ganha o padrão ao normalizar", () => {
+    const estado = { characters: [{ id: "sp_leon", name: "Leon Winters", imageUrl: "retratos/leon.jpg" }] };
+    const normalizado = normalizarEstado(estado);
+    assert.deepEqual(normalizado.characters[0].imagemPos, { y: 50, zoom: 1 });
+  });
+
+  it("round-trip exportar -> importar preserva um imagemPos customizado", () => {
+    const estado = {
+      characters: [{ id: "sp_leon", name: "Leon Winters", imageUrl: "retratos/leon.jpg", imagemPos: { y: 25, zoom: 1.8 } }],
+    };
+    const backup = buildBackup(estado);
+    const restaurado = parseBackup(JSON.stringify(backup));
+    const normalizado = normalizarEstado(restaurado);
+    assert.deepEqual(normalizado.characters[0].imagemPos, { y: 25, zoom: 1.8 });
+  });
+
   it("campos ausentes no estado viram listas vazias, sem quebrar", () => {
     const normalizado = normalizarEstado({});
     assert.deepEqual(normalizado.characters, []);

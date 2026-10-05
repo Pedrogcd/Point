@@ -94,4 +94,15 @@ describe("reporSidepoint — cenários de carregamento", () => {
     const resultado = reporSidepoint(existentes, SEMENTES_AURORA, []);
     assert.equal(resultado, existentes); // mesma referência: evita re-render desnecessário
   });
+
+  it("não sobrescreve imagemPos (enquadramento do retrato) de quem já existe", () => {
+    // A reposição só ADICIONA sementes faltando por id — nunca toca em quem já
+    // está na lista, então um ajuste de enquadramento feito pelo jogador numa
+    // ficha do Aurora sobrevive a qualquer reabertura do app.
+    const sp_leonCustomizado = { id: "sp_leon", name: "Leon Winters", faction: "Aurora (Sidepoint)", imagemPos: { y: 15, zoom: 2.5 } };
+    const existentes = [...grupoCFalso(13), sp_leonCustomizado, ...SEMENTES_AURORA.filter((c) => c.id !== "sp_leon")];
+    const resultado = reporSidepoint(existentes, SEMENTES_AURORA, []);
+    const leon = resultado.find((c) => c.id === "sp_leon");
+    assert.deepEqual(leon.imagemPos, { y: 15, zoom: 2.5 });
+  });
 });

@@ -120,7 +120,11 @@ export function migrarPersonagem(ch) {
   const hp = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs }); return { current: max, max }; })();
   const mp = (ch.mp && typeof ch.mp.max === "number") ? ch.mp : { current: 3, max: 3 };
   const sp = (ch.sp && typeof ch.sp.max === "number") ? ch.sp : (() => { const max = computeMaxSP({ sp: ch.sp, procs }); return { current: max, max }; })();
-  return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, abilities, atributosGerais, proficiencias, hp, mp, sp };
+  // Enquadramento do retrato (y/zoom): fichas salvas antes desse campo existir
+  // (ou um backup de formato antigo) ganham o padrão centralizado/sem zoom —
+  // sem sobrescrever quem já tiver um valor customizado.
+  const imagemPos = { y: 50, zoom: 1, ...(ch.imagemPos || {}) };
+  return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos };
 }
 
 export function migrarPersonagens(characters) {

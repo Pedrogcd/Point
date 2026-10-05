@@ -471,6 +471,7 @@ function withFichaDefaults(c) {
     traits: "",
     xp: 0,
     imageUrl: "",
+    imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
     statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, resistNaturalFisica: 0, resistNaturalMagica: 0, geral: 0 },
     statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
@@ -2905,7 +2906,7 @@ const SEED_OBJECTIVES = [
 
 const emptyCharacter = () => ({
   id: `char_${Date.now()}`, name: "", epithet: "", race: "", faction: FACTIONS[0],
-  affiliation: "", height: "", deity: "", weapon: "", traits: "", xp: 0, imageUrl: "",
+  affiliation: "", height: "", deity: "", weapon: "", traits: "", xp: 0, imageUrl: "", imagemPos: { y: 50, zoom: 1 },
   singularity: { name: "", level: "E", description: "" },
   attributes: {},
   statBase: { ...STAT_BASE_DEFAULTS },
@@ -2928,6 +2929,52 @@ const emptyCharacter = () => ({
 /* ---------------------------------------------------------------
    PEQUENOS COMPONENTES DE APOIO
 ----------------------------------------------------------------*/
+// Retrato de personagem — componente único usado em todo lugar que desenha
+// `character.imageUrl` (ficha aberta, cards da lista, Confronto, vitrine da
+// capa), pra o enquadramento (`imagemPos: { y, zoom }`, ver withFichaDefaults)
+// se comportar igual em todos eles. `y` (0 a 100) move objectPosition
+// verticalmente; `zoom` > 1 amplia a imagem com transform scale, ancorado no
+// mesmo ponto vertical — o contêiner precisa de overflow:hidden pra isso não
+// vazar por fora da moldura. Sem imageUrl, ou se a imagem falhar ao carregar
+// (onError), cai pro ícone de escudo com a cor da facção — nunca tela branca.
+export function Retrato({ character, size, iconSize, borderRadius = 8, style, iconColor }) {
+  const [erro, setErro] = useState(false);
+  const imageUrl = character?.imageUrl;
+  // Reseta o erro ao trocar de personagem/URL (ex: navegar pra ficha
+  // adjacente) — sem isso, uma imagem quebrada anterior "contaminaria" a
+  // próxima ficha mesmo com imageUrl válida, porque o componente não remonta.
+  useEffect(() => { setErro(false); }, [imageUrl]);
+  const mostrarImagem = !!imageUrl && !erro;
+  const y = character?.imagemPos?.y ?? 50;
+  const zoom = character?.imagemPos?.zoom ?? 1;
+  const tamanho = size ? { width: size, height: size } : { width: "100%", height: "100%" };
+  return (
+    <div
+      style={{
+        ...tamanho, borderRadius, overflow: "hidden", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "#00000030", ...style,
+      }}
+    >
+      {mostrarImagem ? (
+        <img
+          src={imageUrl}
+          alt={character?.name || ""}
+          onError={() => setErro(true)}
+          style={{
+            width: "100%", height: "100%", objectFit: "cover",
+            objectPosition: `50% ${y}%`,
+            transform: zoom > 1 ? `scale(${zoom})` : undefined,
+            transformOrigin: `50% ${y}%`,
+          }}
+        />
+      ) : (
+        <ShieldHalf size={iconSize || (size ? Math.round(size * 0.55) : 24)} color={iconColor || FACTION_SEAL[character?.faction] || BRASS} />
+      )}
+    </div>
+  );
+}
+
 // Dialog de confirmação genérico — por padrão é o de exclusão (ícone/cor de
 // perigo, botão "Excluir"), mas aceita title/confirmLabel/icon/tone pra outras
 // ações destrutivas ou importantes (ex: importar um backup, que substitui tudo).
@@ -3547,15 +3594,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         {/* Coluna 1: retrato + informações pessoais + recursos + atributos */}
         <div>
           <div style={panelStyle}>
-            <div style={{
-              width: "100%", aspectRatio: "1", borderRadius: 8, background: PANEL_2, border: `1px solid ${LINE}`,
-              display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 10,
-            }}>
-              {character.imageUrl ? (
-                <img src={character.imageUrl} alt={character.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
-              ) : (
-                <ShieldHalf size={40} color={FACTION_SEAL[character.faction] || BRASS} />
-              )}
+            <div style={{ width: "100%", aspectRatio: "1", marginBottom: 10 }}>
+              <Retrato character={character} borderRadius={8} iconSize={40} style={{ border: `1px solid ${LINE}` }} />
             </div>
             <p style={{ color: BRASS, fontSize: 12.5, margin: "0 0 6px", fontStyle: "italic", textAlign: "center" }}>{character.epithet}</p>
             <div style={{ display: "flex", justifyContent: "center" }}>
@@ -4221,15 +4261,44 @@ export function CharacterForm({ initial, onSave, onCancel }) {
           </div>
           {uploadError && <p style={{ color: EMBER, fontSize: 11.5, margin: "6px 0 0" }}>{uploadError}</p>}
         </Field>
-        {c.imageUrl && (
-          <img
-            src={c.imageUrl}
-            alt="Prévia"
-            style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}` }}
-            onError={(e) => { e.target.style.display = "none"; }}
-          />
-        )}
       </div>
+
+      {c.imageUrl && (() => {
+        const rotuloCampo = { fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, marginTop: 10 };
+        return (
+          <div style={{ display: "flex", gap: 20, alignItems: "flex-start", marginTop: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ ...rotuloCampo, marginTop: 0 }}>Altura do recorte</div>
+              <input
+                type="range" min={0} max={100} value={c.imagemPos?.y ?? 50}
+                onChange={(e) => set(["imagemPos", "y"], Number(e.target.value))}
+                style={{ width: 180 }}
+              />
+              <div style={rotuloCampo}>Zoom</div>
+              <input
+                type="range" min={1} max={3} step={0.1} value={c.imagemPos?.zoom ?? 1}
+                onChange={(e) => set(["imagemPos", "zoom"], Number(e.target.value))}
+                style={{ width: 180 }}
+              />
+              <div>
+                <Btn type="button" variant="ghost" onClick={() => set(["imagemPos"], { y: 50, zoom: 1 })} style={{ marginTop: 6 }}>
+                  Centralizar
+                </Btn>
+              </div>
+            </div>
+            <div>
+              <div style={{ ...rotuloCampo, marginTop: 0 }}>Prévia (ficha)</div>
+              <div style={{ width: 90, aspectRatio: "1" }}>
+                <Retrato character={c} borderRadius={8} style={{ border: `1px solid ${LINE}` }} />
+              </div>
+            </div>
+            <div>
+              <div style={{ ...rotuloCampo, marginTop: 0 }}>Prévia (card da lista)</div>
+              <Retrato character={c} size={40} borderRadius={8} />
+            </div>
+          </div>
+        );
+      })()}
 
       <SectionTitle icon={Sparkles}>Singularidade</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -4967,13 +5036,7 @@ export function CompareView({ characters, onUpdateCharacter }) {
         <div>
           <div style={{ fontSize: 10.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>ATACANTE</div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {a?.imageUrl && (
-              <img
-                src={a.imageUrl} alt={a.name}
-                style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}`, flexShrink: 0 }}
-                onError={(e) => { e.target.style.display = "none"; }}
-              />
-            )}
+            {a && <Retrato character={a} size={44} borderRadius={8} iconSize={22} style={{ border: `1px solid ${LINE}` }} />}
             <select style={inputStyle} value={aId} onChange={(e) => setAId(e.target.value)}>
               {selectOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -4983,13 +5046,7 @@ export function CompareView({ characters, onUpdateCharacter }) {
         <div>
           <div style={{ fontSize: 10.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>DEFENSOR</div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {b?.imageUrl && (
-              <img
-                src={b.imageUrl} alt={b.name}
-                style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", border: `1px solid ${LINE}`, flexShrink: 0 }}
-                onError={(e) => { e.target.style.display = "none"; }}
-              />
-            )}
+            {b && <Retrato character={b} size={44} borderRadius={8} iconSize={22} style={{ border: `1px solid ${LINE}` }} />}
             <select style={inputStyle} value={bId} onChange={(e) => setBId(e.target.value)}>
               {selectOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -5091,16 +5148,7 @@ export function CompareView({ characters, onUpdateCharacter }) {
             {[a, b].map((ch, side) => (
               <div key={ch.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 16, order: side === 0 ? 0 : 2 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 8, background: PANEL, border: `1px solid ${LINE}`,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden",
-                  }}>
-                    {ch.imageUrl ? (
-                      <img src={ch.imageUrl} alt={ch.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
-                    ) : (
-                      <ShieldHalf size={22} color={FACTION_SEAL[ch.faction] || BRASS} />
-                    )}
-                  </div>
+                  <Retrato character={ch} size={40} borderRadius={8} iconSize={22} style={{ border: `1px solid ${LINE}` }} />
                   <div>
                     <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: PARCHMENT }}>{ch.name}</div>
                     <div style={{ fontSize: 11, color: BRASS, fontStyle: "italic" }}>{ch.epithet}</div>
@@ -6930,11 +6978,9 @@ function CoverView({ characters, onOpenGrupo, onOpenReino }) {
                   {membros.slice(0, 7).map((c, i) => (
                     <span key={c.id} title={c.name} style={{
                       width: 34, height: 34, borderRadius: "50%", marginLeft: i ? -8 : 0, overflow: "hidden",
-                      border: `2px solid ${PANEL_2}`, background: "#00000030", display: "flex", alignItems: "center", justifyContent: "center",
+                      border: `2px solid ${PANEL_2}`, display: "block",
                     }}>
-                      {c.imageUrl
-                        ? <img src={c.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />
-                        : <ShieldHalf size={15} color={FACTION_SEAL[c.faction] || BRASS} />}
+                      <Retrato character={c} size={30} borderRadius="50%" iconSize={15} />
                     </span>
                   ))}
                 </div>
@@ -7903,9 +7949,7 @@ export default function App() {
                   }}
                 >
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 8, background: "#00000030", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <ShieldHalf size={20} color={FACTION_SEAL[c.faction] || BRASS} />
-                    </div>
+                    <Retrato character={c} size={40} borderRadius={8} iconSize={20} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
                       <div style={{ fontSize: 11, color: BRASS, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.epithet}</div>

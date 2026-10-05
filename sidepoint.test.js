@@ -34,6 +34,15 @@ describe("grupoDoPersonagem", () => {
     assert.equal(grupoDoPersonagem({ id: "almah", faction: "Amaranth/Omem" }), "c");
     assert.equal(grupoDoPersonagem({}), "c");
   });
+  it("sem campo grupo, classifica pelo prefixo suth_ do id", () => {
+    assert.equal(grupoDoPersonagem({ id: "suth_emphes" }), "suth");
+  });
+  it("o Fate (id 'fate') NÃO é reclassificado pra suth mesmo recebendo uma ficha nova de lá — fica no Grupo C", () => {
+    assert.equal(grupoDoPersonagem({ id: "fate" }), "c");
+    // mesmo com uma ficha já marcada fichaSuthAplicada: true, sem grupo salvo
+    // explicitamente o id "fate" continua caindo no Grupo C por padrão.
+    assert.equal(grupoDoPersonagem({ id: "fate", fichaSuthAplicada: true }), "c");
+  });
 });
 
 // Cenários de carregamento verificados manualmente (ver INSTRUCAO-claude-code-

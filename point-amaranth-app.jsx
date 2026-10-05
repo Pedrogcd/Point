@@ -19,6 +19,7 @@ import {
 } from "./engine.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
+import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
 import {
   slugificar, paraPercentual, bboxPoligono, calcularRecorte,
   cidadesPosicionadas, personagemDaPessoa,
@@ -221,6 +222,11 @@ const CORE_RULES = {
     "Termos do mesmo tipo se acumulam e ficam mais fortes; termos diferentes acumulam separadamente (ex.: ENVENENAMENTO necrótico só aumenta por outro necrótico — pode coexistir com ENVENENAMENTO biológico nível 1 ao mesmo tempo).",
   ],
 };
+
+// Definida aqui (em vez de perto do resto das views) porque os dados semente
+// mais abaixo (Suth) já precisam montar imageUrl a partir de um caminho
+// relativo antes do app renderizar qualquer coisa.
+const assetUrl = (p) => `${import.meta.env?.BASE_URL || "/"}${p}`;
 
 /* ---------------------------------------------------------------
    DADOS SEMENTE — os 13 dossiês já existentes do Grupo C e aliados.
@@ -786,10 +792,1922 @@ const SIDEPOINT_CHARACTERS_RAW = [
 ];
 
 const SIDEPOINT_CHARACTERS = SIDEPOINT_CHARACTERS_RAW.map((c) => withFichaDefaults({ ...c, fichaFechada: true, grupo: "aurora" }));
+
+// Grupo Suth — 14 fichas novas (tudo exceto o Fate, que já existe no Grupo C
+// e só recebe uma ATUALIZAÇÃO de conteúdo, ver FICHA_NOVA_FATE/suth.js). Vêm
+// com fichaFechada e grupo "suth" já no próprio JSON de origem.
+const SUTH_CHARACTERS_RAW = [
+  {
+    "id": "suth_emphes",
+    "name": "Emphes Alpha",
+    "epithet": "A Sombra Escarlate · X Imperadora de Suth",
+    "race": "Suthence (criada em laboratório)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth · X Imperadora",
+    "height": "1,75m",
+    "deity": "—",
+    "weapon": "Machado imperial",
+    "traits": "Pele pálida, olhos azuis cortantes, cabelos prateados longos e dois chifres dourados enrolados com joias; vestido vermelho escarlate e capa azul-marinho. Preocupada, estratégica, orgulhosa apesar da baixa autoestima. Não tolera fraqueza em Suth. Gosta: ?. Não gosta: ?.",
+    "xp": 0,
+    "singularity": {
+      "name": "All-Breaker",
+      "level": "EX · Divino",
+      "description": "Enfraquece a conexão molecular de objetos, tornando-os quebradiços. Gastando muita mana, evolui e passa a afetar mana e alma: quebra magias de nível inferior ao seu e chega a atingir almas. Uso excessivo esgota a mana e a deixa vulnerável."
+    },
+    "racialAbility": {
+      "name": "Criação do Pilar da Parteira — Herdeira do Trono Genético",
+      "description": "Gerada em laboratório a partir do DNA da IX Imperadora e de guerreiras suthences; desenvolvimento acelerado (27 anos)."
+    },
+    "classes": [
+      {
+        "name": "Guerreira B — usuária de machado (ficha antiga)",
+        "description": "Combatente treinada pelo Pilar da Santa em combate e liderança militar; espadas, machado e magia defensiva."
+      },
+      {
+        "name": "Golden Rule EX — líder de estado",
+        "description": "Vértice do poder em Suth: controla os Três Pilares em administração e diplomacia. Magecraft C (ficha antiga)."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "C",
+      "destreza": "D",
+      "vigor": "C",
+      "carisma": "B",
+      "manipulacao": "B",
+      "compostura": "A",
+      "inteligencia": "B",
+      "perspicacia": "B",
+      "resolucao": "A"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "C",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "D",
+      "defesaProf": "C",
+      "resistFisicaProf": "D",
+      "resistMagicaProf": "C",
+      "tecnicaProf": "C",
+      "lideranca": "A",
+      "politica": "A",
+      "persuasao": "B"
+    },
+    "procs": [
+      "golpe_penetrante",
+      "escudo_de_mana",
+      "persistente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Machado imperial",
+        "tipo": "marcial",
+        "acerto": "-1",
+        "dano": "+2",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Machado — All-Breaker (1MP)",
+        "tipo": "marcial",
+        "acerto": "-1",
+        "dano": "+2",
+        "ferida": "1",
+        "efeito": "Singularidade All-Breaker: fragiliza o alvo ou o objeto atingido (efeito narrativo, a critério do mestre) · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Machado imperial",
+        "Coroa metálica com pedra vermelha"
+      ],
+      "usaveis": [],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "All-Breaker",
+          "description": "Fragilizar materiais; dissolver feitiços de nível inferior ao seu; afetar almas. Desvantagem: mana alta consumida."
+        },
+        {
+          "name": "Autoridade imperial",
+          "description": "Nenhuma decisão acontece sem sua palavra; Presença A+ (ficha antiga)."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 5,
+      "max": 5
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Décima governante de Suth, criada em laboratório a partir do DNA de Velmira Alpha e de várias guerreiras suthences, considerada geneticamente perfeita. Treinada para governar pelo Pilar da Imperadora e em combate pelo Pilar da Santa. Assumiu o trono sob tensão, após a rebelião da antiga Parteira, e consolidou a ordem entre os Três Pilares. Teme ser vista como criação artificial sem mérito próprio e ser contestada pela Santa; sua frieza afasta aliados. Prefere decisões seguras e testadas.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_velmira",
+    "name": "Velmira Alpha",
+    "epithet": "A Guardiã da Mudança · IX Imperadora de Suth (aposentada)",
+    "race": "Suthence (criada pelo Pilar da Parteira)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth · Conselheira Imperial",
+    "height": "—",
+    "deity": "—",
+    "weapon": "—",
+    "traits": "107 anos, cabelos grisalhos longos, olhos dourados afiados; manto de veludo escarlate com broches dourados. Pragmática, paciente e calculista, distante emocionalmente. Gosta: ?. Não gosta: ?.",
+    "xp": 0,
+    "singularity": {
+      "name": "A definir",
+      "level": "—",
+      "description": "Singularidade não definida nos documentos. Preencher quando o mestre decidir."
+    },
+    "racialAbility": {
+      "name": "Linhagem das Imperadoras",
+      "description": "Criada pelo Pilar da Parteira a partir da linhagem imperial. Longevidade notável (107 anos)."
+    },
+    "classes": [
+      {
+        "name": "A definir",
+        "description": "Estilo de combate não definido nos documentos."
+      },
+      {
+        "name": "Golden Rule — Imperadora aposentada / Conselheira Imperial",
+        "description": "Única Imperadora a implementar reformas e abrir Suth politicamente. Sem grau definido na fonte."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "E",
+      "destreza": "E",
+      "vigor": "E",
+      "carisma": "E",
+      "manipulacao": "E",
+      "compostura": "E",
+      "inteligencia": "E",
+      "perspicacia": "E",
+      "resolucao": "E"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "E",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "E",
+      "resistFisicaProf": "E",
+      "resistMagicaProf": "E",
+      "tecnicaProf": "E"
+    },
+    "procs": [],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Manto de veludo escarlate"
+      ],
+      "usaveis": [],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Ficha em aberto",
+          "description": "Os dossiês não trazem graus, singularidade nem combate de Velmira. Todos os graus ficaram em E até o mestre definir."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 2,
+      "max": 2
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "IX Imperadora de Suth, reformista em um reino dogmático: buscou relações menos hostis com Amaranth e flexibilizou a administração. Foi culpada por parte da população e da cúpula militar pela rebelião da antiga Parteira, ocorrida em seu reinado. Passou o trono à filha Emphes Alpha sem ruptura e hoje atua como Conselheira Imperial, observando sem interferir diretamente. A relação com Emphes sempre foi de treinamento e disciplina, não de afeto.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_victoria",
+    "name": "Victoria Bunis",
+    "epithet": "A Azaleia Escarlate · General do Exército Imperial",
+    "race": "Suthence",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth · Exército Imperial",
+    "height": "1,45m",
+    "deity": "—",
+    "weapon": "Espada curta e Machado Dragonslayer",
+    "traits": "Baixa e compacta, mais de uma tonelada de peso; cabelos curtos brancos, olhos escarlates; manto vermelho com detalhes dourados. Estrita, pragmática, de bom coração; prefere a política à guerra, mas gosta quando a diplomacia falha. Parceiro: Hujimo Bunis. Gosta: doces, seu trabalho. Não gosta: ser chamada de pequena.",
+    "xp": 0,
+    "singularity": {
+      "name": "Mass Power Body",
+      "level": "A · Natural (Artificial)",
+      "description": "Corpo com 20 vezes a massa normal (mais de uma tonelada; só a mão pesa 150 kg), sem perder velocidade. Muito mais forte e resistente que o normal; exige muita caloria e mana para o corpo não colapsar. Com magia de anjo, flutua e ignora o peso para locomoção. Rachaduras no chão por onde pisa."
+    },
+    "racialAbility": {
+      "name": "Suthence de corpo reforçado",
+      "description": "Corpo adaptado à própria densidade; armadura de liga especial para suportar o peso."
+    },
+    "classes": [
+      {
+        "name": "Guerreira B — espada e Dragonslayer axe (ficha antiga)",
+        "description": "Combate curto e devastador; Magecraft D (flutuação) na ficha antiga."
+      },
+      {
+        "name": "Golden Rule A — General do Exército Imperial",
+        "description": "Principal defensora da Imperadora; une força e diplomacia, ensinada por Velmira."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "B",
+      "destreza": "E",
+      "vigor": "A",
+      "carisma": "D",
+      "manipulacao": "C",
+      "compostura": "B",
+      "inteligencia": "D",
+      "perspicacia": "D",
+      "resolucao": "C"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "C",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "E",
+      "resistFisicaProf": "B",
+      "resistMagicaProf": "E",
+      "tecnicaProf": "C",
+      "lideranca": "B",
+      "politica": "C",
+      "persuasao": "D"
+    },
+    "procs": [
+      "instinto_selvagem",
+      "blindagem_reativa",
+      "furia_crescente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Espada curta",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Machado Dragonslayer",
+        "tipo": "marcial",
+        "acerto": "-1",
+        "dano": "+2",
+        "ferida": "1",
+        "efeito": "Troféu de um rival goethiano",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Golpe de massa (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "IMPACTO · peso do Mass Power Body · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Espada curta",
+        "Machado Dragonslayer"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Armadura de placas imperial (reforçada para o próprio peso)"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Mass Power Body",
+          "description": "Densidade 20x; peso não afeta a velocidade; consome calorias e mana; flutuação por magia de anjo."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 6,
+      "max": 6
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "General do Exército Imperial e principal defensora de Emphes. Aprendeu com Velmira a unir paciência e estratégia à força bruta; reformou o Exército Imperial, deixando de ser só auxiliar para ser tão temido quanto o Pilar da Santa. Liderou defesas bem-sucedidas contra Goethia e Katalão. Carrega o Dragonslayer, deixado por um general goethiano que ela respeitava e que traiu a própria pátria. Mãe adotiva de Valéria; seu parceiro Hujimo é o único cuja opinião a faz hesitar. Os graus numéricos desta ficha foram estimados: o dossiê não traz atributos.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_valeria",
+    "name": "Valéria Bunis",
+    "epithet": "A Coluna de Ferro de Suth · Comandante do Exército Imperial",
+    "race": "Suthence (filha adotiva)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth · Exército Imperial",
+    "height": "1,80m",
+    "deity": "—",
+    "weapon": "Maça Imperial de Guerra",
+    "traits": "Atlética e musculosa, cabelos longos negros, olhos dourados incandescentes; armadura dourada com gemas azuis e manto azul. Responsável e profissional, severa mas justa; folga para beber, fazer compras, ler, tomar café e ver arte. Gosta: arte, café, ler, a Imperadora. Não gosta: quem desrespeita a Imperadora.",
+    "xp": 0,
+    "singularity": {
+      "name": "Earth Army of Self",
+      "level": "B · Divino",
+      "description": "Molda com facilidade a superfície não biológica que toca em uma estátua de si. Com mana alta, as estátuas viram golens remotos. Pode transformar armaduras de inimigos em pequenas estatuetas dela, quebrando-as e travando o alvo."
+    },
+    "racialAbility": {
+      "name": "Suthence adotada pelos Bunis",
+      "description": "Filha adotiva de Victoria e Hujimo; formação militar de Victoria, tática de Hujimo."
+    },
+    "classes": [
+      {
+        "name": "Guerreira B — usuária de maça (ficha antiga)",
+        "description": "Combate corpo a corpo e domínio de terreno; Magecraft C, Litomancia (ficha antiga)."
+      },
+      {
+        "name": "Golden Rule A — Comandante / Guarda Imperial",
+        "description": "Maior autoridade militar do Pilar da Imperadora; lidera na linha de frente."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "B",
+      "destreza": "C",
+      "vigor": "B",
+      "carisma": "C",
+      "manipulacao": "C",
+      "compostura": "A",
+      "inteligencia": "C",
+      "perspicacia": "C",
+      "resolucao": "B"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "C",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "D",
+      "defesaProf": "C",
+      "resistFisicaProf": "C",
+      "resistMagicaProf": "B",
+      "tecnicaProf": "C",
+      "lideranca": "B",
+      "intimidacao": "C"
+    },
+    "procs": [
+      "instinto_selvagem",
+      "golpe_penetrante",
+      "blindagem_reativa"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Maça Imperial de Guerra",
+        "tipo": "marcial",
+        "acerto": "-1",
+        "dano": "+2",
+        "ferida": "1",
+        "efeito": "IMPACTO · feita para esmagar armaduras",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Maça Imperial de Guerra"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Armadura dourada imperial com gemas azuis"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Earth Army of Self",
+          "description": "Estátuas de si; golens remotos (mana alta); armadura inimiga vira estatueta. Litomancia (Magecraft C)."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 5,
+      "max": 5
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Adotada jovem por Victoria e Hujimo Bunis; do primeiro herdou a disciplina, do segundo a mente tática. Comandante do Exército Imperial, considerada a mais poderosa dele. Lealdade absoluta à Imperadora, de quem exige que enfrente as próprias inseguranças. Quer, sem admitir, superar Victoria como maior comandante de Suth. Acredita que a força precisa ser provada para nunca ser contestada.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_mars",
+    "name": "Mars",
+    "epithet": "A Guerra Encarnada · Coronel do Exército Imperial",
+    "race": "Suthence",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth · Exército Imperial (sob Valéria)",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Lança de alta performance",
+    "traits": "29 anos; cabelos prateados curtos e desalinhados, olhos dourados incandescentes; armadura híbrida com ornamentos dracônicos, manto branco queimado e coroa negra de espinhos flamejantes. Impulsiva mas responsável; odeia guerra e burocracia, mas é sempre enviada para guerras de fronteira. Gosta: action-figures, fofoca, pessoas famosas. Não gosta: guerra, injustiça, goethianos.",
+    "xp": 0,
+    "singularity": {
+      "name": "Motor de Ignição: Berserker",
+      "level": "D · Natural",
+      "description": "Com a adrenalina subindo, o corpo esquenta e fica mais eficiente, ágil e forte; o poder cresce quanto mais ela luta. Não há limite conhecido para a adrenalina, mas quanto mais produz, mais instável mentalmente fica, podendo virar risco até para aliados."
+    },
+    "racialAbility": {
+      "name": "Suthence de metabolismo explosivo",
+      "description": "Resistência e estamina fora do comum (ficha antiga: Resistência A+, Estamina S)."
+    },
+    "classes": [
+      {
+        "name": "Guerreira B — usuária de lanças (ficha antiga)",
+        "description": "Golpes longos, ágeis e de alto impacto. Magecraft C, pyromancia (ficha antiga)."
+      },
+      {
+        "name": "Golden Rule A — Coronel do Exército Imperial (Guarda Imperial)",
+        "description": "Visada para a próxima General; treinada por Victoria para liderar, mas prefere lutar na linha de frente."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "B",
+      "destreza": "C",
+      "vigor": "A",
+      "carisma": "D",
+      "manipulacao": "E",
+      "compostura": "B",
+      "inteligencia": "E",
+      "perspicacia": "D",
+      "resolucao": "B"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "C",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "D",
+      "defesaProf": "B",
+      "resistFisicaProf": "B",
+      "resistMagicaProf": "C",
+      "tecnicaProf": "C",
+      "atletismo": "C"
+    },
+    "procs": [
+      "instinto_selvagem",
+      "toque_flamejante",
+      "furia_crescente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lança de alta performance",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lança incandescente (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "CHAMAS · pyromancia · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Pyromancia (1MP)",
+        "tipo": "magico",
+        "acerto": "+1",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "CHAMAS · gasta 1MP",
+        "profKey": "magiasOfensivas"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Lança de alta performance"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Armadura híbrida com ornamentos dracônicos"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Motor de Ignição: Berserker",
+          "description": "Poder e calor crescem enquanto luta; instabilidade mental cresce junto."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 6,
+      "max": 6
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Nasceu para a guerra sem gostar dela: é a coronel que mais lutou em território nacional. Respeitada pelas tropas, admirada e temida, mas sem talento natural para comandar. Victoria a treina para ser General; Mars teme nunca preencher o posto e, no fundo, que sem a guerra não seja nada. Respeita Victoria como mentora e teme Valéria, que pode derrotá-la em combate direto. Ficha construída a partir do bloco detalhado de atributos do dossiê (o resumo do topo traz valores um pouco diferentes).",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_zero",
+    "name": "ZERO",
+    "epithet": "A Arquiteta da Vida · Líder do Pilar da Parteira",
+    "race": "Biotecnológica (única)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Parteira de Suth",
+    "height": "3 m+",
+    "deity": "Reconhece Ishan e Nekron (mas vê o poder de criar como superior)",
+    "weapon": "Apêndices mecânicos",
+    "traits": "Mais de 3 metros: tronco humanoide androgino sobre base mecânica de aranha, manto branco estéril com símbolos dourados, vários braços metálicos, sensores no lugar dos olhos, voz de múltiplas máquinas. Mente de três facetas: a Calculadora, a Criadora e a Humanista. Trata os outros como animaizinhos. Gosta: a vida de todos, suas pesquisas, conhecimento. Não gosta: Thalia, interrupções, incompetência.",
+    "xp": 0,
+    "singularity": {
+      "name": "Golden Rule EX — Biotecnologia, Magia e Ciência",
+      "level": "EX",
+      "description": "Modifica qualquer matéria viva ou sintética com precisão; cria vida, homúnculos, próteses vivas e híbridos tecnobiológicos; reconfigura o próprio corpo. Mente de três camadas que não pode ser lida por telepatia."
+    },
+    "racialAbility": {
+      "name": "Corpo biomecânico de aranha",
+      "description": "Base mecânica aranhoide, múltiplos apêndices independentes com ferramentas cirúrgicas, manipuladores de mana e interfaces neurais."
+    },
+    "classes": [
+      {
+        "name": "Necromante S+ (Magecraft S+, necromancia — ficha antiga)",
+        "description": "Domínio máximo da magia da morte; liga o poder de criar ao de desfazer."
+      },
+      {
+        "name": "Golden Rule EX — Líder do Pilar da Parteira",
+        "description": "Governa a biotecnologia de Suth, assumiu o Pilar após a rebelião da antiga Parteira."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "C",
+      "destreza": "E",
+      "vigor": "C",
+      "carisma": "E",
+      "manipulacao": "C",
+      "compostura": "A",
+      "inteligencia": "A",
+      "perspicacia": "B",
+      "resolucao": "A"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "E",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "A",
+      "defesaProf": "D",
+      "resistFisicaProf": "C",
+      "resistMagicaProf": "B",
+      "tecnicaProf": "C",
+      "ciencia": "A",
+      "medicina": "A",
+      "magiasGerais": "B",
+      "ocultismo": "C"
+    },
+    "procs": [
+      "escudo_de_mana",
+      "surto_arcano",
+      "persistente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Apêndices cirúrgicos",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Necromancia (1MP)",
+        "tipo": "magico",
+        "acerto": "+2",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Magia da morte · gasta 1MP (efeito narrativo)",
+        "profKey": "magiasOfensivas"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Manto branco estéril"
+      ],
+      "usaveis": [],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Mente de Três Camadas",
+          "description": "Calculadora, Criadora e Humanista decidem de formas distintas; o atrito entre elas pode atrasar decisões."
+        },
+        {
+          "name": "Aura de Presença Divina",
+          "description": "Quem está diante dela se sente um experimento."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 5,
+      "max": 5
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Líder suprema da biotecnologia de Suth, projetada e lapidada ao longo de séculos; assumiu o Pilar da Parteira após a execução da antiga líder na rebelião. Cria homúnculos, soldados e aprimoramentos para o reino. Considera o universo um laboratório e cada ser vivo uma tese em andamento, mas sua faceta Humanista hesita em descartar criações que sobrevivem. Draguna é sua obra-prima. Os graus numéricos desta ficha foram estimados: o dossiê é narrativo e não traz atributos.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_kirilia",
+    "name": "Kirilia",
+    "epithet": "A Lâmina Exilada · Força Auxiliar do Pilar da Parteira",
+    "race": "Suthence",
+    "faction": "Suth",
+    "affiliation": "Pilar da Parteira de Suth (antes: Pilar da Santa)",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Espada longa",
+    "traits": "27 anos; cabelos loiros longos presos com fitas vermelhas, olhar afiado e melancólico, traje prático e sem adornos. Obcecada por lutas, armas e aprimoramento; respeita as soldadas de baixo escalão. Filha da Santa e de Maria Celis. Gosta: espadas, estilos de luta diferentes, combate. Não gosta: Fate Sabato, pessoas fracas, a família Gotis de Katalão.",
+    "xp": 0,
+    "singularity": {
+      "name": "Ponto Fixo",
+      "level": "D · Artificial",
+      "description": "Fixa no espaço um ponto que toca com as mãos (considera a rotação da Terra) e aprendeu a estender isso à espada. O ponto não passa de 3 cm; nenhuma força menor que Força A ou Potência A vence o ponto fixo."
+    },
+    "racialAbility": {
+      "name": "Suthence treinada por heroína",
+      "description": "Criada e treinada por Maria Celis, heroína de 1000 PO; lutou ao lado de vários batalhões entre 1015 PO e 1020 PO."
+    },
+    "classes": [
+      {
+        "name": "Artista Marcial A — Estilo dos Cinco Elementos (ficha antiga)",
+        "description": "Estilo secreto herdado do herói Gotis de Katalão; Guerreira C, usuária de espada longa (ficha antiga)."
+      },
+      {
+        "name": "Golden Rule B — Soldada da Santa e da Parteira",
+        "description": "Transferida da Santa para a Parteira após perder a honra; respeitada pelas tropas de Suth."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "C",
+      "destreza": "B",
+      "vigor": "C",
+      "carisma": "E",
+      "manipulacao": "E",
+      "compostura": "B",
+      "inteligencia": "C",
+      "perspicacia": "B",
+      "resolucao": "A"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "B",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "B",
+      "resistFisicaProf": "C",
+      "resistMagicaProf": "E",
+      "tecnicaProf": "B",
+      "sobrevivencia": "D"
+    },
+    "procs": [
+      "golpe_certeiro",
+      "reflexo_agil",
+      "furia_crescente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Espada longa",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Espada — Fogo (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "CHAMAS · Cinco Elementos (Fogo) · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Espada — Terra (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "IMPACTO · Cinco Elementos (Terra), espada muito pesada · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Espada longa"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Armadura leve sem adornos"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Estilo dos Cinco Elementos (singularidade E · Artificial)",
+          "description": "Madeira (eletricidade): paralisa o alvo; Fogo: lâmina flamejante; Terra: espada pesada; Metal: fio aprimorado que corta materiais reforçados; Água: cortes fluidos que ignoram defesas físicas. Sincroniza com a mana local."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 4,
+      "max": 4
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Seria uma das mais renomadas guerreiras do Pilar da Santa, até ser derrotada por Fate Sabato e expulsa. No exílio viveu com as tropas de baixo escalão e aprendeu que toda vida tem valor. Hoje busca a perfeição na arte da espada, sem querer voltar à Santa nem se vingar. Responde à ZERO, a única líder que não tenta controlá-la. Mais tarde ela também derrotou Fate Sabato, mas com estratégia e aliados, não em duelo. Níveis: o documento de Suth (Guerreira C, Artista Marcial A) foi preferido ao dossiê (B e A+).",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_galantia",
+    "name": "Galantia",
+    "epithet": "Ex-General da Estagnação · agente da Imperadora",
+    "race": "Homúnculo (corpo aprimorado)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth (antes: Pilar da Parteira)",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Espada longa",
+    "traits": "49 anos; cabelos loiros retos e sem brilho, olhos verdes vazios, postura rígida; manto branco forrado de pele escura e armadura azul e preta simples. Conformista, lenta e tranquila; segue ordens sem questionar, sem bússola moral. Gosta: comer, dormir, evitar trabalho. Não gosta: deixar trabalho por fazer, lutar.",
+    "xp": 0,
+    "singularity": {
+      "name": "Ponto Fixo",
+      "level": "A · Natural (Artificial)",
+      "description": "Fixa pontos no espaço dentro do campo de visão (considera a rotação da Terra); o ponto não passa de 3 cm e nenhuma força menor que Força A ou Potência A o move. Tem um olho escondido com cinco pequenos olhos presos por tentáculos que expandem a singularidade até seis pontos; mantê-los ativos consome muita mana."
+    },
+    "racialAbility": {
+      "name": "Homúnculo A+ — corpo aprimorado (ficha antiga)",
+      "description": "Geneticamente melhorada pelo Pilar da Parteira: muito resistente e ágil. Modificações divinas Krovskin."
+    },
+    "classes": [
+      {
+        "name": "Guerreira C — usuária de espada (ficha antiga)",
+        "description": "Golpes precisos e sem excessos; usa a singularidade para abrir brechas."
+      },
+      {
+        "name": "Golden Rule A — Ex-General da Parteira",
+        "description": "Sem título, ainda respeitada por muitas guerreiras; hoje agente especial de Emphes."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "B",
+      "destreza": "C",
+      "vigor": "B",
+      "carisma": "D",
+      "manipulacao": "D",
+      "compostura": "B",
+      "inteligencia": "C",
+      "perspicacia": "C",
+      "resolucao": "E"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "D",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "C",
+      "resistFisicaProf": "A",
+      "resistMagicaProf": "D",
+      "tecnicaProf": "B",
+      "lideranca": "C"
+    },
+    "procs": [
+      "golpe_certeiro",
+      "blindagem_reativa",
+      "fortaleza_viva"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Espada longa",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Espada longa",
+        "Manto branco forrado de pele"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Armadura azul e preta simples"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Ponto Fixo — âncoras",
+          "description": "Até 6 pontos fixos ao mesmo tempo com os olhos ocultos; custo de mana extremo."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 5,
+      "max": 5
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Seguiu sem hesitar a antiga Parteira na rebelião; aceitou o julgamento calada e passou anos presa em Amaranth. Poupada por ter uma singularidade valiosa e reputação de general, foi libertada por Emphes, sem devolver o cargo. Sente pela primeira vez uma semente de dúvida sobre seguir ordens cegamente. ZERO, a nova Parteira, nunca confiou nela. Respeita Victoria e a força de Draguna, que ocupou seu posto.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_kyubei",
+    "name": "Kyubei",
+    "epithet": "O Olho Direito do Dragão · Cavaleira de Omen",
+    "race": "Homúnculo suthence (modificada)",
+    "faction": "Suth",
+    "affiliation": "Cavaleiros de Omen (antes: Pilar da Parteira)",
+    "height": "1,83m",
+    "deity": "—",
+    "weapon": "Katana forjada pela Irmandade da Forja de Goethia",
+    "traits": "38 anos; cabelos negros longos e bem presos, olho direito verde-esmeralda e tapa-olho no esquerdo. Direta, honrada, com forte bússola moral, esforçada em tudo; bebe chá amargo. Gosta: chá, pessoas fortes e determinadas. Não gosta: pessoas indecisas, comida salgada, homens em geral.",
+    "xp": 0,
+    "singularity": {
+      "name": "Olho de Kronos",
+      "level": "A · Divino (Artificial)",
+      "description": "Vê até 3 segundos no futuro (apesar do nome, é o olho esquerdo). O futuro visto é a soma de todas as possibilidades e pode ser alterado. Manter o olho ativo consome muita mana e energia."
+    },
+    "racialAbility": {
+      "name": "Homúnculo C — corpo modificado (ficha antiga)",
+      "description": "Corpo inteiro modificado de forma superior; Kyubei Goethis Suth."
+    },
+    "classes": [
+      {
+        "name": "Artista Marcial B — usuária de espada (ficha antiga)",
+        "description": "Mestre do Iaijutsu (saque rápido); infiltradora e espadachim de elite."
+      },
+      {
+        "name": "Golden Rule EX — Coronel da Parteira e Cavaleira de Omen",
+        "description": "Fiel a Suth na rebelião, depois recrutada pelos Cavaleiros de Omen (1020 PO); atua em missões de sigilo."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "D",
+      "destreza": "A",
+      "vigor": "C",
+      "carisma": "E",
+      "manipulacao": "E",
+      "compostura": "C",
+      "inteligencia": "C",
+      "perspicacia": "C",
+      "resolucao": "B"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "C",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "A",
+      "resistFisicaProf": "D",
+      "resistMagicaProf": "C",
+      "tecnicaProf": "A",
+      "furtividade": "B",
+      "sobrevivencia": "C",
+      "percepcao": "C"
+    },
+    "procs": [
+      "reflexo_agil",
+      "golpe_certeiro",
+      "fortaleza_viva"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Katana (Iaijutsu)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Saque rápido",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Katana da Forja de Goethia",
+        "Tapa-olho"
+      ],
+      "usaveis": [
+        "Chá amargo"
+      ],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Olho de Kronos",
+          "description": "3 segundos de futuro; custo alto de mana e energia."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 4,
+      "max": 4
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Recusou trair Suth quando a comandante Galantia aderiu à rebelião da antiga Parteira e foi essencial em sua supressão (1000 a 1002 PO). Promovida a Coronel, ficou com reputação ambígua: heroína para umas, traidora de suas irmãs para outras. Em 1020 PO deixou Suth para os Cavaleiros de Omen. Não confia em Draguna, vê em Victoria alguém digno de absoluto respeito e em Valéria uma comandante emocional demais. Conflito de fontes: o dossiê dá Destreza A+ e Reflexos S, o documento de Suth dá Artista Marcial B. Foram combinados.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_draguna",
+    "name": "Draguna",
+    "epithet": "A Quimera Perfeita · General do Exército da Parteira",
+    "race": "Homúnculo Perfeito",
+    "faction": "Suth",
+    "affiliation": "Pilar da Parteira de Suth",
+    "height": "1,85m",
+    "deity": "—",
+    "weapon": "Garras biológicas e lâminas ósseas",
+    "traits": "Corpo de fusão de várias criaturas, composição genética conhecida só por ZERO. Preguiçosa e gulosa fora de combate, brutal e incansável em combate; segue ordens sem questionar e só poupa vidas por ordem de ZERO. Gosta: donuts, doces, dormir. Não gosta: trabalhar demais, poupar inimigos, ordens demoradas, pessoas muito ativas.",
+    "xp": 0,
+    "singularity": {
+      "name": "Selfmancia",
+      "level": "EX · Divino (Artificial)",
+      "description": "Controle absoluto da estrutura do corpo: regeneração quase instantânea, morfose, peso e densidade variáveis. Analisa singularidades naturais e as replica temporariamente, podendo combiná-las, com consumo de energia proporcional ao poder."
+    },
+    "racialAbility": {
+      "name": "Homúnculo EX — modificações supremas (ficha antiga)",
+      "description": "Corpo de combate perfeito, limitado pela preguiça e pelo gasto de energia."
+    },
+    "classes": [
+      {
+        "name": "Guerreira D — espadas e garras (ficha antiga)",
+        "description": "Estilo caótico e imprevisível."
+      },
+      {
+        "name": "Golden Rule A — General da Parteira",
+        "description": "Ponta da lança do exército biotecnológico: captura, supressão e testes de campo."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "B",
+      "destreza": "C",
+      "vigor": "A",
+      "carisma": "E",
+      "manipulacao": "D",
+      "compostura": "C",
+      "inteligencia": "E",
+      "perspicacia": "E",
+      "resolucao": "C"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "E",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "C",
+      "resistFisicaProf": "A",
+      "resistMagicaProf": "C",
+      "tecnicaProf": "B"
+    },
+    "procs": [
+      "instinto_selvagem",
+      "golpe_penetrante",
+      "furia_crescente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Garras biológicas",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lâminas ósseas",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [],
+      "usaveis": [
+        "Donuts"
+      ],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Selfmancia",
+          "description": "Regeneração, morfose, peso variável; replica singularidades naturais temporariamente (custo alto)."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 6,
+      "max": 6
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Projetada por ZERO no auge da revolução biotecnológica de Suth como guerreira definitiva; substituiu Galantia como General da Parteira. Vê-se como ferramenta e só quer seguir ordens e continuar existindo. Não sente remorso nem empatia; sua única conexão com o mundo são a fome e o descanso. Preferir capturar a matar é só obediência a ZERO. Sua preguiça limita o potencial.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_athena",
+    "name": "Athena",
+    "epithet": "A Ex-General do Amanhã · Unidade Especial da Imperadora",
+    "race": "Homúnculo (corpo modificado)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Imperadora de Suth (antes: Pilar da Santa)",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Lança",
+    "traits": "Cabelo dourado trançado, olhos verde-esmeralda desafiadores; manto branco de pele e armadura reforçada. Intensa, possessiva, dominadora; resolve tudo ela mesma e age ignorando normas sociais e como as pessoas se sentem. Mãe de Athermis; tia de Farron. Gosta: vencer, duelos, disciplina, liderança, respeito. Não gosta: perder, ser subestimada, aceitar ordens sem questionar.",
+    "xp": 0,
+    "singularity": {
+      "name": "Corpo de Luz",
+      "level": "A · Divino (Artificial)",
+      "description": "Transforma partes do corpo ou o corpo todo em partículas de luz, que viajam a velocidades superiores até à Velocidade A, não têm massa e queimam. Escolhe livremente quais partes viram luz. Intangibilidade parcial e ataques de luz que cortam barreiras mágicas. Gasta muita mana."
+    },
+    "racialAbility": {
+      "name": "Homúnculo B — corpo modificado (ficha antiga)",
+      "description": "Modificada geneticamente para maximizar resistência e força."
+    },
+    "classes": [
+      {
+        "name": "Guerreira A — usuária de lança (ficha antiga)",
+        "description": "Mestre em lanças, golpes comparados a um relâmpago."
+      },
+      {
+        "name": "Golden Rule A — Ex-General da Santa",
+        "description": "Lutou ao lado de Galantia na rebelião da Parteira; capturada, presa em Amaranth e libertada por Emphes como 'arma sem exército'."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "D",
+      "destreza": "B",
+      "vigor": "C",
+      "carisma": "C",
+      "manipulacao": "C",
+      "compostura": "A",
+      "inteligencia": "C",
+      "perspicacia": "C",
+      "resolucao": "B"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "B",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "B",
+      "resistFisicaProf": "C",
+      "resistMagicaProf": "C",
+      "tecnicaProf": "B",
+      "lideranca": "B",
+      "intimidacao": "C"
+    },
+    "procs": [
+      "golpe_certeiro",
+      "reflexo_agil",
+      "furia_crescente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lança",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lança de luz (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Ataque de luz: queima e corta barreiras mágicas (efeito narrativo) · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Lança",
+        "Manto branco de pele"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Armadura reforçada"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Corpo de Luz",
+          "description": "Luz parcial ou total; movimento de luz; intangibilidade parcial; ataques de luz."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 4,
+      "max": 4
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Já foi a maior general do Pilar da Santa, nunca derrotada em combate direto. Aliou-se à rebelião da Parteira, foi capturada e passou anos presa em Amaranth. Libertada por ordem de Emphes, atua em missões sob ordens diretas da Imperadora: uma 'coleira disfarçada'. Despreza a aceitação resignada de Galantia e alimenta o desejo de restaurar a própria glória.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_azula",
+    "name": "Azula",
+    "epithet": "A Faísca Divina · General da Santa",
+    "race": "Homúnculo de Alta Performance",
+    "faction": "Suth",
+    "affiliation": "Pilar da Santa de Suth",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Decretos divinos (magia de luz)",
+    "traits": "Pele pálida, olhos azuis brilhantes, cabelos loiros longos e ondulados cobertos por um véu negro; trajes cerimoniais negros e azuis e coroa de espinhos. Direta, disciplinada e insegura por baixo da frieza; leal ao cargo, não às pessoas. Gosta: batalhas bem planejadas, ordem, disciplina. Não gosta: sentir-se perdida, desorganização, bajulação vazia.",
+    "xp": 0,
+    "singularity": {
+      "name": "Decretos Divinos (Faísca Divina)",
+      "level": "A · Divino (Artificial)",
+      "description": "Absorve a mana do ambiente e a converte, recuperando rapidamente a mana gasta. Tem encantamentos variados no corpo, sustentados pela regeneração da singularidade. Cria encantamentos com os ataques: esferas de mana que ativam com o tempo ou sob condições e produzem vários efeitos, chamadas Decretos. Pode soltar descargas de luz que queimam corpo e alma. Risco de sobrecarga e colapso energético."
+    },
+    "racialAbility": {
+      "name": "Homúnculo B — corpo aprimorado (ficha antiga)",
+      "description": "Homúnculo de infantaria cuja singularidade despertou por erro ou milagre; seu caso é único e irrepetível."
+    },
+    "classes": [
+      {
+        "name": "Maga de encantamentos — Magecraft A (ficha antiga)",
+        "description": "Encantamentos variados; magia divina B+ na ficha antiga."
+      },
+      {
+        "name": "Golden Rule A — General da Santa",
+        "description": "Ascendeu de soldada comum a General da Santa, sem preparo para comandar."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "D",
+      "destreza": "D",
+      "vigor": "D",
+      "carisma": "D",
+      "manipulacao": "E",
+      "compostura": "B",
+      "inteligencia": "B",
+      "perspicacia": "D",
+      "resolucao": "B"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "E",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "B",
+      "defesaProf": "C",
+      "resistFisicaProf": "C",
+      "resistMagicaProf": "A",
+      "tecnicaProf": "C",
+      "lideranca": "D",
+      "magiasGerais": "C"
+    },
+    "procs": [
+      "surto_arcano",
+      "escudo_de_mana",
+      "persistente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Descarga de luz (1MP)",
+        "tipo": "magico",
+        "acerto": "+2",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Rajada de luz que queima corpos e almas (efeito narrativo) · gasta 1MP",
+        "profKey": "magiasOfensivas"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Coroa de espinhos do Pilar da Santa"
+      ],
+      "usaveis": [],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Decretos",
+          "description": "Esferas de mana encantadas que ativam por tempo ou condição (efeito narrativo)."
+        },
+        {
+          "name": "Absorção de mana ambiente",
+          "description": "Recupera mana gasta rapidamente; MP 5 por esse motivo."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 4,
+      "max": 4
+    },
+    "mp": {
+      "current": 5,
+      "max": 5
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Criada por ZERO como experimento para forçar o despertar de singularidades em soldados comuns; o caso de Azula foi único. Numa batalha, a Faísca Divina aniquilou o exército inimigo e a tornou lenda de um dia para o outro: de soldada sem nome a General da Santa. Não foi preparada para comandar, é brilhante em combate e insegura fora dele. O que mais teme é o vazio de não saber quem realmente é.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_farron",
+    "name": "Farron",
+    "epithet": "A Arma Divina · Coronel da Santa",
+    "race": "Suthence (nascida de parto natural)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Santa de Suth (antes: Pilar da Imperadora)",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Espada e escudo",
+    "traits": "Cabelo rosa-claro longo e desgrenhado, olhos azul-acinzentados cortantes; traje de combate reforçado. Silenciosa, disciplinada e pragmática; isolada emocionalmente, não acredita em glória nem destino. Sobrenome apagado após a traição da família. Gosta: duelos justos, disciplina, treinamento extremo. Não gosta: covardia, sentimentalismo, traição, hesitação.",
+    "xp": 0,
+    "singularity": {
+      "name": "Constructo de Luz",
+      "level": "B · Divino (Artificial)",
+      "description": "Cria construtos e armas de partículas de luz. Conforme o dossiê, forja espadas, lanças e adagas de luz sólida, dispara raios cortantes de alta perfuração que atravessam armaduras e escudos mágicos, e manipula a ausência de luz para criar escuridão. Mais forte em locais iluminados. Manipulações complexas desgastam o corpo e a mana."
+    },
+    "racialAbility": {
+      "name": "Linhagem de guerreiras de elite",
+      "description": "Sangue de uma família nobre de tradição militar e biotecnológica; a singularidade veio desde o nascimento."
+    },
+    "classes": [
+      {
+        "name": "Guerreira A — espada e escudo (ficha antiga)",
+        "description": "Uma das melhores duelistas de Suth; Magecraft B, Luminocraft (ficha antiga)."
+      },
+      {
+        "name": "Golden Rule A — Coronel da Santa",
+        "description": "Recusou o posto de General por não se achar forte o bastante."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "C",
+      "destreza": "B",
+      "vigor": "C",
+      "carisma": "E",
+      "manipulacao": "D",
+      "compostura": "B",
+      "inteligencia": "C",
+      "perspicacia": "C",
+      "resolucao": "C"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "B",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "C",
+      "defesaProf": "C",
+      "resistFisicaProf": "D",
+      "resistMagicaProf": "D",
+      "tecnicaProf": "B",
+      "lideranca": "D"
+    },
+    "procs": [
+      "golpe_certeiro",
+      "golpe_penetrante",
+      "reflexo_agil"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Espada",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lâmina de luz (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Forja Luminosa: arma de luz sólida · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Raios cortantes (1MP)",
+        "tipo": "magico",
+        "acerto": "+2",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Feixe de luz de alta perfuração (efeito narrativo) · gasta 1MP",
+        "profKey": "magiasOfensivas"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Espada",
+        "Escudo"
+      ],
+      "usaveis": [],
+      "armadura": [
+        "Traje de combate reforçado"
+      ]
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Constructo de Luz",
+          "description": "Forja Luminosa, Raios Cortantes, Domínio de Sombras, Ritmo Solar (força e velocidade maiores à luz)."
+        },
+        {
+          "name": "Conflito de fontes",
+          "description": "Dossiê: singularidade nível S hereditária. Documento de Suth: nível B. Foi usado o documento de Suth."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 4,
+      "max": 4
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Nasceu de parto natural numa família nobre de guerreiras; criada no Pilar da Imperadora, transferiu-se para a Santa por admirar a tia Athena. Quando a família aderiu à rebelião da Parteira, lutou contra ela para proteger o império; o nome da família foi apagado. Mandou a prima Athermis para Maxis, longe da influência de Athena. Recusou o posto de General: Azula assumiu o cargo.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  },
+  {
+    "id": "suth_athermis",
+    "name": "Athermis",
+    "epithet": "A Herdeira da Luz · Representante da Santa",
+    "race": "Homúnculo (corpo modificado)",
+    "faction": "Suth",
+    "affiliation": "Pilar da Santa de Suth",
+    "height": "—",
+    "deity": "—",
+    "weapon": "Lança",
+    "traits": "Cabelos dourados trançados com fitas vermelhas, olhos azul-claros; casaco azul com insígnias do Pilar da Santa; próteses especiais nos dois braços e nas duas pernas. Inteligente, pragmática, ambiciosa, amorosa e possessiva. Filha de Athena. Gosta: estruturas eficientes, progresso, desafios intelectuais, duelos de alto nível. Não gosta: tradições ultrapassadas, desconfiança injustificada, a sombra do passado.",
+    "xp": 0,
+    "singularity": {
+      "name": "Corpo de Luz",
+      "level": "C+ · Divino (Artificial)",
+      "description": "Transforma partes do corpo ou o corpo todo em partículas de luz, que viajam a altas velocidades e queimam. Precisa gastar mana para reconectar as partículas, ou pode perder o membro transformado. Pode usar a singularidade nas próteses. Ainda não domina todas as aplicações."
+    },
+    "racialAbility": {
+      "name": "Homúnculo C — corpo modificado (ficha antiga)",
+      "description": "Aprimorada por biotecnologia; próteses nos quatro membros."
+    },
+    "classes": [
+      {
+        "name": "Guerreira C — usuária de lança (ficha antiga)",
+        "description": "Investidas rápidas como relâmpago."
+      },
+      {
+        "name": "Golden Rule B — Representante do Exército da Santa",
+        "description": "Criada em Maxis Power; tenta redefinir o que é ser guerreira de Suth."
+      }
+    ],
+    "attributes": {},
+    "atributosGerais": {
+      "forca": "E",
+      "destreza": "B",
+      "vigor": "D",
+      "carisma": "D",
+      "manipulacao": "C",
+      "compostura": "D",
+      "inteligencia": "D",
+      "perspicacia": "C",
+      "resolucao": "B"
+    },
+    "proficiencias": {
+      "combateCorpoACorpo": "D",
+      "armasDeFogo": "E",
+      "magiasOfensivas": "E",
+      "defesaProf": "B",
+      "resistFisicaProf": "D",
+      "resistMagicaProf": "C",
+      "tecnicaProf": "C",
+      "persuasao": "C",
+      "politica": "D",
+      "financas": "D",
+      "tecnologia": "D"
+    },
+    "procs": [
+      "reflexo_agil",
+      "golpe_certeiro",
+      "persistente"
+    ],
+    "attacks": [
+      {
+        "nome": "Ataque desarmado",
+        "tipo": "marcial",
+        "acerto": "+1",
+        "dano": "0",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lança",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "",
+        "profKey": "combateCorpoACorpo"
+      },
+      {
+        "nome": "Lança de luz (1MP)",
+        "tipo": "marcial",
+        "acerto": "0",
+        "dano": "+1",
+        "ferida": "1",
+        "efeito": "Partículas de luz queimam o alvo (efeito narrativo) · gasta 1MP",
+        "profKey": "combateCorpoACorpo"
+      }
+    ],
+    "itens": {
+      "principais": [
+        "Lança",
+        "Próteses especiais (2 braços, 2 pernas)"
+      ],
+      "usaveis": [],
+      "armadura": []
+    },
+    "habilidadesFicha": {
+      "ativas": [],
+      "especial": [
+        {
+          "name": "Corpo de Luz",
+          "description": "Luz parcial ou total; reconectar custa mana; funciona nas próteses."
+        },
+        {
+          "name": "Conflito de fontes",
+          "description": "Dossiê: singularidade A, Guerreira A, Golden Rule C+. Documento de Suth: singularidade C+, Guerreira C, Golden Rule B. Foi usado o documento de Suth."
+        }
+      ],
+      "racial": [],
+      "passivas": [],
+      "extras": []
+    },
+    "hp": {
+      "current": 4,
+      "max": 4
+    },
+    "mp": {
+      "current": 3,
+      "max": 3
+    },
+    "sp": {
+      "current": 3,
+      "max": 3
+    },
+    "history": "Filha de Athena, nasceu com o nome queimado depois da traição da mãe na rebelião da Parteira. A tia Farron a enviou para Maxis Power, onde aprendeu economia, política, tecnologia e diplomacia, e voltou a Suth com ideias que a maioria das suthences não tem. Ainda carrega a desconfiança por ser filha de Athena e precisa provar seu valor.",
+    "fichaFechada": true,
+    "grupo": "suth"
+  }
+];
+
+// Qual arquivo em public/retratos-suth/ é o retrato de cada id (ver pasta
+// "Retratos" do pedido) — Galantia não tem imagem ainda, fica sem imageUrl até
+// alguém subir uma (checagem "somente se estiver vazio" não se aplica aqui
+// porque a ficha nunca teve imageUrl antes: withFichaDefaults parte de "").
+const SUTH_RETRATOS = {
+  suth_emphes: "suth_emphes.jpg",
+  suth_velmira: "suth_velmira.jpg",
+  suth_victoria: "suth_victoria.jpg",
+  suth_valeria: "suth_valeria.jpg",
+  suth_mars: "suth_mars.jpg",
+  suth_zero: "suth_zero.jpg",
+  suth_kirilia: "suth_kirilia.jpg",
+  suth_kyubei: "suth_kyubei.jpg",
+  suth_draguna: "suth_draguna.jpg",
+  suth_athena: "suth_athena.jpg",
+  suth_azula: "suth_azula.jpg",
+  suth_farron: "suth_farron.jpg",
+  suth_athermis: "suth_athermis.jpg",
+};
+const SUTH_CHARACTERS = SUTH_CHARACTERS_RAW.map((c) => withFichaDefaults({
+  ...c, fichaFechada: true, grupo: "suth",
+  imageUrl: SUTH_RETRATOS[c.id] ? assetUrl(`retratos-suth/${SUTH_RETRATOS[c.id]}`) : "",
+}));
+
+// Ficha nova do Fate vinda do documento de Suth — NÃO é um personagem novo
+// (ela já existe em SEED_CHARACTERS_RAW, no Grupo C): aplicarFichaSuthDoFate
+// (suth.js) atualiza o conteúdo preservando id/grupo/imageUrl/xp existentes.
+const FICHA_NOVA_FATE = {
+  "id": "fate",
+  "name": "Fate, A Indomável",
+  "epithet": "A Indomável · Próxima Santa de Suth",
+  "race": "Homúnculo de Elite (experimento biotecnológico)",
+  "faction": "Suth",
+  "affiliation": "Pilar da Santa de Suth",
+  "height": "1,80m",
+  "deity": "—",
+  "weapon": "Naginata e lâminas múltiplas",
+  "traits": "Idade aparente 25 a 30; cabelos brancos lisos com marcas negras verticais, olhos dourados predatórios; armadura leve preta, dourada e vermelha. Fria, reservada, ameaçadora e solitária; protetora seletiva de quem demonstra valor. Gosta: batalhas desafiadoras, aperfeiçoar-se, testar estratégias. Não gosta: perder, perder tempo, fraqueza, depender dos outros.",
+  "xp": 0,
+  "singularity": {
+    "name": "Deusa da Guerra",
+    "level": "EX · Divino",
+    "description": "Analisa qualquer técnica ou singularidade artificial voltada ao combate, achando pontos fortes e fracos, e cria técnicas para contra-atacá-las, até contra singularidades divinas ou naturais. Perdeu a capacidade de assimilar e replicar técnicas devido à intoxicação de mana."
+  },
+  "racialAbility": {
+    "name": "Homúnculo B — experimento de Primordial (ficha antiga)",
+    "description": "Criada por Kino Kuni a partir da alma capturada de um Primordial; corpo modificado para combate extremo."
+  },
+  "classes": [
+    {
+      "name": "Guerreira e Artista Marcial EX — naginata, espada e facas (ficha antiga)",
+      "description": "Mestre em lâminas; jamais perdera uma batalha antes da derrota que a feriu."
+    },
+    {
+      "name": "Golden Rule A — Elite do Pilar da Santa",
+      "description": "Escolhida pela Santa Encarnada como sucessora; questionada por parte do Pilar ('Santa Fraca')."
+    }
+  ],
+  "attributes": {},
+  "atributosGerais": {
+    "forca": "D",
+    "destreza": "A",
+    "vigor": "D",
+    "carisma": "D",
+    "manipulacao": "E",
+    "compostura": "B",
+    "inteligencia": "C",
+    "perspicacia": "B",
+    "resolucao": "A"
+  },
+  "proficiencias": {
+    "combateCorpoACorpo": "A",
+    "armasDeFogo": "E",
+    "magiasOfensivas": "E",
+    "defesaProf": "A",
+    "resistFisicaProf": "C",
+    "resistMagicaProf": "D",
+    "tecnicaProf": "A",
+    "intimidacao": "B",
+    "percepcao": "C"
+  },
+  "procs": [
+    "reflexo_agil",
+    "fortaleza_viva",
+    "golpe_certeiro"
+  ],
+  "attacks": [
+    {
+      "nome": "Ataque desarmado",
+      "tipo": "marcial",
+      "acerto": "+1",
+      "dano": "0",
+      "ferida": "1",
+      "efeito": "",
+      "profKey": "combateCorpoACorpo"
+    },
+    {
+      "nome": "Naginata",
+      "tipo": "marcial",
+      "acerto": "0",
+      "dano": "+1",
+      "ferida": "1",
+      "efeito": "",
+      "profKey": "combateCorpoACorpo"
+    },
+    {
+      "nome": "Lâminas múltiplas",
+      "tipo": "marcial",
+      "acerto": "0",
+      "dano": "+1",
+      "ferida": "1",
+      "efeito": "",
+      "profKey": "combateCorpoACorpo"
+    }
+  ],
+  "itens": {
+    "principais": [
+      "Naginata",
+      "Lâminas múltiplas"
+    ],
+    "usaveis": [
+      "Cadeira de rodas (intoxicação de mana)"
+    ],
+    "armadura": [
+      "Armadura leve preta, dourada e vermelha"
+    ]
+  },
+  "habilidadesFicha": {
+    "ativas": [],
+    "especial": [
+      {
+        "name": "Deusa da Guerra",
+        "description": "Contra-estratégia absoluta: após ver uma técnica uma vez, cria um estilo para neutralizá-la."
+      },
+      {
+        "name": "Intoxicação de mana (irreversível)",
+        "description": "Lutar causa dores avassaladoras; hoje usa cadeira de rodas."
+      }
+    ],
+    "racial": [],
+    "passivas": [],
+    "extras": []
+  },
+  "hp": {
+    "current": 3,
+    "max": 3
+  },
+  "mp": {
+    "current": 3,
+    "max": 3
+  },
+  "sp": {
+    "current": 3,
+    "max": 3
+  },
+  "history": "Criada em laboratório por Kino Kuni, segunda em comando da antiga Parteira, como réplica da essência de um Primordial; fugiu num banho de sangue e foi acolhida pelo Pilar da Santa. Invicta até o embate contra Kirilia, Emphes Alpha e outros combatentes, que causou a intoxicação de mana irreversível. Começa a perceber o valor da estratégia e da colaboração, mas o instinto solitário resiste. Esta ficha atualiza a que já existia no Grupo C. Não confundir com FATE, a Guardiã (Santa Encarnada), que é outra pessoa.",
+  "fichaFechada": true,
+  "grupo": "suth"
+};
+
 // Exportado (além do default App) só pro teste de smoke de render
-// (characterForm.render.test.js) — garante que os 19 personagens semente
-// (13 do Grupo C + 6 do Aurora) renderizam sem lançar exceção.
-export const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS];
+// (characterForm.render.test.js) — garante que os personagens semente (Grupo
+// C + Aurora + Suth) renderizam sem lançar exceção.
+export const SEED_CHARACTERS = aplicarFichaSuthDoFate(
+  [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS, ...SUTH_CHARACTERS],
+  FICHA_NOVA_FATE
+);
 
 export const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
@@ -812,10 +2730,128 @@ export const SEED_KINGDOMS = [
       { id: "tengov", name: "Tengov", resumo: "", x: null, y: null, capital: false },
     ] },
   { id: "maxis", name: "Maxis Power", description: "Potência industrial e militar, lar de famílias como Mason e Ayamato. [Rascunho — refine comigo quando quiser.]", cities: [] },
-  { id: "suth", name: "Suth", description: "Império matriarcal sustentado por três Pilares: a Imperatriz, a Santa e a Parteira. [Rascunho — refine comigo quando quiser.]", cities: [] },
+  { id: "suth", name: "Suth",
+    description: "Império matriarcal de castas e dogmas religiosos, comandado pela Imperadora e sustentado por três Pilares: a Imperadora (lei e administração), a Santa (guerra e doutrina) e a Parteira (ciência e criação de vida). Nacionalismo intenso, supremacia da mulher e da raça suthence, e um poder biotecnológico guardado a sete chaves, capaz de criar homúnculos e raças em laboratório.",
+    imagem: "retratos-suth/reino_suth_banner.jpg",
+    visaoGeral: "Suth é um reino matriarcal com uma sociedade rigidamente organizada em castas e dogmas religiosos. A mulher tem supremacia sobre o homem, a raça suthence tem direitos sobre as outras e o nacionalismo é intenso. O Estado define o propósito de cada indivíduo desde o nascimento, conforme sua utilidade para o Império, e a maioria das suthences tem o destino definido ao nascer.\n\nA grandeza do reino é reforçada pelo domínio absoluto da biotecnologia, que Suth guarda a sete chaves: o reino cria homúnculos e raças em laboratório e gera um exército de guerreiras geneticamente aprimoradas. Homens são cidadãos de segunda classe, proibidos de ocupar cargos políticos ou militares, e os estrangeiros são vistos com desconfiança e hostilidade, sobretudo pelo Pilar da Santa. A mobilidade social existe só para mulheres.\n\nSuth se divide em três Pilares, cada um com função própria, e é comandada pela Imperadora, que tem poder absoluto sobre os outros Pilares apenas em assuntos administrativos e diplomáticos. A unidade do reino é frágil: qualquer fraqueza pode ser explorada para um golpe interno ou externo. Para evitar revoltas, Suth direciona sua necessidade de guerra para alvos externos; se passar tempo demais sem guerra, a população poderia voltar sua fúria contra Amaranth e Karphel.",
+    pilares: [
+      {
+        id: "imperadora", nome: "Pilar da Imperadora", lema: "Lei, administração e tradição suthence",
+        imagem: "retratos-suth/pilar_imperadora.jpg",
+        resumo: "Administra as leis e a gestão de recursos do reino, é encarregado da diplomacia e das relações internas e externas, e é comandado pela Imperadora. Todos os cargos civis não tecnológicos pertencem a este pilar.",
+        exercito: "Exército Imperial: de natureza defensiva e de controle; age como polícia, força de controle civil e guarda das cidades.",
+        relacoes: [
+          "Não pode interferir em como o Pilar da Parteira conduz suas criações biotecnológicas.",
+          "Não pode influenciar as decisões militares do Pilar da Santa; só define direções estratégicas e a alocação de recursos.",
+          "Pode restringir pesquisas e operações dos outros Pilares limitando o acesso aos recursos estatais.",
+        ],
+        sucessao: [
+          "A sucessão ao título de Imperadora é hereditária, mas todas as filhas da Imperadora têm direitos iguais ao trono e precisam disputar entre si.",
+          "A Imperadora pode adotar filhas, que terão os mesmos direitos sucessórios.",
+          "A sucessora é treinada pela Santa até ser considerada digna.",
+          "A Santa Encarnada pode contestar a sucessão, forçando um desafio físico e mental.",
+        ],
+        familiaImperial: "Descende da primeira Imperadora, que unificou os pilares e as cidades de Suth (inicialmente apenas Holly, Tenebris e Orion). A IX Imperadora, Velmira Alpha, hoje é Conselheira Imperial; sua filha Emphes Alpha é a X Imperadora.",
+        lideres: [
+          { nome: "Emphes Alpha", cargo: "X Imperadora de Suth", personagem: "suth_emphes" },
+          { nome: "Velmira Alpha", cargo: "IX Imperadora, Conselheira Imperial", personagem: "suth_velmira" },
+          { nome: "Victoria Bunis", cargo: "General do Exército Imperial", personagem: "suth_victoria" },
+          { nome: "Hujimo Bunis", cargo: "Parceiro de Victoria; especialista em portais (sem ficha)", personagem: null },
+          { nome: "Valéria Bunis", cargo: "Comandante do Exército Imperial", personagem: "suth_valeria" },
+          { nome: "Mars", cargo: "Coronel do Exército Imperial", personagem: "suth_mars" },
+          { nome: "Galantia", cargo: "Ex-General da Parteira, agente especial da Imperadora", personagem: "suth_galantia" },
+          { nome: "Athena", cargo: "Ex-General da Santa, unidade especial da Imperadora", personagem: "suth_athena" },
+        ],
+      },
+      {
+        id: "parteira", nome: "Pilar da Parteira", lema: "Ciência, biotecnologia, genética e biocriação",
+        imagem: "retratos-suth/pilar_parteira.jpg",
+        resumo: "Controla as criações artificiais do reino: cria homúnculos e gera guerreiras geneticamente melhoradas para servir ao Estado e aos outros pilares. É a força científica e médica do Império, tem conhecimento muito além dos outros reinos em biotecnologia e é sancionado até pelos deuses da vida.",
+        exercito: "Exército da Parteira: pequeno, mas altamente especializado; usado em testes biotecnológicos e na proteção das pesquisas. Pode agir de forma independente dos outros pilares.",
+        relacoes: [
+          "A maior parte da população militar de Suth é criada em laboratório.",
+          "A maioria das cidadãs de elite passa por aprimoramentos biotecnológicos para aumentar força, longevidade e eficiência.",
+          "O Pilar da Santa recebe como base criações de baixa qualidade do Pilar da Parteira.",
+        ],
+        lideres: [
+          { nome: "ZERO", cargo: "Líder do Pilar da Parteira, a Arquiteta da Vida", personagem: "suth_zero" },
+          { nome: "Draguna", cargo: "General do Exército da Parteira", personagem: "suth_draguna" },
+          { nome: "Kirilia", cargo: "Força auxiliar", personagem: "suth_kirilia" },
+          { nome: "Kyubei", cargo: "Ex-Coronel da Parteira, Cavaleira de Omen", personagem: "suth_kyubei" },
+        ],
+      },
+      {
+        id: "santa", nome: "Pilar da Santa", lema: "Militarismo, conquista e doutrina; o exército de Suth e da fronteira",
+        imagem: "retratos-suth/pilar_santa.jpg",
+        resumo: "Segue os ensinamentos da Santa Encarnada, que é vista como descendente direta de Dulahand e herdeira do mundo, e acredita ter direito divino sobre todo o mundo. É o exército de Suth, responsável pela expansão territorial e pela defesa do Império. Qualquer uma pode pertencer a ele, mas a base é composta por criações de baixa qualidade do Pilar da Parteira, enquanto os cargos mais altos variam entre suthences de grande destaque e homúnculos de alta qualidade.",
+        exercito: "Exército da Santa: o maior e mais poderoso de Suth, composto quase inteiramente por homúnculos criados para a guerra.",
+        doutrina: [
+          "A Santa é vista como herdeira do mundo.",
+          "Fraqueza é considerada heresia, e quem não busca aprimoramento é rejeitado.",
+          "Aceitar as modificações biotecnológicas do Pilar da Parteira como meio de fortalecimento é parte fundamental da doutrina.",
+        ],
+        hierarquia: [
+          "FATE (a Guardiã, a Santa Encarnada) é incontestável e venerada como um ser divino.",
+          "A sucessora da Santa atual é Fate, a Indomável, escolhida diretamente por FATE, mas sua autoridade ainda pode ser desafiada.",
+        ],
+        lideres: [
+          { nome: "FATE (a Santa Encarnada)", cargo: "Guardiã do Pilar da Santa (sem ficha)", personagem: null },
+          { nome: "Fate, a Indomável", cargo: "Próxima Santa", personagem: "fate" },
+          { nome: "Azula", cargo: "General da Santa", personagem: "suth_azula" },
+          { nome: "Farron", cargo: "Coronel da Santa", personagem: "suth_farron" },
+          { nome: "Athermis", cargo: "Representante do Exército da Santa", personagem: "suth_athermis" },
+        ],
+      },
+    ],
+    rebeliao: {
+      titulo: "A Rebelião da Parteira",
+      texto: "A antiga líder do Pilar da Parteira, uma Krovskin (um monstro cientista), buscava a divindade e liderou uma revolta contra o Império, na época do reinado de Velmira Alpha. Queria dominar Suth e conquistar Amaranth, governada então pelo Lorde Omem, antecessor de Karphel. A Krovskin acabou se tornando parte do novo deus do Caos: a Besta. A revolta foi suprimida e a Parteira, executada; ZERO assumiu o Pilar, inaugurando uma nova era de controle biotecnológico. Galantia e Athena, que lutaram na rebelião por seguirem ordens cegamente, foram poupadas por suas singularidades úteis e presas em Amaranth; hoje atuam sob ordens diretas da Imperadora. A rebelião é datada de 1000 a 1002 PO e é atribuída injustamente à suposta complacência de Velmira.",
+    },
+    economia: [
+      "Sistema de Estado: os cidadãos trocam serviço militar ou civil por recursos básicos.",
+      "Karphel (a moeda) é restrito às elites e à administração; pouco usado pela população comum.",
+      "Algumas cidades implementam um sistema de mérito: quem desempenha melhor sua função recebe mais benefícios do Estado.",
+      "Mobilidade social só para mulheres; homens são cidadãos de segunda classe.",
+    ],
+    relacoes: [
+      { reino: "Goethia", tipo: "Rivalidade", texto: "Disputa constante por fronteiras." },
+      { reino: "Katalão", tipo: "Ódio histórico", texto: "Diferenças culturais levaram a um ciclo sem fim de guerras." },
+      { reino: "Maxis Power", tipo: "Abominação", texto: "Maxis tenta influenciar Suth com sua economia de mercado; é visto como reino depravado." },
+      { reino: "Hetalion", tipo: "Alvo militar", texto: "Visto como fraco e alvo constante de invasões." },
+      { reino: "Amaranth/Omem", tipo: "Respeito relutante", texto: "Suth respeita Karphel, mas a vê como governante estrangeira; a rejeição popular é forte." },
+    ],
+    glossario: [
+      { termo: "Guerreira/o", texto: "Lutadora de alta força e constituição." },
+      { termo: "Artista marcial", texto: "Lutadora de alta agilidade e precisão." },
+      { termo: "Magecraft", texto: "Domínio sobre magia." },
+      { termo: "Golden Rule", texto: "Área de domínio e atuação." },
+      { termo: "Homunculus", texto: "Corpo modificado/criado pelo Pilar da Parteira; o grau mede a qualidade." },
+    ],
+    notasDoMestre: [
+      "A Santa: decidido pelo Mestre, ela descende diretamente de Dulahand. A menção a 'avatar da deusa Gigas' no documento de Suth foi descartada.",
+      "O seed antigo chama a líder de 'Imperatriz'; os documentos usam 'Imperadora'. Usar Imperadora.",
+      "Fate: são duas pessoas distintas. FATE (a Guardiã, Santa Encarnada, incontestável, sem dossiê) e Fate Sabato, a Indomável (sucessora, com ficha). Kirilia perdeu para Fate Sabato e depois a derrotou com estratégia e aliados.",
+      "Dossiês pendentes: FATE (Guardiã) e Hujimo Bunis têm só dados parciais no documento de Suth. Velmira não tem graus nem singularidade.",
+    ],
+    cities: [
+      { id: "suth_holly", name: "Holly Suth", resumo: "Cidade-sede no mapa de Suth. Uma das três cidades originais unificadas pela primeira Imperadora (o documento a chama de Holly).", x: null, y: null, capital: true, documentada: true },
+      { id: "suth_tenebris", name: "Tenebris", resumo: "Uma das três cidades originais unificadas pela primeira Imperadora.", x: null, y: null, capital: false, documentada: true },
+      { id: "suth_orion", name: "Orion", resumo: "Uma das três cidades originais unificadas pela primeira Imperadora.", x: null, y: null, capital: false, documentada: true },
+      { id: "suth_astra", name: "Astra", resumo: "Cidade de Suth marcada no mapa; ainda sem descrição.", x: null, y: null, capital: false, documentada: false },
+      { id: "suth_becelgeuse", name: "Becelgeuse", resumo: "Cidade de Suth marcada no mapa (grafia a confirmar: no mapa lê-se Becelgeuse ou Becelkeuse); ainda sem descrição.", x: null, y: null, capital: false, documentada: false },
+      { id: "suth_virsa", name: "Virsa", resumo: "Cidade de Suth marcada no mapa (grafia a confirmar); ainda sem descrição.", x: null, y: null, capital: false, documentada: false },
+      { id: "suth_risel", name: "Risel", resumo: "Cidade de Suth marcada no mapa (grafia a confirmar); ainda sem descrição.", x: null, y: null, capital: false, documentada: false },
+    ],
+  },
   { id: "goethia", name: "Goethia", description: "Nação unida pela conexão emocional coletiva com sua Santa, Erin Genova, sob o governo do Tzar. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "amaranth", name: "Amaranth/Omem", description: "Sede da Academia de Omem e dos Cavaleiros de Omem, centro do grupo principal da campanha. [Rascunho — refine comigo quando quiser.]", cities: [] },
 ];
+
+// Conteúdo rico do reino Suth, usado por preencherReinoSuth (suth.js) pra
+// repor quem já tinha um point-kingdoms salvo com o rascunho antigo — a
+// própria entrada "suth" acima em SEED_KINGDOMS já tem esse conteúdo
+// definitivo pra quem abre o app sem nada salvo ainda.
+const DADOS_SUTH = SEED_KINGDOMS.find((k) => k.id === "suth");
 
 const SEED_GODS = [
   { id: "kronos", name: "Kronos", domain: "Tempo", description: "Divindade ligada à manipulação e ao domínio do tempo; seu templo em Katalão forma sacerdotisas-guerreiras como Boda. [Rascunho — refine comigo.]" },
@@ -835,10 +2871,12 @@ const GRUPO_C_ROLE = {
 const GRUPO_C_ORDER = ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kutrefas", "vientra", "sombra", "rena", "erin", "minerva", "mercurio"];
 
 // Conceito de GRUPO (mesa): cada personagem pertence a uma campanha. "c" é o
-// Grupo C (a campanha principal), "aurora" é o Sidepoint.
+// Grupo C (a campanha principal), "aurora" é o Sidepoint, "suth" é a mesa do
+// Império de Suth.
 const GRUPOS = [
   { id: "c", label: "Grupo C", subtitulo: "Cavaleiros de Omem · campanha principal", cor: BRASS },
   { id: "aurora", label: "Grupo Aurora", subtitulo: "Mercenários de Beltezu · mesa Sidepoint", cor: "#B5654A" },
+  { id: "suth", label: "Grupo Suth", subtitulo: "Três Pilares do Império de Suth", cor: EMBER },
 ];
 
 const SEED_SAGAS = [
@@ -3119,7 +5157,6 @@ export const CIDADE_INFO = { frontier: FRONTIER };
 const ABA_MODAL_PARA_DOSSIE = { geral: "geral", distritos: "distritos", pessoas: "personagens" };
 // `import.meta.env` só existe sob o Vite — o `?.` evita quebrar quando este
 // arquivo é importado direto num teste (sem bundler), igual supabaseClient.js.
-const assetUrl = (p) => `${import.meta.env?.BASE_URL || "/"}${p}`;
 
 // Paleta das variáveis CSS usadas pelo SVG do mapa de distritos de Frontier.
 const MAPA_CSS_VARS = {
@@ -4414,7 +6451,11 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
   const abasReino = [
     { id: "geral", label: "Visão geral" },
     { id: "cidades", label: `Cidades (${reino?.cities?.length || 0})` },
-    ...(info ? [{ id: "casas", label: "Casas" }, { id: "etiquetas", label: "Etiquetas" }, { id: "mapa", label: "Mapa do reino" }] : []),
+    ...(info?.casas ? [{ id: "casas", label: "Casas" }] : []),
+    ...(info?.etiquetas ? [{ id: "etiquetas", label: "Etiquetas" }] : []),
+    ...(info?.mapa ? [{ id: "mapa", label: "Mapa do reino" }] : []),
+    ...((reino?.pilares || []).length > 0 ? [{ id: "pilares", label: "Pilares" }] : []),
+    ...(gm && reino?.notasDoMestre ? [{ id: "notas", label: "Notas do mestre" }] : []),
   ];
 
   return (
@@ -4505,7 +6546,11 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
 
           {abaReino === "geral" && (
             <div style={{ display: "grid", gap: 14 }}>
+              {reino.imagem && (
+                <img src={assetUrl(reino.imagem)} alt={`Suth`} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 6, border: `1px solid ${LINE}` }} />
+              )}
               {info && <RichText html={textoVisivel(info.visaoGeral, gm)} onAcao={setPopup} />}
+              {!info && reino.visaoGeral && <RichText html={textoVisivel(reino.visaoGeral, gm)} onAcao={setPopup} />}
               <div>
                 <div style={rotulo}>Anotações do reino (editável)</div>
                 <textarea
@@ -4514,6 +6559,44 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
                   onChange={(e) => updateDescription(reino.id, e.target.value)}
                 />
               </div>
+              {reino.rebeliao && (
+                <div style={cardBox}>
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, marginBottom: 6 }}>{reino.rebeliao.titulo}</div>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{reino.rebeliao.texto}</p>
+                </div>
+              )}
+              {(reino.economia || []).length > 0 && (
+                <div style={cardBox}>
+                  <div style={rotulo}>Economia</div>
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.6 }}>
+                    {(reino.economia || []).map((linha, i) => <li key={i}>{linha}</li>)}
+                  </ul>
+                </div>
+              )}
+              {(reino.relacoes || []).length > 0 && (
+                <div style={cardBox}>
+                  <div style={rotulo}>Relações exteriores</div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {(reino.relacoes || []).map((r, i) => (
+                      <div key={i}>
+                        <b style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5 }}>{r.reino}</b>
+                        <span style={{ color: BRASS, fontSize: 11.5, fontFamily: "'IBM Plex Mono', monospace", marginLeft: 6 }}>{r.tipo}</span>
+                        <div style={{ fontSize: 13, color: MUTED }}>{r.texto}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(reino.glossario || []).length > 0 && (
+                <div style={cardBox}>
+                  <div style={rotulo}>Glossário</div>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {(reino.glossario || []).map((g, i) => (
+                      <div key={i} style={{ fontSize: 13.5 }}><b style={{ fontFamily: "'Cinzel', serif" }}>{g.termo}:</b> {g.texto}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -4526,7 +6609,12 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
                   return (
                     <div key={idx} style={{ ...cardBox, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: PARCHMENT }}>{city.name}</div>
+                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: PARCHMENT, display: "flex", alignItems: "center", gap: 6 }}>
+                          {city.name}
+                          {city.documentada === false && (
+                            <span style={{ fontSize: 9.5, color: MUTED, border: `1px solid ${LINE}`, borderRadius: 10, padding: "1px 6px", fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>Esboço</span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 12.5, color: MUTED }}>{city.resumo}</div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
@@ -4596,6 +6684,89 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
                   <figcaption style={{ fontSize: 12, color: MUTED, marginTop: 4 }}>Referência visual de uma cidade de {reino.name}.</figcaption>
                 </figure>
               )}
+            </div>
+          )}
+
+          {abaReino === "pilares" && (
+            <div style={{ display: "grid", gap: 14 }}>
+              {(reino.pilares || []).map((pilar) => (
+                <div key={pilar.id} style={cardBox}>
+                  {pilar.imagem && (
+                    <img src={assetUrl(pilar.imagem)} alt={pilar.nome} style={{ width: "100%", maxHeight: 160, objectFit: "cover", borderRadius: 6, marginBottom: 10, border: `1px solid ${LINE}` }} />
+                  )}
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: BRASS_BRIGHT }}>{pilar.nome}</div>
+                  <div style={{ fontSize: 11.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>{pilar.lema}</div>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: "0 0 8px" }}>{pilar.resumo}</p>
+                  {pilar.exercito && <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.5, margin: "0 0 10px" }}>{pilar.exercito}</p>}
+                  {(pilar.relacoes || []).length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={rotulo}>Relações entre pilares</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5 }}>
+                        {(pilar.relacoes || []).map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {(pilar.sucessao || []).length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={rotulo}>Sucessão</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5 }}>
+                        {(pilar.sucessao || []).map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {(pilar.doutrina || []).length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={rotulo}>Doutrina</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5 }}>
+                        {(pilar.doutrina || []).map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {(pilar.hierarquia || []).length > 0 && (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={rotulo}>Hierarquia</div>
+                      <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, lineHeight: 1.5 }}>
+                        {(pilar.hierarquia || []).map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {pilar.familiaImperial && (
+                    <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.5, margin: "0 0 10px" }}>{pilar.familiaImperial}</p>
+                  )}
+                  {(pilar.lideres || []).length > 0 && (
+                    <div>
+                      <div style={rotulo}>Líderes</div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {(pilar.lideres || []).map((lider, i) => {
+                          const personagem = lider.personagem ? (characters || []).find((c) => c.id === lider.personagem) : null;
+                          return (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <div>
+                                <b style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5 }}>{lider.nome}</b>
+                                <div style={{ fontSize: 12, color: MUTED }}>{lider.cargo}</div>
+                              </div>
+                              {personagem && onAbrirFicha && (
+                                <Btn variant="ghost" onClick={() => onAbrirFicha(personagem.id)} style={{ padding: "3px 8px", fontSize: 11 }}><Users size={12} /> Ver ficha</Btn>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {abaReino === "notas" && gm && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <p style={{ fontSize: 11.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", margin: 0 }}>Visível só pro mestre</p>
+              {(reino.notasDoMestre || []).map((nota, i) => (
+                <div key={i} style={cardBox}>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>{nota}</p>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -4701,6 +6872,7 @@ function GodsView({ gods, setGods, askConfirm }) {
 const GRUPO_CHAMADA = {
   c: "Dossiês táticos, singularidades e o destino dos Cavaleiros de Omem, reunidos num só lugar.",
   aurora: "Os mercenários de Beltezu e a mesa paralela do Sidepoint — mesmo mundo, outra história.",
+  suth: "Os Três Pilares do Império de Suth — Imperadora, Parteira e Santa, e as guerreiras que os sustentam.",
 };
 
 // Reinos que aparecem como quadradinhos na capa (mesma grafia das facções).
@@ -5386,6 +7558,16 @@ export default function App() {
             apagadosDeProposito = rem?.value ? JSON.parse(rem.value) : [];
           } catch (e) { apagadosDeProposito = []; }
           finalChars = reporSidepoint(finalChars, SIDEPOINT_CHARACTERS, apagadosDeProposito);
+          // Suth: mesma reposição idempotente por personagem (ver suth.js), e a
+          // ficha nova do Fate é aplicada uma única vez (marcador no próprio
+          // objeto, não depende de storage).
+          let apagadosSuth = [];
+          try {
+            const remSuth = await storage.get("point-suth-removidos");
+            apagadosSuth = remSuth?.value ? JSON.parse(remSuth.value) : [];
+          } catch (e) { apagadosSuth = []; }
+          finalChars = reporSidepoint(finalChars, SUTH_CHARACTERS, apagadosSuth);
+          finalChars = aplicarFichaSuthDoFate(finalChars, FICHA_NOVA_FATE);
           setCharacters(finalChars);
         }
       } catch (e) {}
@@ -5407,6 +7589,10 @@ export default function App() {
             cidadesRemovidas = rem?.value ? JSON.parse(rem.value) : [];
           } catch (e) { cidadesRemovidas = []; }
           reinos = reporCidadesSemente(reinos, SEED_KINGDOMS, cidadesRemovidas);
+          // Reino Suth: preenche visão geral/pilares/rebelião/economia/relações/
+          // glossário/notas do mestre só enquanto a descrição ainda for o
+          // rascunho antigo — não sobrescreve edição já feita (ver suth.js).
+          reinos = preencherReinoSuth(reinos, DADOS_SUTH);
           setKingdoms(reinos);
         }
       } catch (e) {}
@@ -5476,6 +7662,21 @@ export default function App() {
         if (!Array.isArray(lista)) lista = [];
         if (!lista.includes(id)) lista.push(id);
         try { await storage.set("point-sidepoint-removidos", JSON.stringify(lista)); } catch (e) {}
+      })();
+    }
+    // Mesma lógica pra uma ficha semente do grupo Suth (o Fate não entra aqui:
+    // ele não é uma semente do SUTH_CHARACTERS, é uma ficha atualizada do
+    // Grupo C que não deveria ser excluída por essa lista).
+    if (SUTH_CHARACTERS.some((ch) => ch.id === id)) {
+      (async () => {
+        let lista = [];
+        try {
+          const rem = await storage.get("point-suth-removidos");
+          lista = rem?.value ? JSON.parse(rem.value) : [];
+        } catch (e) { lista = []; }
+        if (!Array.isArray(lista)) lista = [];
+        if (!lista.includes(id)) lista.push(id);
+        try { await storage.set("point-suth-removidos", JSON.stringify(lista)); } catch (e) {}
       })();
     }
   }

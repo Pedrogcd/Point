@@ -3,12 +3,15 @@
 // point-amaranth-app.jsx importa deste módulo; não duplique esta lógica lá.
 
 // Conceito de GRUPO (mesa): cada personagem pertence a uma campanha. "c" é o
-// Grupo C (a campanha principal), "aurora" é o Sidepoint. Classifica pelo campo
-// salvo, senão pelo id "sp_" ou pela facção — cobre fichas salvas antes do
-// campo `grupo` existir.
+// Grupo C (a campanha principal), "aurora" é o Sidepoint, "suth" é a mesa do
+// Império de Suth. Classifica pelo campo salvo, senão pelo id "sp_"/"suth_" ou
+// pela facção — cobre fichas salvas antes do campo `grupo` existir. O Fate
+// (id "fate") não começa com "suth_", então cai no Grupo C por padrão, como
+// deve: ele pertence ao Grupo C mesmo recebendo uma ficha nova vinda de Suth.
 export function grupoDoPersonagem(c) {
   if (c?.grupo) return c.grupo;
   if (String(c?.id || "").startsWith("sp_") || c?.faction === "Aurora (Sidepoint)") return "aurora";
+  if (String(c?.id || "").startsWith("suth_")) return "suth";
   return "c";
 }
 

@@ -790,7 +790,7 @@ const SIDEPOINT_CHARACTERS = SIDEPOINT_CHARACTERS_RAW.map((c) => withFichaDefaul
 // (13 do Grupo C + 6 do Aurora) renderizam sem lançar exceção.
 export const SEED_CHARACTERS = [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS];
 
-const SEED_KINGDOMS = [
+export const SEED_KINGDOMS = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
   { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]",
     // Lido pela cor dos nomes no mapa (amarelo parece ser Katalão) — o Pedro
@@ -3109,7 +3109,13 @@ export function CompareView({ characters, onUpdateCharacter }) {
 // Conteúdo fixo por reino e por cidade (ver mundoDados.js). Reinos/cidades que
 // não estão aqui continuam só com a descrição editável de sempre.
 const REINO_INFO = { katalao: KATALAO_INFO };
-const CIDADE_INFO = { frontier: FRONTIER };
+// Exportado só pra teste de render — ver mapaMundo.test.js (confere que
+// nenhuma cidade semente vira dossiê por engano, e que as confidencialidade
+// do modo mestre/jogador não vaza).
+export const CIDADE_INFO = { frontier: FRONTIER };
+// Mapeia o botão do modal do mapa (CidadePaginaView) pra aba equivalente do
+// dossiê completo (CidadeView) — "pessoas" (lightweight) ~ "personagens" (NPCs).
+const ABA_MODAL_PARA_DOSSIE = { geral: "geral", distritos: "distritos", pessoas: "personagens" };
 // `import.meta.env` só existe sob o Vite — o `?.` evita quebrar quando este
 // arquivo é importado direto num teste (sem bundler), igual supabaseClient.js.
 const assetUrl = (p) => `${import.meta.env?.BASE_URL || "/"}${p}`;
@@ -3221,7 +3227,8 @@ function NpcCard({ npc, gm, onOpen }) {
   );
 }
 
-function NpcDetalhe({ npcId, gm, onAcao }) {
+// Exportado só pra teste de render — ver mapaMundo.test.js.
+export function NpcDetalhe({ npcId, gm, onAcao }) {
   const npc = NPCS.find((n) => n.id === npcId);
   if (!npc) return <p style={{ color: MUTED }}>Personagem não encontrado.</p>;
   const v = npcVisivel(npc, gm);
@@ -3262,7 +3269,10 @@ function NpcDetalhe({ npcId, gm, onAcao }) {
 }
 
 // Pop-up genérico do Mundo: termo, distrito, casa ou NPC.
-function MundoPopup({ acao, gm, onClose, onAcao }) {
+// Exportado só pra teste de render — ver mapaMundo.test.js (é por aqui que o
+// texto de distrito/termo de Frontier chega a aparecer — CidadeView só mostra
+// o título do distrito, o corpo pub/gm vem deste popup).
+export function MundoPopup({ acao, gm, onClose, onAcao }) {
   let corpo = null;
   if (acao.tipo === "npc") corpo = <NpcDetalhe npcId={acao.id} gm={gm} onAcao={onAcao} />;
   else if (acao.tipo === "termo" || acao.tipo === "distrito") {
@@ -3316,9 +3326,15 @@ function SubAbas({ abas, ativa, setAtiva }) {
 const cardBox = { background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14 };
 const rotulo = { fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 };
 
-/* --- Cidade (conteúdo fixo, ex: Frontier) --- */
-function CidadeView({ cidade, gm, onVoltar, nomeReino, onAcao }) {
-  const [aba, setAba] = useState("geral");
+/* --- Cidade (conteúdo fixo/dossiê, ex: Frontier — ver mundoDados.js).
+   kingdom.cities[] cobre só a geografia (x/y, resumo curto pro mapa); este é
+   o CONTEÚDO da cidade, ligado pelo id. Aberto tanto pelo botão "Abrir
+   cidade" na aba Cidades quanto pelo clique no mapa (ver abrirCidade em
+   WorldView) — os dois caminhos levam aqui, com a mesma trilha Mundo >
+   Reino > Cidade da página leve (CidadePaginaView). */
+// Exportado só pra teste de render — ver mapaMundo.test.js.
+export function CidadeView({ cidade, gm, onVoltar, onVoltarMundo, nomeReino, abaInicial, onAcao }) {
+  const [aba, setAba] = useState(abaInicial || "geral");
   const [boato, setBoato] = useState(null);
   const npcs = NPCS.filter((n) => n.cidade === cidade.id);
   const abas = [
@@ -3332,8 +3348,15 @@ function CidadeView({ cidade, gm, onVoltar, nomeReino, onAcao }) {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-        <Btn variant="ghost" onClick={onVoltar} style={{ padding: "4px 8px" }}><ChevronLeft size={14} /> Voltar para {nomeReino}</Btn>
+      {/* Mundo > Katalão > Frontier — mesma trilha e mesmo comportamento da
+          página leve (CidadePaginaView), pra quem chegou pelo mapa ou pela
+          aba Cidades ter a mesma navegação. */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, fontSize: 12, flexWrap: "wrap", fontFamily: "'IBM Plex Mono', monospace" }}>
+        <button onClick={onVoltarMundo} style={{ background: "transparent", border: "none", color: BRASS, cursor: "pointer", padding: 0 }}>Mundo</button>
+        <ChevronRight size={11} color={MUTED} />
+        <button onClick={onVoltar} style={{ background: "transparent", border: "none", color: BRASS, cursor: "pointer", padding: 0 }}>{nomeReino}</button>
+        <ChevronRight size={11} color={MUTED} />
+        <span style={{ color: PARCHMENT }}>{cidade.nome}</span>
       </div>
       <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 24, margin: "0 0 2px", color: PARCHMENT }}>{cidade.nome}</h2>
       <div style={{ fontStyle: "italic", color: EMBER, marginBottom: 14 }}>{cidade.subtitulo}</div>
@@ -3871,6 +3894,8 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
 
   const distritos = cidade.distritos || [];
   const pessoas = cidade.pessoas || [];
+  const temResumo = !!(cidade.resumo && cidade.resumo.trim());
+  const temVisaoGeral = !!(cidade.visaoGeral && cidade.visaoGeral.trim());
   const abas = [
     { id: "geral", label: "Visão geral" },
     { id: "distritos", label: `Distritos (${distritos.length})` },
@@ -3903,6 +3928,14 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
         <div style={{ width: 18 }} />
       </div>
 
+      {/* Aviso só aparece pra quem não tem dossiê completo (CIDADE_INFO) —
+          deixa claro que isso é um ponto de partida leve, não um defeito. */}
+      {!CIDADE_INFO[cidade.id] && (
+        <p style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>
+          Esta cidade ainda não tem um dossiê completo (visão geral rica, mapa de distritos, forças, NPCs) — por enquanto, só o essencial abaixo.
+        </p>
+      )}
+
       <SubAbas abas={abas} ativa={aba} setAtiva={setAba} />
 
       {aba === "geral" && (
@@ -3912,11 +3945,42 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
               <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={cidade.resumo || ""} onChange={(e) => atualizarCidade({ resumo: e.target.value })} />
             </Field>
             <Field label="Visão geral">
+              {/* Nunca pode aparecer vazia quando a cidade tem algum texto: se
+                  `visaoGeral` ainda não foi escrita, mostra o `resumo` como
+                  corpo (deixa claro que é o resumo, não um texto "perdido");
+                  se os dois existem, resumo vem como parágrafo de abertura. */}
+              {(temResumo || temVisaoGeral) ? (
+                <div style={{ ...cardBox, marginBottom: 10 }}>
+                  {temResumo && (
+                    <p style={{ margin: temVisaoGeral ? "0 0 10px" : 0, fontSize: 14, lineHeight: 1.6, color: PARCHMENT }}>{cidade.resumo}</p>
+                  )}
+                  {temVisaoGeral && (
+                    <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: PARCHMENT, whiteSpace: "pre-wrap" }}>{cidade.visaoGeral}</p>
+                  )}
+                  {temResumo && !temVisaoGeral && (
+                    <p style={{ margin: "8px 0 0", fontSize: 11.5, color: MUTED, fontStyle: "italic" }}>
+                      Mostrando o resumo curto enquanto a Visão geral não é preenchida — escreva abaixo pra ter um texto próprio.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div style={{ ...cardBox, marginBottom: 10 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: MUTED }}>Nenhum texto ainda — escreva um resumo curto acima ou uma visão geral completa abaixo.</p>
+                </div>
+              )}
               <textarea
                 style={{ ...inputStyle, minHeight: 140, resize: "vertical" }} value={cidade.visaoGeral || ""}
-                placeholder="Ainda sem texto — escreva aqui." onChange={(e) => atualizarCidade({ visaoGeral: e.target.value })}
+                placeholder="Escreva aqui uma visão geral mais longa (enquanto isso, o resumo curto acima aparece sozinho)."
+                onChange={(e) => atualizarCidade({ visaoGeral: e.target.value })}
               />
             </Field>
+            {cidade.link && (
+              <div style={{ marginTop: 10 }}>
+                <Btn variant="ghost" href={assetUrl(cidade.link)} target="_blank" rel="noopener" style={{ padding: "4px 8px", fontSize: 11 }}>
+                  <ExternalLink size={12} /> Abrir guia dos jogadores numa página separada
+                </Btn>
+              </div>
+            )}
           </div>
           <div style={{ width: 160 }}>
             <div style={{ width: 160, aspectRatio: "1", borderRadius: 8, background: PANEL_2, border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8 }}>
@@ -4024,10 +4088,28 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
   // recente de `kingdoms`, mesmo depois de uma edição na própria página.
   const [cidadeMapaAberta, setCidadeMapaAberta] = useState(null); // { reinoId, cidadeId }
   const [cidadePaginaAberta, setCidadePaginaAberta] = useState(null); // { reinoId, cidadeId, abaInicial }
+  // Aba inicial do dossiê completo (CidadeView) — kingdom.cities[] é só
+  // geografia (x/y/resumo); o dossiê rico (CIDADE_INFO/FRONTIER) é um
+  // conteúdo separado, ligado pelo id da cidade, não duplicado aqui.
+  const [abaCidadeInicial, setAbaCidadeInicial] = useState("geral");
 
-  function abrirPaginaCidade(rId, cId, aba) {
+  // Botão "Visão geral"/"Distritos"/"Pessoas de interesse" do modal do mapa, e
+  // o botão "Abrir cidade" da aba Cidades, chamam esta MESMA função — por
+  // isso os dois caminhos sempre chegam na mesma tela pra uma mesma cidade.
+  // Dossiê completo (CidadeView, com modo mestre/jogador, popups, mapa de
+  // distritos, forças e NPCs) quando existir um pra esse id (CIDADE_INFO);
+  // senão, a página leve (CidadePaginaView), só com o que kingdom.cities[] tem.
+  function abrirCidade(rId, cId, abaModal) {
     setCidadeMapaAberta(null);
-    setCidadePaginaAberta({ reinoId: rId, cidadeId: cId, abaInicial: aba });
+    if (CIDADE_INFO[cId]) {
+      setCidadePaginaAberta(null);
+      setReinoId(rId);
+      setAbaReino("cidades");
+      setCidadeId(cId);
+      setAbaCidadeInicial(ABA_MODAL_PARA_DOSSIE[abaModal] || "geral");
+    } else {
+      setCidadePaginaAberta({ reinoId: rId, cidadeId: cId, abaInicial: abaModal });
+    }
   }
   function voltarAoMundoDaPaginaCidade() {
     setCidadePaginaAberta(null);
@@ -4037,6 +4119,14 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
     if (cidadePaginaAberta) setReinoId(cidadePaginaAberta.reinoId);
     setAbaReino("cidades");
     setCidadePaginaAberta(null);
+  }
+  function voltarAoMundoDoDossie() {
+    setCidadeId(null);
+    setReinoId(null);
+  }
+  function voltarAoReinoDoDossie() {
+    setCidadeId(null);
+    setAbaReino("cidades");
   }
 
   const reino = kingdoms.find((k) => k.id === reinoId) || null;
@@ -4096,9 +4186,9 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
               {cidadeModal.resumo || "Sem descrição ainda."}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Btn variant="primary" onClick={() => abrirPaginaCidade(reinoModal.id, cidadeModal.id, "geral")}>Visão geral</Btn>
-              <Btn variant="primary" onClick={() => abrirPaginaCidade(reinoModal.id, cidadeModal.id, "distritos")}>Distritos</Btn>
-              <Btn variant="primary" onClick={() => abrirPaginaCidade(reinoModal.id, cidadeModal.id, "pessoas")}>Pessoas de interesse</Btn>
+              <Btn variant="primary" onClick={() => abrirCidade(reinoModal.id, cidadeModal.id, "geral")}>Visão geral</Btn>
+              <Btn variant="primary" onClick={() => abrirCidade(reinoModal.id, cidadeModal.id, "distritos")}>Distritos</Btn>
+              <Btn variant="primary" onClick={() => abrirCidade(reinoModal.id, cidadeModal.id, "pessoas")}>Pessoas de interesse</Btn>
             </div>
           </MundoModal>
         );
@@ -4151,7 +4241,10 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
       {!reino && !cidadeInfo && <p style={{ color: MUTED, fontSize: 13 }}>Escolha um reino no mapa ou na lista.</p>}
 
       {reino && cidadeInfo && (
-        <CidadeView cidade={cidadeInfo} gm={gm} nomeReino={reino.name} onVoltar={() => { setCidadeId(null); setAbaReino("cidades"); }} onAcao={setPopup} />
+        <CidadeView
+          cidade={cidadeInfo} gm={gm} nomeReino={reino.name} abaInicial={abaCidadeInicial}
+          onVoltar={voltarAoReinoDoDossie} onVoltarMundo={voltarAoMundoDoDossie} onAcao={setPopup}
+        />
       )}
 
       {reino && !cidadeInfo && (
@@ -4189,7 +4282,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, o
                         <div style={{ fontSize: 12.5, color: MUTED }}>{city.resumo}</div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                        {temGuia && <Btn onClick={() => setCidadeId(city.id)}><MapIcon size={13} /> Abrir cidade</Btn>}
+                        {temGuia && <Btn onClick={() => abrirCidade(reino.id, city.id, "geral")}><MapIcon size={13} /> Abrir cidade</Btn>}
                         <Btn variant="ghost" onClick={() => removeCity(reino.id, idx, city)} aria-label={`Remover ${city.name}`}><X size={13} /></Btn>
                       </div>
                     </div>

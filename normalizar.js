@@ -26,6 +26,18 @@ function normalizarCidadesOverrides(valor) {
   return normalizado;
 }
 
+// pessoasOverrides: { [reinoId]: { campo: valor } } — mesma forma e mesma
+// blindagem de normalizarCidadesOverrides, mas pra "Pessoas do reino" (ver
+// pessoasReino.js).
+function normalizarPessoasOverrides(valor) {
+  if (!isPlainObject(valor)) return {};
+  const normalizado = {};
+  for (const [reinoId, campos] of Object.entries(valor)) {
+    if (isPlainObject(campos)) normalizado[reinoId] = campos;
+  }
+  return normalizado;
+}
+
 export function normalizarEstado(state) {
   const characters = migrarPersonagens(state?.characters);
   const kingdoms = (Array.isArray(state?.kingdoms) ? state.kingdoms : []).map((rk) => ({
@@ -35,5 +47,6 @@ export function normalizarEstado(state) {
   const sagas = Array.isArray(state?.sagas) ? state.sagas : [];
   const objectives = Array.isArray(state?.objectives) ? state.objectives : [];
   const cidadesOverrides = normalizarCidadesOverrides(state?.cidadesOverrides);
-  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides };
+  const pessoasOverrides = normalizarPessoasOverrides(state?.pessoasOverrides);
+  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides };
 }

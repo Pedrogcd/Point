@@ -37,6 +37,15 @@ describe("normalizarEstado", () => {
     assert.deepEqual(normalizado.gods, []);
     assert.deepEqual(normalizado.sagas, []);
     assert.deepEqual(normalizado.objectives, []);
+    assert.deepEqual(normalizado.cidadesOverrides, {});
+  });
+
+  it("cidadesOverrides válido passa direto; formato inválido (array/string/entrada não-objeto) vira {}", () => {
+    const valido = { frontier: { subtitulo: "Novo" } };
+    assert.deepEqual(normalizarEstado({ cidadesOverrides: valido }).cidadesOverrides, valido);
+    assert.deepEqual(normalizarEstado({ cidadesOverrides: [] }).cidadesOverrides, {});
+    assert.deepEqual(normalizarEstado({ cidadesOverrides: "x" }).cidadesOverrides, {});
+    assert.deepEqual(normalizarEstado({ cidadesOverrides: { frontier: "não é objeto" } }).cidadesOverrides, {});
   });
 
   it("gods/sagas/objectives passam direto, sem migração (não têm formato antigo)", () => {

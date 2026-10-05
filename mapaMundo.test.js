@@ -13,6 +13,7 @@ import {
 } from "./mapaMundo.js";
 import { loadAppModule } from "./renderTestUtils.js";
 import { FRONTIER, NPCS, NPC_GRUPOS } from "./mundoDados.js";
+import { mesclarCidadeComOverride } from "./cidadeOverrides.js";
 
 describe("slugificar", () => {
   it("remove acentos, espaços e maiúsculas", () => {
@@ -80,11 +81,12 @@ describe("migrarCidade / migrarCidades — migração do formato antigo", () => 
     assert.equal(nova.capital, false);
     assert.equal(nova.visaoGeral, "");
     assert.equal(nova.imageUrl, "");
+    assert.equal(nova.subtitulo, "");
     assert.deepEqual(nova.distritos, []);
     assert.deepEqual(nova.pessoas, []);
   });
   it("preserva campos extras (ex: link) e x/y já existentes, sem sobrescrever", () => {
-    const c = { id: "frontier", name: "Frontier", resumo: "d", link: "sidepoint/frontier.html", x: 0.3, y: 0.4, capital: true, visaoGeral: "texto", imageUrl: "http://x", distritos: [{ id: "a" }], pessoas: [{ id: "b" }] };
+    const c = { id: "frontier", name: "Frontier", resumo: "d", link: "sidepoint/frontier.html", x: 0.3, y: 0.4, capital: true, visaoGeral: "texto", imageUrl: "http://x", subtitulo: "ep", distritos: [{ id: "a" }], pessoas: [{ id: "b" }] };
     const nova = migrarCidade(c);
     assert.deepEqual(nova, c);
   });
@@ -353,11 +355,14 @@ describe("CidadeView — dossiê completo (Frontier) e confidencialidade mestre/
     CIDADE_INFO_CARREGADO = mod.CIDADE_INFO;
   });
 
-  function renderCidade(aba, gm) {
+  function renderCidade(aba, gm, cidadeObj, extra) {
     return renderToStaticMarkup(
       React.createElement(CidadeView, {
-        cidade: FRONTIER, gm, nomeReino: "Katalão", abaInicial: aba,
+        cidade: cidadeObj || FRONTIER, gm, nomeReino: "Katalão", abaInicial: aba,
         onVoltar: () => {}, onVoltarMundo: () => {}, onAcao: () => {},
+        overrideAtivo: {}, onEditarCampo: () => {}, onRestaurarCampo: () => {},
+        kingdoms: [], setKingdoms: () => {}, reinoId: "katalao", cidadeId: (cidadeObj || FRONTIER).id,
+        ...extra,
       })
     );
   }
@@ -416,7 +421,78 @@ describe("CidadeView — dossiê completo (Frontier) e confidencialidade mestre/
     }
   });
 
+  // Varredura pedida depois de implementar a edição do GM: o teste acima só
+  // cobre o dossiê ORIGINAL (sem overrides) — este cobre COM overrides,
+  // incluindo um item novo marcado "só mestre" por campo mesclável.
+  it("varredura COM overrides aplicados: conteúdo editado aparece certo, segredo novo não vaza, nada original se perde", () => {
+    const overrideDeTeste = {
+      subtitulo: "Subtítulo editado pelo GM",
+      conceito: { pub: "Conceito editado pelo GM." },
+      ficha: [["Onde", "Editado pelo GM"], ["Segredo do GM", { gm: "Só o mestre vê isso na ficha" }]],
+      chegada: [["Passo editado", { pub: "Texto editado pelo GM." }], ["Passo secreto", { gm: "Só o mestre vê este passo" }]],
+      estetica: [{ pub: "Item de estética editado pelo GM" }, { gm: "Item de estética só do mestre" }],
+      medos: [{ pub: "Medo editado pelo GM." }, { gm: "Medo só do mestre, criado agora" }],
+    };
+    const cidadeComOverride = mesclarCidadeComOverride(FRONTIER, overrideDeTeste);
+    const abas = ["geral", "distritos", "personagens", "forcas", "mestre"];
+    const htmlGm = abas.map((aba) => renderCidade(aba, true, cidadeComOverride)).join("\n");
+    const htmlJogador = abas.map((aba) => renderCidade(aba, false, cidadeComOverride)).join("\n");
+
+    // Conteúdo editado (não-secreto) aparece pros dois modos.
+    for (const texto of [
+      "Subtítulo editado pelo GM", "Conceito editado pelo GM.", "Editado pelo GM",
+      "Texto editado pelo GM.", "Item de estética editado pelo GM", "Medo editado pelo GM.",
+    ]) {
+      assert.ok(htmlGm.includes(texto), `(gm) conteúdo editado não aparece: ${texto}`);
+      assert.ok(htmlJogador.includes(texto), `(jogador) conteúdo editado não aparece: ${texto}`);
+    }
+
+    // Itens NOVOS marcados "só mestre" aparecem pro mestre...
+    const segredosNovos = [
+      "Só o mestre vê isso na ficha", "Só o mestre vê este passo",
+      "Item de estética só do mestre", "Medo só do mestre, criado agora",
+    ];
+    for (const texto of segredosNovos) assert.ok(htmlGm.includes(texto), `segredo novo não aparece pro mestre: ${texto}`);
+    // ...e NUNCA pro jogador — nem o texto, nem o rótulo da linha/passo
+    // secreto (senão a existência do segredo já vazaria).
+    for (const texto of [...segredosNovos, "Segredo do GM", "Passo secreto"]) {
+      assert.ok(!htmlJogador.includes(texto), `segredo novo vazou pro jogador: ${texto}`);
+    }
+    assert.ok(htmlGm.includes("Segredo do GM"));
+    assert.ok(htmlGm.includes("Passo secreto"));
+
+    // Nada que o override não tocou se perdeu: forças, NPCs e Mesa do
+    // mestre (campos não mescláveis) continuam inteiros.
+    for (const f of FRONTIER.forcas) {
+      const titulo = typeof f.titulo === "string" ? f.titulo : (f.titulo.gm || f.titulo.pub);
+      assert.ok(htmlGm.includes(titulo), `força original se perdeu com override ativo: ${titulo}`);
+    }
+    for (const npc of NPCS) assert.ok(htmlGm.includes(npc.nome), `NPC original se perdeu com override ativo: ${npc.nome}`);
+    assert.ok(htmlGm.includes(FRONTIER.gm.boatos[0]));
+    assert.ok(htmlGm.includes(FRONTIER.gm.gatilhos[0]));
+  });
+
   describe("confidencialidade — nada só-mestre aparece no modo jogador (o ponto mais importante)", () => {
+    it("modo Jogador não mostra NENHUM controle de edição (Editar/Salvar/Cancelar/Restaurar original), mesmo com overrides ativos", () => {
+      const overrideAtivo = {
+        subtitulo: "Editado", conceito: { pub: "x" }, ficha: [["a", "b"]],
+        chegada: [["c", "d"]], estetica: ["e"], medos: [{ pub: "f" }],
+      };
+      for (const aba of ["geral", "distritos", "personagens", "forcas"]) {
+        const html = renderCidade(aba, false, FRONTIER, { overrideAtivo });
+        for (const rotulo of ["Editar", "Salvar", "Cancelar", "Restaurar original", "Adicionar", "Só o mestre vê"]) {
+          assert.ok(!html.includes(rotulo), `controle de edição "${rotulo}" apareceu pro jogador (aba ${aba})`);
+        }
+      }
+    });
+
+    it("modo Mestre mostra os controles de edição (Editar e Restaurar original quando há override)", () => {
+      const overrideAtivo = { subtitulo: "Editado" };
+      const html = renderCidade("geral", true, FRONTIER, { overrideAtivo });
+      assert.ok(html.includes("Editar"));
+      assert.ok(html.includes("Restaurar original"));
+    });
+
     it("Visão geral: medos e ficha com valor só-mestre não aparecem pro jogador", () => {
       const html = renderCidade("geral", false);
       for (const m of FRONTIER.medos) {
@@ -524,13 +600,18 @@ describe("CidadeView — dossiê completo (Frontier) e confidencialidade mestre/
         })
       );
     }
-    it("cidade sem dossiê mostra o aviso", () => {
+    it("cidade sem dossiê mostra a nota informativa (não um aviso de erro)", () => {
       const html = renderPagina({ id: "kingsyard", name: "Kingsyard", resumo: "", visaoGeral: "", distritos: [], pessoas: [] });
-      assert.ok(html.includes("ainda não tem um dossiê completo"));
+      assert.ok(html.includes("Ponto de partida desta cidade"));
     });
-    it("se o id coincidir com um dossiê existente, o aviso não aparece (blindagem defensiva)", () => {
+    it("se o id coincidir com um dossiê existente, a nota não aparece (blindagem defensiva)", () => {
       const html = renderPagina({ id: "frontier", name: "Frontier", resumo: "", visaoGeral: "", distritos: [], pessoas: [] });
-      assert.ok(!html.includes("ainda não tem um dossiê completo"));
+      assert.ok(!html.includes("Ponto de partida desta cidade"));
+    });
+    it("tem campo de epígrafe (subtitulo), editável igual resumo/visão geral", () => {
+      const html = renderPagina({ id: "kingsyard", name: "Kingsyard", resumo: "", visaoGeral: "", subtitulo: "Uma epígrafe de teste", distritos: [], pessoas: [] });
+      assert.ok(html.includes("Uma epígrafe de teste"));
+      assert.ok(html.includes("Epígrafe"));
     });
   });
 });

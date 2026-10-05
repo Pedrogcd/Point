@@ -88,6 +88,7 @@ export function migrarCidade(cidade, idsExistentes = new Set()) {
   delete c.description;
   if (typeof c.visaoGeral !== "string") c.visaoGeral = "";
   if (typeof c.imageUrl !== "string") c.imageUrl = "";
+  if (typeof c.subtitulo !== "string") c.subtitulo = "";
   if (!Array.isArray(c.distritos)) c.distritos = [];
   if (!Array.isArray(c.pessoas)) c.pessoas = [];
   if (!c.id) {

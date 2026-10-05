@@ -6,7 +6,7 @@
   "description": "Point — gerenciador de campanha de RPG de mesa (universo Amaranth)",
   "scripts": {
     "dev": "vite",
-    "test": "node --test engine.test.js sidepoint.test.js cidades.test.js mundo.test.js mapaMundo.test.js backup.test.js seedGuard.test.js characterForm.render.test.js rollPanel.test.js personagens.test.js normalizar.test.js",
+    "test": "node --test engine.test.js sidepoint.test.js cidades.test.js mundo.test.js mapaMundo.test.js backup.test.js seedGuard.test.js characterForm.render.test.js rollPanel.test.js personagens.test.js normalizar.test.js cidadeOverrides.test.js",
     "build": "npm test && vite build",
     "preview": "vite preview"
   },

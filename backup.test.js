@@ -15,6 +15,7 @@ function sampleState() {
     sagas: [{ id: "saga_casamento", title: "O Casamento em Suth" }],
     objectives: [{ id: "obj_1", title: "Derrotar o Pendragon" }],
     cidadesOverrides: {},
+    pessoasOverrides: {},
   };
 }
 
@@ -85,7 +86,7 @@ describe("ciclo exportar → importar", () => {
   });
 
   it("funciona com listas vazias (campanha nova, sem nada salvo ainda)", () => {
-    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {} };
+    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {} };
     const serializado = JSON.stringify(buildBackup(original));
     const restaurado = parseBackup(serializado);
     assert.deepEqual(restaurado, original);
@@ -99,7 +100,7 @@ describe("ciclo exportar → importar", () => {
         classes: [{ name: "Duelista de Estoc", description: "..." }, { name: "Mercador", description: "..." }],
         hp: { current: 3, max: 3 },
       }],
-      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {},
+      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {},
     };
     const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
     assert.deepEqual(restaurado, original);
@@ -130,6 +131,34 @@ describe("cidadesOverrides no backup — edições do GM no dossiê da cidade", 
     for (const invalido of [[], "x", 42, null]) {
       const restaurado = parseBackup(JSON.stringify({ characters: [], cidadesOverrides: invalido }));
       assert.deepEqual(restaurado.cidadesOverrides, {});
+    }
+  });
+});
+
+describe("pessoasOverrides no backup — edições do GM na aba Pessoas do reino", () => {
+  it("buildBackup inclui pessoasOverrides; ausente no estado vira {}", () => {
+    assert.deepEqual(buildBackup({ characters: [] }).pessoasOverrides, {});
+  });
+
+  it("ciclo exportar → importar preserva as edições de override", () => {
+    const original = {
+      ...sampleState(),
+      pessoasOverrides: { suth: { relacoes: [{ de: "suth_emphes", para: "suth_velmira", tipo: "familia", rotulo: "mãe e filha" }] } },
+    };
+    const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
+    assert.deepEqual(restaurado.pessoasOverrides, original.pessoasOverrides);
+  });
+
+  it("backup ANTIGO, sem a chave pessoasOverrides, carrega normal (vira {})", () => {
+    const backupAntigo = { characters: [{ id: "almah" }], kingdoms: [], gods: [], sagas: [], objectives: [] };
+    const restaurado = parseBackup(JSON.stringify(backupAntigo));
+    assert.deepEqual(restaurado.pessoasOverrides, {});
+  });
+
+  it("pessoasOverrides com formato inválido (array, string, número) vira {}, não quebra", () => {
+    for (const invalido of [[], "x", 42, null]) {
+      const restaurado = parseBackup(JSON.stringify({ characters: [], pessoasOverrides: invalido }));
+      assert.deepEqual(restaurado.pessoasOverrides, {});
     }
   });
 });

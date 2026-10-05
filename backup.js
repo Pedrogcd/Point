@@ -4,12 +4,12 @@
 // (ver backup.test.js).
 
 const BACKUP_KEYS = ["characters", "kingdoms", "gods", "sagas", "objectives"];
-// cidadesOverrides é um objeto ({ [cidadeId]: { campo: valor } }), não uma
-// lista — por isso fica fora de BACKUP_KEYS (que default pra `[]`) e é
-// tratado à parte, com default `{}`. Backup antigo sem essa chave carrega
-// normal: vira `{}`, ou seja, nenhuma edição de GM aplicada (comportamento
-// idêntico a hoje, antes desta chave existir).
-const CHAVE_OVERRIDES = "cidadesOverrides";
+// cidadesOverrides e pessoasOverrides são objetos ({ [id]: { campo: valor } }),
+// não listas — por isso ficam fora de BACKUP_KEYS (que default pra `[]`) e
+// são tratados à parte, com default `{}`. Backup antigo sem uma dessas chaves
+// carrega normal: vira `{}`, ou seja, nenhuma edição de GM aplicada
+// (comportamento idêntico a hoje, antes de cada chave existir).
+const CHAVES_OVERRIDES = ["cidadesOverrides", "pessoasOverrides"];
 
 function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -19,7 +19,7 @@ function isPlainObject(v) {
 export function buildBackup(state) {
   const backup = { version: 1, exportedAt: new Date().toISOString() };
   for (const key of BACKUP_KEYS) backup[key] = state?.[key] ?? [];
-  backup[CHAVE_OVERRIDES] = isPlainObject(state?.[CHAVE_OVERRIDES]) ? state[CHAVE_OVERRIDES] : {};
+  for (const key of CHAVES_OVERRIDES) backup[key] = isPlainObject(state?.[key]) ? state[key] : {};
   return backup;
 }
 
@@ -39,6 +39,6 @@ export function parseBackup(raw) {
   }
   const result = {};
   for (const key of BACKUP_KEYS) result[key] = Array.isArray(data[key]) ? data[key] : [];
-  result[CHAVE_OVERRIDES] = isPlainObject(data[CHAVE_OVERRIDES]) ? data[CHAVE_OVERRIDES] : {};
+  for (const key of CHAVES_OVERRIDES) result[key] = isPlainObject(data[key]) ? data[key] : {};
   return result;
 }

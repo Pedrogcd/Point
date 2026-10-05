@@ -21,6 +21,10 @@ import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
 import {
+  TIPOS_RELACAO, infoTipoRelacao, reporPessoasDoReino, mesclarPessoasComOverride,
+  gruposDoReino, relacoesDoPersonagem, itensVisiveis, geracoesDaGenealogia,
+} from "./pessoasReino.js";
+import {
   slugificar, paraPercentual, bboxPoligono, calcularRecorte,
   cidadesPosicionadas, personagemDaPessoa,
 } from "./mapaMundo.js";
@@ -2710,7 +2714,7 @@ export const SEED_CHARACTERS = aplicarFichaSuthDoFate(
   FICHA_NOVA_FATE
 );
 
-export const SEED_KINGDOMS = [
+const SEED_KINGDOMS_RAW = [
   { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
   { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]",
     // Lido pela cor dos nomes no mapa (amarelo parece ser Katalão) — o Pedro
@@ -2852,7 +2856,438 @@ export const SEED_KINGDOMS = [
 // repor quem já tinha um point-kingdoms salvo com o rascunho antigo — a
 // própria entrada "suth" acima em SEED_KINGDOMS já tem esse conteúdo
 // definitivo pra quem abre o app sem nada salvo ainda.
-const DADOS_SUTH = SEED_KINGDOMS.find((k) => k.id === "suth");
+const DADOS_SUTH = SEED_KINGDOMS_RAW.find((k) => k.id === "suth");
+
+// Pessoas do reino Suth (Pilares, relações, genealogias) — ver pessoasReino.js
+// pra como isso é semeado (reporPessoasDoReino) e exibido (aba "Pessoas" em
+// WorldView). Todo personagemId aqui existe em SUTH_CHARACTERS_RAW ou é
+// "fate" — conferido em pessoasReino.test.js (varredura de ids).
+export const DADOS_PESSOAS_SUTH = {
+  "estrutura": {
+    "titulo": "Pilares do Império",
+    "grupos": [
+      {
+        "id": "imperadora",
+        "nome": "Pilar da Imperadora",
+        "funcao": "Lei, administração, recursos e diplomacia",
+        "membros": [
+          {
+            "personagemId": "suth_emphes",
+            "cargo": "X Imperadora (líder do pilar)",
+            "ordem": 1
+          },
+          {
+            "personagemId": "suth_velmira",
+            "cargo": "Conselheira Imperial (IX Imperadora, aposentada)",
+            "ordem": 2
+          },
+          {
+            "personagemId": "suth_victoria",
+            "cargo": "General do Exército Imperial",
+            "ordem": 3
+          },
+          {
+            "personagemId": "suth_valeria",
+            "cargo": "Comandante do Exército Imperial",
+            "ordem": 4
+          },
+          {
+            "personagemId": "suth_mars",
+            "cargo": "Coronel do Exército Imperial",
+            "ordem": 5
+          },
+          {
+            "nomeLivre": "Hujimo Bunis",
+            "cargo": "Parceiro de Victoria; especialista em portais",
+            "ordem": 6,
+            "nota": "Dossiê pendente"
+          },
+          {
+            "personagemId": "suth_galantia",
+            "cargo": "Agente da Imperadora (ex-General da Parteira)",
+            "ordem": 7
+          },
+          {
+            "personagemId": "suth_athena",
+            "cargo": "Unidade Especial da Imperadora (ex-General da Santa)",
+            "ordem": 8
+          }
+        ]
+      },
+      {
+        "id": "parteira",
+        "nome": "Pilar da Parteira",
+        "funcao": "Ciência, biotecnologia e biocriação",
+        "membros": [
+          {
+            "personagemId": "suth_zero",
+            "cargo": "Líder do pilar",
+            "ordem": 1
+          },
+          {
+            "personagemId": "suth_draguna",
+            "cargo": "General do Exército da Parteira",
+            "ordem": 2
+          },
+          {
+            "personagemId": "suth_kirilia",
+            "cargo": "Força auxiliar (veio do Pilar da Santa)",
+            "ordem": 3
+          }
+        ]
+      },
+      {
+        "id": "santa",
+        "nome": "Pilar da Santa",
+        "funcao": "Militarismo, conquista e doutrina",
+        "membros": [
+          {
+            "nomeLivre": "FATE, a Guardiã",
+            "cargo": "Santa Encarnada (líder do pilar)",
+            "ordem": 1,
+            "nota": "Dossiê pendente"
+          },
+          {
+            "personagemId": "fate",
+            "cargo": "Próxima Santa (sucessora)",
+            "ordem": 2
+          },
+          {
+            "personagemId": "suth_azula",
+            "cargo": "General da Santa",
+            "ordem": 3
+          },
+          {
+            "personagemId": "suth_farron",
+            "cargo": "Coronel da Santa",
+            "ordem": 4
+          },
+          {
+            "personagemId": "suth_athermis",
+            "cargo": "Representante da Santa",
+            "ordem": 5
+          }
+        ]
+      },
+      {
+        "id": "fora",
+        "nome": "Fora dos pilares",
+        "funcao": "Ligações externas",
+        "membros": [
+          {
+            "personagemId": "suth_kyubei",
+            "cargo": "Cavaleira de Omen (ex-Parteira)",
+            "ordem": 1
+          }
+        ]
+      }
+    ]
+  },
+  "relacoes": [
+    {
+      "de": "suth_velmira",
+      "para": "suth_emphes",
+      "tipo": "hierarquia",
+      "rotulo": "antecessora no trono"
+    },
+    {
+      "de": "suth_victoria",
+      "para": "suth_valeria",
+      "tipo": "hierarquia",
+      "rotulo": "General → Comandante"
+    },
+    {
+      "de": "suth_valeria",
+      "para": "suth_mars",
+      "tipo": "hierarquia",
+      "rotulo": "Comandante → Coronel"
+    },
+    {
+      "de": "suth_victoria",
+      "para": "suth_mars",
+      "tipo": "mentoria",
+      "rotulo": "mentora"
+    },
+    {
+      "de": "suth_zero",
+      "para": "suth_draguna",
+      "tipo": "hierarquia",
+      "rotulo": "Líder → General; criadora"
+    },
+    {
+      "de": "suth_zero",
+      "para": "suth_kirilia",
+      "tipo": "hierarquia",
+      "rotulo": "Kirilia responde à ZERO"
+    },
+    {
+      "de": "suth_azula",
+      "para": "suth_farron",
+      "tipo": "hierarquia",
+      "rotulo": "General → Coronel"
+    },
+    {
+      "de": "suth_farron",
+      "para": "suth_athermis",
+      "tipo": "hierarquia",
+      "rotulo": "Coronel → Representante"
+    },
+    {
+      "de": "suth_zero",
+      "para": "suth_azula",
+      "tipo": "criacao",
+      "rotulo": "criou Azula como experimento"
+    },
+    {
+      "de": "suth_kyubei",
+      "para": "suth_galantia",
+      "tipo": "hierarquia",
+      "rotulo": "foi subordinada de Galantia"
+    },
+    {
+      "de": "suth_athena",
+      "para": "suth_galantia",
+      "tipo": "aliança",
+      "rotulo": "lutaram ao lado da antiga Parteira na rebelião"
+    },
+    {
+      "de": "suth_emphes",
+      "para": "suth_galantia",
+      "tipo": "aliança",
+      "rotulo": "libertou Galantia e Athena de Amaranth"
+    },
+    {
+      "de": "suth_emphes",
+      "para": "suth_athena",
+      "tipo": "aliança",
+      "rotulo": "libertou Galantia e Athena de Amaranth"
+    },
+    {
+      "de": "suth_kirilia",
+      "para": "fate",
+      "tipo": "rivalidade",
+      "rotulo": "perdeu para Fate Sabato; depois a derrotou com estratégia e aliados"
+    },
+    {
+      "de": "suth_farron",
+      "para": "suth_athena",
+      "tipo": "familia",
+      "rotulo": "lutou contra a própria família na rebelião"
+    }
+  ],
+  "genealogias": [
+    {
+      "id": "imperial",
+      "titulo": "Linhagem imperial",
+      "nos": [
+        {
+          "id": "velmira",
+          "personagemId": "suth_velmira"
+        },
+        {
+          "id": "emphes",
+          "personagemId": "suth_emphes"
+        }
+      ],
+      "ligacoes": [
+        {
+          "pais": [
+            "velmira"
+          ],
+          "filho": "emphes",
+          "tipo": "mãe e filha (Emphes criada em laboratório)"
+        }
+      ]
+    },
+    {
+      "id": "bunis",
+      "titulo": "Família Bunis",
+      "nos": [
+        {
+          "id": "victoria",
+          "personagemId": "suth_victoria"
+        },
+        {
+          "id": "hujimo",
+          "nome": "Hujimo Bunis",
+          "nota": "Dossiê pendente"
+        },
+        {
+          "id": "valeria",
+          "personagemId": "suth_valeria"
+        },
+        {
+          "id": "mars",
+          "personagemId": "suth_mars"
+        }
+      ],
+      "ligacoes": [
+        {
+          "pais": [
+            "victoria",
+            "hujimo"
+          ],
+          "filho": "valeria",
+          "tipo": "filha adotiva"
+        },
+        {
+          "pais": [
+            "victoria"
+          ],
+          "filho": "mars",
+          "tipo": "mentora (não é parentesco de sangue)",
+          "tracejado": true
+        }
+      ]
+    },
+    {
+      "id": "luz",
+      "titulo": "Família da Luz",
+      "nos": [
+        {
+          "id": "athena",
+          "personagemId": "suth_athena"
+        },
+        {
+          "id": "athermis",
+          "personagemId": "suth_athermis"
+        },
+        {
+          "id": "farron",
+          "personagemId": "suth_farron"
+        }
+      ],
+      "ligacoes": [
+        {
+          "pais": [
+            "athena"
+          ],
+          "filho": "athermis",
+          "tipo": "mãe e filha"
+        },
+        {
+          "pais": [
+            "athena"
+          ],
+          "filho": "farron",
+          "tipo": "tia e sobrinha",
+          "tracejado": true
+        }
+      ],
+      "notas": [
+        "Farron e Athermis são primas."
+      ]
+    },
+    {
+      "id": "criacoes",
+      "titulo": "Criações e filiações",
+      "nos": [
+        {
+          "id": "santa",
+          "nome": "A Santa",
+          "nota": "A confirmar se é a mesma pessoa que FATE, a Guardiã"
+        },
+        {
+          "id": "mariacelis",
+          "nome": "Maria Celis"
+        },
+        {
+          "id": "kirilia",
+          "personagemId": "suth_kirilia"
+        },
+        {
+          "id": "galantia",
+          "personagemId": "suth_galantia"
+        },
+        {
+          "id": "kyubei",
+          "personagemId": "suth_kyubei"
+        },
+        {
+          "id": "draguna",
+          "personagemId": "suth_draguna"
+        },
+        {
+          "id": "zero",
+          "personagemId": "suth_zero"
+        },
+        {
+          "id": "kino",
+          "nome": "Kino Kuni",
+          "nota": "Antiga segunda em comando da Parteira"
+        },
+        {
+          "id": "fate",
+          "personagemId": "fate"
+        },
+        {
+          "id": "azula",
+          "personagemId": "suth_azula"
+        }
+      ],
+      "ligacoes": [
+        {
+          "pais": [
+            "santa",
+            "mariacelis"
+          ],
+          "filho": "kirilia",
+          "tipo": "filha"
+        },
+        {
+          "pais": [
+            "santa"
+          ],
+          "filho": "galantia",
+          "tipo": "filha (segundo o documento de Suth)"
+        },
+        {
+          "pais": [
+            "kyubei"
+          ],
+          "filho": "draguna",
+          "tipo": "mãe (segundo o documento de Suth)"
+        },
+        {
+          "pais": [
+            "zero"
+          ],
+          "filho": "draguna",
+          "tipo": "criadora",
+          "tracejado": true
+        },
+        {
+          "pais": [
+            "kino"
+          ],
+          "filho": "fate",
+          "tipo": "criadora (laboratório)",
+          "tracejado": true
+        },
+        {
+          "pais": [
+            "zero"
+          ],
+          "filho": "azula",
+          "tipo": "criadora (experimento)",
+          "tracejado": true
+        }
+      ]
+    }
+  ]
+};
+
+// Sementes de "pessoas do reino" (ver reporPessoasDoReino em pessoasReino.js)
+// — hoje só Suth; outro reino que ganhar esse formato entra aqui também.
+const SEMENTES_PESSOAS_REINO = [{ reinoId: "suth", pessoas: DADOS_PESSOAS_SUTH }];
+
+// Aplicado aqui (e não só na reposição do useEffect de carregamento) pelo
+// mesmo motivo do Grupo Aurora/Suth em SEED_CHARACTERS: num app sem nada
+// salvo ainda, `kingdoms` nasce direto de SEED_KINGDOMS (useState inicial) —
+// sem isso, a aba "Pessoas" só apareceria depois de já existir um
+// point-kingdoms salvo. reporPessoasDoReino é idempotente, então chamar aqui
+// não duplica nada quando a reposição do useEffect rodar de novo depois.
+export const SEED_KINGDOMS = reporPessoasDoReino(SEED_KINGDOMS_RAW, SEMENTES_PESSOAS_REINO);
 
 const SEED_GODS = [
   { id: "kronos", name: "Kronos", domain: "Tempo", description: "Divindade ligada à manipulação e ao domínio do tempo; seu templo em Katalão forma sacerdotisas-guerreiras como Boda. [Rascunho — refine comigo.]" },
@@ -6389,13 +6824,15 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
   );
 }
 
-export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, onAbrirFicha }) {
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, onAbrirFicha }) {
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
   const [popup, setPopup] = useState(null);
   const [newCity, setNewCity] = useState({});
   const [editandoMapa, setEditandoMapa] = useState(false);
+  const [filtroRelacao, setFiltroRelacao] = useState("todos");
+  const [genealogiasAbertas, setGenealogiasAbertas] = useState({});
   // Guardam só os ids (não os objetos) — assim sempre leem o dado mais
   // recente de `kingdoms`, mesmo depois de uma edição na própria página.
   const [cidadeMapaAberta, setCidadeMapaAberta] = useState(null); // { reinoId, cidadeId }
@@ -6496,6 +6933,27 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
       return novo;
     });
   }
+  function editarCampoPessoas(reinoId, campo, valor) {
+    setPessoasOverrides((prev) => ({ ...prev, [reinoId]: { ...(prev[reinoId] || {}), [campo]: valor } }));
+  }
+  function restaurarCampoPessoas(reinoId, campo) {
+    setPessoasOverrides((prev) => {
+      if (!prev[reinoId]) return prev;
+      const restante = { ...prev[reinoId] };
+      delete restante[campo];
+      const novo = { ...prev };
+      if (Object.keys(restante).length === 0) delete novo[reinoId]; else novo[reinoId] = restante;
+      return novo;
+    });
+  }
+  // "Pessoas do reino": mescla a semente (reino.pessoas) com a edição do GM
+  // (pessoasOverrides, mesmo padrão não-destrutivo de cidadesOverrides — ver
+  // pessoasReino.js) e resolve os grupos a mostrar (com estrutura, ou por
+  // afiliação quando o reino não tem uma). A aba só aparece se houver algo
+  // pra mostrar — reino sem nenhum personagem com essa faction continua OK.
+  const overrideDePessoas = reino ? (pessoasOverrides?.[reino.id] || {}) : {};
+  const pessoasMescladas = reino ? mesclarPessoasComOverride(reino.pessoas, overrideDePessoas) : null;
+  const gruposPessoas = reino ? gruposDoReino(pessoasMescladas, characters, reino.name) : [];
   const abasReino = [
     { id: "geral", label: "Visão geral" },
     { id: "cidades", label: `Cidades (${reino?.cities?.length || 0})` },
@@ -6503,6 +6961,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
     ...(info?.etiquetas ? [{ id: "etiquetas", label: "Etiquetas" }] : []),
     ...(info?.mapa ? [{ id: "mapa", label: "Mapa do reino" }] : []),
     ...((reino?.pilares || []).length > 0 ? [{ id: "pilares", label: "Pilares" }] : []),
+    ...(gruposPessoas.length > 0 ? [{ id: "pessoas", label: "Pessoas" }] : []),
     ...(gm && reino?.notasDoMestre ? [{ id: "notas", label: "Notas do mestre" }] : []),
   ];
 
@@ -6807,6 +7266,125 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
             </div>
           )}
 
+          {abaReino === "pessoas" && (
+            <div style={{ display: "grid", gap: 18 }}>
+              <BlocoEditavel
+                gm={gm} temOverride={"estrutura" in overrideDePessoas} valorInicial={pessoasMescladas?.estrutura || { titulo: "", grupos: [] }}
+                onSalvar={(v) => editarCampoPessoas(reino.id, "estrutura", v)} onRestaurar={() => restaurarCampoPessoas(reino.id, "estrutura")}
+                renderLeitura={() => (
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {pessoasMescladas?.estrutura?.titulo && (
+                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: BRASS_BRIGHT }}>{pessoasMescladas.estrutura.titulo}</div>
+                    )}
+                    {gruposPessoas.map((grupo) => (
+                      <div key={grupo.id}>
+                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, marginBottom: 2 }}>{grupo.nome}</div>
+                        {grupo.funcao && <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 8 }}>{grupo.funcao}</div>}
+                        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+                          {itensVisiveis(grupo.membros, gm).map((m, i) => (
+                            <CardMembroReino key={m.personagemId || m.nomeLivre || i} membro={m} onAbrirFicha={onAbrirFicha} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                renderEdicao={(draft, setDraft) => (
+                  <EditorEstruturaPessoas estrutura={draft} setEstrutura={setDraft} characters={characters} />
+                )}
+              />
+
+              {(pessoasMescladas?.relacoes || []).length > 0 && (
+                <div>
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, marginBottom: 8 }}>Relações</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                    <button
+                      onClick={() => setFiltroRelacao("todos")}
+                      style={{
+                        fontSize: 10.5, padding: "3px 9px", borderRadius: 20, cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace",
+                        border: `1px solid ${LINE}`, background: filtroRelacao === "todos" ? `${BRASS}33` : "transparent", color: PARCHMENT,
+                      }}
+                    >
+                      Todos
+                    </button>
+                    {TIPOS_RELACAO.map((t) => (
+                      <button
+                        key={t.id} onClick={() => setFiltroRelacao(t.id)}
+                        style={{
+                          fontSize: 10.5, padding: "3px 9px", borderRadius: 20, cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace",
+                          border: `1px solid ${t.cor}`, background: filtroRelacao === t.id ? `${t.cor}33` : "transparent", color: t.cor,
+                        }}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <BlocoEditavel
+                    gm={gm} temOverride={"relacoes" in overrideDePessoas} valorInicial={pessoasMescladas?.relacoes || []}
+                    onSalvar={(v) => editarCampoPessoas(reino.id, "relacoes", v)} onRestaurar={() => restaurarCampoPessoas(reino.id, "relacoes")}
+                    renderLeitura={() => (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {itensVisiveis(pessoasMescladas?.relacoes, gm)
+                          .filter((r) => filtroRelacao === "todos" || r.tipo === filtroRelacao)
+                          .map((r, i) => (
+                            <LinhaRelacao key={i} relacao={r} characters={characters} onAbrirFicha={onAbrirFicha} />
+                          ))}
+                      </div>
+                    )}
+                    renderEdicao={(draft, setDraft) => (
+                      <EditorRelacoesPessoas relacoes={draft} setRelacoes={setDraft} characters={characters} />
+                    )}
+                  />
+                </div>
+              )}
+
+              {(pessoasMescladas?.genealogias || []).length > 0 && (
+                <div>
+                  <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, marginBottom: 8 }}>Árvores genealógicas</div>
+                  <BlocoEditavel
+                    gm={gm} temOverride={"genealogias" in overrideDePessoas} valorInicial={pessoasMescladas?.genealogias || []}
+                    onSalvar={(v) => editarCampoPessoas(reino.id, "genealogias", v)} onRestaurar={() => restaurarCampoPessoas(reino.id, "genealogias")}
+                    renderLeitura={() => (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {itensVisiveis(pessoasMescladas?.genealogias, gm).map((genealogia) => {
+                          const aberta = genealogiasAbertas[genealogia.id] !== false; // começa aberta
+                          return (
+                            <div key={genealogia.id} style={cardBox}>
+                              <button
+                                onClick={() => setGenealogiasAbertas((prev) => ({ ...prev, [genealogia.id]: !aberta }))}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer",
+                                  color: "inherit", padding: 0, fontFamily: "'Cinzel', serif", fontSize: 13.5, width: "100%", textAlign: "left",
+                                }}
+                              >
+                                {aberta ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {genealogia.titulo}
+                              </button>
+                              {aberta && (
+                                <div style={{ marginTop: 10 }}>
+                                  <ArvoreGenealogica genealogia={genealogia} characters={characters} onAbrirFicha={onAbrirFicha} />
+                                  {(genealogia.notas || []).length > 0 && (
+                                    <div style={{ marginTop: 8 }}>
+                                      {genealogia.notas.map((n, i) => (
+                                        <p key={i} style={{ fontSize: 12, color: MUTED, fontStyle: "italic", margin: "2px 0" }}>{n}</p>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    renderEdicao={(draft, setDraft) => (
+                      <EditorGenealogiasPessoas genealogias={draft} setGenealogias={setDraft} characters={characters} />
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {abaReino === "notas" && gm && (
             <div style={{ display: "grid", gap: 8 }}>
               <p style={{ fontSize: 11.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", margin: 0 }}>Visível só pro mestre</p>
@@ -6821,6 +7399,341 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
       )}
       </>
       )}
+    </div>
+  );
+}
+
+/* --- Aba "Pessoas" do reino: card de membro, linha de relação, árvore
+   genealógica (ver pessoasReino.js pros dados puros). --- */
+export function CardMembroReino({ membro, onAbrirFicha }) {
+  const personagem = membro.personagem;
+  if (!personagem) {
+    return (
+      <div style={{ ...cardBox, padding: 10, opacity: 0.65, display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: 8, background: "#00000030", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Users size={16} color={MUTED} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{membro.nomeLivre || "?"}</div>
+          <div style={{ fontSize: 10.5, color: MUTED, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{membro.cargo}</div>
+          <div style={{ fontSize: 9.5, color: MUTED, fontStyle: "italic" }}>{membro.nota || "Dossiê pendente"}</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button
+      onClick={() => onAbrirFicha && onAbrirFicha(personagem.id)}
+      style={{ ...cardBox, padding: 10, textAlign: "left", cursor: "pointer", color: "inherit", display: "flex", gap: 8, alignItems: "center" }}
+    >
+      <Retrato character={personagem} size={36} borderRadius={8} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{personagem.name}</div>
+        <div style={{ fontSize: 10.5, color: BRASS, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{membro.cargo || personagem.epithet}</div>
+      </div>
+    </button>
+  );
+}
+
+export function LinhaRelacao({ relacao, characters, onAbrirFicha }) {
+  const info = infoTipoRelacao(relacao.tipo);
+  const de = (characters || []).find((c) => c.id === relacao.de);
+  const para = (characters || []).find((c) => c.id === relacao.para);
+  const Chip = ({ personagem, id }) => (
+    <button
+      disabled={!personagem} onClick={() => personagem && onAbrirFicha && onAbrirFicha(personagem.id)}
+      style={{
+        fontSize: 11.5, padding: "2px 8px", borderRadius: 20, border: `1px solid ${LINE}`, background: "transparent",
+        color: personagem ? PARCHMENT : MUTED, cursor: personagem ? "pointer" : "default", fontFamily: "'Cinzel', serif",
+      }}
+    >
+      {personagem?.name || id}
+    </button>
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12 }}>
+      <Chip personagem={de} id={relacao.de} />
+      <span style={{ color: info.cor, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", display: "flex", alignItems: "center", gap: 3 }}>
+        <ChevronRight size={11} /> {info.label}
+      </span>
+      <Chip personagem={para} id={relacao.para} />
+      {relacao.rotulo && <span style={{ color: MUTED, fontSize: 11.5 }}>— {relacao.rotulo}</span>}
+    </div>
+  );
+}
+
+function NoGenealogia({ no, characters, onAbrirFicha, x, y, width, height }) {
+  const personagem = no?.personagemId ? (characters || []).find((c) => c.id === no.personagemId) : null;
+  const nome = personagem?.name || no?.nome || "?";
+  return (
+    <foreignObject x={x} y={y} width={width} height={height}>
+      <div
+        title={no?.nota || ""}
+        onClick={personagem ? () => onAbrirFicha && onAbrirFicha(personagem.id) : undefined}
+        style={{
+          width: width - 2, height: height - 2, boxSizing: "border-box", display: "flex", alignItems: "center", gap: 5, padding: "3px 6px",
+          background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 6, cursor: personagem ? "pointer" : "default",
+          opacity: personagem ? 1 : 0.75,
+        }}
+      >
+        {personagem && <Retrato character={personagem} size={22} borderRadius={5} />}
+        <span style={{ fontSize: 10, fontFamily: "'Cinzel', serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nome}</span>
+      </div>
+    </foreignObject>
+  );
+}
+
+// Desenha a árvore em gerações (ver geracoesDaGenealogia em pessoasReino.js):
+// pais acima, filhos abaixo, linha tracejada quando a ligação não é
+// parentesco de sangue (criação, mentoria etc.). Rolagem horizontal própria
+// pra não quebrar o layout em tela pequena.
+export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha }) {
+  const geracoes = geracoesDaGenealogia(genealogia.nos, genealogia.ligacoes);
+  const nodeW = 116, nodeH = 40, hGap = 14, vGap = 44, pad = 14;
+  const maxPorLinha = Math.max(1, ...geracoes.map((g) => g.nos.length));
+  const largura = pad * 2 + maxPorLinha * (nodeW + hGap) - hGap;
+  const altura = pad * 2 + Math.max(1, geracoes.length) * (nodeH + vGap) - vGap;
+  const posicoes = new Map();
+  geracoes.forEach((linha, gi) => {
+    linha.nos.forEach((id, i) => {
+      posicoes.set(id, { x: pad + i * (nodeW + hGap), y: pad + gi * (nodeH + vGap), width: nodeW, height: nodeH });
+    });
+  });
+  const nosPorId = new Map((genealogia.nos || []).map((n) => [n.id, n]));
+  return (
+    <div style={{ overflowX: "auto", border: `1px solid ${LINE}`, borderRadius: 8, padding: 8 }}>
+      <svg width={largura} height={altura} style={{ display: "block", minWidth: largura }}>
+        {(genealogia.ligacoes || []).map((lig, i) => {
+          const filhoPos = posicoes.get(lig.filho);
+          if (!filhoPos) return null;
+          return (lig.pais || []).map((paiId, j) => {
+            const paiPos = posicoes.get(paiId);
+            if (!paiPos) return null;
+            const x1 = paiPos.x + paiPos.width / 2, y1 = paiPos.y + paiPos.height;
+            const x2 = filhoPos.x + filhoPos.width / 2, y2 = filhoPos.y;
+            const midY = (y1 + y2) / 2;
+            return (
+              <g key={`${i}-${j}`}>
+                <path
+                  d={`M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`} fill="none" stroke={LINE} strokeWidth={1.5}
+                  strokeDasharray={lig.tracejado ? "4 3" : undefined}
+                />
+                <text x={(x1 + x2) / 2} y={midY - 3} fontSize={8} fill={MUTED} textAnchor="middle" fontFamily="'IBM Plex Mono', monospace">
+                  {lig.tipo}
+                </text>
+              </g>
+            );
+          });
+        })}
+        {[...posicoes.entries()].map(([id, pos]) => {
+          const no = nosPorId.get(id);
+          if (!no) return null;
+          return <NoGenealogia key={id} no={no} characters={characters} onAbrirFicha={onAbrirFicha} {...pos} />;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/* --- Edição GM de "Pessoas do reino": um editor por campo mesclável
+   (estrutura/relacoes/genealogias — ver CAMPOS_MESCLAVEIS_PESSOAS em
+   pessoasReino.js), usados dentro de BlocoEditavel. Mesmo estilo de forms do
+   resto do app (EditorDeItensLista etc.): listas simples de adicionar/
+   remover, nada de arrastar. */
+function EditorEstruturaPessoas({ estrutura, setEstrutura, characters }) {
+  const grupos = estrutura?.grupos || [];
+  function atualizarGrupo(gi, patch) {
+    setEstrutura((prev) => ({ ...prev, grupos: (prev.grupos || []).map((g, i) => (i === gi ? { ...g, ...patch } : g)) }));
+  }
+  function removerGrupo(gi) {
+    setEstrutura((prev) => ({ ...prev, grupos: (prev.grupos || []).filter((_, i) => i !== gi) }));
+  }
+  function adicionarGrupo() {
+    setEstrutura((prev) => ({ ...prev, grupos: [...(prev.grupos || []), { id: `grupo_${Date.now()}`, nome: "Novo grupo", funcao: "", membros: [] }] }));
+  }
+  function atualizarMembro(gi, mi, patch) {
+    setEstrutura((prev) => ({
+      ...prev,
+      grupos: (prev.grupos || []).map((g, i) => (i !== gi ? g : { ...g, membros: (g.membros || []).map((m, j) => (j === mi ? { ...m, ...patch } : m)) })),
+    }));
+  }
+  function removerMembro(gi, mi) {
+    setEstrutura((prev) => ({
+      ...prev,
+      grupos: (prev.grupos || []).map((g, i) => (i !== gi ? g : { ...g, membros: (g.membros || []).filter((_, j) => j !== mi) })),
+    }));
+  }
+  function adicionarMembro(gi) {
+    setEstrutura((prev) => ({
+      ...prev,
+      grupos: (prev.grupos || []).map((g, i) => (i !== gi ? g : { ...g, membros: [...(g.membros || []), { nomeLivre: "Novo membro", cargo: "", ordem: (g.membros || []).length }] })),
+    }));
+  }
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <input
+        style={inputStyle} placeholder="Título da estrutura (ex: Pilares do Império)"
+        value={estrutura?.titulo || ""} onChange={(e) => setEstrutura((prev) => ({ ...prev, titulo: e.target.value }))}
+      />
+      {grupos.map((g, gi) => (
+        <div key={g.id || gi} style={cardBox}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+            <input style={{ ...inputStyle, fontWeight: 700 }} placeholder="Nome do grupo" value={g.nome || ""} onChange={(e) => atualizarGrupo(gi, { nome: e.target.value })} />
+            <Btn variant="ghost" onClick={() => removerGrupo(gi)} aria-label="Remover grupo"><X size={12} /></Btn>
+          </div>
+          <input style={{ ...inputStyle, marginBottom: 10 }} placeholder="Função do grupo" value={g.funcao || ""} onChange={(e) => atualizarGrupo(gi, { funcao: e.target.value })} />
+          <div style={{ display: "grid", gap: 8 }}>
+            {(g.membros || []).map((m, mi) => (
+              <div key={mi} style={{ ...cardBox, padding: 8, background: PANEL }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                  <select
+                    style={inputStyle} value={m.personagemId || ""}
+                    onChange={(e) => atualizarMembro(gi, mi, e.target.value ? { personagemId: e.target.value, nomeLivre: undefined } : { personagemId: undefined, nomeLivre: m.nomeLivre || "" })}
+                  >
+                    <option value="">— nome livre (sem ficha) —</option>
+                    {(characters || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                  <input
+                    type="number" style={{ ...inputStyle, width: 64 }} placeholder="Ordem"
+                    value={m.ordem ?? 0} onChange={(e) => atualizarMembro(gi, mi, { ordem: Number(e.target.value) })}
+                  />
+                  <Btn variant="ghost" onClick={() => removerMembro(gi, mi)} aria-label="Remover membro"><X size={11} /></Btn>
+                </div>
+                {!m.personagemId && (
+                  <input style={{ ...inputStyle, marginBottom: 6 }} placeholder="Nome (sem ficha)" value={m.nomeLivre || ""} onChange={(e) => atualizarMembro(gi, mi, { nomeLivre: e.target.value })} />
+                )}
+                <input style={{ ...inputStyle, marginBottom: 6 }} placeholder="Cargo" value={m.cargo || ""} onChange={(e) => atualizarMembro(gi, mi, { cargo: e.target.value })} />
+                {!m.personagemId && (
+                  <input style={{ ...inputStyle, marginBottom: 6 }} placeholder="Nota (ex: Dossiê pendente)" value={m.nota || ""} onChange={(e) => atualizarMembro(gi, mi, { nota: e.target.value })} />
+                )}
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!m.soMestre} onChange={(e) => atualizarMembro(gi, mi, { soMestre: e.target.checked })} /> Só o mestre vê
+                </label>
+              </div>
+            ))}
+          </div>
+          <Btn onClick={() => adicionarMembro(gi)} style={{ marginTop: 8, padding: "4px 10px", fontSize: 11 }}><Plus size={12} /> Adicionar membro</Btn>
+        </div>
+      ))}
+      <Btn onClick={adicionarGrupo}><Plus size={13} /> Adicionar grupo</Btn>
+    </div>
+  );
+}
+
+function EditorRelacoesPessoas({ relacoes, setRelacoes, characters }) {
+  const lista = relacoes || [];
+  function atualizar(i, patch) { setRelacoes((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r))); }
+  function remover(i) { setRelacoes((prev) => prev.filter((_, idx) => idx !== i)); }
+  function adicionar() { setRelacoes((prev) => [...(prev || []), { de: "", para: "", tipo: TIPOS_RELACAO[0].id, rotulo: "" }]); }
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      {lista.map((r, i) => (
+        <div key={i} style={{ ...cardBox, padding: 10, display: "grid", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <select style={inputStyle} value={r.de || ""} onChange={(e) => atualizar(i, { de: e.target.value })}>
+              <option value="">De...</option>
+              {(characters || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select style={inputStyle} value={r.tipo || ""} onChange={(e) => atualizar(i, { tipo: e.target.value })}>
+              {TIPOS_RELACAO.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+            <select style={inputStyle} value={r.para || ""} onChange={(e) => atualizar(i, { para: e.target.value })}>
+              <option value="">Para...</option>
+              {(characters || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <input style={inputStyle} placeholder="Rótulo (ex: mentora)" value={r.rotulo || ""} onChange={(e) => atualizar(i, { rotulo: e.target.value })} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: MUTED, cursor: "pointer" }}>
+              <input type="checkbox" checked={!!r.soMestre} onChange={(e) => atualizar(i, { soMestre: e.target.checked })} /> Só o mestre vê
+            </label>
+            <Btn variant="ghost" onClick={() => remover(i)} aria-label="Remover relação"><X size={12} /></Btn>
+          </div>
+        </div>
+      ))}
+      <Btn onClick={adicionar}><Plus size={12} /> Adicionar relação</Btn>
+    </div>
+  );
+}
+
+function EditorGenealogiasPessoas({ genealogias, setGenealogias, characters }) {
+  const lista = genealogias || [];
+  function atualizarGenealogia(i, patch) { setGenealogias((prev) => prev.map((g, idx) => (idx === i ? { ...g, ...patch } : g))); }
+  function removerGenealogia(i) { setGenealogias((prev) => prev.filter((_, idx) => idx !== i)); }
+  function adicionarGenealogia() {
+    setGenealogias((prev) => [...(prev || []), { id: `gen_${Date.now()}`, titulo: "Nova genealogia", nos: [], ligacoes: [], notas: [] }]);
+  }
+  function atualizarNo(gi, ni, patch) {
+    setGenealogias((prev) => prev.map((g, i) => (i !== gi ? g : { ...g, nos: (g.nos || []).map((n, j) => (j === ni ? { ...n, ...patch } : n)) })));
+  }
+  function removerNo(gi, ni) {
+    setGenealogias((prev) => prev.map((g, i) => (i !== gi ? g : { ...g, nos: (g.nos || []).filter((_, j) => j !== ni) })));
+  }
+  function adicionarNo(gi) {
+    setGenealogias((prev) => prev.map((g, i) => (i !== gi ? g : { ...g, nos: [...(g.nos || []), { id: `no_${Date.now()}`, nome: "Novo nó" }] })));
+  }
+  function atualizarLigacao(gi, li, patch) {
+    setGenealogias((prev) => prev.map((g, i) => (i !== gi ? g : { ...g, ligacoes: (g.ligacoes || []).map((l, j) => (j === li ? { ...l, ...patch } : l)) })));
+  }
+  function removerLigacao(gi, li) {
+    setGenealogias((prev) => prev.map((g, i) => (i !== gi ? g : { ...g, ligacoes: (g.ligacoes || []).filter((_, j) => j !== li) })));
+  }
+  function adicionarLigacao(gi) {
+    setGenealogias((prev) => prev.map((g, i) => (i !== gi ? g : { ...g, ligacoes: [...(g.ligacoes || []), { pais: [], filho: "", tipo: "" }] })));
+  }
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      {lista.map((g, gi) => (
+        <div key={g.id || gi} style={cardBox}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input style={{ ...inputStyle, fontWeight: 700 }} placeholder="Título da genealogia" value={g.titulo || ""} onChange={(e) => atualizarGenealogia(gi, { titulo: e.target.value })} />
+            <Btn variant="ghost" onClick={() => removerGenealogia(gi)} aria-label="Remover genealogia"><X size={12} /></Btn>
+          </div>
+
+          <div style={rotulo}>Nós</div>
+          <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+            {(g.nos || []).map((n, ni) => (
+              <div key={n.id || ni} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <input style={{ ...inputStyle, width: 90 }} placeholder="id do nó" value={n.id || ""} onChange={(e) => atualizarNo(gi, ni, { id: e.target.value })} />
+                <select
+                  style={inputStyle} value={n.personagemId || ""}
+                  onChange={(e) => atualizarNo(gi, ni, e.target.value ? { personagemId: e.target.value, nome: undefined } : { personagemId: undefined, nome: n.nome || "" })}
+                >
+                  <option value="">— nome livre —</option>
+                  {(characters || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                {!n.personagemId && <input style={inputStyle} placeholder="Nome" value={n.nome || ""} onChange={(e) => atualizarNo(gi, ni, { nome: e.target.value })} />}
+                <input style={inputStyle} placeholder="Nota (tooltip)" value={n.nota || ""} onChange={(e) => atualizarNo(gi, ni, { nota: e.target.value })} />
+                <Btn variant="ghost" onClick={() => removerNo(gi, ni)} aria-label="Remover nó"><X size={11} /></Btn>
+              </div>
+            ))}
+          </div>
+          <Btn onClick={() => adicionarNo(gi)} style={{ fontSize: 11, marginBottom: 12 }}><Plus size={11} /> Adicionar nó</Btn>
+
+          <div style={rotulo}>Ligações (filiação)</div>
+          <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+            {(g.ligacoes || []).map((l, li) => (
+              <div key={li} style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  style={{ ...inputStyle, width: 140 }} placeholder="ids dos pais (vírgula)" value={(l.pais || []).join(",")}
+                  onChange={(e) => atualizarLigacao(gi, li, { pais: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+                />
+                <select style={inputStyle} value={l.filho || ""} onChange={(e) => atualizarLigacao(gi, li, { filho: e.target.value })}>
+                  <option value="">filho...</option>
+                  {(g.nos || []).map((n) => <option key={n.id} value={n.id}>{n.id}</option>)}
+                </select>
+                <input style={inputStyle} placeholder="Tipo (ex: mãe e filha)" value={l.tipo || ""} onChange={(e) => atualizarLigacao(gi, li, { tipo: e.target.value })} />
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: MUTED, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!!l.tracejado} onChange={(e) => atualizarLigacao(gi, li, { tracejado: e.target.checked })} /> Tracejado
+                </label>
+                <Btn variant="ghost" onClick={() => removerLigacao(gi, li)} aria-label="Remover ligação"><X size={11} /></Btn>
+              </div>
+            ))}
+          </div>
+          <Btn onClick={() => adicionarLigacao(gi)} style={{ fontSize: 11 }}><Plus size={11} /> Adicionar ligação</Btn>
+        </div>
+      ))}
+      <Btn onClick={adicionarGenealogia}><Plus size={13} /> Adicionar genealogia</Btn>
     </div>
   );
 }
@@ -7508,6 +8421,11 @@ export default function App() {
   // { [cidadeId]: { campo: valor } }, mesclado na hora de exibir (ver
   // cidadeOverrides.js e CidadeView em WorldView).
   const [cidadesOverrides, setCidadesOverrides] = useState({});
+  // Edições do GM sobre "Pessoas do reino" (estrutura/relações/genealogias) —
+  // mesmo padrão de cidadesOverrides: nunca reescreve o que foi semeado, fica
+  // num objeto separado { [reinoId]: { campo: valor } }, mesclado na hora de
+  // exibir (ver pessoasReino.js e a aba "Pessoas" em WorldView).
+  const [pessoasOverrides, setPessoasOverrides] = useState({});
   const [gods, setGods] = useState(SEED_GODS);
   const [sagas, setSagas] = useState(SEED_SAGAS);
   const [objectives, setObjectives] = useState(SEED_OBJECTIVES);
@@ -7639,12 +8557,20 @@ export default function App() {
           // glossário/notas do mestre só enquanto a descrição ainda for o
           // rascunho antigo — não sobrescreve edição já feita (ver suth.js).
           reinos = preencherReinoSuth(reinos, DADOS_SUTH);
+          // Pessoas do reino (Pilares/relações/genealogias): semeia só quem
+          // ainda não tem `pessoas` — idempotente, não sobrescreve edição do
+          // GM nem um conteúdo semeado antes (ver pessoasReino.js).
+          reinos = reporPessoasDoReino(reinos, SEMENTES_PESSOAS_REINO);
           setKingdoms(reinos);
         }
       } catch (e) {}
       try {
         const ov = await storage.get("point-cidades-overrides");
         if (ov?.value) setCidadesOverrides(normalizarEstado({ cidadesOverrides: JSON.parse(ov.value) }).cidadesOverrides);
+      } catch (e) {}
+      try {
+        const pov = await storage.get("point-pessoas-overrides");
+        if (pov?.value) setPessoasOverrides(normalizarEstado({ pessoasOverrides: JSON.parse(pov.value) }).pessoasOverrides);
       } catch (e) {}
       try {
         const g = await storage.get("point-gods");
@@ -7665,6 +8591,7 @@ export default function App() {
   useEffect(() => { if (loaded) storage.set("point-characters", JSON.stringify(characters)).catch(() => {}); }, [characters, loaded]);
   useEffect(() => { if (loaded) storage.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
   useEffect(() => { if (loaded) storage.set("point-cidades-overrides", JSON.stringify(cidadesOverrides)).catch(() => {}); }, [cidadesOverrides, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-pessoas-overrides", JSON.stringify(pessoasOverrides)).catch(() => {}); }, [pessoasOverrides, loaded]);
   useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
   useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
   useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
@@ -7744,7 +8671,7 @@ export default function App() {
   // login, isso é a rede de segurança — baixa um .json com tudo (personagens +
   // reinos/deuses/sagas/objetivos) pra poder restaurar se algo for apagado.
   function handleExportBackup() {
-    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides });
+    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -7780,6 +8707,7 @@ export default function App() {
         setSagas(normalizado.sagas);
         setObjectives(normalizado.objectives);
         setCidadesOverrides(normalizado.cidadesOverrides);
+        setPessoasOverrides(normalizado.pessoasOverrides);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );
@@ -8002,6 +8930,7 @@ export default function App() {
             kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} gm={gm}
             characters={characters}
             cidadesOverrides={cidadesOverrides} setCidadesOverrides={setCidadesOverrides}
+            pessoasOverrides={pessoasOverrides} setPessoasOverrides={setPessoasOverrides}
             onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
           />
         )}

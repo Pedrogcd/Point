@@ -50,6 +50,12 @@ describe("grupoDoPersonagem", () => {
     assert.equal(grupoDoPersonagem({ id: "erin" }), "c");
     assert.equal(grupoDoPersonagem({ id: "erin", faction: "Goethia" }), "c");
   });
+  it("sem campo grupo, classifica pelo prefixo hetalion_ do id", () => {
+    assert.equal(grupoDoPersonagem({ id: "hetalion_crikon" }), "hetalion");
+  });
+  it("a Leona (id 'leona', faction Hetalion, Grupo C) NÃO é reclassificada pra hetalion", () => {
+    assert.equal(grupoDoPersonagem({ id: "leona", faction: "Hetalion" }), "c");
+  });
 });
 
 // Cenários de carregamento verificados manualmente (ver INSTRUCAO-claude-code-

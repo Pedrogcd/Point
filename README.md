@@ -16,6 +16,7 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `suth.test.js` — testes automatizados do `suth.js`
 - `suthStats.test.js` — confere a tabela de estatísticas das 15 fichas do Suth (Defesa/Armadura/Resistências/Acerto/HP/MP) contra o motor de verdade, e o limite de `MAX_PROCS`
 - `public/retratos-suth/` — retratos dos personagens do Grupo Suth, os três Pilares e o banner do reino
+- `public/retratos-hetalion/` — retratos dos 4 personagens do Grupo Hetalion que vieram com arte (Asana, Jingen, Shoebil, Hoshon); Crikon e Emeaver ainda não têm imagem
 - `mundoDados.js` — conteúdo fixo do Mundo: Katalão (casas, etiquetas, mapa) e a cidade de Frontier (distritos, NPCs, forças, mesa do mestre), com versão pública (`pub`) e do mestre (`gm`)
 - `mundo.js` / `mundo.test.js` — funções puras do Mundo (o que cada modo Jogador/GM enxerga, agrupamento de NPCs, pinos do mapa) e seus testes, incluindo uma checagem de que segredos do mestre não aparecem no modo Jogador
 - `public/mundo/` — mapa do mundo, mapa e imagem de Katalão, retratos dos NPCs
@@ -49,9 +50,9 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 
 | Aba | O que faz |
 |---|---|
-| **Início** | Um quadrado por mesa (Grupo C, Grupo Aurora, Grupo Suth, Grupo Goethia) que leva para os personagens daquele grupo, e quadradinhos dos reinos que levam para as fichas e os NPCs de cada reino |
+| **Início** | Um quadrado por mesa (Grupo C, Grupo Aurora, Grupo Suth, Grupo Goethia, Grupo Hetalion) que leva para os personagens daquele grupo, e quadradinhos dos reinos que levam para as fichas e os NPCs de cada reino |
 | **Objetivos** | Metas da campanha com estados (Ativo/Pausado/Concluído) |
-| **Personagens** | Fichas completas dos 43 personagens (13 do Grupo C + 6 do Grupo Aurora + 14 do Grupo Suth + 10 do Grupo Goethia) e a seleção "NPCs do mundo" (cartões por reino e cidade, ex.: Katalão › Frontier), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
+| **Personagens** | Fichas completas dos 49 personagens (13 do Grupo C + 6 do Grupo Aurora + 14 do Grupo Suth + 10 do Grupo Goethia + 6 do Grupo Hetalion) e a seleção "NPCs do mundo" (cartões por reino e cidade, ex.: Katalão › Frontier), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
@@ -65,7 +66,7 @@ O app **não exige login**: qualquer pessoa com o link edita, exclui, salva e ga
 
 ## Estrutura da ficha
 
-- **Grupo (mesa)**: Grupo C (campanha principal), Grupo Aurora (Sidepoint), Grupo Suth (Império de Suth) ou Grupo Goethia
+- **Grupo (mesa)**: Grupo C (campanha principal), Grupo Aurora (Sidepoint), Grupo Suth (Império de Suth), Grupo Goethia ou Grupo Hetalion
 - **Singularidade**, **Habilidade de Raça** + **2 Classes** — tabelas de 3 caixas em largura total, acima dos atributos
 - **Atributos Gerais** (9): Força, Destreza, Vigor / Carisma, Manipulação, Compostura / Inteligência, Perspicácia, Resolução
 - **Proficiências** (32), em 4 categorias: Combate, Física, Social, Mental
@@ -120,7 +121,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora, o Grupo Suth, o Grupo Goethia, o componente de retrato, a aba "Pessoas" do reino, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `cidadeOverrides.test.js`, `seedGuard.test.js`, `characterForm.render.test.js`, `rollPanel.test.js`, `suth.test.js`, `suthStats.test.js`, `retrato.render.test.js`, `pessoasReino.test.js` e `pessoasReino.render.test.js` — 452 testes ao todo:
+O motor de combate, o Grupo Aurora, o Grupo Suth, o Grupo Goethia, o Grupo Hetalion, o componente de retrato, a aba "Pessoas" do reino, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `cidadeOverrides.test.js`, `seedGuard.test.js`, `characterForm.render.test.js`, `rollPanel.test.js`, `suth.test.js`, `suthStats.test.js`, `retrato.render.test.js`, `pessoasReino.test.js` e `pessoasReino.render.test.js` — 476 testes ao todo:
 
 ```
 npm test

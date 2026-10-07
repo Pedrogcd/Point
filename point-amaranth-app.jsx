@@ -2890,16 +2890,183 @@ const GOETHIA_CHARACTERS_RAW = [
 
 const GOETHIA_CHARACTERS = GOETHIA_CHARACTERS_RAW.map((c) => withFichaDefaults(c));
 
+// Grupo Hetalion — 6 fichas em rascunho (grau E em tudo, mesma convenção do
+// Grupo Goethia), vindas de dossiês em prosa pura, sem estatísticas de
+// combate. Os quatro Generais das Federações + dois subcomandantes
+// (Executor-Chefe da Azul, Comandante das Forças Especiais da Negra).
+// Hetalion Prime e Seguintes (a cargo/sucessora) não têm dossiê — entram só
+// como nomeLivre na aba Pessoas do reino, sem ficha.
+const HETALION_CHARACTERS_RAW = [
+  {
+    id: "hetalion_crikon", name: "Crikon", epithet: "A Lâmina Invisível · Executor-Chefe da Federação Azul",
+    race: "Hetaliano (nascido em Katalão)", faction: "Hetalion",
+    affiliation: "Federação Azul · Executor-Chefe das Forças Policiais", height: "—",
+    deity: "—", weapon: "Espada",
+    traits: "32 anos (aparenta menos, graças a magia de preservação). Olhos azul-acinzentados, imóveis e clínicos; uniforme azul-escuro cerimonial sem adornos, cada botão alinhado como um ritual pessoal de autocontrole. Frio, lógico e implacável — raramente mostra emoção real. Determinação inabalável, autocontrole absoluto, foco total em resultados. Totalmente inflexível, incapaz de se conectar genuinamente com qualquer pessoa, ignora o sofrimento alheio justificando tudo como 'parte do equilíbrio necessário'.",
+    xp: 0,
+    singularity: { name: "Corte Fantasma", level: "—", description: "Torna partes do corpo ou da arma intangíveis em relação a objetos e pessoas específicos: a lâmina atravessa blindagens, armaduras e escudos, atingindo só o alvo desejado, e ele pode atravessar paredes e obstáculos sólidos ao perseguir fugitivos. Precisa de concentração total pra manter a intangibilidade; usar o poder por períodos longos desgasta sua energia vital." },
+    racialAbility: { name: "Filho sem pátria", description: "Nascido em Katalão, filho de uma nobre hetaliense exilada e de um aristocrata katalanês; repatriado ainda criança após a execução da mãe por traição." },
+    classes: [
+      { name: "Executor-Chefe das Forças Policiais da Federação Azul", description: "Autoridade máxima operacional em investigações, repressão e execução de sentenças; subiu de investigador a Executor-Chefe em tempo recorde por competência absoluta e resultados inquestionáveis." },
+      { name: "Agente infiltrado de Seguintes", description: "Finge lealdade absoluta a Hetalion Prime; na realidade é um dos principais agentes de Seguintes, trabalhando por dentro pra livrar Hetalion da influência de Amaranth." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Subiu ao topo da Federação Azul por competência absoluta. Na Guerra Civil, 5 anos atrás, ganhou notoriedade como o caçador infalível de rebeldes, responsável pelo 'extermínio' de várias células insurgentes — o que ninguém sabe é que seus maiores feitos foram, na verdade, operações cuidadosamente conduzidas para permitir que os principais líderes rebeldes escapassem em segredo. Prega a justiça absoluta como se fosse uma força da natureza, mas essa crença é uma máscara: uma penitência autoimposta pela execução da própria mãe. Despreza Hetalion Prime e Amaranth em silêncio. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+  {
+    id: "hetalion_emeaver", name: "Emeaver Valcron", epithet: "Estrela Negra Ascendente · Comandante das Forças Especiais",
+    race: "Hetaliana (linhagem tradicional da Federação Negra)", faction: "Hetalion",
+    affiliation: "Federação Negra · Comandante das Forças Especiais", height: "—",
+    deity: "—", weapon: "Combate marcial — o próprio corpo como arma",
+    traits: "25 anos aparentes. Extremamente pragmática, direta, presa aos protocolos sociais de Hetalion; tem dificuldade em interpretar nuances emocionais, o que a faz parecer fria e arrogante. Falta de empatia e expressividade; dificuldade com relações políticas e emocionais. É respeitada, mas vista como distante ou inalcançável — só os subordinados mais próximos entendem sua forma de demonstrar cuidado. Apelido não oficial entre os soldados: 'A que nunca erra'.",
+    xp: 0,
+    singularity: { name: "Corpo Ideal", level: "—", description: "Nasceu com um corpo fisicamente perfeito — força, agilidade, destreza, raciocínio e imunidade avançadas. Desde jovem entendeu que isso não bastava, e aprimorou técnicas marciais e táticas pra maximizar esse dom. Estilo de combate rápido, preciso, sem desperdício de movimento, treinado pra infiltração e execução com máxima eficiência." },
+    racialAbility: { name: "Programa secreto da Negra", description: "Recrutada ainda criança por um programa secreto da Federação Negra; moldada com disciplina absoluta, seus méritos e desempenho tático a elevaram rapidamente — vista internamente como 'senhorita perfeitinha', imponente e aparentemente sem falhas." },
+    classes: [
+      { name: "Comandante das Forças Especiais da Federação Negra", description: "Lidera missões de infiltração e execução de máxima eficiência." },
+      { name: "Analista política neutra", description: "Avalia federações e reinos externos com pragmatismo frio, sem envolvimento emocional ou preconceito — tenta manter neutralidade política, mas nutre admiração secreta por Hetalion Seguinte." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Vê seu corpo como um dom e sente que deve usá-lo para propósitos maiores. Leal declaradamente à Federação Negra, mantém amizade distante e respeito mútuo com Crikon (Azul), relação funcional e de respeito como superior com Jingen (seu comandante direto na Negra), e uma amizade inesperada — construída em respeito tático — com Kiryu, de Maxis Power. Nutre admiração interna e um conflito emocional em relação a Hetalion Seguinte. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+  {
+    id: "hetalion_asana", name: "Asana Desroar", epithet: "A Heroína de Hetalion · General da Federação Vermelha",
+    race: "Hetaliana (origem estrangeira desconhecida)", faction: "Hetalion",
+    affiliation: "Federação Vermelha · Comandante das Forças de Justiça Histórica e Tribunais Militares", height: "—",
+    deity: "—", weapon: "Lança modular eletrificada (fragmentável em chicote laminado)",
+    traits: "40 anos (aparência de vinte e poucos, graças a magia de preservação contínua). Olhos vermelhos vibrantes, cabelos longos roxo-escuros com reflexos magenta; postura sempre de avanço, ataque e liderança pessoal. Impetuosa, apaixonada e emocionalmente intensa. Inspiradora no campo de batalha, carismática com as tropas, incansável quando o tema é proteger civis ou soldados sob seu comando. Imprudente, orgulhosa, extremamente impaciente com burocracia e longas discussões políticas.",
+    xp: 0,
+    singularity: { name: "Lança da Tempestade", level: "—", description: "Manipula eletricidade e corrente elétrica com maestria através de sua lança modular, que se fragmenta em um chicote laminado e eletrificado capaz de atacar à distância com extrema violência. Mistura combate de médio e curto alcance, com foco em mobilidade e ataques de área; famosa por criar zonas de negação de terreno, espalhando eletricidade em campo aberto." },
+    racialAbility: { name: "Ascensão por mérito puro", description: "Estrangeira de origem desconhecida, sem registros oficiais de sua terra natal; ascendeu inteiramente por mérito militar e fidelidade ao Código do Exército Vermelho." },
+    classes: [
+      { name: "General da Federação Vermelha de Hetalion", description: "Comanda as Forças de Justiça Histórica e os Tribunais Militares; quase uma lenda viva dentro da Vermelha, capaz de liderar batalhões inteiros com um grito de comando." },
+      { name: "Veterana de guerra", description: "Destacou-se há 20 anos na guerra contra Goethia e na operação antiterrorista que salvou Amaranth de um ataque devastador, trabalhando ao lado de agentes como Jingen." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Chegou ao cargo de General da Vermelha pelo suor, sangue e mérito puro, liderando dezenas de campanhas militares à frente das próprias tropas. Na Guerra Civil, 5 anos atrás, lutou ao lado da Prime — não por lealdade pessoal, mas por ver na defesa do governo a única forma de proteger a estrutura militar da Vermelha e a honra de Hetalion. Não é leal nem à Prime nem à Seguintes: é leal exclusivamente ao Código da Vermelha e à ideia de ser o escudo e a espada do povo de Hetalion. Vista como 'a Heroína de Hetalion' pelo povo. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+  {
+    id: "hetalion_jingen", name: "Jingen Baladar", epithet: "O Veneno Adormecido · General da Federação Negra",
+    race: "Hetaliano (nascido em Tauros, cidade militar da Negra)", faction: "Hetalion",
+    affiliation: "Federação Negra · Líder das Forças de Defesa Nacional", height: "1,65m",
+    deity: "—", weapon: "Armas discretas e de rápido saque (facas, punhais, espada curta)",
+    traits: "38 anos (aparência jovem por uso contínuo de mana). Pele extremamente pálida, quase alva, rosto arredondado de traços delicados quase infantis; olhos vermelho-sangue intensos, cabelos louro-claros bagunçados. Sorriso debochado e comportamento teatral escondem um homem letal, imprevisível e profundamente danificado por anos de espionagem e infiltração. Extremamente adaptável, inteligente em campo, capaz de improvisar sob pressão como poucos. Impulsivo, incapaz de manter uma personalidade estável, desrespeita hierarquias administrativas, tendência autodestrutiva.",
+    xp: 0,
+    singularity: { name: "Névoa de Veneno e Gelo", level: "—", description: "Singularidade híbrida: gera, manipula e espalha névoas geladas carregadas de veneno e miasma. Envenena ambientes fechados, cria armadilhas geladas e imobiliza alvos com névoas densas — arma de contenção e de assassinato silencioso ao mesmo tempo." },
+    racialAbility: { name: "Agente duplo de carreira", description: "Durante duas décadas atuou como espião, sabotador e agente duplo, infiltrando-se em grupos terroristas, milícias rebeldes e células dissidentes dentro da própria Hetalion." },
+    classes: [
+      { name: "General da Federação Negra de Hetalion", description: "Líder das Forças de Defesa Nacional; respeitado por resultados, malquisto pela administração — uma lenda e um problema dentro da própria Negra." },
+      { name: "Infiltrado e agente duplo", description: "Foi o principal agente infiltrado na maior célula terrorista da história de Hetalion (20 anos atrás) e, na Guerra Civil, fingiu apoiar os rebeldes para depois traí-los na hora decisiva, garantindo a vitória de Prime." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Construiu sua reputação como o agente mais eficiente e perigoso da história recente da Federação Negra. Sua 'lealdade' na Guerra Civil lhe rendeu promoção direta a General, mas ele nunca escondeu que a escolha foi por oportunismo e autopreservação, não por lealdade a Prime — a quem respeita a posição, mas considera submissa demais à influência de Amaranth. Está alinhado com Seguintes, em quem enxerga a chance de mudar o rumo de Hetalion. Acredita que 'os fins sempre justificam os meios'. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+  {
+    id: "hetalion_shoebil", name: "Shoebil Valadar", epithet: "A Engrenagem Impecável · General da Federação Azul",
+    race: "Hetaliana (nascida em Cancer, coração administrativo da Azul)", faction: "Hetalion",
+    affiliation: "Federação Azul · General", height: "1,85m",
+    deity: "—", weapon: "Espada longa funcional (raramente usada)",
+    traits: "49 anos (aparência mais jovem por magia estabilizadora). Cabelos longos dourado-platinados sempre alinhados, olhos lilás-claro com brilho cortante e sempre atentos a detalhes técnicos; uniforme azul-escuro com bordas douradas, luvas brancas, capa com insígnia da justiça. Fria, metódica, obcecada por procedimentos, rigidez quase caricatural com regras e formulários. Um pouco incompetente fora do papel administrativo, desatenta a nuances políticas e estratégias militares; inflexibilidade que a torna lenta em crises que exigem improviso.",
+    xp: 0,
+    singularity: { name: "Dissolução Progressiva", level: "—", description: "Derrete lentamente o que toca, podendo afetar materiais orgânicos e inorgânicos. Útil para interrogatórios, contenção de prisioneiros ou destruição controlada de barreiras — mas pouco útil em combate direto contra inimigos de nível general." },
+    racialAbility: { name: "Carreira burocrática exemplar", description: "Não é guerreira nem estrategista militar brilhante; subiu ao cargo de General por uma carreira exemplar como burocrata e lealdade inabalável à Hetalion Prime." },
+    classes: [
+      { name: "General da Federação Azul de Hetalion", description: "Faz a máquina estatal Azul funcionar sem travar; indicada por Prime após a Guerra Civil como parte de uma estratégia para cercar o governo de figuras de confiança." },
+      { name: "Coordenadora logística", description: "Na Guerra Civil, coordenou a logística, a mobilização das tropas legais e a comunicação entre departamentos na defesa de Cancer, contra a rebelião promovida pelo antigo General Azul." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "O epítome da burocracia viva: 'a lei é um procedimento, execute-o e siga para o próximo'. Leal de forma absoluta à Hetalion Prime, evita pensar no assunto de Seguintes. Boa relação com a Vermelha (trabalham juntas em prisões de base histórica), relação tensa com a Negra (por operações na linha da ilegalidade), indiferente com a Branca a menos que envolva burocracia. Vinte anos atrás, auxiliou heróis de Amaranth a derrotar uma célula terrorista em Cancer, fortalecendo os laços diplomáticos entre Hetalion e Amaranth. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+  {
+    id: "hetalion_hoshon", name: "Hoshon Val Genkai", epithet: "O Sumo Mediador · General da Federação Branca",
+    race: "Hetaliano (natural de um distrito monástico da Federação Branca)", faction: "Hetalion",
+    affiliation: "Federação Branca · Sumo Mediador dos Rituais Nacionais de Hetalion", height: "—",
+    deity: "Os 9 deuses universais do continente", weapon: "Leque preto com detalhes dourados (símbolo de autoridade e catalisador mágico)",
+    traits: "61 anos (aparência de cerca de 30, graças a rituais de preservação da Branca). Cabelos longos prateados, pele alva, olhos prateado-esverdeados; manto cerimonial branco com ornamentos dourados e azuis. Voz suave que carrega o peso de uma sentença divina ou de uma armadilha política cuidadosamente tecida. Manipulador, teatral e politicamente venenoso — cada gesto parece ensaiado, cada sorriso carrega uma segunda intenção. Extremamente inteligente, persuasivo, mestre em leitura emocional e manipulação de massas. Arrogância espiritual extrema, trata vidas humanas como peças de um grande jogo filosófico, incapaz de criar laços genuínos de afeto.",
+    xp: 0,
+    singularity: { name: "Véu da Verdade", level: "—", description: "Enxerga o fluxo emocional e espiritual de todos ao redor: detecta emoções ocultas, dúvidas, mentiras e intenções homicidas mesmo quando camufladas por treinamento mental, e pode manipular o estado emocional coletivo de uma multidão, induzindo pânico, fé, arrependimento ou coragem. Pessoas extremamente disciplinadas, com autocontrole excepcional (como veteranos da Negra ou alguns guerreiros de Goethia), podem resistir." },
+    racialAbility: { name: "Arquiteto dos ritos de Hetalion", description: "Subiu pelas fileiras da Federação Branca não por feitos de combate, mas por habilidade inigualável em manipulação social, jogos de influência e domínio cultural." },
+    classes: [
+      { name: "General da Federação Branca — Sumo Mediador", description: "Conduziu os rituais fúnebres de dezenas de figuras importantes de Hetalion, consolidando-se como figura central nas cerimônias de transição de poder." },
+      { name: "Arquiteto político", description: "Foi o arquiteto dos Tratados de Paz Internos pós-Guerra Civil, e dizem ter sido o mentor por trás das atuais leis que limitam o poder espiritual da própria Federação Branca — usando o paradoxo para fortalecer a própria influência." },
+    ],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Para Hoshon, Hetalion é uma entidade espiritual viva, e ele se vê como o guardião moral e cultural desse espírito nacional. Trata Prime com respeito teatral, mas age nos bastidores para garantir que a Branca nunca perca relevância política. Observa Seguintes com interesse e desconfiança — vê nela um símbolo de mudança que pode ser moldado se for bem administrado. Respeita a Deusa Karphel, mas considera Amaranth um tabuleiro perigoso. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+];
+
+// Qual arquivo em public/retratos-hetalion/ é o retrato de cada id — Crikon
+// e Emeaver não têm imagem nos dossiês recebidos, ficam sem imageUrl até
+// alguém subir uma pela ficha.
+const HETALION_RETRATOS = {
+  hetalion_asana: "hetalion_asana.jpg",
+  hetalion_jingen: "hetalion_jingen.jpg",
+  hetalion_shoebil: "hetalion_shoebil.jpg",
+  hetalion_hoshon: "hetalion_hoshon.jpg",
+};
+const HETALION_CHARACTERS = HETALION_CHARACTERS_RAW.map((c) => withFichaDefaults({
+  ...c,
+  imageUrl: HETALION_RETRATOS[c.id] ? assetUrl(`retratos-hetalion/${HETALION_RETRATOS[c.id]}`) : "",
+}));
+
 // Exportado (além do default App) só pro teste de smoke de render
 // (characterForm.render.test.js) — garante que os personagens semente (Grupo
-// C + Aurora + Suth + Goethia) renderizam sem lançar exceção.
+// C + Aurora + Suth + Goethia + Hetalion) renderizam sem lançar exceção.
 export const SEED_CHARACTERS = aplicarFichaSuthDoFate(
-  [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS, ...SUTH_CHARACTERS, ...GOETHIA_CHARACTERS],
+  [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS, ...SUTH_CHARACTERS, ...GOETHIA_CHARACTERS, ...HETALION_CHARACTERS],
   FICHA_NOVA_FATE
 );
 
 const SEED_KINGDOMS_RAW = [
-  { id: "hetalion", name: "Hetalion", description: "República federal dividida em quatro federações coloridas (Vermelha, Azul, Branca e Preta), cada uma com sua própria doutrina militar e política interna. [Rascunho — refine comigo quando quiser.]", cities: [{ name: "Novolar", description: "Comunidade de imigrantes ningen; palco da revolta liderada por Puman." }] },
+  { id: "hetalion", name: "Hetalion",
+    description: "República federativa de ordem, mérito e pragmatismo, dividida em quatro federações coloridas — Vermelha, Azul, Branca e Negra — cada uma com doutrina militar e política próprias, unidas sob a figura cerimonial da Hetalion e um Conselho Executivo compartilhado.",
+    visaoGeral: "Hetalion é uma república federativa baseada em ordem, mérito e pragmatismo. O povo hetaliano é unido por um senso coletivo de dever, ética e respeito às instituições — honestidade, disciplina e lealdade ao Estado são virtudes celebradas. Aos olhos estrangeiros, porém, os hetalianos são vistos como literalistas, socialmente rígidos e com pouco senso de humor; sarcasmo, ironia e gírias são quase incompreensíveis para eles. O culto à separação entre funções é tamanho que cada cidadão mantém trajes específicos para cada ocasião da vida: trabalho, lazer, rituais, sono e até negociações diplomáticas.\n\nO governo é dividido entre a Hetalion (título cerimonial do chefe de Estado, figura pública, mediadora entre as federações, líder espiritual e última instância judicial) e os Generais das Quatro Federações, numa estrutura híbrida entre república parlamentarista e conselho militar. O Conselho Legislativo e Judiciário tem 52 membros, com cadeiras proporcionais ao apoio popular de cada federação, e atua também como suprema corte. O Conselho Executivo reúne os 4 Generais (um de cada cor) mais a Hetalion. Cargos menores vêm de concurso público, cargos médios por acúmulo de mérito, e o cargo de General é eleito dentro da própria federação, com indicação prévia obrigatória da Hetalion.\n\nCada federação governa suas áreas com autonomia relativa: a Vermelha cuida de Justiça e Memória (nenhuma injustiça deve ser esquecida); a Azul, de Lei e Ordem (a lei é absoluta até ser reformada); a Branca, de Cultura e Fé (defende tradições, cultura nacional e religião, supervisionando todos os ritos oficiais); e a Negra, de Defesa e Militarismo (segurança interna e externa, controle do braço armado e da Força Unificada). Hetalion segue os 9 deuses universais do continente, os mesmos cultuados em Goethia e outros reinos; a Branca supervisiona todas as práticas religiosas através de uma Igreja Nacional centralizada na capital, mas sua influência direta não alcança as demais federações.\n\nCada federação mantém seu próprio exército — Vermelho, Azul, Branco e Negro — que em tempos de guerra se unem na Força Unificada de Hetalion. As tropas são pequenas em número, mas de altíssima qualidade tática, espionagem e magia estratégica; Singularidades aparecem nas patentes mais altas, mas não são obrigatórias para ascensão política ou militar.\n\nA sociedade tem alta liberdade teórica, mas rigidez social extrema na prática: quem quebra protocolos sociais é punido socialmente, mesmo sem infringir a lei. Estrangeiros são tolerados, mas geralmente confinados a zonas específicas, e poucos conseguem cidadania plena. Casamentos inter-federativos existem, mas são mal vistos. Entre os eventos nacionais estão jogos internos entre federações, festivais de batalha e mérito, e competições de estratégia e oratória.",
+    rebeliao: {
+      titulo: "A Guerra Civil de Hetalion (5 anos atrás)",
+      texto: "Uma guerra civil interna, ligada à cidade ningen de Novolar — que recebia apoio de Goethia —, colocou a estrutura do Estado à prova. Hetalion chegou a ajudar Suth militarmente durante a guerra Suth x Goethia da mesma época, como forma de retaliar Goethia. Internamente, tropas legais enfrentaram uma rebelião promovida pelo então General da Federação Azul, que se voltara contra o Estado; a vitória do governo (da atual Hetalion, Prime) redesenhou o Conselho Executivo e elevou vários dos nomes hoje no poder. Durante o Golpe de Giovana em Goethia, Hetalion apoiou ativamente a ascensão do novo Tzar — exércitos das Federações Vermelha e Negra intervieram diretamente ao lado dele. Hoje, a tensão interna cresce entre a atual Hetalion (Prime) e sua sucessora designada (Seguintes, sua filha), enquanto a ameaça de invasão por Katalão ronda as fronteiras.",
+    },
+    economia: [
+      "Baseada em tecnologia administrativa, engenharia de precisão, serviços estratégicos e consultoria mágica — não possui grande indústria ou força de produção, mas é referência em eficiência, gestão e soluções complexas.",
+      "Moeda oficial: Karphel, a mesma dos outros reinos.",
+      "A Federação Branca é a mais rica; a Vermelha é a mais pobre, mas tem o maior efetivo militar.",
+      "Há regulação econômica interna, com tarifas e ajustes para equilibrar o desenvolvimento entre as federações.",
+    ],
+    relacoes: [
+      { reino: "Suth", tipo: "Aliança pontual e assimétrica", texto: "Hetalion ajudou Suth militarmente contra Goethia há 5 anos, como forma de retaliação; Suth, porém, vê Hetalion como alvo militar fraco e constante alvo de invasões — a aliança é mais útil a Hetalion do que recíproca." },
+      { reino: "Goethia", tipo: "Intervenção calculada no golpe", texto: "Apesar do histórico de invasões passadas contra Lavkhekh e Libish, Hetalion apoiou ativamente o golpe de Giovana — tropas das Federações Vermelha e Negra intervieram diretamente ao lado do novo Tzar, numa aposta política de longo prazo." },
+      { reino: "Katalão", tipo: "Ameaça crescente", texto: "Relação de desconfiança e hostilidade histórica; a ameaça de invasão por Katalão ronda as fronteiras de Hetalion e é motivo de preocupação nacional crescente." },
+      { reino: "Maxis Power", tipo: "Desconfiança cultural", texto: "Visto por boa parte da liderança hetaliana como um reino de mercado inovador, porém degenerado — uma potência econômica a ser tolerada, não admirada." },
+      { reino: "Amaranth/Omem", tipo: "Respeito cauteloso", texto: "Hetalion respeita a Deusa Karphel e mantém laços diplomáticos reais com Amaranth, mas parte da liderança vê a influência do reino sobre a Hetalion Prime como um risco à soberania — um tabuleiro perigoso de se jogar." },
+    ],
+    glossario: [
+      { termo: "Hetalion (cargo)", texto: "Título cerimonial do chefe de Estado — dá nome ao próprio reino. Atual: Prime. Sucessora oficial: Seguintes (sua filha)." },
+      { termo: "Federação Vermelha", texto: "Justiça e Memória — tribunais militares e justiça histórica; preza que nenhuma injustiça seja esquecida." },
+      { termo: "Federação Azul", texto: "Lei e Ordem — aplicação da lei, investigação e repressão; \"a lei é absoluta até que seja reformada\"." },
+      { termo: "Federação Branca", texto: "Cultura e Fé — tradições, cultura nacional e supervisão de todos os ritos religiosos oficiais." },
+      { termo: "Federação Negra", texto: "Defesa e Militarismo — segurança interna e externa, braço armado e Força Unificada." },
+      { termo: "Força Unificada", texto: "União dos quatro exércitos federativos (Vermelho, Azul, Branco e Negro) em tempos de guerra." },
+      { termo: "Conselho Executivo", texto: "Os 4 Generais das Federações mais a Hetalion; principal instância de decisão política e militar do reino." },
+    ],
+    notasDoMestre: [
+      "Os 6 personagens do Grupo Hetalion (4 Generais + 2 subcomandantes) entram em rascunho, grau E em tudo — mesma convenção do Grupo Goethia, só com estatísticas reais quando o mestre definir.",
+      "Hetalion Prime e Seguintes são cargo/título que também funciona como nome próprio; não há dossiê de nenhuma das duas ainda. Aparecem na aba Pessoas como nomes livres, sem ficha.",
+      "Crikon nasceu em Katalão, filho de aristocrata katalanês — bate com a descrição já existente do reino Katalão ('revelação de Crikon como herdeiro ilegítimo do trono'). As duas fontes são consistentes, não conflitam; vale linkar quando o dossiê de Katalão chegar.",
+      "Leona, Ookami Serin e Vientra já existiam como personagens do Grupo C com faction \"Hetalion\" antes deste material chegar — nenhuma delas tem ficha tocada aqui; o dossiê novo só adicionou o elenco de Generais e o conteúdo do reino/aba Pessoas.",
+      "O General Azul anterior, que se voltou contra o Estado na Guerra Civil, não tem nome nos dossiês recebidos — citado só como figura histórica no texto da rebelião.",
+      "Nenhum dossiê nomeia uma capital nacional nem cidades-sede da Federação Vermelha ou Branca; só Cancer (Azul) e Tauros (Negra) são citadas por nome, além de Novolar (comunidade ningen, já existente no reino antes deste material).",
+    ],
+    cities: [
+      { id: "hetalion_cancer", name: "Cancer", resumo: "Coração administrativo da Federação Azul. Sede da burocracia estatal e das forças policiais azuis; vinte anos atrás foi palco de uma operação conjunta com heróis de Amaranth contra uma célula terrorista, e cinco anos atrás resistiu a uma rebelião interna liderada por um General Azul dissidente.", x: null, y: null, capital: false, documentada: true },
+      { id: "hetalion_tauros", name: "Tauros", resumo: "Cidade militar da Federação Negra. Centro de formação e operações das forças de defesa nacional e de inteligência da Negra.", x: null, y: null, capital: false, documentada: true },
+      { id: "hetalion_novolar", name: "Novolar", resumo: "Comunidade de imigrantes ningen dentro de Hetalion; palco de uma revolta interna liderada por Puman, contida com ajuda de agentes infiltrados da Federação Vermelha. Hoje administra suas próprias regras comunitárias.", x: null, y: null, capital: false, documentada: true },
+    ],
+  },
   { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]",
     // Lido pela cor dos nomes no mapa (amarelo parece ser Katalão) — o Pedro
     // confirma e corrige pelo editor (botão "Editar mapa" na aba Mundo).
@@ -3087,6 +3254,9 @@ const DADOS_SUTH = SEED_KINGDOMS_RAW.find((k) => k.id === "suth");
 // Mesmo raciocínio, agora pro reino de Goethia (preencherReinoSuth é
 // genérica — já olhava só pro id do reino, não precisou de função nova).
 const DADOS_GOETHIA = SEED_KINGDOMS_RAW.find((k) => k.id === "goethia");
+
+// Mesmo raciocínio, agora pro reino de Hetalion.
+const DADOS_HETALION = SEED_KINGDOMS_RAW.find((k) => k.id === "hetalion");
 
 // Pessoas do reino Suth (Pilares, relações, genealogias) — ver pessoasReino.js
 // pra como isso é semeado (reporPessoasDoReino) e exibido (aba "Pessoas" em
@@ -3616,11 +3786,80 @@ export const DADOS_PESSOAS_GOETHIA = {
   ],
 };
 
+// Pessoas do reino Hetalion (Conselho, Federações, relações) — ver
+// pessoasReino.js pra como isso é semeado (reporPessoasDoReino) e exibido
+// (aba "Pessoas" em WorldView). Todo personagemId aqui existe em
+// HETALION_CHARACTERS_RAW ou é "kiryu" (Grupo C) — conferido em
+// pessoasReino.render.test.js (varredura de ids). Sem genealogias: os
+// dossiês recebidos não trazem dados de família suficientes pra montar uma
+// árvore sem inventar parentesco.
+export const DADOS_PESSOAS_HETALION = {
+  estrutura: {
+    titulo: "Conselho Executivo e as Quatro Federações de Hetalion",
+    grupos: [
+      {
+        id: "coroa", nome: "Hetalion e a Sucessão", funcao: "Chefia de Estado cerimonial, mediação entre federações e última instância judicial",
+        membros: [
+          { nomeLivre: "Hetalion Prime", cargo: "Hetalion atual — chefe de Estado", ordem: 1, nota: "Dossiê pendente" },
+          { nomeLivre: "Seguintes", cargo: "Sucessora oficial (filha de Prime)", ordem: 2, nota: "Dossiê pendente" },
+        ],
+      },
+      {
+        id: "federacao_vermelha", nome: "Federação Vermelha — Justiça e Memória", funcao: "Justiça histórica e tribunais militares",
+        membros: [
+          { personagemId: "hetalion_asana", cargo: "General da Federação Vermelha", ordem: 1 },
+        ],
+      },
+      {
+        id: "federacao_azul", nome: "Federação Azul — Lei e Ordem", funcao: "Aplicação da lei, investigação e repressão",
+        membros: [
+          { personagemId: "hetalion_shoebil", cargo: "General da Federação Azul", ordem: 1 },
+          { personagemId: "hetalion_crikon", cargo: "Executor-Chefe das Forças Policiais", ordem: 2 },
+        ],
+      },
+      {
+        id: "federacao_branca", nome: "Federação Branca — Cultura e Fé", funcao: "Tradições, cultura nacional e supervisão dos ritos religiosos",
+        membros: [
+          { personagemId: "hetalion_hoshon", cargo: "General da Federação Branca · Sumo Mediador dos Rituais Nacionais", ordem: 1 },
+        ],
+      },
+      {
+        id: "federacao_negra", nome: "Federação Negra — Defesa e Militarismo", funcao: "Segurança interna e externa, braço armado e Força Unificada",
+        membros: [
+          { personagemId: "hetalion_jingen", cargo: "General da Federação Negra", ordem: 1 },
+          { personagemId: "hetalion_emeaver", cargo: "Comandante das Forças Especiais", ordem: 2 },
+        ],
+      },
+    ],
+  },
+  relacoes: [
+    { de: "hetalion_crikon", para: "hetalion_shoebil", tipo: "rivalidade velada", rotulo: "vê Shoebil como incompetente funcional, útil só por ser previsível e obediente" },
+    { de: "hetalion_crikon", para: "hetalion_asana", tipo: "respeito", rotulo: "respeita sua coragem e pureza de propósito, ainda que ache sua impulsividade perigosa" },
+    { de: "hetalion_crikon", para: "hetalion_jingen", tipo: "desconfiança", rotulo: "desconfia profundamente — sabe que Jingen pode perceber suas intenções se prestar atenção" },
+    { de: "hetalion_crikon", para: "hetalion_hoshon", tipo: "desprezo", rotulo: "considera Hoshon um parasita político, manipulador incapaz de sujar as próprias mãos" },
+    { de: "hetalion_emeaver", para: "hetalion_crikon", tipo: "amizade distante", rotulo: "amizade distante e respeito mútuo" },
+    { de: "hetalion_emeaver", para: "hetalion_jingen", tipo: "hierarquia", rotulo: "relação funcional e de respeito como superior direto, sem envolvimento pessoal" },
+    { de: "hetalion_emeaver", para: "kiryu", tipo: "amizade", rotulo: "amizade inesperada com Kiryu, de Maxis Power, construída em respeito tático" },
+    { de: "hetalion_asana", para: "hetalion_shoebil", tipo: "tolerância impaciente", rotulo: "respeita a importância da Azul, mas não tem paciência com Shoebil — \"funcionária do mês em modo eterno\"" },
+    { de: "hetalion_asana", para: "hetalion_jingen", tipo: "desconfiança", rotulo: "não entende nem confia — considera Jingen perigoso, instável e teatral demais" },
+    { de: "hetalion_asana", para: "hetalion_hoshon", tipo: "distanciamento", rotulo: "evita contato sempre que possível; não se dá bem com a influência religiosa da Branca" },
+    { de: "hetalion_jingen", para: "hetalion_shoebil", tipo: "desprezo", rotulo: "desprezo absoluto — vê Shoebil como \"um cão obediente da Prime\", sem autonomia ou pensamento crítico" },
+    { de: "hetalion_jingen", para: "hetalion_asana", tipo: "respeito tático", rotulo: "reconhece a importância militar da Vermelha, trabalha com eles por necessidade, mas sem afeto" },
+    { de: "hetalion_jingen", para: "hetalion_hoshon", tipo: "desinteresse", rotulo: "acha os religiosos da Branca pretensiosos e inúteis em campo de batalha" },
+    { de: "hetalion_shoebil", para: "hetalion_asana", tipo: "parceria", rotulo: "boa relação — trabalham juntas em prisões de base histórica" },
+    { de: "hetalion_shoebil", para: "hetalion_jingen", tipo: "tensão", rotulo: "tensa, por conta de operações da Negra na linha da ilegalidade" },
+    { de: "hetalion_shoebil", para: "hetalion_hoshon", tipo: "indiferença", rotulo: "indiferente, a menos que algum processo burocrático a envolva" },
+  ],
+  genealogias: [],
+};
+
 // Sementes de "pessoas do reino" (ver reporPessoasDoReino em pessoasReino.js)
-// — Suth e Goethia por agora; outro reino que ganhar esse formato entra aqui.
+// — Suth, Goethia e Hetalion por agora; outro reino que ganhar esse formato
+// entra aqui.
 const SEMENTES_PESSOAS_REINO = [
   { reinoId: "suth", pessoas: DADOS_PESSOAS_SUTH },
   { reinoId: "goethia", pessoas: DADOS_PESSOAS_GOETHIA },
+  { reinoId: "hetalion", pessoas: DADOS_PESSOAS_HETALION },
 ];
 
 // Aplicado aqui (e não só na reposição do useEffect de carregamento) pelo
@@ -3650,12 +3889,14 @@ const GRUPO_C_ORDER = ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kut
 
 // Conceito de GRUPO (mesa): cada personagem pertence a uma campanha. "c" é o
 // Grupo C (a campanha principal), "aurora" é o Sidepoint, "suth" é a mesa do
-// Império de Suth, "goethia" é a mesa do reino de Goethia.
+// Império de Suth, "goethia" é a mesa do reino de Goethia, "hetalion" é a
+// mesa da república federativa de Hetalion.
 const GRUPOS = [
   { id: "c", label: "Grupo C", subtitulo: "Cavaleiros de Omem · campanha principal", cor: BRASS },
   { id: "aurora", label: "Grupo Aurora", subtitulo: "Mercenários de Beltezu · mesa Sidepoint", cor: "#B5654A" },
   { id: "suth", label: "Grupo Suth", subtitulo: "Três Pilares do Império de Suth", cor: EMBER },
   { id: "goethia", label: "Grupo Goethia", subtitulo: "Tzar, Irmandades e generais de Goethia", cor: FACTION_SEAL["Goethia"] },
+  { id: "hetalion", label: "Grupo Hetalion", subtitulo: "Generais e Executores das Quatro Federações", cor: FACTION_SEAL["Hetalion"] },
 ];
 
 const SEED_SAGAS = [
@@ -8884,6 +9125,13 @@ export default function App() {
             apagadosGoethia = remGoethia?.value ? JSON.parse(remGoethia.value) : [];
           } catch (e) { apagadosGoethia = []; }
           finalChars = reporSidepoint(finalChars, GOETHIA_CHARACTERS, apagadosGoethia);
+          // Hetalion: mesma reposição idempotente por personagem.
+          let apagadosHetalion = [];
+          try {
+            const remHetalion = await storage.get("point-hetalion-removidos");
+            apagadosHetalion = remHetalion?.value ? JSON.parse(remHetalion.value) : [];
+          } catch (e) { apagadosHetalion = []; }
+          finalChars = reporSidepoint(finalChars, HETALION_CHARACTERS, apagadosHetalion);
           setCharacters(finalChars);
         }
       } catch (e) {}
@@ -8911,6 +9159,7 @@ export default function App() {
           // é genérica, reusada aqui pra Goethia também, ver suth.js).
           reinos = preencherReinoSuth(reinos, DADOS_SUTH);
           reinos = preencherReinoSuth(reinos, DADOS_GOETHIA);
+          reinos = preencherReinoSuth(reinos, DADOS_HETALION);
           // Pessoas do reino (estrutura/relações/genealogias): semeia só quem
           // ainda não tem `pessoas` — idempotente, não sobrescreve edição do
           // GM nem um conteúdo semeado antes (ver pessoasReino.js).
@@ -9018,6 +9267,19 @@ export default function App() {
         if (!Array.isArray(lista)) lista = [];
         if (!lista.includes(id)) lista.push(id);
         try { await storage.set("point-goethia-removidos", JSON.stringify(lista)); } catch (e) {}
+      })();
+    }
+    // Mesma lógica pra uma ficha semente do grupo Hetalion.
+    if (HETALION_CHARACTERS.some((ch) => ch.id === id)) {
+      (async () => {
+        let lista = [];
+        try {
+          const rem = await storage.get("point-hetalion-removidos");
+          lista = rem?.value ? JSON.parse(rem.value) : [];
+        } catch (e) { lista = []; }
+        if (!Array.isArray(lista)) lista = [];
+        if (!lista.includes(id)) lista.push(id);
+        try { await storage.set("point-hetalion-removidos", JSON.stringify(lista)); } catch (e) {}
       })();
     }
   }

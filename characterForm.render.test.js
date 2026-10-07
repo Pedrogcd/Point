@@ -46,15 +46,16 @@ const GOETHIA_IDS = [
 
 const HETALION_IDS = [
   "hetalion_crikon", "hetalion_emeaver", "hetalion_asana", "hetalion_jingen", "hetalion_shoebil", "hetalion_hoshon",
+  "hetalion_valefor", "hetalion_yurity",
 ];
 
 describe("CharacterForm — render de todos os personagens semente", () => {
-  it("SEED_CHARACTERS tem os 49 personagens (13 Grupo C + 6 Aurora + 14 Suth + 10 Goethia + 6 Hetalion)", () => {
-    assert.equal(SEED_CHARACTERS.length, 49);
+  it("SEED_CHARACTERS tem os 51 personagens (13 Grupo C + 6 Aurora + 14 Suth + 10 Goethia + 8 Hetalion)", () => {
+    assert.equal(SEED_CHARACTERS.length, 51);
     assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("sp_")).length, 6);
     assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("suth_")).length, 14);
     assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("goethia_")).length, 10);
-    assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("hetalion_")).length, 6);
+    assert.equal(SEED_CHARACTERS.filter((c) => c.id.startsWith("hetalion_")).length, 8);
   });
 
   for (const nome of ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kutrefas", "vientra", "sombra", "rena", "erin", "minerva", "mercurio"]) {
@@ -184,7 +185,7 @@ describe("Confronto (CompareView) — personagem do Aurora selecionado", () => {
     }
   });
 
-  it("renderiza sem lançar pra cada um dos 6 personagens do Hetalion como seleção inicial", () => {
+  it("renderiza sem lançar pra cada um dos 8 personagens do Hetalion como seleção inicial", () => {
     for (const id of HETALION_IDS) {
       const hetalion = SEED_CHARACTERS.find((c) => c.id === id);
       const resto = SEED_CHARACTERS.filter((c) => c.id !== id);

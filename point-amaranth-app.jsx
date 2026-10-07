@@ -2999,11 +2999,56 @@ const HETALION_CHARACTERS_RAW = [
     history: "Para Hoshon, Hetalion é uma entidade espiritual viva, e ele se vê como o guardião moral e cultural desse espírito nacional. Trata Prime com respeito teatral, mas age nos bastidores para garantir que a Branca nunca perca relevância política. Observa Seguintes com interesse e desconfiança — vê nela um símbolo de mudança que pode ser moldado se for bem administrado. Respeita a Deusa Karphel, mas considera Amaranth um tabuleiro perigoso. [Ficha rascunho — estatísticas de combate ainda não definidas, ver notas do mestre do reino.]",
     grupo: "hetalion",
   },
+  // Valefor e Yurity vieram num dossiê separado (07/10), já com graus e procs
+  // propostos (conferidos contra as fórmulas do engine.js — bate certinho).
+  // Os dois são do "Grupo A" (torneio da Academia de Omem, liderado por
+  // Hetalion Seguintes) — por decisão do Pedro, entram dentro do Grupo
+  // Hetalion mesmo, com "Grupo A" registrado como texto na affiliation.
+  {
+    id: "hetalion_valefor", name: "Valefor", epithet: "Mago do Tempo · Sacerdote de Kronos · Partido Branco",
+    race: "Humano", faction: "Hetalion",
+    affiliation: "Grupo A — torneio da Academia de Omem, liderado por Hetalion Seguintes · Partido/Federação Branca · Sacerdote de Kronos e mago da Associação de Magia", height: "1,67m",
+    deity: "Kronos, o Deus do Trono das Cordas (Tempo, Destino, História)", weapon: "Nenhuma — luta só com magia (o cachimbo é estilo)",
+    traits: "25 anos aparentes, 1,67m, corpo baixo e esguio, postura relaxada de quem não tem pressa nenhuma. Cabelo preto ondulado e volumoso preso num rabo alto com fita vermelha, com um tufo de penas laranja-rosado; mechas soltas pelo rosto. Olhos âmbar com brilho de ironia, pele morena, barba rala só no queixo e maxilar, meio sorriso de quem sabe uma piada que você ainda não entendeu. Luvas pretas com punho vermelho; segura sempre um cachimbo longo (kiseru) de metal como quem segura uma batuta. Amargo, ríspido e sarcástico — era racista e extremamente tradicional, seguindo cegamente o que a família mandava; hoje tenta se afastar disso, ainda carregando os preconceitos antigos e confrontando-os aos poucos (trabalho em andamento, não conversão). Pensa por si pela primeira vez. Leal e dedicado a Seguintes, dá suporte ao grupo sem alarde. Gosta (sugestão do dossiê): o cachimbo, a calma, ordem e ritual, Seguintes, momentos de silêncio, ser levado a sério. Não gosta (sugestão): pressa, ser tratado como peça da família, ser comparado a Hoshon, conversa fiada, os próprios preconceitos antigos quando se lembra deles.",
+    xp: 0,
+    singularity: { name: "Hora Suspensa", level: "—", description: "Para o tempo por cerca de 1 minuto e se move livremente nele — só ele se move, o resto fica parado. Com o 'poder de alma', move outras coisas e carrega pessoas, mas não interfere a fundo: não fere ninguém nesse estado. Serve pra reposicionar, resgatar, fugir e preparar o terreno, não pra causar dano diretamente. Custa muita mana e exige muito dele, porque precisa romper a resistência do ar. Nível e regras de mesa (duração em turnos, custo exato) ainda não definidos — ver notas do mestre." },
+    racialAbility: { name: "Família tradicional de Kronos", description: "Cresceu numa família que segue Kronos há gerações, cumprindo o que se esperava dele — virou sacerdote do deus e mago da Associação de Magia por obrigação, não por escolha." },
+    classes: [
+      { name: "Sacerdote de Kronos", description: "Ritos e conhecimento sacerdotal de Kronos, como Chaeskele Boda, de Katalão." },
+      { name: "Mago da Associação de Magia", description: "Magias de combate e utilidade de um mago habilidoso; estilo de suporte à distância, sem entrar em combate corpo a corpo." },
+    ],
+    atributosGerais: { forca: "E", destreza: "C", vigor: "D", carisma: "C", manipulacao: "B", compostura: "B", inteligencia: "A", perspicacia: "B", resolucao: "B" },
+    proficiencias: { armasDeFogo: "E", combateCorpoACorpo: "E", magiasOfensivas: "A", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "B", tecnicaProf: "A" },
+    procs: ["reflexo_agil", "surto_arcano", "escudo_de_mana"],
+    hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "A família de Valefor segue Kronos há gerações; ele cresceu cumprindo o que se esperava dele, virando sacerdote de Kronos e mago da Associação de Magia porque era o esperado, não por escolha. Para ele, a Prime e a tradição eram tudo — foi zeloso e fiel, cegamente, por boa parte do tempo, e via Hoshon como seu superior e como tudo o que precisava ser. Foi ao conhecer Hetalion Seguintes que passou a pensar fora do molde que lhe deram; hoje se dedica a ela e procura decidir o próprio destino. Recentemente soube do plano secreto de Yurity e Crikon (ampliar a influência de Seguintes para derrubar o governo atual de Hetalion). Não sabe o que pensar, mas está disposto a ver aonde vai e quer decidir por conta própria. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade, o 'poder de alma' e as magias de combate específicas ainda não foram definidos; ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
+  {
+    id: "hetalion_yurity", name: "Yurity", epithet: "Comandante do Exército Vermelho · Partido Vermelho",
+    race: "Humana", faction: "Hetalion",
+    affiliation: "Grupo A — torneio da Academia de Omem, liderado por Hetalion Seguintes · Partido/Federação Vermelha · Comandante do Exército Vermelho", height: "1,78m",
+    deity: "Gigas e Thalia", weapon: "Escopeta ligada à singularidade (rajadas de fogo); sabre no combate próximo",
+    traits: "25 anos aparentes, 1,78m, alta e esguia, postura reta de oficial, corpo magro e treinado sem exagero de músculo. Cabelo longo, liso, vermelho escuro (carmesim profundo), franja reta e pesada que esconde parte de um olho. Olhos vermelhos intensos, pele pálida com sombras frias no rosto, lábios finos num meio sorriso de quem já calculou o resultado. Luvas pretas sempre; leva a mão enluvada perto da boca ou do queixo quando pensa ou ameaça. Mistura emoção e frieza, e sabe usar as duas — a emoção (sobretudo o ódio) decide para onde ela vai, a frieza decide como chegar lá. Vingativa, mas sem pressa; vê quase todos como peças do objetivo final, exceto Crikon e Hetalion Seguintes, o mais perto de amigos que ela consegue admitir. Leal ao código do Pilar Vermelho, mas no fim leal aos próprios sentimentos e ao próprio ódio. Comanda com autoridade natural, sem gritar. Gosta (sugestão do dossiê): planos bem executados, vingança que chega na hora certa, a lealdade de Seguintes e Crikon, memória e justiça (valores do Pilar Vermelho), a mãe como lembrança. Não gosta (sugestão): Amaranth e Karphel, o status quo, negligência, pressa que estraga um plano, heroísmo que termina em morte inútil.",
+    xp: 0,
+    singularity: { name: "Elo de Brasa", level: "—", description: "Se conecta a outras pessoas; combinado à magia de Sensor, percebe quem está ligado a ela. Quem está conectado pode ser encantado com fogo, e ela oferece a todos os conectados magias de fogo capazes de bombardear uma região inteira. A escopeta dela é ligada à singularidade e dispara rajadas de fogo. Nível, custo, limite de conectados e alcance ainda não definidos — ver notas do mestre." },
+    racialAbility: { name: "Filha da general caída", description: "Filha da antiga general do Partido Vermelho, morta em serviço na guerra em Amaranth há cerca de 20 anos (Yurity tinha uns 5 anos). Recebeu treinamento pesado desde jovem; o sobrenome e os contatos da mãe abriram portas até o posto de comandante do Exército Vermelho." },
+    classes: [
+      { name: "Comandante do Exército Vermelho", description: "Lidera o braço armado do Partido Vermelho de Hetalion; estilo de suporte e bombardeio à longa distância." },
+      { name: "Conspiradora política", description: "Usa a posição para ampliar influência junto de Hetalion Seguintes, com o objetivo de derrubar o governo atual de Hetalion e enfrentar Amaranth." },
+    ],
+    atributosGerais: { forca: "D", destreza: "B", vigor: "C", carisma: "B", manipulacao: "A", compostura: "C", inteligencia: "B", perspicacia: "A", resolucao: "A" },
+    proficiencias: { armasDeFogo: "B", combateCorpoACorpo: "D", magiasOfensivas: "A", defesaProf: "C", resistFisicaProf: "D", resistMagicaProf: "B", tecnicaProf: "B" },
+    procs: ["toque_flamejante", "surto_arcano", "escudo_de_mana"],
+    hp: { current: 4, max: 4 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
+    history: "Yurity é filha da antiga general do Partido Vermelho, que morreu em serviço durante a guerra em Amaranth, há cerca de 20 anos. Para o povo, a mãe morreu como heroína; para Yurity, a morte foi desnecessária, causada pela negligência de Amaranth. O ódio por Amaranth mudou a forma como ela vê o mundo — pra ela, o continente inteiro está preso nas garras de Karphel e de um status quo que ninguém questiona. Seu plano é crescer no Exército Vermelho, ampliar a influência junto de Hetalion Seguintes e ter poder pra derrubar o governo atual de Hetalion, enfrentar Amaranth e se libertar desses grilhões. No início usava Seguintes como degrau; hoje a vê como aliada próxima — foi Yurity quem acendeu a centelha revolucionária de Seguintes, e Seguintes disse que não sacrificaria Yurity nem Crikon. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade e as regras do Elo (limite de conectados, alcance, custo) ainda não foram definidos; ver notas do mestre do reino.]",
+    grupo: "hetalion",
+  },
 ];
 
-// Qual arquivo em public/retratos-hetalion/ é o retrato de cada id — Crikon
-// e Emeaver não têm imagem nos dossiês recebidos, ficam sem imageUrl até
-// alguém subir uma pela ficha.
+// Qual arquivo em public/retratos-hetalion/ é o retrato de cada id — Crikon,
+// Emeaver, Valefor e Yurity não têm imagem nos dossiês recebidos, ficam sem
+// imageUrl até alguém subir uma pela ficha.
 const HETALION_RETRATOS = {
   hetalion_asana: "hetalion_asana.jpg",
   hetalion_jingen: "hetalion_jingen.jpg",
@@ -3060,6 +3105,12 @@ const SEED_KINGDOMS_RAW = [
       "Leona, Ookami Serin e Vientra já existiam como personagens do Grupo C com faction \"Hetalion\" antes deste material chegar — nenhuma delas tem ficha tocada aqui; o dossiê novo só adicionou o elenco de Generais e o conteúdo do reino/aba Pessoas.",
       "O General Azul anterior, que se voltou contra o Estado na Guerra Civil, não tem nome nos dossiês recebidos — citado só como figura histórica no texto da rebelião.",
       "Nenhum dossiê nomeia uma capital nacional nem cidades-sede da Federação Vermelha ou Branca; só Cancer (Azul) e Tauros (Negra) são citadas por nome, além de Novolar (comunidade ningen, já existente no reino antes deste material).",
+      "Valefor e Yurity (07/10) vieram num dossiê separado, já com fichas 3d10 estimadas — graus, procs e HP/Defesa/Resistências calculados e conferidos contra o engine.js. Por decisão do Pedro, entram com esses números (não em rascunho grau E) e dentro do Grupo Hetalion, com \"Grupo A — torneio da Academia de Omem, liderado por Hetalion Seguintes\" registrado como texto na affiliation de cada um, não como mesa própria.",
+      "O dossiê de Valefor/Yurity usa \"Partido Vermelho/Branco\"; o documento original do reino usa \"Federação Vermelha/Branca\". Tratado aqui como a mesma estrutura (sinônimo), mas sem confirmação explícita — vale perguntar.",
+      "Relação entre Yurity e Asana Desroar ainda não definida: a mãe de Yurity foi general do Partido/Federação Vermelha antes de Asana, morta em serviço há ~20 anos — não ficou claro se Asana é sucessora direta dela, nem se as duas são aliadas, rivais ou nem se conhecem. Ver `relacoes` em DADOS_PESSOAS_HETALION.",
+      "O dossiê de Valefor/Yurity pede ficha \"fechada para jogadores\" (contém o plano secreto de Yurity e Crikon de levar Seguintes ao poder). O app hoje não tem nenhum mecanismo de ficha oculta por personagem — por decisão do Pedro, as duas fichas entram visíveis como qualquer outra, e o sigilo fica por conta da mesa (não abrir essas fichas com os jogadores olhando).",
+      "Thalia, citada no dossiê de Yurity como deidade sem entrada no Guia do Mundo, já existia em SEED_GODS (\"Thalia (Freya)\", domínio Beleza/Vínculo, cultuada por Kiryu) — não é uma lacuna.",
+      "\"Dragoalma\", citado de passagem no dossiê de Yurity (\"Dragoalma não gosta dela\"), não tem nenhuma referência em nenhum outro material do app — não criei personagem nem entrada pra ele(a), fica como nome solto até aparecer em outro dossiê.",
     ],
     cities: [
       { id: "hetalion_cancer", name: "Cancer", resumo: "Coração administrativo da Federação Azul. Sede da burocracia estatal e das forças policiais azuis; vinte anos atrás foi palco de uma operação conjunta com heróis de Amaranth contra uma célula terrorista, e cinco anos atrás resistiu a uma rebelião interna liderada por um General Azul dissidente.", x: null, y: null, capital: false, documentada: true },
@@ -3830,6 +3881,13 @@ export const DADOS_PESSOAS_HETALION = {
           { personagemId: "hetalion_emeaver", cargo: "Comandante das Forças Especiais", ordem: 2 },
         ],
       },
+      {
+        id: "grupo_a", nome: "Grupo A — Torneio da Academia de Omem", funcao: "Equipe reunida por Hetalion Seguintes para o torneio; por trás, o núcleo do plano político dela com Yurity e Crikon",
+        membros: [
+          { personagemId: "hetalion_yurity", cargo: "Comandante do Exército Vermelho · aliada próxima de Seguintes", ordem: 1 },
+          { personagemId: "hetalion_valefor", cargo: "Sacerdote de Kronos · suporte discreto a Seguintes", ordem: 2 },
+        ],
+      },
     ],
   },
   relacoes: [
@@ -3849,6 +3907,11 @@ export const DADOS_PESSOAS_HETALION = {
     { de: "hetalion_shoebil", para: "hetalion_asana", tipo: "parceria", rotulo: "boa relação — trabalham juntas em prisões de base histórica" },
     { de: "hetalion_shoebil", para: "hetalion_jingen", tipo: "tensão", rotulo: "tensa, por conta de operações da Negra na linha da ilegalidade" },
     { de: "hetalion_shoebil", para: "hetalion_hoshon", tipo: "indiferença", rotulo: "indiferente, a menos que algum processo burocrático a envolva" },
+    { de: "hetalion_yurity", para: "hetalion_crikon", tipo: "aliança", rotulo: "o mais perto de amigo que ela consegue admitir — parceiro no plano de levar Seguintes ao poder" },
+    { de: "hetalion_valefor", para: "hetalion_yurity", tipo: "colegas de Grupo A", rotulo: "sabe do plano secreto dela com Crikon; ainda não decidiu o que pensar, mas quer ver aonde vai" },
+    { de: "hetalion_valefor", para: "hetalion_crikon", tipo: "aliança cautelosa", rotulo: "sabe do plano secreto dos dois; avalia por conta própria, pela primeira vez na vida" },
+    { de: "hetalion_valefor", para: "hetalion_hoshon", tipo: "distanciamento", rotulo: "via Hoshon como seu superior e como tudo que precisava ser; hoje se afasta dessa visão" },
+    { de: "hetalion_yurity", para: "hetalion_asana", tipo: "relação indefinida", rotulo: "Asana é General da Vermelha hoje; a relação com Yurity (filha da general anterior) ainda não foi definida — ver notas do mestre" },
   ],
   genealogias: [],
 };

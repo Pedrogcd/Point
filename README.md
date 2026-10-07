@@ -15,6 +15,7 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `suth.js` — funções puras do Grupo Suth: `aplicarFichaSuthDoFate` (atualiza a ficha já existente do Fate uma única vez, sem reclassificar o grupo dele) e `preencherReinoSuth` (preenche o reino Suth — visão geral, pilares, rebelião, economia, relações, glossário, notas do mestre — só enquanto a descrição ainda for o rascunho)
 - `suth.test.js` — testes automatizados do `suth.js`
 - `suthStats.test.js` — confere a tabela de estatísticas das 15 fichas do Suth (Defesa/Armadura/Resistências/Acerto/HP/MP) contra o motor de verdade, e o limite de `MAX_PROCS`
+- `hetalionStats.test.js` — mesma ideia, só pro Valefor e a Yurity (Grupo Hetalion), os dois únicos personagens desse grupo que entraram com ficha 3d10 proposta em vez de rascunho grau E
 - `public/retratos-suth/` — retratos dos personagens do Grupo Suth, os três Pilares e o banner do reino
 - `public/retratos-hetalion/` — retratos dos 4 personagens do Grupo Hetalion que vieram com arte (Asana, Jingen, Shoebil, Hoshon); Crikon e Emeaver ainda não têm imagem
 - `mundoDados.js` — conteúdo fixo do Mundo: Katalão (casas, etiquetas, mapa) e a cidade de Frontier (distritos, NPCs, forças, mesa do mestre), com versão pública (`pub`) e do mestre (`gm`)
@@ -52,7 +53,7 @@ O app **não depende mais do Lovable** — publicação é direto deste reposit�
 |---|---|
 | **Início** | Um quadrado por mesa (Grupo C, Grupo Aurora, Grupo Suth, Grupo Goethia, Grupo Hetalion) que leva para os personagens daquele grupo, e quadradinhos dos reinos que levam para as fichas e os NPCs de cada reino |
 | **Objetivos** | Metas da campanha com estados (Ativo/Pausado/Concluído) |
-| **Personagens** | Fichas completas dos 49 personagens (13 do Grupo C + 6 do Grupo Aurora + 14 do Grupo Suth + 10 do Grupo Goethia + 6 do Grupo Hetalion) e a seleção "NPCs do mundo" (cartões por reino e cidade, ex.: Katalão › Frontier), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
+| **Personagens** | Fichas completas dos 51 personagens (13 do Grupo C + 6 do Grupo Aurora + 14 do Grupo Suth + 10 do Grupo Goethia + 8 do Grupo Hetalion) e a seleção "NPCs do mundo" (cartões por reino e cidade, ex.: Katalão › Frontier), com edição, seletor de mesa, teste de Atributo+Perícia e rolagem de ataque contra um alvo sintético direto na ficha |
 | **Confronto** | Simulador de combate — ataque vs defesa, rolagem completa |
 | **Habilidades** | Catálogo das 11 Habilidades Passivas de Combate |
 | **Regras** | Referência do sistema e status effects |
@@ -121,7 +122,7 @@ Abre em `http://localhost:5173/Point/` (o `/Point/` no caminho é de propósito 
 
 ## Testes
 
-O motor de combate, o Grupo Aurora, o Grupo Suth, o Grupo Goethia, o Grupo Hetalion, o componente de retrato, a aba "Pessoas" do reino, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `cidadeOverrides.test.js`, `seedGuard.test.js`, `characterForm.render.test.js`, `rollPanel.test.js`, `suth.test.js`, `suthStats.test.js`, `retrato.render.test.js`, `pessoasReino.test.js` e `pessoasReino.render.test.js` — 476 testes ao todo:
+O motor de combate, o Grupo Aurora, o Grupo Suth, o Grupo Goethia, o Grupo Hetalion, o componente de retrato, a aba "Pessoas" do reino, as cidades semente, o Mundo, o mapa interativo, o backup, a migração de personagens, a normalização usada no carregamento/importação e a blindagem de seed têm suíte de testes automatizados (Node nativo, sem dependências), em `engine.test.js`, `sidepoint.test.js`, `cidades.test.js`, `mundo.test.js`, `mapaMundo.test.js`, `backup.test.js`, `personagens.test.js`, `normalizar.test.js`, `cidadeOverrides.test.js`, `seedGuard.test.js`, `characterForm.render.test.js`, `rollPanel.test.js`, `suth.test.js`, `suthStats.test.js`, `retrato.render.test.js`, `pessoasReino.test.js`, `pessoasReino.render.test.js` e `hetalionStats.test.js` — 485 testes ao todo:
 
 ```
 npm test

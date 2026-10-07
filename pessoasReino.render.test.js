@@ -11,7 +11,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { loadAppModule } from "./renderTestUtils.js";
 
-let CardMembroReino, LinhaRelacao, ArvoreGenealogica, SEED_CHARACTERS, DADOS_PESSOAS_SUTH, DADOS_PESSOAS_GOETHIA;
+let CardMembroReino, LinhaRelacao, ArvoreGenealogica, SEED_CHARACTERS, DADOS_PESSOAS_SUTH, DADOS_PESSOAS_GOETHIA, DADOS_PESSOAS_HETALION;
 
 before(async () => {
   const mod = await loadAppModule();
@@ -21,6 +21,7 @@ before(async () => {
   SEED_CHARACTERS = mod.SEED_CHARACTERS;
   DADOS_PESSOAS_SUTH = mod.DADOS_PESSOAS_SUTH;
   DADOS_PESSOAS_GOETHIA = mod.DADOS_PESSOAS_GOETHIA;
+  DADOS_PESSOAS_HETALION = mod.DADOS_PESSOAS_HETALION;
 });
 
 describe("CardMembroReino", () => {
@@ -129,5 +130,25 @@ describe("Varredura de ids — DADOS_PESSOAS_GOETHIA x SEED_CHARACTERS", () => {
     for (const id of ["erin", "kiryu", "fate", "suth_emphes"]) {
       assert.ok(referenciados.has(id), `esperava encontrar a referência cross-reino "${id}"`);
     }
+  });
+});
+
+describe("Varredura de ids — DADOS_PESSOAS_HETALION x SEED_CHARACTERS", () => {
+  it("todo personagemId referenciado em estrutura/relacoes/genealogias existe em SEED_CHARACTERS", () => {
+    const idsConhecidos = new Set(SEED_CHARACTERS.map((c) => c.id));
+    const referenciados = idsReferenciados(DADOS_PESSOAS_HETALION);
+    assert.ok(referenciados.size > 0, "deveria haver pelo menos um id referenciado");
+    for (const id of referenciados) {
+      assert.ok(idsConhecidos.has(id), `personagemId "${id}" referenciado em DADOS_PESSOAS_HETALION não existe em SEED_CHARACTERS`);
+    }
+  });
+
+  it("inclui a referência cross-reino (Kiryu, do Grupo C/Maxis)", () => {
+    const referenciados = idsReferenciados(DADOS_PESSOAS_HETALION);
+    assert.ok(referenciados.has("kiryu"), 'esperava encontrar a referência cross-reino "kiryu"');
+  });
+
+  it("genealogias vem como array vazio (sem dados de família suficientes nos dossiês) e não quebra a varredura", () => {
+    assert.deepEqual(DADOS_PESSOAS_HETALION.genealogias, []);
   });
 });

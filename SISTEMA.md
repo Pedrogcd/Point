@@ -96,4 +96,4 @@ Cada personagem escolhe até **2** + a Singularidade conta como a terceira.
 ## Testes fora de combate
 
 `Atributo Geral + Perícia` = número de dados (soma dos graus, de 2d10 a 10d10).
-Limiar de sucesso customizável (padrão: dado > 5). Um 10 natural sempre conta.
+Limiar de sucesso fixo: 6 ou mais em cada dado. Um 10 natural sempre conta.

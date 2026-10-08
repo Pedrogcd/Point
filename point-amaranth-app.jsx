@@ -4527,7 +4527,11 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
 export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreAttacks, onPrev, onNext, onUpdateCharacter, initialTestPanelMode = "teste" }) {
   const [rollAttr, setRollAttr] = useState(ATRIBUTOS_GERAIS_LIST[0].key);
   const [rollProf, setRollProf] = useState(PROFICIENCIAS_LIST[0].key);
-  const [successThreshold, setSuccessThreshold] = useState(5);
+  // Limiar de sucesso do Teste — Atributo + Perícia sempre "bate 6" (dado > 5,
+  // igual a dado ≥ 6) — deixou de ser ajustável pelo jogador (decisão do Pedro,
+  // 08/10). Continua como variável (não um literal espalhado) porque é lida em
+  // vários pontos abaixo (roll, recomputeRoll, cor dos dados).
+  const successThreshold = 5;
   const [ascensaoDiff, setAscensaoDiff] = useState(0);
   const [history, setHistory] = useState([]);
   const [rolling, setRolling] = useState(false);
@@ -4855,16 +4859,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({character.proficiencias?.[p.key] || "E"})</option>)}
                   </select>
                 </Field>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label="Limiar de sucesso (dado >)">
-                    <input type="number" min={0} max={9} style={inputStyle} value={successThreshold} onChange={(e) => setSuccessThreshold(Math.max(0, Math.min(9, Number(e.target.value))))} />
-                  </Field>
-                  <Field label="Dados extra (Ascensão)">
-                    <input type="number" min={0} style={inputStyle} value={ascensaoDiff} onChange={(e) => setAscensaoDiff(Math.max(0, Number(e.target.value)))} />
-                  </Field>
-                </div>
+                <Field label="Dados extra (Ascensão)">
+                  <input type="number" min={0} style={inputStyle} value={ascensaoDiff} onChange={(e) => setAscensaoDiff(Math.max(0, Number(e.target.value)))} />
+                </Field>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
-                  Dados = grau do Atributo ({GRADE_VALUE[rollAttrGrade]}) + grau da Perícia ({GRADE_VALUE[rollProfGrade]}) + dados extra ({ascensaoDiff}) = {totalDice}d10. Sucesso se dado &gt; {successThreshold} (um 10 natural sempre conta).
+                  Dados = grau do Atributo ({GRADE_VALUE[rollAttrGrade]}) + grau da Perícia ({GRADE_VALUE[rollProfGrade]}) + dados extra ({ascensaoDiff}) = {totalDice}d10. Sucesso com 6 ou mais em cada dado (um 10 natural sempre conta).
                 </div>
 
                 <Btn variant="primary" onClick={roll} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>

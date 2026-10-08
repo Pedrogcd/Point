@@ -4144,33 +4144,63 @@ function AttrBar({ label, grade, highlight }) {
 // cada chamada recebe `key={character.id + algo}` do painel de Recursos
 // pra resetar sozinha ao trocar de personagem (sem isso, uma bolinha
 // rachada "vazaria" de uma ficha pra outra ao navegar com Anterior/Próximo).
+function dotsQuebradasPadrao(current, max) {
+  // Convenção: sem informação de qual bolinha exata está vazia, assume as
+  // últimas (max - current) — mesmo visual de sempre (cheias à esquerda).
+  return new Set(Array.from({ length: Math.max(0, max - current) }, (_, k) => current + k));
+}
+
 function ResourceDots({ label, resource, color, icon: Icon, onToggle, rachavel, verboEsvaziar = "esvaziar" }) {
   const max = Math.max(0, resource.max || 0);
   const current = Math.max(0, Math.min(resource.current ?? 0, max));
-  const [rachada, setRachada] = useState(false);
+  const [quebradas, setQuebradas] = useState(() => dotsQuebradasPadrao(current, max));
+  const [rachadas, setRachadas] = useState(() => new Set());
   const [pulso, setPulso] = useState(null);
+  const ultimoCurrentRef = useRef(current);
+
+  // Se o valor mudar por fora (ex.: botão "Restaurar MP e SP"), não por um
+  // clique daqui, reseta pra convenção padrão — não dá pra saber qual
+  // bolinha exata voltou.
+  useEffect(() => {
+    if (current !== ultimoCurrentRef.current) {
+      setQuebradas(dotsQuebradasPadrao(current, max));
+      setRachadas(new Set());
+      ultimoCurrentRef.current = current;
+    }
+  }, [current, max]);
 
   function clicarBolinha(i) {
     if (!onToggle) return;
-    const cheia = i < current;
-    const edge = cheia ? current - 1 : current;
-    setPulso(edge);
-    setTimeout(() => setPulso((p) => (p === edge ? null : p)), 320);
-    if (!cheia) {
-      setRachada(false);
-      onToggle(edge + 1);
+    setPulso(i);
+    setTimeout(() => setPulso((p) => (p === i ? null : p)), 320);
+
+    if (quebradas.has(i)) {
+      // vazia -> restaura na hora (clique de novo)
+      const novo = current + 1;
+      setQuebradas((prev) => { const n = new Set(prev); n.delete(i); return n; });
+      ultimoCurrentRef.current = novo;
+      onToggle(novo);
       return;
     }
     if (!rachavel) {
-      onToggle(edge);
+      // MP/SP: um clique já esvazia/evapora essa bolinha
+      const novo = current - 1;
+      setQuebradas((prev) => new Set(prev).add(i));
+      ultimoCurrentRef.current = novo;
+      onToggle(novo);
       return;
     }
-    if (rachada) {
-      setRachada(false);
-      onToggle(edge);
-    } else {
-      setRachada(true);
+    if (rachadas.has(i)) {
+      // já rachada -> esse clique quebra ESSA bolinha (não qualquer outra)
+      const novo = current - 1;
+      setRachadas((prev) => { const n = new Set(prev); n.delete(i); return n; });
+      setQuebradas((prev) => new Set(prev).add(i));
+      ultimoCurrentRef.current = novo;
+      onToggle(novo);
+      return;
     }
+    // cheia e ainda não rachada -> 1º clique só racha (visual, não muda o valor)
+    setRachadas((prev) => new Set(prev).add(i));
   }
 
   return (
@@ -4181,27 +4211,26 @@ function ResourceDots({ label, resource, color, icon: Icon, onToggle, rachavel, 
       </div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
         {Array.from({ length: max }, (_, i) => {
-          const cheia = i < current;
-          const isEdge = i === current - 1;
-          const rachadaDot = cheia && isEdge && rachada;
+          const cheia = !quebradas.has(i);
+          const rachada = cheia && rachadas.has(i);
           const Tag = onToggle ? "button" : "div";
           return (
             <Tag
               key={i}
               type={onToggle ? "button" : undefined}
               onClick={onToggle ? () => clicarBolinha(i) : undefined}
-              title={onToggle ? (cheia ? (rachavel ? (rachadaDot ? "Clique pra quebrar" : "Clique pra rachar") : `Clique pra ${verboEsvaziar}`) : "Clique pra restaurar") : undefined}
+              title={onToggle ? (cheia ? (rachavel ? (rachada ? "Clique pra quebrar" : "Clique pra rachar") : `Clique pra ${verboEsvaziar}`) : "Clique pra restaurar") : undefined}
               className={pulso === i ? "dot-pop" : ""}
               style={{
                 width: 14, height: 14, borderRadius: "50%", padding: 0, position: "relative",
                 background: cheia ? color : "#00000020",
                 border: `1px solid ${cheia ? color : LINE}`,
-                opacity: rachadaDot ? 0.55 : 1,
+                opacity: rachada ? 0.55 : 1,
                 cursor: onToggle ? "pointer" : "default",
                 transition: "background 0.22s ease, opacity 0.22s ease",
               }}
             >
-              {rachadaDot && (
+              {rachada && (
                 <svg viewBox="0 0 14 14" width={14} height={14} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                   <polyline points="4,1 7,6 5,7 10,13" fill="none" stroke="#2B2116" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

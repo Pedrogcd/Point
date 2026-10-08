@@ -3118,24 +3118,40 @@ const SEED_KINGDOMS_RAW = [
       { id: "hetalion_novolar", name: "Novolar", resumo: "Comunidade de imigrantes ningen dentro de Hetalion; palco de uma revolta interna liderada por Puman, contida com ajuda de agentes infiltrados da Federação Vermelha. Hoje administra suas próprias regras comunitárias.", x: null, y: null, capital: false, documentada: true },
     ],
   },
-  { id: "katalao", name: "Katalão", description: "Reino cuja nobreza foi recentemente fraturada pela revelação de Crikon como herdeiro ilegítimo do trono. [Rascunho — refine comigo quando quiser.]",
+  { id: "katalao", name: "Katalão", description: "Reino de arquitetura medieval europeia, feudal e steampunk, onde linhagem e sangue valem acima de tudo. A coroa Thulin governa com um rei jovem e sem herdeiro; seis grandes casas dividem o reino por função e dom de sangue, com casas vassalas abaixo delas. Inimigo histórico de Suth.",
     // Lido pela cor dos nomes no mapa (amarelo parece ser Katalão) — o Pedro
     // confirma e corrige pelo editor (botão "Editar mapa" na aba Mundo).
     // Sem coordenadas de propósito: elas são posicionadas ali, não aqui.
     mapa: { cor: "#C9A227", poligono: [] },
     cities: [
-      { id: "katalao_cidade", name: "Katalão", resumo: "", x: null, y: null, capital: true },
-      { id: "kingsyard", name: "Kingsyard", resumo: "", x: null, y: null, capital: false },
-      { id: "mundis", name: "Mundis", resumo: "", x: null, y: null, capital: false },
+      { id: "kingsyard", name: "Kingsyard", resumo: "A capital de Katalão, onde vive a família real Thulin. A Casa Sehen, chefiada por Baltazar Sehen, guarda a cidade e a coroa.", x: null, y: null, capital: true },
+      { id: "mundis", name: "Mundis", resumo: "Cidade dos Duran, ao norte, perto da fronteira com Maxis. A casa de cavaleiros e protetores do reino, de grande força militar, hoje chefiada por Yama Duran.", x: null, y: null, capital: false },
       { id: "frontier", name: "Frontier", resumo: "Cidade grande na fronteira nordeste, colada em Hoshon (Maxis). Regida pela Casa Brennard, vassala dos Pendragons. Ningens do Cadastro Brennard na Vila Nova, dentro da muralha nova; o Barro dos sem-etiqueta do lado de fora.", link: "sidepoint/frontier.html", x: null, y: null, capital: false },
-      { id: "riviera", name: "Riviéra", resumo: "", x: null, y: null, capital: false },
-      { id: "atlarin", name: "Atlarin", resumo: "", x: null, y: null, capital: false },
-      { id: "atlas", name: "Atlas", resumo: "", x: null, y: null, capital: false },
-      { id: "promet", name: "Promet", resumo: "", x: null, y: null, capital: false },
-      { id: "kil", name: "Kil", resumo: "", x: null, y: null, capital: false },
-      { id: "pompeia", name: "Pompeia", resumo: "", x: null, y: null, capital: false },
-      { id: "tengov", name: "Tengov", resumo: "", x: null, y: null, capital: false },
-    ] },
+      { id: "riviera", name: "Riviéra", resumo: "Fica no meio do mapa, ao lado da capital.", x: null, y: null, capital: false, documentada: false },
+      { id: "atlarin", name: "Atlarin", resumo: "Fica no sudeste, perto da borda do mapa. Uma estrategista de uma casa de alfaiates espera ali.", x: null, y: null, capital: false, documentada: false },
+      { id: "atlas", name: "Atlas", resumo: "Cidade dos Pendragons, no sul. A casa, chefiada por Wyver Pendragon, equilibra impulso e ordem e domina a tecnologia de mana.", x: null, y: null, capital: false },
+      { id: "promet", name: "Promet", resumo: "Cidade dos Ace, a oeste, casa das experiências com os mortos e da tecnologia de alma. A chefia da casa está vaga.", x: null, y: null, capital: false },
+      { id: "kil", name: "Kil", resumo: "Fica no sul. Nada além do nome, por enquanto.", x: null, y: null, capital: false, documentada: false },
+      { id: "pompeia", name: "Pompeia", resumo: "Cidade dos Gotis, no sul. A casa cuida da gestão interna da nobreza, da diplomacia e da pesquisa de relíquias, e é chefiada por Iris Gotis.", x: null, y: null, capital: false },
+      { id: "tengov", name: "Tengou", resumo: "Fica no sudoeste. Nada além do nome, por enquanto.", x: null, y: null, capital: false, documentada: false },
+    ],
+    notasDoMestre: [
+      "Segredo do mestre (vale pra toda a aba Reino): a nobreza foi fraturada pela revelação de Crikon, Executor-Chefe de Hetalion, como filho ilegítimo do ex-rei de Katalão com uma nobre hetaliana. Ele tem pretensão ao trono e isso escala a guerra Hetalion × Katalão. A ficha dele é fechada pra jogadores — não existe nenhuma menção pública a ele em lugar nenhum do site; o nó dele na árvore genealógica dos Thulin (aba Pessoas) só aparece no modo GM.",
+      "Qual Thulin é o pai do Crikon? O ex-rei é o Nefarius ou outro? E qual nobre de Hetalion é a mãe?",
+      "Quem é o rei atual? O registro diz jovem e recém-casado. Kranos Thulin é casado com Karphel: é ele, ou há outro Thulin?",
+      "O nome \"Serren\" vindo de um áudio é a casa Sehen? Usei Sehen em todo o conteúdo; se for outro nome, é só trocar.",
+      "Qual casa rege Riviera, Kil, Atlarin e Tengou? Quatro cidades sem casa regente — Atlarin é a próxima parada da rota do Sidepoint.",
+      "\"Tengou\" ou \"Tengov\"? O registro mais recente escreve Tengou — padronizei por aqui, mas o app ainda guarda o id antigo \"tengov\" (só o nome exibido mudou, pra não precisar migrar nada salvo).",
+      "A cidade \"Katalão\" duplicava a Kingsyard na lista de cidades — removida; Kingsyard já é a capital.",
+      "Valefor Ace (arquimaga da alma, falecida em Steampoint) e Valefor, o Mago do Tempo de Hetalion, são a mesma pessoa ou duas diferentes? O registro de Suth e esta tabela tratam os dois de forma diferente.",
+      "Quem é Omega Magnum, o reaper citado na pasta Amaranth? Existe relação com a casa Magnum?",
+      "Por que a casa Magnum mudou de cabelo vermelho pra loiro ao longo das gerações? Pode ser mistura de sangue, maldição ou decisão política.",
+      "Como é o desenho do brasão de cada casa? As cores vêm do cabelo e dos olhos (escudo partido); falta o desenho, e as cores da coroa Thulin e das casas vassalas (Brennard, Vinland, Ishran, Flumifogo) ainda não foram definidas.",
+      "Sir Flynn Mason tem etiqueta de prata pelo decreto de guerra? Marcado como \"a confirmar\" no registro.",
+      "De que cidade vêm os Corredores de Trevas? Kingsyard ou Riviera.",
+      "Cabelo e olhos da família real Thulin ainda não têm definição.",
+    ],
+  },
   { id: "maxis", name: "Maxis Power", description: "Potência industrial e militar, lar de famílias como Mason e Ayamato. [Rascunho — refine comigo quando quiser.]", cities: [] },
   { id: "suth", name: "Suth",
     description: "Império matriarcal de castas e dogmas religiosos, comandado pela Imperadora e sustentado por três Pilares: a Imperadora (lei e administração), a Santa (guerra e doutrina) e a Parteira (ciência e criação de vida). Nacionalismo intenso, supremacia da mulher e da raça suthence, e um poder biotecnológico guardado a sete chaves, capaz de criar homúnculos e raças em laboratório.",
@@ -3916,13 +3932,166 @@ export const DADOS_PESSOAS_HETALION = {
   genealogias: [],
 };
 
+// Pessoas do reino Katalão (ver mundoDados.js pro conteúdo narrativo de cada
+// casa — isto aqui é só a estrutura/árvores). Pessoas ligadas à Frontier
+// (Otto, Isolde, Oruvel etc.) já têm dossiê completo no guia da cidade
+// (FRONTIER/NPCS, mundoDados.js) e não são duplicadas aqui, só citadas.
+// Nenhum membro usa `personagemId` — são todos nomes livres (lore, sem
+// ficha de personagem jogável) — EXCETO o nó do Crikon na árvore dos
+// Thulin, que referencia "hetalion_crikon" (a ficha dele já existe no
+// Grupo Hetalion) e fica marcado `soMestre: true`: aparece no organograma
+// só no modo GM, porque o que é segredo aqui não é a existência dele (a
+// ficha já é pública no grupo Hetalion), é o vínculo de sangue com os
+// Thulin — ver notasDoMestre do reino.
+export const DADOS_PESSOAS_KATALAO = {
+  estrutura: {
+    titulo: "A coroa e as seis grandes casas de Katalão",
+    grupos: [
+      {
+        id: "thulin", nome: "Família real Thulin", funcao: "A coroa — os Descendentes de MERC",
+        membros: [
+          { nomeLivre: "Nefarius Mercos Thulin", cargo: "Rei antigo, falecido", ordem: 1 },
+          { nomeLivre: "Kranos Thulin", cargo: "Filho de Nefarius, casado com a Imperadora Deusa Karphel", ordem: 2 },
+          { nomeLivre: "O rei atual", cargo: "Jovem, recém-casado, sem herdeiro", ordem: 3, nota: "Nome e parentesco com Nefarius ainda não definidos — ver notas do mestre." },
+        ],
+      },
+      {
+        id: "sehen", nome: "Casa Sehen", funcao: "Guardiões da capital e da família real, devotos de Dulahand",
+        membros: [{ nomeLivre: "Baltazar Sehen", cargo: "Cabeça da casa", ordem: 1 }],
+      },
+      {
+        id: "pendragon", nome: "Casa Pendragon", funcao: "Tecnologia de mana, devotos de Gigas",
+        membros: [
+          { nomeLivre: "Wyver Pendragon", cargo: "Cabeça da casa", ordem: 1 },
+          { nomeLivre: "Lenvi Pendragon", cargo: "Filha de Wyver", ordem: 2 },
+          { nomeLivre: "Van Pendragon", cargo: "Filho de Wyver", ordem: 3 },
+          { nomeLivre: "Volaria Pendragon", cargo: "Filha de Lenvi, neta de Wyver", ordem: 4 },
+          { nomeLivre: "Sir Flynn Mason", cargo: "Cavaleiro da Guarda Pendragon", ordem: 5, nota: "Dossiê completo no guia de Frontier (NPC)." },
+        ],
+      },
+      {
+        id: "duran", nome: "Casa Duran", funcao: "Cavaleiros nobres, a grande força militar de Katalão",
+        membros: [
+          { nomeLivre: "Yama Duran", cargo: "Cabeça da casa, filha de Vreston", ordem: 1 },
+          { nomeLivre: "Vreston Duran", cargo: "Cavaleiro de Omem", ordem: 2 },
+          { nomeLivre: "Darius Duran", cargo: "Coronel, desaparecido", ordem: 3, nota: "Possuído por Belzebu, desapareceu na árvore. Laço com Vreston a confirmar." },
+        ],
+      },
+      {
+        id: "ace", nome: "Casa Ace", funcao: "Experiências com os mortos e tecnologia de alma, devotos de Nekron",
+        membros: [
+          { nomeLivre: "Valefor Ace", cargo: "Arquimaga da alma, falecida", ordem: 1, nota: "Morreu em Steampoint." },
+          { nomeLivre: "Vashi Spades Ace", cargo: "Filha de Valefor", ordem: 2, nota: "Herdeira possível de uma casa sem cabeça." },
+        ],
+      },
+      {
+        id: "magnum", nome: "Casa Magnum", funcao: "Inquisidores fora do reino, caçadores e batedores",
+        membros: [{ nomeLivre: "Mozan Magnum", cargo: "Cabeça da casa, a Caçadora Escarlate", ordem: 1 }],
+      },
+      {
+        id: "gotis", nome: "Casa Gotis", funcao: "Gestão interna da nobreza, diplomacia e pesquisa de relíquias",
+        membros: [
+          { nomeLivre: "Iris Gotis", cargo: "Cabeça da casa", ordem: 1 },
+          { nomeLivre: "Krusland", cargo: "Nobre de casa menor", ordem: 2, nota: "Ligado a Pompeia; casa de origem a confirmar." },
+        ],
+      },
+      {
+        id: "brennard", nome: "Casa Brennard", funcao: "Vassala dos Pendragons — rege Frontier",
+        membros: [
+          { nomeLivre: "Lorde Otto Brennard", cargo: "Senhor de Frontier", ordem: 1, nota: "Dossiê completo no guia de Frontier (NPC)." },
+          { nomeLivre: "Lady Isolde Brennard", cargo: "Herdeira", ordem: 2, nota: "Dossiê completo no guia de Frontier (NPC)." },
+        ],
+      },
+      {
+        id: "vinland", nome: "Casa Vinland", funcao: "Vassala dos Brennard",
+        membros: [{ nomeLivre: "Chefia a definir", cargo: "—", ordem: 1, nota: "Casa nova no registro." }],
+      },
+      {
+        id: "ishran", nome: "Casa Ishran", funcao: "Vassala dos Vinland",
+        membros: [{ nomeLivre: "Chefia a definir", cargo: "—", ordem: 1, nota: "Casa nova no registro." }],
+      },
+      {
+        id: "flumifogo", nome: "Casa Flumifogo", funcao: "Vassala dos Magnum — patrulha as estradas do norte",
+        membros: [{ nomeLivre: "Sir Vasco Flumifogo", cargo: "Patrulheiro do norte", ordem: 1, nota: "Dossiê completo no guia de Frontier (NPC)." }],
+      },
+    ],
+  },
+  relacoes: [],
+  genealogias: [
+    {
+      id: "thulin", titulo: "Família real Thulin",
+      nos: [
+        { id: "nefarius", nome: "Nefarius Mercos Thulin", nota: "Rei antigo, falecido." },
+        { id: "kranos", nome: "Kranos Thulin", nota: "Casado com a Imperadora Deusa Karphel, de Amaranth." },
+        { id: "rei_atual", nome: "O rei atual", nota: "Jovem, recém-casado, sem herdeiro. Parentesco com Nefarius a confirmar." },
+        { id: "crikon_thulin", personagemId: "hetalion_crikon", soMestre: true },
+      ],
+      ligacoes: [
+        { pais: ["nefarius"], filho: "kranos", tipo: "pai e filho" },
+        { pais: ["nefarius"], filho: "rei_atual", tipo: "parentesco a confirmar", tracejado: true },
+        { pais: ["nefarius"], filho: "crikon_thulin", tipo: "filho ilegítimo (segredo)", tracejado: true, soMestre: true },
+      ],
+    },
+    {
+      id: "pendragon", titulo: "Casa Pendragon",
+      nos: [
+        { id: "wyver", nome: "Wyver Pendragon", nota: "Cabeça da casa." },
+        { id: "lenvi", nome: "Lenvi Pendragon", nota: "Filha de Wyver." },
+        { id: "van", nome: "Van Pendragon", nota: "Filho de Wyver." },
+        { id: "volaria", nome: "Volaria Pendragon", nota: "Filha de Lenvi, neta de Wyver." },
+      ],
+      ligacoes: [
+        { pais: ["wyver"], filho: "lenvi", tipo: "pai e filha" },
+        { pais: ["wyver"], filho: "van", tipo: "pai e filho" },
+        { pais: ["lenvi"], filho: "volaria", tipo: "mãe e filha" },
+      ],
+    },
+    {
+      id: "duran", titulo: "Casa Duran",
+      nos: [
+        { id: "vreston", nome: "Vreston Duran", nota: "Cavaleiro de Omem." },
+        { id: "yama", nome: "Yama Duran", nota: "Cabeça da casa, filha de Vreston." },
+        { id: "darius", nome: "Darius Duran", nota: "Coronel desaparecido (possuído por Belzebu). Citou Yama como neta — laço com Vreston a confirmar." },
+      ],
+      ligacoes: [{ pais: ["vreston"], filho: "yama", tipo: "pai e filha" }],
+    },
+    {
+      id: "ace", titulo: "Casa Ace",
+      nos: [
+        { id: "valefor_ace", nome: "Valefor Ace", nota: "Arquimaga da alma, morta em Steampoint." },
+        { id: "vashi", nome: "Vashi Spades Ace", nota: "Filha de Valefor; herdeira possível de uma casa sem cabeça." },
+      ],
+      ligacoes: [{ pais: ["valefor_ace"], filho: "vashi", tipo: "mãe e filha" }],
+    },
+    {
+      id: "vassalagem", titulo: "Cadeia de vassalagem das casas menores",
+      nos: [
+        { id: "h_pendragon", nome: "Casa Pendragon" },
+        { id: "h_brennard", nome: "Casa Brennard" },
+        { id: "h_vinland", nome: "Casa Vinland" },
+        { id: "h_ishran", nome: "Casa Ishran" },
+        { id: "h_magnum", nome: "Casa Magnum" },
+        { id: "h_flumifogo", nome: "Casa Flumifogo" },
+      ],
+      ligacoes: [
+        { pais: ["h_pendragon"], filho: "h_brennard", tipo: "suserano de", tracejado: true },
+        { pais: ["h_brennard"], filho: "h_vinland", tipo: "suserano de", tracejado: true },
+        { pais: ["h_vinland"], filho: "h_ishran", tipo: "suserano de", tracejado: true },
+        { pais: ["h_magnum"], filho: "h_flumifogo", tipo: "suserano de", tracejado: true },
+      ],
+      notas: ["Vinland e Ishran ainda não têm chefia definida — por isso aparecem só como nó da casa, sem gente."],
+    },
+  ],
+};
+
 // Sementes de "pessoas do reino" (ver reporPessoasDoReino em pessoasReino.js)
-// — Suth, Goethia e Hetalion por agora; outro reino que ganhar esse formato
-// entra aqui.
+// — Suth, Goethia, Hetalion e Katalão por agora; outro reino que ganhar esse
+// formato entra aqui.
 const SEMENTES_PESSOAS_REINO = [
   { reinoId: "suth", pessoas: DADOS_PESSOAS_SUTH },
   { reinoId: "goethia", pessoas: DADOS_PESSOAS_GOETHIA },
   { reinoId: "hetalion", pessoas: DADOS_PESSOAS_HETALION },
+  { reinoId: "katalao", pessoas: DADOS_PESSOAS_KATALAO },
 ];
 
 // Aplicado aqui (e não só na reposição do useEffect de carregamento) pelo
@@ -6551,6 +6720,12 @@ export function MundoPopup({ acao, gm, onClose, onAcao }) {
         {c.img && <img src={assetUrl(c.img)} alt="" style={{ float: "right", width: "min(38%, 170px)", margin: "0 0 10px 14px", borderRadius: 6, border: `1px solid ${LINE}` }} />}
         <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{c.papel}</div>
         <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 19, margin: "4px 0 10px" }}>{c.nome}</h2>
+        {c.singularity && (
+          <div style={{ border: `1px solid ${LINE}`, borderRadius: 6, padding: "6px 10px", marginBottom: 10, display: "inline-block" }}>
+            <div style={{ fontSize: 10, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>Singularidade da casa</div>
+            <div style={{ fontSize: 13.5 }}><b>{c.singularity.type}:</b> {c.singularity.main}</div>
+          </div>
+        )}
         <RichText html={textoVisivel(c, gm)} onAcao={onAcao} />
       </div>
     );
@@ -7929,6 +8104,11 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
                   <div style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>{c.tag}</div>
                   <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14.5, margin: "2px 0" }}>{c.nome}</div>
                   <div style={{ fontSize: 12, color: MUTED }}>{c.papel}</div>
+                  {c.singularity && (
+                    <div style={{ fontSize: 11.5, color: "#2F6D61", marginTop: 4 }}>
+                      <b>{c.singularity.type}:</b> {c.singularity.main}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -8135,7 +8315,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
                               </button>
                               {aberta && (
                                 <div style={{ marginTop: 10 }}>
-                                  <ArvoreGenealogica genealogia={genealogia} characters={characters} onAbrirFicha={onAbrirFicha} />
+                                  <ArvoreGenealogica genealogia={genealogia} characters={characters} onAbrirFicha={onAbrirFicha} gm={gm} />
                                   {(genealogia.notas || []).length > 0 && (
                                     <div style={{ marginTop: 8 }}>
                                       {genealogia.notas.map((n, i) => (
@@ -8261,8 +8441,14 @@ function NoGenealogia({ no, characters, onAbrirFicha, x, y, width, height }) {
 // pais acima, filhos abaixo, linha tracejada quando a ligação não é
 // parentesco de sangue (criação, mentoria etc.). Rolagem horizontal própria
 // pra não quebrar o layout em tela pequena.
-export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha }) {
-  const geracoes = geracoesDaGenealogia(genealogia.nos, genealogia.ligacoes);
+export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha, gm }) {
+  // `itensVisiveis` (mesma convenção de soMestre do resto do reino) filtra nós
+  // e ligações individuais — não só a árvore inteira. É o que deixa um nó
+  // específico (ex.: um segredo dentro de uma árvore pública) visível só ao
+  // mestre sem esconder o resto da árvore.
+  const nos = itensVisiveis(genealogia.nos, gm);
+  const ligacoes = itensVisiveis(genealogia.ligacoes, gm);
+  const geracoes = geracoesDaGenealogia(nos, ligacoes);
   const nodeW = 116, nodeH = 40, hGap = 14, vGap = 44, pad = 14;
   const maxPorLinha = Math.max(1, ...geracoes.map((g) => g.nos.length));
   const largura = pad * 2 + maxPorLinha * (nodeW + hGap) - hGap;
@@ -8273,11 +8459,11 @@ export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha }) {
       posicoes.set(id, { x: pad + i * (nodeW + hGap), y: pad + gi * (nodeH + vGap), width: nodeW, height: nodeH });
     });
   });
-  const nosPorId = new Map((genealogia.nos || []).map((n) => [n.id, n]));
+  const nosPorId = new Map(nos.map((n) => [n.id, n]));
   return (
     <div style={{ overflowX: "auto", border: `1px solid ${LINE}`, borderRadius: 8, padding: 8 }}>
       <svg width={largura} height={altura} style={{ display: "block", minWidth: largura }}>
-        {(genealogia.ligacoes || []).map((lig, i) => {
+        {ligacoes.map((lig, i) => {
           const filhoPos = posicoes.get(lig.filho);
           if (!filhoPos) return null;
           return (lig.pais || []).map((paiId, j) => {

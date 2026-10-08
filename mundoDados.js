@@ -64,7 +64,8 @@ export const KATALAO_INFO = {
    "papel": "Cabeça: Baltazar Sehen · Kingsyard",
    "tag": "Dulahand",
    "pub": "<p>Guardiões da capital e da família real, inquisidores pela nobreza. Devotos de <b>Dulahand</b>.</p><p><b>Dom de sangue:</b> grande sorte natural; podem ter grande regeneração física.</p><ul><li><b>Baltazar Sehen</b> (cabeça): regeneração e manipulação da própria sorte.</li></ul>",
-   "gm": "<p>Guardiões da capital e da família real, inquisidores pela nobreza. Devotos de <b>Dulahand</b>.</p><p><b>Dom de sangue:</b> grande sorte natural; podem ter grande regeneração física.</p><ul><li><b>Baltazar Sehen</b> (cabeça): regeneração e manipulação da própria sorte.</li></ul>"
+   "gm": "<p>Guardiões da capital e da família real, inquisidores pela nobreza. Devotos de <b>Dulahand</b>.</p><p><b>Dom de sangue:</b> grande sorte natural; podem ter grande regeneração física.</p><ul><li><b>Baltazar Sehen</b> (cabeça): regeneração e manipulação da própria sorte.</li></ul><p><b>Gancho:</b> se alguém carregar um pedaço do próprio Dulahand, os Sehen vão notar.</p>",
+   "singularity": { "type": "Corpo", "main": "Regeneração" }
   },
   {
    "id": "pendragon",
@@ -73,7 +74,8 @@ export const KATALAO_INFO = {
    "tag": "Gigas",
    "img": "mundo/retratos/lenvi.jpg",
    "pub": "<p>Equilíbrio entre impulso e ordem, <b>tecnologia de mana</b>, conexão com o plano Éter. Devotos de <b>Gigas</b>, como os dragões (daí o pacto com o Rubrasol).</p><p><b>Dom e maldição:</b> sangue com tanta mana que causa instabilidade mental.</p><ul><li><b>Wyver Pendragon</b> (cabeça).</li><li><b>Lenvi Pendragon</b>, filha de Wyver: reserva de mana; usa um equipamento que controla emoções; rancorosa; não gosta de ser desprezada nem de pessoas.</li><li><b>Van Pendragon</b>, filho de Wyver.</li><li><b>Volaria Pendragon</b>, filha de Lenvi.</li><li><b>Sir Flynn Mason</b>, cavaleiro da Guarda Pendragon.</li></ul>",
-   "gm": "<p>Equilíbrio entre impulso e ordem, <b>tecnologia de mana</b>, conexão com o plano Éter. Devotos de <b>Gigas</b>, como os dragões (daí o pacto com o Rubrasol).</p><p><b>Dom e maldição:</b> sangue com tanta mana que causa instabilidade mental.</p><ul><li><b>Wyver Pendragon</b> (cabeça). Provavelmente o lorde de cabelo azul que atacou Midhab.</li><li><b>Lenvi Pendragon</b>, filha de Wyver: reserva de mana; usa um equipamento que controla emoções; rancorosa; não gosta de ser desprezada nem de pessoas. Inspirada na GLaDOS.</li><li><b>Van Pendragon</b>, filho de Wyver. Sugestão para quem se tranca na Torre.</li><li><b>Volaria Pendragon</b>, filha de Lenvi.</li><li><b>Sir Flynn Mason</b>, cavaleiro da Guarda Pendragon.</li></ul>"
+   "gm": "<p>Equilíbrio entre impulso e ordem, <b>tecnologia de mana</b>, conexão com o plano Éter. Devotos de <b>Gigas</b>, como os dragões (daí o pacto com o Rubrasol).</p><p><b>Dom e maldição:</b> sangue com tanta mana que causa instabilidade mental.</p><ul><li><b>Wyver Pendragon</b> (cabeça). Provavelmente o lorde de cabelo azul que atacou Midhab.</li><li><b>Lenvi Pendragon</b>, filha de Wyver: reserva de mana; usa um equipamento que controla emoções; rancorosa; não gosta de ser desprezada nem de pessoas. Inspirada na GLaDOS.</li><li><b>Van Pendragon</b>, filho de Wyver. Sugestão para quem se tranca na Torre.</li><li><b>Volaria Pendragon</b>, filha de Lenvi.</li><li><b>Sir Flynn Mason</b>, cavaleiro da Guarda Pendragon.</li></ul><p><b>Gancho:</b> a mana azul do sangue é a mesma cor do cabelo. O dragão do brasão pode ser o Rubrasol ou um parente dele.</p>",
+   "singularity": { "type": "Mana", "main": "Excesso de mana" }
   },
   {
    "id": "duran",
@@ -81,7 +83,8 @@ export const KATALAO_INFO = {
    "papel": "Cabeça: Yama Duran · Mundis",
    "tag": "Militar",
    "pub": "<p>Cavaleiros nobres, protetores do reino, a grande força militar de Katalão.</p><p><b>Dom de sangue:</b> armazenar energia com a mão esquerda e liberar com a direita.</p><ul><li><b>Yama Duran</b> (cabeça), filha de Vreston: energética e nobre, sem filtro e de bom coração; gosta de se mostrar; não gosta de injustiça.</li><li><b>Vreston Duran</b>: bastante elitista. Cavaleiro de Omem.</li><li><b>Darius Duran</b>: o coronel possuído por Belzebu, desaparecido na árvore.</li></ul>",
-   "gm": "<p>Cavaleiros nobres, protetores do reino, a grande força militar de Katalão.</p><p><b>Dom de sangue:</b> armazenar energia com a mão esquerda e liberar com a direita.</p><ul><li><b>Yama Duran</b> (cabeça), filha de Vreston: energética e nobre, sem filtro e de bom coração; gosta de se mostrar; não gosta de injustiça.</li><li><b>Vreston Duran</b>: bastante elitista. Cavaleiro de Omem.</li><li><b>Darius Duran</b>: o coronel possuído por Belzebu, desaparecido na árvore.</li></ul>"
+   "gm": "<p>Cavaleiros nobres, protetores do reino, a grande força militar de Katalão.</p><p><b>Dom de sangue:</b> armazenar energia com a mão esquerda e liberar com a direita.</p><ul><li><b>Yama Duran</b> (cabeça), filha de Vreston: energética e nobre, sem filtro e de bom coração; gosta de se mostrar; não gosta de injustiça.</li><li><b>Vreston Duran</b>: bastante elitista. Cavaleiro de Omem.</li><li><b>Darius Duran</b>: o coronel possuído por Belzebu, desaparecido na árvore.</li></ul><p><b>Gancho:</b> os Duran têm motivo pra odiar quem fez o coronel Darius desaparecer.</p>",
+   "singularity": { "type": "Absorção e liberação", "main": "Absorver força e liberar energia" }
   },
   {
    "id": "ace",
@@ -89,7 +92,8 @@ export const KATALAO_INFO = {
    "papel": "Cabeça: vago · Promet",
    "tag": "Nekron",
    "pub": "<p>Experiências com os mortos e tecnologia de alma. Devotos de <b>Nekron</b>, com conexão com o plano astral.</p><p><b>Dom de sangue:</b> grande quantidade de alma; alguns veem o mundo de forma distorcida.</p><ul><li><b>Valefor Ace</b>: arquimaga da alma, ressonância de alma. Falecida em Steampoint.</li><li><b>Vashi Spades Ace</b>, filha de Valefor.</li></ul>",
-   "gm": "<p>Experiências com os mortos e tecnologia de alma. Devotos de <b>Nekron</b>, com conexão com o plano astral.</p><p><b>Dom de sangue:</b> grande quantidade de alma; alguns veem o mundo de forma distorcida.</p><ul><li><b>Valefor Ace</b>: arquimaga da alma, ressonância de alma. Falecida em Steampoint.</li><li><b>Vashi Spades Ace</b>, filha de Valefor.</li></ul><p><b>Gancho:</b> o Rio Parado é um problema de alma.</p>"
+   "gm": "<p>Experiências com os mortos e tecnologia de alma. Devotos de <b>Nekron</b>, com conexão com o plano astral.</p><p><b>Dom de sangue:</b> grande quantidade de alma; alguns veem o mundo de forma distorcida.</p><ul><li><b>Valefor Ace</b>: arquimaga da alma, ressonância de alma. Falecida em Steampoint.</li><li><b>Vashi Spades Ace</b>, filha de Valefor.</li></ul><p><b>Gancho:</b> a chefia está vaga desde a morte de Valefor Ace. O Rio Parado de Frontier é um problema de alma.</p>",
+   "singularity": { "type": "Alma", "main": "Enxergar o Astra" }
   },
   {
    "id": "magnum",
@@ -97,7 +101,8 @@ export const KATALAO_INFO = {
    "papel": "Cabeça: Mozan Magnum",
    "tag": "Caça",
    "pub": "<p>Inquisidores fora do reino, forças de exploração e invasão, caçadores e batedores.</p><ul><li><b>Mozan Magnum</b> (cabeça)</li></ul>",
-   "gm": "<p>Inquisidores fora do reino, forças de exploração e invasão, caçadores e batedores.</p><ul><li><b>Mozan Magnum</b> (cabeça): a <b>Caçadora Escarlate</b>, que caça fora do reino.</li></ul>"
+   "gm": "<p>Inquisidores fora do reino, forças de exploração e invasão, caçadores e batedores.</p><ul><li><b>Mozan Magnum</b> (cabeça): a <b>Caçadora Escarlate</b>, que caça fora do reino.</li></ul><p><b>Gancho:</b> o motivo de a casa ter mudado de aparência ao longo das gerações (cabelo vermelho, hoje loiro) ainda está em aberto.</p>",
+   "singularity": { "type": "Projeção física", "main": "Teleporte" }
   },
   {
    "id": "flumifogo",
@@ -112,8 +117,33 @@ export const KATALAO_INFO = {
    "nome": "Clã Gotis",
    "papel": "Cabeça: Iris Gotis · Pompeia",
    "tag": "Diplomacia",
-   "pub": "<p>Gestão interna da nobreza, diplomatas, pesquisadores de relíquias.</p><ul><li><b>Iris Gotis</b> (cabeça).</li></ul>",
-   "gm": "<p>Gestão interna da nobreza, diplomatas, pesquisadores de relíquias.</p><ul><li><b>Iris Gotis</b> (cabeça).</li></ul>"
+   "pub": "<p>Gestão interna da nobreza, diplomatas, pesquisadores de relíquias.</p><p><b>Dom de sangue:</b> projeção de mana — ilusão.</p><ul><li><b>Iris Gotis</b> (cabeça).</li></ul>",
+   "gm": "<p>Gestão interna da nobreza, diplomatas, pesquisadores de relíquias.</p><p><b>Dom de sangue:</b> projeção de mana — ilusão.</p><ul><li><b>Iris Gotis</b> (cabeça).</li></ul><p><b>Gancho:</b> Pompeia é o destino final da rota do Sidepoint.</p>",
+   "singularity": { "type": "Projeção de mana", "main": "Ilusão" }
+  },
+  {
+   "id": "brennard",
+   "nome": "Casa Brennard",
+   "papel": "Lorde: Otto Brennard · Frontier",
+   "tag": "Vassala",
+   "pub": "<p>Casa menor, vassala dos <b>Pendragons</b>. Rege <b>Frontier</b> e criou o <button class='term' data-term='cadastro'>Cadastro Brennard</button>.</p><ul><li><b>Lorde Otto Brennard</b> <button class='term' data-person='otto'>Ver ficha</button></li><li><b>Lady Isolde Brennard</b>, herdeira <button class='term' data-person='isolde'>Ver ficha</button></li></ul>",
+   "gm": "<p>Casa menor, vassala dos <b>Pendragons</b>. Rege <b>Frontier</b> e criou o <button class='term' data-term='cadastro'>Cadastro Brennard</button>.</p><ul><li><b>Lorde Otto Brennard</b> <button class='term' data-person='otto'>Ver ficha</button></li><li><b>Lady Isolde Brennard</b>, herdeira <button class='term' data-person='isolde'>Ver ficha</button></li></ul><p><b>Gancho:</b> Otto quer um dia ser um lorde do tamanho dos Pendragons, e esconde isso dos relatórios que manda a Atlas.</p>"
+  },
+  {
+   "id": "vinland",
+   "nome": "Casa Vinland",
+   "papel": "Vassala dos Brennard · chefia a definir",
+   "tag": "Vassala",
+   "pub": "<p>Casa menor, vassala dos <b>Brennard</b>. Pela cadeia de vassalagem, responde aos Brennard e, acima deles, aos Pendragons.</p>",
+   "gm": "<p>Casa menor, vassala dos <b>Brennard</b>. Pela cadeia de vassalagem, responde aos Brennard e, acima deles, aos Pendragons.</p><p><b>Gancho:</b> casa nova no registro — faltam chefia, cidade, etiqueta e dom de sangue.</p>"
+  },
+  {
+   "id": "ishran",
+   "nome": "Casa Ishran",
+   "papel": "Vassala dos Vinland · chefia a definir",
+   "tag": "Vassala",
+   "pub": "<p>Casa menor, vassala dos <b>Vinland</b>. É o degrau mais baixo da cadeia de vassalagem Pendragon → Brennard → Vinland → Ishran.</p>",
+   "gm": "<p>Casa menor, vassala dos <b>Vinland</b>. É o degrau mais baixo da cadeia de vassalagem Pendragon → Brennard → Vinland → Ishran.</p><p><b>Gancho:</b> casa nova no registro — faltam chefia, cidade, etiqueta e dom de sangue.</p>"
   }
  ]
 };

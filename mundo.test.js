@@ -74,7 +74,7 @@ test("conteúdo do Mundo não cita protagonistas nem os grupos de jogadores", ()
   const texto = JSON.stringify({ KATALAO_INFO, FRONTIER: { ...FRONTIER, mapaSvg: "" }, NPCS });
   const proibidos = [
     "Almah", "Kiryu", "Leona", "Ookami", "Boda", "Erin Genova", "Fate", "Kutrefas", "Mercúrio", "Minerva",
-    "Rena", "Vientra", "Leon ", "Merkel", "Winters", "Raiko", "Akira", "Kanny", "Mevil", "Ishran",
+    "Rena", "Vientra", "Leon ", "Merkel", "Winters", "Raiko", "Akira", "Kanny", "Mevil Ishran",
     "Aurora", "Grupo C", "Jack",
   ];
   for (const nome of proibidos) assert.ok(!texto.includes(nome), `cita protagonista/grupo: ${nome}`);

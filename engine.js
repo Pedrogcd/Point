@@ -71,7 +71,6 @@ export const PROFICIENCIAS_LIST = [
   { key: "roubo", label: "Roubo", categoria: "fisica" },
   { key: "furtividade", label: "Furtividade", categoria: "fisica" },
   { key: "sobrevivencia", label: "Sobrevivência", categoria: "fisica" },
-  { key: "empatiaAnimal", label: "Empatia Animal", categoria: "social" },
   { key: "etiqueta", label: "Etiqueta", categoria: "social" },
   { key: "intuicao", label: "Intuição", categoria: "social" },
   { key: "intimidacao", label: "Intimidação", categoria: "social" },
@@ -79,7 +78,6 @@ export const PROFICIENCIAS_LIST = [
   { key: "atuacao", label: "Atuação", categoria: "social" },
   { key: "persuasao", label: "Persuasão", categoria: "social" },
   { key: "malandragem", label: "Malandragem", categoria: "social" },
-  { key: "subterfugio", label: "Subterfúgio", categoria: "social" },
   { key: "academicos", label: "Acadêmicos", categoria: "mental" },
   { key: "percepcao", label: "Percepção", categoria: "mental" },
   { key: "financas", label: "Finanças", categoria: "mental" },
@@ -88,9 +86,14 @@ export const PROFICIENCIAS_LIST = [
   { key: "ocultismo", label: "Ocultismo", categoria: "mental" },
   { key: "magiasGerais", label: "Magias Gerais", categoria: "mental" },
   { key: "politica", label: "Política", categoria: "mental" },
-  { key: "ciencia", label: "Ciência", categoria: "mental" },
   { key: "tecnologia", label: "Tecnologia", categoria: "mental" },
 ];
+// Removidas do catálogo (08/10, pedido do Pedro): "ciencia", "subterfugio" e
+// "empatiaAnimal" — nenhuma das três tinha função mecânica (eram só
+// referência, como as outras 22 não-combate que sobraram). Fichas que já
+// tinham grau salvo nessas chaves (Akira Cagliostro: ciencia/subterfugio;
+// ZERO: ciencia) mantêm o dado salvo, só não aparece mais na ficha nem é
+// editável — reaparece se a proficiência voltar pro catálogo um dia.
 
 export const PROFICIENCIAS_DEFAULT = PROFICIENCIAS_LIST.reduce((acc, p) => ({ ...acc, [p.key]: "E" }), {});
 

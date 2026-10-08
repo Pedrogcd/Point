@@ -4130,27 +4130,49 @@ function AttrBar({ label, grade, highlight }) {
   );
 }
 
-function ResourceBar({ label, resource, color, icon: Icon }) {
-  const pct = resource.max > 0 ? Math.min(100, (resource.current / resource.max) * 100) : 0;
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, marginBottom: 3, fontFamily: "'IBM Plex Mono', monospace" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Icon size={12} /> {label}</span>
-        <span>{resource.current}/{resource.max}</span>
-      </div>
-      <div style={{ height: 10, background: "#00000015", borderRadius: 3, border: `1px solid ${LINE}`, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, transition: "width 0.3s ease" }} />
-      </div>
-    </div>
-  );
-}
-
-// MP e SP sao mostrados como bolinhas (nao barra): preenchidas na cor do recurso
-// (MP sempre azul, SP sempre verde) ate o "atual", e cinzas dali ate o "maximo"
-// (representando o que ja foi gasto).
-function ResourceDots({ label, resource, color, icon: Icon }) {
+// HP, MP e SP são todos mostrados como bolinhas: preenchidas na cor do
+// recurso até o "atual", cinzas dali até o "máximo" (o que já foi gasto).
+// Clicável quando `onToggle` é passado (sempre que a ficha não é só-leitura):
+// clicar numa bolinha VAZIA restaura na hora até ali (um clique só, igual
+// MP/SP sempre funcionaram). Clicar numa bolinha CHEIA depende de `rachavel`:
+// - MP/SP (rachavel ausente): esvazia/evapora na hora, um clique.
+// - HP (rachavel: true): o primeiro clique só racha (aviso visual, nada
+//   salvo ainda); o segundo clique na MESMA bolinha quebra de verdade (HP
+//   cai até ali). Um clique na bolinha vazia de novo restaura — "pra
+//   questões práticas", não é uma simulação de cura.
+// `rachadas`/`pulso` são estado só deste componente (não vão pro character):
+// cada chamada recebe `key={character.id + algo}` do painel de Recursos
+// pra resetar sozinha ao trocar de personagem (sem isso, uma bolinha
+// rachada "vazaria" de uma ficha pra outra ao navegar com Anterior/Próximo).
+function ResourceDots({ label, resource, color, icon: Icon, onToggle, rachavel, verboEsvaziar = "esvaziar" }) {
   const max = Math.max(0, resource.max || 0);
   const current = Math.max(0, Math.min(resource.current ?? 0, max));
+  const [rachada, setRachada] = useState(false);
+  const [pulso, setPulso] = useState(null);
+
+  function clicarBolinha(i) {
+    if (!onToggle) return;
+    const cheia = i < current;
+    const edge = cheia ? current - 1 : current;
+    setPulso(edge);
+    setTimeout(() => setPulso((p) => (p === edge ? null : p)), 320);
+    if (!cheia) {
+      setRachada(false);
+      onToggle(edge + 1);
+      return;
+    }
+    if (!rachavel) {
+      onToggle(edge);
+      return;
+    }
+    if (rachada) {
+      setRachada(false);
+      onToggle(edge);
+    } else {
+      setRachada(true);
+    }
+  }
+
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
@@ -4158,13 +4180,35 @@ function ResourceDots({ label, resource, color, icon: Icon }) {
         <span>{current}/{max}</span>
       </div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-        {Array.from({ length: max }, (_, i) => (
-          <div key={i} style={{
-            width: 14, height: 14, borderRadius: "50%",
-            background: i < current ? color : "#00000020",
-            border: `1px solid ${i < current ? color : LINE}`,
-          }} />
-        ))}
+        {Array.from({ length: max }, (_, i) => {
+          const cheia = i < current;
+          const isEdge = i === current - 1;
+          const rachadaDot = cheia && isEdge && rachada;
+          const Tag = onToggle ? "button" : "div";
+          return (
+            <Tag
+              key={i}
+              type={onToggle ? "button" : undefined}
+              onClick={onToggle ? () => clicarBolinha(i) : undefined}
+              title={onToggle ? (cheia ? (rachavel ? (rachadaDot ? "Clique pra quebrar" : "Clique pra rachar") : `Clique pra ${verboEsvaziar}`) : "Clique pra restaurar") : undefined}
+              className={pulso === i ? "dot-pop" : ""}
+              style={{
+                width: 14, height: 14, borderRadius: "50%", padding: 0, position: "relative",
+                background: cheia ? color : "#00000020",
+                border: `1px solid ${cheia ? color : LINE}`,
+                opacity: rachadaDot ? 0.55 : 1,
+                cursor: onToggle ? "pointer" : "default",
+                transition: "background 0.22s ease, opacity 0.22s ease",
+              }}
+            >
+              {rachadaDot && (
+                <svg viewBox="0 0 14 14" width={14} height={14} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+                  <polyline points="4,1 7,6 5,7 10,13" fill="none" stroke="#2B2116" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </Tag>
+          );
+        })}
         {max === 0 && <span style={{ fontSize: 10, color: MUTED, fontStyle: "italic" }}>sem pontos</span>}
       </div>
     </div>
@@ -4706,9 +4750,22 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
           <div style={panelStyle}>
             <div style={panelHeadStyle}>Recursos</div>
-            <ResourceBar label="HP" resource={{ current: Math.min(character.hp?.current ?? computeMaxHP(character), computeMaxHP(character)), max: computeMaxHP(character) }} color={EMBER} icon={Droplet} />
-            <ResourceDots label="MP (Mana Points)" resource={character.mp} color={MP_COLOR} icon={Sparkles} />
-            <ResourceDots label="SP (Soul Points)" resource={{ current: Math.min(character.sp?.current ?? computeMaxSP(character), computeMaxSP(character)), max: computeMaxSP(character) }} color={SP_COLOR} icon={Flame} />
+            <ResourceDots
+              key={`hp-${character.id}`} label="HP" rachavel
+              resource={{ current: Math.min(character.hp?.current ?? computeMaxHP(character), computeMaxHP(character)), max: computeMaxHP(character) }}
+              color={EMBER} icon={Droplet}
+              onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { hp: { ...character.hp, current: novo } }) : undefined}
+            />
+            <ResourceDots
+              key={`mp-${character.id}`} label="MP (Mana Points)" resource={character.mp} color={MP_COLOR} icon={Sparkles}
+              onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { mp: { ...character.mp, current: novo } }) : undefined}
+            />
+            <ResourceDots
+              key={`sp-${character.id}`} label="SP (Soul Points)" verboEsvaziar="evaporar"
+              resource={{ current: Math.min(character.sp?.current ?? computeMaxSP(character), computeMaxSP(character)), max: computeMaxSP(character) }}
+              color={SP_COLOR} icon={Flame}
+              onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { sp: { ...character.sp, current: novo } }) : undefined}
+            />
             <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6){(character.procs || []).includes("persistente") ? " + 1 (Persistente)" : ""}. SP máximo{(character.procs || []).includes("persistente") ? " inclui +1 (Persistente)" : ""}.</div>
             {onUpdateCharacter && (
               <Btn
@@ -9468,6 +9525,8 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Spectral:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         .spin { animation: spin 0.4s linear; }
         @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+        .dot-pop { animation: dotPop 0.32s ease; }
+        @keyframes dotPop { 0% { transform: scale(1); } 45% { transform: scale(1.45); } 100% { transform: scale(1); } }
         select, input, textarea { font-family: inherit; }
         ::selection { background: ${BRASS}55; }
         .point-nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }

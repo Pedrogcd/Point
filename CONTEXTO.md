@@ -134,6 +134,9 @@ Pedido do Pedro: HP, que era uma barra (`ResourceBar`), devia virar bolinhas com
 
 Animação: `.dot-pop`/`@keyframes dotPop` (CSS, no `<style>` global perto do `@keyframes spin` que já existia) dá um "pulso" de escala na bolinha afetada a cada clique; a rachadura em si é um ícone SVG (duas linhas tipo raio) desenhado por cima da bolinha cheia quando `rachavel` e ainda não quebrou. Verificado com Playwright: clicar a bolinha "errada" (não-borda) cai exatamente 1 ponto em HP/MP/SP, nunca mais; a rachadura não "vaza" pro próximo personagem selecionado; sem erros de JS.
 
+### Ocultismo saiu do catálogo, Religião entrou no lugar (08/10, mesmo dia)
+A pedido do Pedro: `ocultismo` foi removida de `PROFICIENCIAS_LIST` (`engine.js`) e `religiao` entrou na mesma posição (categoria "mental"). Mesma mecânica das remoções anteriores (`ciencia`/`subterfugio`/`empatiaAnimal`, ver acima): nenhuma das duas tem função mecânica — são decorativas, só aparecem na ficha e no teste de Atributo+Perícia. Fichas que já tinham grau salvo em `ocultismo` (Leon Winters e outros do Grupo Aurora, alguns do Grupo Suth) mantêm o dado salvo, só não aparece/edita mais; `religiao` entra em "E" por padrão pra todo mundo (nenhuma ficha semente tinha essa chave ainda, então não há dado anterior pra herdar). Contagem total do catálogo não mudou (29, sendo 22 não-combate) — é troca, não remoção líquida. README.md também corrigido de "32" pra "29" proficiências (contagem já estava desatualizada desde a remoção das três anteriores, ver acima).
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

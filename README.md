@@ -70,7 +70,7 @@ O app **não exige login**: qualquer pessoa com o link edita, exclui, salva e ga
 - **Grupo (mesa)**: Grupo C (campanha principal), Grupo Aurora (Sidepoint), Grupo Suth (Império de Suth), Grupo Goethia ou Grupo Hetalion
 - **Singularidade**, **Habilidade de Raça** + **2 Classes** — tabelas de 3 caixas em largura total, acima dos atributos
 - **Atributos Gerais** (9): Força, Destreza, Vigor / Carisma, Manipulação, Compostura / Inteligência, Perspicácia, Resolução
-- **Proficiências** (32), em 4 categorias: Combate, Física, Social, Mental
+- **Proficiências** (29), em 4 categorias: Combate, Física, Social, Mental
 - **Estatísticas de Combate**: Defesa, Resistência Armadura, Resistência Natural Física, Resistência Natural Mágica, Geral. Acerto não é estatística fixa — é calculado por tipo de ataque (corpo a corpo, arma de fogo, mágico)
 - **Recursos**: HP (definido por Vigor), MP (azul), SP (verde)
 - **Habilidades Passivas de Combate**: até 3 espaços por personagem, clicáveis — a Singularidade não ocupa espaço

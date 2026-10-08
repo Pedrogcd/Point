@@ -57,6 +57,8 @@ Cada dado é sucesso se: `dado + bônus do ataque + bônus de crítico > Defesa 
 - **MP** (Mana Points, azul) — gasta 1 para **re-rolar** um dado
 - **SP** (Soul Points, verde) — gasta 1 para **somar +5** num dado (máx. 10)
 
+Na ficha, HP/MP/SP aparecem como bolinhas clicáveis. HP tem dois passos: 1º clique numa bolinha cheia racha (só visual), 2º clique quebra (cai 1 ponto); clicar numa vazia restaura na hora. MP e SP são um clique só: cheia → esvazia/evapora 1 ponto; vazia → enche 1 ponto.
+
 ## Status Effects
 
 | Status | Quando | Efeito |

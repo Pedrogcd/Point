@@ -83,7 +83,7 @@ export const PROFICIENCIAS_LIST = [
   { key: "financas", label: "Finanças", categoria: "mental" },
   { key: "investigacao", label: "Investigação", categoria: "mental" },
   { key: "medicina", label: "Medicina", categoria: "mental" },
-  { key: "ocultismo", label: "Ocultismo", categoria: "mental" },
+  { key: "religiao", label: "Religião", categoria: "mental" },
   { key: "magiasGerais", label: "Magias Gerais", categoria: "mental" },
   { key: "politica", label: "Política", categoria: "mental" },
   { key: "tecnologia", label: "Tecnologia", categoria: "mental" },
@@ -94,6 +94,11 @@ export const PROFICIENCIAS_LIST = [
 // tinham grau salvo nessas chaves (Akira Cagliostro: ciencia/subterfugio;
 // ZERO: ciencia) mantêm o dado salvo, só não aparece mais na ficha nem é
 // editável — reaparece se a proficiência voltar pro catálogo um dia.
+//
+// "ocultismo" saiu do catálogo e virou "religiao" (08/10, mesmo dia, mesmo
+// pedido do Pedro) — mesma regra: fichas com grau salvo em "ocultismo"
+// mantêm o dado, só não aparece/edita mais; "religiao" entra em "E" por
+// padrão pra todo mundo (nenhuma ficha semente tinha essa chave ainda).
 
 export const PROFICIENCIAS_DEFAULT = PROFICIENCIAS_LIST.reduce((acc, p) => ({ ...acc, [p.key]: "E" }), {});
 

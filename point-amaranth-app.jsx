@@ -5085,7 +5085,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       <div style={panelStyle}>
         <div style={panelHeadStyle}>Atributos Gerais e Proficiências (estilo Vampiro: A Máscara)</div>
         <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 12 }}>
-          Força e Destreza migraram pra cá (saíram dos Atributos de Combate). Vigor determina o HP máximo (2 + bônus de Vigor). Os demais — Carisma, Manipulação, Compostura, Inteligência, Perspicácia, Resolução — não têm função de combate: servem pra testes interpretativos fora de combate. As Proficiências de Combate já entram nos cálculos de Acerto/Dano/Defesa/Resistência; as outras 24 são só de referência.
+          Força e Destreza migraram pra cá (saíram dos Atributos de Combate). Vigor determina o HP máximo (2 + bônus de Vigor). Os demais — Carisma, Manipulação, Compostura, Inteligência, Perspicácia, Resolução — não têm função de combate: servem pra testes interpretativos fora de combate. As Proficiências de Combate já entram nos cálculos de Acerto/Dano/Defesa/Resistência; as outras 22 são só de referência.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div>

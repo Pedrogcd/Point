@@ -6882,9 +6882,35 @@ export function CidadeView({
 // uma cidade pelo nome no ponto clicado; marcadores existentes arrastam
 // (pointer events) e têm um botão de remover. Tudo passa por `setKingdoms`,
 // que o App já persiste via storage.js — nenhuma escrita própria aqui.
+//
+// Tamanho do texto do balão de descrição (nome + resumo do reino/cidade ao
+// passar o mouse): é só preferência de exibição deste navegador, não dado de
+// campanha, então fica fora de `kingdoms`/storage.js — direto no
+// localStorage, mesmo padrão do CHAVE_MODO (ver mundo.js). Default já entra
+// no tamanho "M" (maior que o original) — os botões A-/A+ deixam ajustar.
+const CHAVE_TAMANHO_TOOLTIP_MAPA = "point-mapa-tamanho-tooltip";
+const TAMANHOS_TOOLTIP_MAPA = [
+  { label: "P", titulo: 12.5, texto: 11, largura: 220 },
+  { label: "M", titulo: 15.5, texto: 14, largura: 280 },
+  { label: "G", titulo: 19, texto: 17, largura: 340 },
+];
 function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId, onAbrirReino, onAbrirCidade, editando }) {
   const containerRef = useRef(null);
   const [hover, setHover] = useState(null); // { nome, descricao, ponto }
+  const [tamanhoTooltipIdx, setTamanhoTooltipIdx] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem(CHAVE_TAMANHO_TOOLTIP_MAPA), 10);
+      return Number.isInteger(v) && v >= 0 && v < TAMANHOS_TOOLTIP_MAPA.length ? v : 1;
+    } catch (e) { return 1; }
+  });
+  function mudarTamanhoTooltip(delta) {
+    setTamanhoTooltipIdx((prev) => {
+      const next = Math.min(TAMANHOS_TOOLTIP_MAPA.length - 1, Math.max(0, prev + delta));
+      try { localStorage.setItem(CHAVE_TAMANHO_TOOLTIP_MAPA, String(next)); } catch (e) {}
+      return next;
+    });
+  }
+  const tamanhoTooltip = TAMANHOS_TOOLTIP_MAPA[tamanhoTooltipIdx];
   const [recorteReinoId, setRecorteReinoId] = useState(null);
   const [reinoEditandoId, setReinoEditandoId] = useState(null);
   const [modoEdicao, setModoEdicao] = useState(null); // null | "tracando" | "posicionando"
@@ -6994,6 +7020,18 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
 
   return (
     <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <span style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>Tamanho do texto no mapa:</span>
+        <Btn variant="ghost" onClick={() => mudarTamanhoTooltip(-1)} disabled={tamanhoTooltipIdx === 0} style={{ padding: "3px 9px" }}>
+          A-
+        </Btn>
+        <span style={{ fontSize: 11, color: PARCHMENT, fontFamily: "'IBM Plex Mono', monospace", minWidth: 14, textAlign: "center" }}>
+          {tamanhoTooltip.label}
+        </span>
+        <Btn variant="ghost" onClick={() => mudarTamanhoTooltip(1)} disabled={tamanhoTooltipIdx === TAMANHOS_TOOLTIP_MAPA.length - 1} style={{ padding: "3px 9px" }}>
+          A+
+        </Btn>
+      </div>
       <div
         ref={containerRef} onClick={onContainerClick}
         style={{
@@ -7127,10 +7165,10 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
             <div style={{
               position: "absolute", left: `${sx * 100}%`, top: `${sy * 100}%`, transform: "translate(-50%, -130%)",
               pointerEvents: "none", zIndex: 20, background: PANEL, border: `1px solid ${LINE}`, borderRadius: 6,
-              padding: "6px 10px", boxShadow: "0 2px 10px #00000060", maxWidth: 220,
+              padding: "6px 10px", boxShadow: "0 2px 10px #00000060", maxWidth: tamanhoTooltip.largura,
             }}>
-              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: BRASS_BRIGHT }}>{hover.nome}</div>
-              {hover.descricao && <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4, marginTop: 2 }}>{hover.descricao}</div>}
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: tamanhoTooltip.titulo, color: BRASS_BRIGHT }}>{hover.nome}</div>
+              {hover.descricao && <div style={{ fontSize: tamanhoTooltip.texto, color: MUTED, lineHeight: 1.4, marginTop: 2 }}>{hover.descricao}</div>}
             </div>
           );
         })()}

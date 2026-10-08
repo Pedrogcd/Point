@@ -112,6 +112,9 @@ Diferente de todo material anterior (Suth tinha documento de conversão à parte
 
 **Teste novo**: `hetalionStats.test.js`, no mesmo molde do `suthStats.test.js` — confere Defesa/Resistências/Acerto/HP/MP do Valefor e da Yurity contra o motor de verdade. São os dois únicos personagens do Grupo Hetalion com teste de estatística próprio (os outros 6 — Crikon, Emeaver, Asana, Jingen, Shoebil, Hoshon — são rascunho grau E, sem tabela pra conferir contra).
 
+### Tamanho do texto do balão de hover no mapa (08/10)
+O Pedro mandou print do balão de descrição do Katalão no mapa interativo (`MapaMundoInterativo`) reclamando da fonte pequena, e pediu um jeito de ajustar. É puramente uma preferência de exibição deste navegador — não dado de campanha, não precisa ir pro `kingdoms`/storage.js/Supabase — então ficou direto no `localStorage` (mesmo padrão do `CHAVE_MODO` de Jogador/GM, em `mundo.js`), chave `point-mapa-tamanho-tooltip`. Três níveis (P/M/G: título 12.5/15.5/19px, texto 11/14/17px, largura 220/280/340px), com o balão já abrindo em M (maior que o tamanho original, que virou o "P") — botões A-/A+ acima do mapa trocam o nível, desabilitando nos extremos. Verificado via Playwright simulando os cliques nos botões e conferindo o `fontSize` real aplicado no DOM do balão, mais persistência depois de recarregar a página.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

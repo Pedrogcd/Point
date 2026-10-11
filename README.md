@@ -20,6 +20,8 @@ App de gerenciamento para a campanha de RPG de mesa **Point**, ambientada no uni
 - `public/retratos-hetalion/` — retratos dos 4 personagens do Grupo Hetalion que vieram com arte (Asana, Jingen, Shoebil, Hoshon); Crikon e Emeaver ainda não têm imagem
 - `mundoDados.js` — conteúdo fixo do Mundo: Katalão (casas, etiquetas, mapa) e a cidade de Frontier (distritos, NPCs, forças, mesa do mestre), com versão pública (`pub`) e do mestre (`gm`)
 - `mundo.js` / `mundo.test.js` — funções puras do Mundo (o que cada modo Jogador/GM enxerga, agrupamento de NPCs, pinos do mapa) e seus testes, incluindo uma checagem de que segredos do mestre não aparecem no modo Jogador
+- `katalao.test.js` — testes da seção Katalão: `singularity` das 6 grandes casas, sigilo do nó do Crikon na árvore dos Thulin (`soMestre` por nó/ligação, não só por árvore inteira), varredura de `personagemId`, cidade duplicada removida
+- `icones-racas.jsx` — ícones SVG inline (24x24, traço, `currentColor`) e cor de cada raça (`RACAS`) e habilidade racial principal (`HABILIDADES_RACIAIS`), mais `clarearHex` (deriva a variante "modo escuro" de uma cor, sem tema escuro ligado hoje no app)
 - `public/mundo/` — mapa do mundo, mapa e imagem de Katalão, retratos dos NPCs
 - `cidades.js` — funções puras das cidades semente do Mundo: reposição idempotente (ex: Frontier em Katalão) em quem já tinha reinos salvos, respeitando as cidades apagadas de propósito (`point-cidades-removidas`)
 - `cidades.test.js` — testes automatizados do `cidades.js`
@@ -68,7 +70,8 @@ O app **não exige login**: qualquer pessoa com o link edita, exclui, salva e ga
 ## Estrutura da ficha
 
 - **Grupo (mesa)**: Grupo C (campanha principal), Grupo Aurora (Sidepoint), Grupo Suth (Império de Suth), Grupo Goethia ou Grupo Hetalion
-- **Singularidade**, **Habilidade de Raça** + **2 Classes** — tabelas de 3 caixas em largura total, acima dos atributos
+- **Singularidade**, **Habilidade de Raça** + **2 Classes** — tabelas de 3 caixas em largura total, acima dos atributos. `race`/`racialAbility.name` continuam texto livre; dois campos novos opcionais, `racaId` e `habilidadePrincipalId` (`icones-racas.jsx`), decoram o cartão (borda esquerda, ícone, fundo tingido) e o cabeçalho "Raça e Classes" quando preenchidos — sem isso, cartão fica neutro (cinza, só o ícone da raça se `racaId` estiver setado). Nenhuma ficha existente foi migrada automaticamente
+- **Ícones e cores de raça/habilidade principal** (`icones-racas.jsx`): 6 raças (Humano, Niosh, Ningen, Elfo, Dragonato, Tengou) e 24 habilidades raciais principais, cada uma com ícone SVG próprio e cor — usado no cartão "Habilidade de Raça" da ficha e no cabeçalho "Raça e Classes"
 - **Atributos Gerais** (9): Força, Destreza, Vigor / Carisma, Manipulação, Compostura / Inteligência, Perspicácia, Resolução
 - **Proficiências** (29), em 4 categorias: Combate, Física, Social, Mental
 - **Estatísticas de Combate**: Defesa, Resistência Armadura, Resistência Natural Física, Resistência Natural Mágica, Geral. Acerto não é estatística fixa — é calculado por tipo de ataque (corpo a corpo, arma de fogo, mágico)

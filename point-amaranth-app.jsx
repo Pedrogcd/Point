@@ -30,6 +30,7 @@ import {
 } from "./mapaMundo.js";
 import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
 import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
+import { RACAS, HABILIDADES_RACIAIS } from "./icones-racas.jsx";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
@@ -474,6 +475,8 @@ function withFichaDefaults(c) {
   return {
     traits: "",
     xp: 0,
+    racaId: null,
+    habilidadePrincipalId: null,
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
@@ -4631,7 +4634,7 @@ function AttackCard({ atk, onClick, selected, character }) {
 
 // Caixa genérica usada nas duas tabelas de 3 colunas da ficha (Raça/Classes e
 // Habilidades Passivas de Combate) — mostra vazio/preenchido de forma consistente.
-function SlotBox({ etiqueta, cor, titulo, subtitulo, corpo, vazio, onClick, acao }) {
+function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, vazio, onClick, acao }) {
   const clicavel = !!onClick;
   return (
     <div
@@ -4639,6 +4642,7 @@ function SlotBox({ etiqueta, cor, titulo, subtitulo, corpo, vazio, onClick, acao
       style={{
         background: vazio ? "#00000012" : `${cor}12`,
         border: `1px solid ${vazio ? LINE : `${cor}88`}`,
+        borderLeft: vazio ? undefined : `4px solid ${cor}`,
         borderRadius: 8, padding: 12, minHeight: 104,
         cursor: clicavel ? "pointer" : "default",
         display: "flex", flexDirection: "column", gap: 4,
@@ -4647,7 +4651,8 @@ function SlotBox({ etiqueta, cor, titulo, subtitulo, corpo, vazio, onClick, acao
       title={clicavel ? (vazio ? "Clique pra escolher uma habilidade" : "Clique pra trocar ou remover") : undefined}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.8, textTransform: "uppercase", color: vazio ? MUTED : cor }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.8, textTransform: "uppercase", color: vazio ? MUTED : cor }}>
+          {Icon && <Icon style={{ color: vazio ? MUTED : cor, flexShrink: 0 }} width={13} height={13} />}
           {etiqueta}
         </span>
         {acao}
@@ -5265,12 +5270,22 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
       {/* TABELA 1 — Habilidade de Raça + as duas Classes. Ainda vão ser criadas
           no sistema; por enquanto as caixas guardam nome + descrição livres. */}
+      {(() => {
+        const racaInfo = character.racaId ? RACAS[character.racaId] : null;
+        const habInfo = character.habilidadePrincipalId ? HABILIDADES_RACIAIS[character.habilidadePrincipalId] : null;
+        const corHabilidade = habInfo ? habInfo.cor : MUTED;
+        const iconHabilidade = habInfo?.Icon || racaInfo?.Icon;
+        return (
       <div style={panelStyle}>
-        <div style={panelHeadStyle}>Raça e Classes</div>
+        <div style={{ ...panelHeadStyle, color: racaInfo?.cor || PURPLE, display: "flex", alignItems: "center", gap: 6 }}>
+          {racaInfo && <racaInfo.Icon width={13} height={13} />}
+          Raça e Classes
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           <SlotBox
             etiqueta="Habilidade de Raça"
-            cor={BRASS}
+            cor={corHabilidade}
+            Icon={iconHabilidade}
             vazio={!character.racialAbility?.name}
             titulo={character.racialAbility?.name}
             subtitulo={character.race || null}
@@ -5292,6 +5307,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           ))}
         </div>
       </div>
+        );
+      })()}
 
       {/* TABELA 2 — os 3 espaços de Habilidade Passiva de Combate. Clicar numa
           caixa abre o seletor com as habilidades já criadas (PROC_ABILITIES). */}
@@ -5569,6 +5586,12 @@ export function CharacterForm({ initial, onSave, onCancel }) {
         <Field label="Nome"><input style={inputStyle} value={c.name} onChange={(e) => set(["name"], e.target.value)} /></Field>
         <Field label="Epíteto"><input style={inputStyle} value={c.epithet} onChange={(e) => set(["epithet"], e.target.value)} /></Field>
         <Field label="Raça"><input style={inputStyle} value={c.race} onChange={(e) => set(["race"], e.target.value)} /></Field>
+        <Field label="Raça (ícone/cor — opcional)">
+          <select style={inputStyle} value={c.racaId || ""} onChange={(e) => set(["racaId"], e.target.value || null)}>
+            <option value="">— nenhuma —</option>
+            {Object.entries(RACAS).map(([id, r]) => <option key={id} value={id}>{r.label}</option>)}
+          </select>
+        </Field>
         <Field label="Grupo (mesa)">
           <select style={inputStyle} value={c.grupo || grupoDoPersonagem(c)} onChange={(e) => set(["grupo"], e.target.value)}>
             {GRUPOS.map((g) => <option key={g.id} value={g.id}>{g.label} — {g.subtitulo}</option>)}
@@ -5657,6 +5680,18 @@ export function CharacterForm({ initial, onSave, onCancel }) {
         <div>
           <Field label="Habilidade de Raça — nome">
             <input style={inputStyle} value={c.racialAbility?.name || ""} onChange={(e) => set(["racialAbility", "name"], e.target.value)} />
+          </Field>
+          <Field label="Habilidade principal (ícone/cor — opcional)">
+            <select style={inputStyle} value={c.habilidadePrincipalId || ""} onChange={(e) => set(["habilidadePrincipalId"], e.target.value || null)}>
+              <option value="">— nenhuma (secundária) —</option>
+              {c.racaId
+                ? Object.entries(HABILIDADES_RACIAIS).filter(([, h]) => h.racaId === c.racaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)
+                : Object.entries(RACAS).map(([racaId, raca]) => (
+                    <optgroup key={racaId} label={raca.label}>
+                      {Object.entries(HABILIDADES_RACIAIS).filter(([, h]) => h.racaId === racaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)}
+                    </optgroup>
+                  ))}
+            </select>
           </Field>
           <Field label="Descrição">
             <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.racialAbility?.description || ""} onChange={(e) => set(["racialAbility", "description"], e.target.value)} />

@@ -477,6 +477,7 @@ function withFichaDefaults(c) {
     xp: 0,
     racaId: null,
     habilidadePrincipalId: null,
+    habilidadeSecundariaId: null,
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
@@ -5268,30 +5269,45 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         </div>
       </div>
 
-      {/* TABELA 1 — Habilidade de Raça + as duas Classes. Ainda vão ser criadas
-          no sistema; por enquanto as caixas guardam nome + descrição livres. */}
+      {/* TABELA 1 — Habilidade de Raça (principal + secundária) + as duas
+          Classes. `racialAbility`/`race` continuam texto livre; quando vazios,
+          o cartão principal cai pro label do catálogo (`habilidadePrincipalId`)
+          — dá pra usar só os seletores, sem escrever nada. A secundária nunca
+          tem cor própria: aparece sempre neutra (cinza, ícone da raça), por
+          design (ver icones-racas.jsx). */}
       {(() => {
         const racaInfo = character.racaId ? RACAS[character.racaId] : null;
-        const habInfo = character.habilidadePrincipalId ? HABILIDADES_RACIAIS[character.habilidadePrincipalId] : null;
-        const corHabilidade = habInfo ? habInfo.cor : MUTED;
-        const iconHabilidade = habInfo?.Icon || racaInfo?.Icon;
+        const habPrincipal = character.habilidadePrincipalId ? HABILIDADES_RACIAIS[character.habilidadePrincipalId] : null;
+        const habSecundaria = character.habilidadeSecundariaId ? HABILIDADES_RACIAIS[character.habilidadeSecundariaId] : null;
+        const principalVazio = !character.racialAbility?.name && !habPrincipal;
+        const corPrincipal = habPrincipal ? habPrincipal.cor : MUTED;
+        const iconPrincipal = habPrincipal?.Icon || racaInfo?.Icon;
         return (
       <div style={panelStyle}>
         <div style={{ ...panelHeadStyle, color: racaInfo?.cor || PURPLE, display: "flex", alignItems: "center", gap: 6 }}>
           {racaInfo && <racaInfo.Icon width={13} height={13} />}
           Raça e Classes
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           <SlotBox
-            etiqueta="Habilidade de Raça"
-            cor={corHabilidade}
-            Icon={iconHabilidade}
-            vazio={!character.racialAbility?.name}
-            titulo={character.racialAbility?.name}
-            subtitulo={character.race || null}
-            corpo={character.racialAbility?.name
-              ? (character.racialAbility.description || "Sem descrição.")
-              : `Ainda não definida${character.race ? ` (raça: ${character.race})` : ""} — a criar.`}
+            etiqueta="Habilidade de Raça — principal"
+            cor={corPrincipal}
+            Icon={iconPrincipal}
+            vazio={principalVazio}
+            titulo={character.racialAbility?.name || habPrincipal?.label}
+            subtitulo={character.race || racaInfo?.label || null}
+            corpo={principalVazio
+              ? `Ainda não definida${character.race ? ` (raça: ${character.race})` : ""} — a criar.`
+              : (character.racialAbility?.description || "Sem descrição.")}
+          />
+          <SlotBox
+            etiqueta="Habilidade de Raça — secundária"
+            cor={MUTED}
+            Icon={racaInfo?.Icon}
+            vazio={!habSecundaria}
+            titulo={habSecundaria?.label}
+            subtitulo={racaInfo?.label || null}
+            corpo={habSecundaria ? "Secundária — mostrada neutra, sem cor própria." : "Nenhuma secundária escolhida ainda."}
           />
           {[0, 1].map((i) => (
             <SlotBox
@@ -5674,7 +5690,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={ShieldHalf}>Raça e Classes</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Aparecem na primeira tabela de 3 caixas da ficha, logo abaixo da Singularidade. O sistema de raças e classes ainda vai ser criado — por enquanto são campos livres.
+        Aparecem na primeira tabela de 4 caixas da ficha, logo abaixo da Singularidade. O sistema de raças e classes ainda vai ser criado — por enquanto são campos livres.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
         <div>
@@ -5683,12 +5699,24 @@ export function CharacterForm({ initial, onSave, onCancel }) {
           </Field>
           <Field label="Habilidade principal (ícone/cor — opcional)">
             <select style={inputStyle} value={c.habilidadePrincipalId || ""} onChange={(e) => set(["habilidadePrincipalId"], e.target.value || null)}>
-              <option value="">— nenhuma (secundária) —</option>
+              <option value="">— nenhuma —</option>
               {c.racaId
-                ? Object.entries(HABILIDADES_RACIAIS).filter(([, h]) => h.racaId === c.racaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)
+                ? Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === c.racaId && id !== c.habilidadeSecundariaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)
                 : Object.entries(RACAS).map(([racaId, raca]) => (
                     <optgroup key={racaId} label={raca.label}>
-                      {Object.entries(HABILIDADES_RACIAIS).filter(([, h]) => h.racaId === racaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)}
+                      {Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === racaId && id !== c.habilidadeSecundariaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)}
+                    </optgroup>
+                  ))}
+            </select>
+          </Field>
+          <Field label="Habilidade secundária (opcional)">
+            <select style={inputStyle} value={c.habilidadeSecundariaId || ""} onChange={(e) => set(["habilidadeSecundariaId"], e.target.value || null)}>
+              <option value="">— nenhuma —</option>
+              {c.racaId
+                ? Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === c.racaId && id !== c.habilidadePrincipalId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)
+                : Object.entries(RACAS).map(([racaId, raca]) => (
+                    <optgroup key={racaId} label={raca.label}>
+                      {Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === racaId && id !== c.habilidadePrincipalId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)}
                     </optgroup>
                   ))}
             </select>

@@ -182,6 +182,22 @@ Pedido do Pedro: um conjunto de ícones SVG inline e um mapa de cores pras 6 ra�
 
 Suíte de testes: sem mudança de contagem (502 testes) — a mudança é só de UI/decoração opcional, sem lógica nova pra testar automatizado além da sintaxe; a verificação de cor/ícone foi feita manualmente via Playwright (documentado acima) porque é renderização visual condicional, não regra de jogo.
 
+### Habilidade de raça secundária: terceiro campo opcional, select, estilo sempre neutro (12/10)
+
+Pedido do Pedro, seguindo direto do pacote de ícones/cores acima: "coloque em cada ficha a opção de escolher a raça, e escolher a habilidade principal de raça e a segundaria, das opções que criou". O seletor de raça e o de habilidade principal já existiam (PR anterior); faltava a secundária.
+
+**Campo novo**: `habilidadeSecundariaId: null` em `withFichaDefaults` (mesmo padrão dos dois campos anteriores — opcional, não migra as ~50 fichas existentes).
+
+**Regra de estilo deliberada, mantém o que já valia pra "sem habilidade principal"**: a secundária **nunca** usa a cor/ícone da própria habilidade escolhida — o cartão "Habilidade de Raça — secundária" é sempre `cor={MUTED}` (cinza) e `Icon={racaInfo?.Icon}` (ícone da raça, não da habilidade), só o texto (`titulo`) muda pro nome da habilidade escolhida. Isso é a mesma regra de design já aprovada ("habilidades secundárias mostram só o ícone da raça em cinza"), agora aplicada a um valor realmente selecionável em vez de só a "ausência de principal".
+
+**Efeito colateral corrigido ao mesmo tempo**: antes, o cartão "principal" só mostrava cor/ícone/texto se `racialAbility.name` (texto livre) também estivesse preenchido — um Mestre que só usasse os `<select>` novos (sem tocar no texto livre) via o cartão sempre no estado "vazio". Agora `titulo`/`subtitulo`/a condição de "vazio" caem pro catálogo (`habilidadePrincipalId`/`racaId`) quando o texto livre está em branco, então os três seletores (raça, principal, secundária) já bastam sozinhos pra configurar uma ficha.
+
+**Exclusão cruzada nos dois `<select>` do formulário**: a mesma habilidade não pode ser escolhida como principal e secundária ao mesmo tempo — cada select filtra fora o id já escolhido no outro (`!== c.habilidadeSecundariaId` no principal, `!== c.habilidadePrincipalId` na secundária). Layout do painel na ficha mudou de 3 colunas (Principal/Classe 1/Classe 2) pra grade 2×2 (Principal+Secundária na primeira linha, Classe 1+Classe 2 na segunda).
+
+Verificado via Playwright (Leon Winters, Grupo Aurora): escolhido Humano → Mana Concentrada (principal) → confirma que "Mana Concentrada" sai das opções da secundária → escolhido Mana Estática (secundária) → confirma que "Mana Estática" sai das opções da principal → salva → cartão principal com borda/fundo/ícone na cor exata de Mana Concentrada (`#2E9E5B`) e cartão secundária em cinza (`MUTED`) mostrando o texto "Mana Estática", sem cor própria — exatamente a regra pretendida.
+
+Suíte de testes: sem mudança de contagem (502 testes) — mesmo motivo do PR anterior, verificação visual feita manualmente via Playwright.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

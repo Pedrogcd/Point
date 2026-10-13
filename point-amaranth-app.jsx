@@ -4645,8 +4645,14 @@ function AttackCard({ atk, onClick, selected, character }) {
 
 // Caixa genérica usada nas duas tabelas de 3 colunas da ficha (Raça/Classes e
 // Habilidades Passivas de Combate) — mostra vazio/preenchido de forma consistente.
+// Com `Icon`, o símbolo vem grande (56px) do lado direito, ocupando o espaço
+// vazio que sobrava ao lado do texto — card sem Icon (Classes, Habilidades
+// Passivas) continua só com a coluna de texto, sem buraco. `efeito` é sempre
+// em INK (preto), nunca na cor da habilidade — a cor do texto em cima de um
+// fundo já tingido com a mesma cor ficava difícil de ler.
 function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, efeito, vazio, onClick, acao }) {
   const clicavel = !!onClick;
+  const corIcone = vazio ? MUTED : cor;
   return (
     <div
       onClick={onClick}
@@ -4656,29 +4662,35 @@ function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, efeito, vazio,
         borderLeft: vazio ? undefined : `4px solid ${cor}`,
         borderRadius: 8, padding: 12, minHeight: 104,
         cursor: clicavel ? "pointer" : "default",
-        display: "flex", flexDirection: "column", gap: 4,
+        display: "flex", alignItems: "stretch", gap: 10,
         transition: "border-color .15s",
       }}
       title={clicavel ? (vazio ? "Clique pra escolher uma habilidade" : "Clique pra trocar ou remover") : undefined}
     >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.8, textTransform: "uppercase", color: vazio ? MUTED : cor }}>
-          {Icon && <Icon style={{ color: vazio ? MUTED : cor, flexShrink: 0 }} width={13} height={13} />}
-          {etiqueta}
-        </span>
-        {acao}
-      </div>
-      {vazio ? (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 11.5, fontStyle: "italic", textAlign: "center", lineHeight: 1.4 }}>
-          {corpo}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.8, textTransform: "uppercase", color: vazio ? MUTED : cor }}>
+            {etiqueta}
+          </span>
+          {acao}
         </div>
-      ) : (
-        <>
-          <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, lineHeight: 1.25 }}>{titulo}</div>
-          {subtitulo && <div style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace", color: cor }}>{subtitulo}</div>}
-          <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{corpo}</div>
-          {efeito && <div style={{ fontSize: 11, color: cor, marginTop: 2, fontStyle: "italic" }}>Efeito: {efeito}</div>}
-        </>
+        {vazio ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 11.5, fontStyle: "italic", textAlign: "center", lineHeight: 1.4 }}>
+            {corpo}
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, lineHeight: 1.25 }}>{titulo}</div>
+            {subtitulo && <div style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace", color: cor }}>{subtitulo}</div>}
+            <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{corpo}</div>
+            {efeito && <div style={{ fontSize: 11, color: INK, marginTop: 2, fontStyle: "italic" }}>Efeito: {efeito}</div>}
+          </>
+        )}
+      </div>
+      {Icon && (
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 60 }}>
+          <Icon width={56} height={56} style={{ color: corIcone, opacity: vazio ? 0.35 : 0.9 }} />
+        </div>
       )}
     </div>
   );

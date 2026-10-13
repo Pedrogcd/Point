@@ -236,6 +236,18 @@ Pedro substituiu o catálogo por uma versão nova (mesma `versao: "2026-10-11"`,
 
 Suíte de testes: sem mudança de contagem (516 testes) — só o fixture de um teste existente foi ajustado pros dados novos. Build de produção confirmado.
 
+### `SlotBox`: ícone grande ao lado do texto, efeito sempre em preto (13/10)
+
+Pedido do Pedro, com print da ficha da Leona marcado à mão: o ícone de cada habilidade (13px, só ao lado da etiqueta) ficava pequeno demais pro espaço vazio que sobrava no cartão; e o texto do "Efeito:" (na cor da habilidade, ex. laranja do Leonino) ficava difícil de ler em cima do fundo já tingido na mesma cor.
+
+**`SlotBox` (`point-amaranth-app.jsx`)** virou um `flex` em linha: coluna de texto (etiqueta/título/subtítulo/descrição/efeito) à esquerda, e — só quando o card recebe `Icon` — um ícone de 56px (contra os 13px de antes) à direita, ocupando o espaço que ficava vazio. Cartões sem `Icon` (Classes, Habilidades Passivas de Combate) continuam só com a coluna de texto, sem buraco; o ícone pequeno que antes ficava ao lado da etiqueta saiu (redundante com o grande). `efeito` trocou de `color: cor` pra `color: INK` (preto) — igual ao título, que já usava a mesma cor.
+
+Não redesenhei os 31 SVGs de `icones-racas.jsx` — o pedido de "mais detalhado" já se resolve mostrando o traço existente num tamanho real (56px vs 13px); os ícones já tinham detalhe suficiente, só pequenos demais pra aparecer.
+
+Verificado via Playwright (Leona, Grupo C): raça Ningen → principal Leonino → secundária Transformação, screenshot do painel "Raça e Classes" confirmando os dois ícones grandes (juba laranja no principal, pegada cinza na secundária) e o texto do efeito em `rgb(43, 33, 22)` (= `#2B2116`, o mesmo INK usado no título) em vez da cor da habilidade. Zero erros JS.
+
+Suíte de testes: sem mudança de contagem (516 testes) — mudança é só de layout/cor, sem lógica nova. Build de produção confirmado.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

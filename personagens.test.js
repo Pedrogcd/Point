@@ -39,10 +39,10 @@ describe("migrarPersonagem", () => {
     assert.ok(!migrado.attacks.some((a) => a.nome === "Chute"));
   });
 
-  it("ficha nova (sem attacks) recebe os 4 ataques padrão", () => {
+  it("ficha nova (sem attacks) recebe os ataques padrão", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X" });
     const nomes = migrado.attacks.map((a) => a.nome);
-    assert.ok(nomes.length >= 4);
+    assert.ok(nomes.length >= 3);
     assert.ok(nomes.includes("Ataque desarmado"));
   });
 
@@ -65,11 +65,38 @@ describe("migrarPersonagem", () => {
     assert.equal(editado.statBase.resistArmadura, 99);
   });
 
-  it("divide resistNatural (campo antigo único) em resistNaturalFisica/resistNaturalMagica", () => {
-    const migrado = migrarPersonagem({ id: "x", name: "X", statBase: { resistNatural: 6 } });
+  it("remove Resistência Natural do statBase (não existe mais no sistema novo)", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      statBase: { resistNatural: 6, resistNaturalFisica: 6, resistNaturalMagica: 6 },
+    });
     assert.equal("resistNatural" in migrado.statBase, false);
-    assert.ok(typeof migrado.statBase.resistNaturalFisica === "number" || typeof migrado.statBase.resistNaturalFisica === "string");
-    assert.equal(migrado.statBase.resistNaturalFisica, migrado.statBase.resistNaturalMagica);
+    assert.equal("resistNaturalFisica" in migrado.statBase, false);
+    assert.equal("resistNaturalMagica" in migrado.statBase, false);
+  });
+
+  it("renomeia proficiência tecnicaProf -> manipulacaoManaProf preservando o grau", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { tecnicaProf: "B" } });
+    assert.equal("tecnicaProf" in migrado.proficiencias, false);
+    assert.equal(migrado.proficiencias.manipulacaoManaProf, "B");
+  });
+
+  it("não sobrescreve manipulacaoManaProf já migrado", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      proficiencias: { tecnicaProf: "B", manipulacaoManaProf: "A" },
+    });
+    assert.equal(migrado.proficiencias.manipulacaoManaProf, "A");
+  });
+
+  it("hp.superficiais nasce em 0 pra ficha sem esse campo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.equal(migrado.hp.superficiais, 0);
+  });
+
+  it("preserva hp.superficiais já salvo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", hp: { current: 3, max: 5, superficiais: 2 } });
+    assert.equal(migrado.hp.superficiais, 2);
   });
 
   it("adiciona 'Armadura física' em quem não tem nenhuma armadura cadastrada", () => {
@@ -126,7 +153,7 @@ describe("migrarPersonagem", () => {
   it("preserva hp/mp/sp já salvos, mesmo com HP atual reduzido (não reseta pra o máximo)", () => {
     const ch = { id: "x", name: "X", hp: { current: 1, max: 4 }, mp: { current: 0, max: 3 }, sp: { current: 2, max: 3 } };
     const migrado = migrarPersonagem(ch);
-    assert.deepEqual(migrado.hp, { current: 1, max: 4 });
+    assert.deepEqual(migrado.hp, { current: 1, max: 4, superficiais: 0 });
     assert.deepEqual(migrado.mp, { current: 0, max: 3 });
     assert.deepEqual(migrado.sp, { current: 2, max: 3 });
   });

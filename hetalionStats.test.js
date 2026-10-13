@@ -34,8 +34,9 @@ describe("Tabela de estatísticas do Valefor/Yurity (engine.js x dossiê enviado
       assert.ok(character, `personagem "${id}" não encontrado em SEED_CHARACTERS`);
 
       assert.equal(computeStat(character, "defesa"), esperado.defesa, "Defesa");
-      assert.equal(computeStat(character, "resistNaturalFisica"), esperado.resNatFis, "Resistência Natural Física");
-      assert.equal(computeStat(character, "resistNaturalMagica"), esperado.resNatMag, "Resistência Natural Mágica");
+      // Resistência Natural saiu do statBase em 14/10 (docs/SISTEMA_MAGIA.md
+      // item 2) — a defesa agora é a rolagem ativa de Resistência Física/Mágica,
+      // sem estatística passiva pra comparar aqui.
 
       const acertos = ACERTOS_POR_TIPO.map((entrada) => computeAcertoTipo(character, entrada).total);
       assert.deepEqual(acertos, esperado.acerto, "Acerto Corpo a corpo/Arma de fogo/Mágico");

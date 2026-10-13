@@ -13,10 +13,13 @@ import {
   ACERTOS_POR_TIPO, computeAcertoTipo,
   PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS, MAX_PROCS,
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
-  attrBonus, computeMaxHP, computeMaxSP, parseFlatBonus, limiarDaHabilidade, attrLabelDaHabilidade,
-  findTriggeredProc, resolveConfirmationPhase, resolveAttack, computeStat, rollSuccessDice,
-  defaultAttacksForCharacter,
+  attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, parseFlatBonus,
+  limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
+  defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
+  diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
+  descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
+import { MAGIAS, getMagiaPorId } from "./data/magias.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
@@ -33,7 +36,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, temDescritor,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -134,17 +137,30 @@ const HABILIDADE_CATEGORIA_INFO = {
 // Texto de exibição dos descritores (character.descritores) — os 6 ids que o
 // catalogo-racas.json usa hoje. O catálogo só guarda o id (ex.: "blindado"),
 // sem rótulo/descrição pronta pra mostrar; esse mapa existe só pra isso, não
-// pra regra nenhuma (nenhum descritor ainda afeta fórmula — ver engine.js).
-// "sortudo" (Clã Radiante/Noctis, catálogo 2026-10-11 v3) é só exibição por
-// enquanto: a mecânica de re-roll automático (primeiro 1 ou 2 de cada teste)
-// depende de decidir o alcance exato antes de tocar em engine.js.
+// pra regra nenhuma (a regra mora em engine.js — temDescritor/limiarAtaque).
+// Limiares de Blindado/Blindado Mágico atualizados pra 7+ em 14/10
+// (docs/SISTEMA_MAGIA.md — LIMIAR_BLINDADO). Entradas de descritor de
+// ATAQUE/magia (magia, em_area, saturante, perfurante, letal) adicionadas na
+// mesma data, pra exibição nas fichas de ataque/magia — ver data/magias.js e
+// BASE_ATTACK_TYPES (engine.js).
+// Valor sentinela da opção "Base mágica" no seletor de Atributo Geral do
+// Teste (docs/SISTEMA_MAGIA.md item 4) — nunca colide com uma key real de
+// ATRIBUTOS_GERAIS_LIST (todas vêm de engine.js, sem "__" no nome).
+const BASE_MAGICA_KEY = "__base_magica__";
+
 const DESCRITOR_INFO = {
-  blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
-  blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
+  blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 7, em vez de 6, para dar sucesso." },
+  blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 7, em vez de 6, para dar sucesso." },
   desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
   ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
-  veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "+1 de prioridade na iniciativa." },
+  veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "Etiqueta — ainda sem efeito no motor (prioridade/rodadas fora do escopo atual)." },
   sortudo: { label: "Sortudo", cor: "#E0A800", descricao: "O primeiro dado que sair 1 ou 2 em cada teste (inclusive de ataque) é re-rolado automaticamente, uma vez." },
+  magia: { label: "Magia", cor: PURPLE, descricao: "Toda magia tem este descritor — identifica o ataque como mágico." },
+  em_area: { label: "Em área", cor: "#5C86B0", descricao: "Atinge todos os alvos da zona; cada um rola a própria defesa; o conjurador rola uma vez; aliados na zona também são atingidos." },
+  saturante: { label: "Saturante", cor: "#B0784F", descricao: "Se o defensor usar Destreza como base da defesa, rola 2 dados a menos (mínimo 0)." },
+  perfurante: { label: "Perfurante", cor: BRASS_BRIGHT, descricao: "Ignora Blindado e Blindado Mágico do alvo." },
+  letal: { label: "Letal", cor: EMBER, descricao: "Reduz em 1 (mínimo 1) o Vigor necessário para o ferimento virar agravante." },
+  atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
 };
 
 
@@ -510,7 +526,7 @@ function withFichaDefaults(c) {
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
-    statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, resistNaturalFisica: 0, resistNaturalMagica: 0, geral: 0 },
+    statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, geral: 0 },
     statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
     attacks: defaultAttacksForCharacter(),
     itens: { usaveis: [], principais: [], armadura: ["Armadura física"] },
@@ -560,7 +576,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "D", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "C", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", tecnicaProf: "C",
+      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "C",
       intuicao: "C", percepcao: "C", ocultismo: "D", financas: "D", persuasao: "D",
     },
     procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
@@ -610,7 +626,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "C", destreza: "D", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", tecnicaProf: "D",
+      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "D",
       atletismo: "D", intuicao: "D", ocultismo: "D", intimidacao: "D", percepcao: "D",
     },
     procs: ["persistente", "instinto_selvagem", "furia_crescente"],
@@ -655,7 +671,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "C", destreza: "E", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "D", tecnicaProf: "D",
+      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "D", manipulacaoManaProf: "D",
       atuacao: "C", sobrevivencia: "D", intimidacao: "D",
     },
     procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
@@ -708,7 +724,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "D", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", tecnicaProf: "D",
+      combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "D",
       ciencia: "C", magiasGerais: "C", furtividade: "D", subterfugio: "D", medicina: "D", etiqueta: "D",
     },
     procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
@@ -755,7 +771,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "D", inteligencia: "E", perspicacia: "D", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "E", tecnicaProf: "D",
+      combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "D",
       furtividade: "C", percepcao: "D", sobrevivencia: "D",
     },
     procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
@@ -802,7 +818,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "D", destreza: "E", vigor: "D", carisma: "C", manipulacao: "E", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "D" },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", tecnicaProf: "E",
+      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "E",
       lideranca: "B", medicina: "C", magiasGerais: "C", ocultismo: "C", persuasao: "D",
     },
     procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
@@ -885,7 +901,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "C",
       "resistFisicaProf": "D",
       "resistMagicaProf": "C",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "lideranca": "A",
       "politica": "A",
       "persuasao": "B"
@@ -1014,7 +1030,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "E",
       "resistFisicaProf": "E",
       "resistMagicaProf": "E",
-      "tecnicaProf": "E"
+      "manipulacaoManaProf": "E"
     },
     "procs": [],
     "attacks": [
@@ -1113,7 +1129,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "E",
       "resistFisicaProf": "B",
       "resistMagicaProf": "E",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "lideranca": "B",
       "politica": "C",
       "persuasao": "D"
@@ -1249,7 +1265,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "C",
       "resistFisicaProf": "C",
       "resistMagicaProf": "B",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "lideranca": "B",
       "intimidacao": "C"
     },
@@ -1365,7 +1381,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "B",
       "resistFisicaProf": "B",
       "resistMagicaProf": "C",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "atletismo": "C"
     },
     "procs": [
@@ -1498,7 +1514,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "D",
       "resistFisicaProf": "C",
       "resistMagicaProf": "B",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "ciencia": "A",
       "medicina": "A",
       "magiasGerais": "B",
@@ -1627,7 +1643,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "B",
       "resistFisicaProf": "C",
       "resistMagicaProf": "E",
-      "tecnicaProf": "B",
+      "manipulacaoManaProf": "B",
       "sobrevivencia": "D"
     },
     "procs": [
@@ -1760,7 +1776,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "C",
       "resistFisicaProf": "A",
       "resistMagicaProf": "D",
-      "tecnicaProf": "B",
+      "manipulacaoManaProf": "B",
       "lideranca": "C"
     },
     "procs": [
@@ -1876,7 +1892,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "A",
       "resistFisicaProf": "D",
       "resistMagicaProf": "C",
-      "tecnicaProf": "A",
+      "manipulacaoManaProf": "A",
       "furtividade": "B",
       "sobrevivencia": "C",
       "percepcao": "C"
@@ -1994,7 +2010,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "C",
       "resistFisicaProf": "A",
       "resistMagicaProf": "C",
-      "tecnicaProf": "B"
+      "manipulacaoManaProf": "B"
     },
     "procs": [
       "instinto_selvagem",
@@ -2115,7 +2131,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "B",
       "resistFisicaProf": "C",
       "resistMagicaProf": "C",
-      "tecnicaProf": "B",
+      "manipulacaoManaProf": "B",
       "lideranca": "B",
       "intimidacao": "C"
     },
@@ -2241,7 +2257,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "C",
       "resistFisicaProf": "C",
       "resistMagicaProf": "A",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "lideranca": "D",
       "magiasGerais": "C"
     },
@@ -2359,7 +2375,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "C",
       "resistFisicaProf": "D",
       "resistMagicaProf": "D",
-      "tecnicaProf": "B",
+      "manipulacaoManaProf": "B",
       "lideranca": "D"
     },
     "procs": [
@@ -2497,7 +2513,7 @@ const SUTH_CHARACTERS_RAW = [
       "defesaProf": "B",
       "resistFisicaProf": "D",
       "resistMagicaProf": "C",
-      "tecnicaProf": "C",
+      "manipulacaoManaProf": "C",
       "persuasao": "C",
       "politica": "D",
       "financas": "D",
@@ -2656,7 +2672,7 @@ const FICHA_NOVA_FATE = {
     "defesaProf": "A",
     "resistFisicaProf": "C",
     "resistMagicaProf": "D",
-    "tecnicaProf": "A",
+    "manipulacaoManaProf": "A",
     "intimidacao": "B",
     "percepcao": "C"
   },
@@ -3051,7 +3067,7 @@ const HETALION_CHARACTERS_RAW = [
       { name: "Mago da Associação de Magia", description: "Magias de combate e utilidade de um mago habilidoso; estilo de suporte à distância, sem entrar em combate corpo a corpo." },
     ],
     atributosGerais: { forca: "E", destreza: "C", vigor: "D", carisma: "C", manipulacao: "B", compostura: "B", inteligencia: "A", perspicacia: "B", resolucao: "B" },
-    proficiencias: { armasDeFogo: "E", combateCorpoACorpo: "E", magiasOfensivas: "A", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "B", tecnicaProf: "A" },
+    proficiencias: { armasDeFogo: "E", combateCorpoACorpo: "E", magiasOfensivas: "A", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "B", manipulacaoManaProf: "A" },
     procs: ["reflexo_agil", "surto_arcano", "escudo_de_mana"],
     hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
     history: "A família de Valefor segue Kronos há gerações; ele cresceu cumprindo o que se esperava dele, virando sacerdote de Kronos e mago da Associação de Magia porque era o esperado, não por escolha. Para ele, a Prime e a tradição eram tudo — foi zeloso e fiel, cegamente, por boa parte do tempo, e via Hoshon como seu superior e como tudo o que precisava ser. Foi ao conhecer Hetalion Seguintes que passou a pensar fora do molde que lhe deram; hoje se dedica a ela e procura decidir o próprio destino. Recentemente soube do plano secreto de Yurity e Crikon (ampliar a influência de Seguintes para derrubar o governo atual de Hetalion). Não sabe o que pensar, mas está disposto a ver aonde vai e quer decidir por conta própria. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade, o 'poder de alma' e as magias de combate específicas ainda não foram definidos; ver notas do mestre do reino.]",
@@ -3071,7 +3087,7 @@ const HETALION_CHARACTERS_RAW = [
       { name: "Conspiradora política", description: "Usa a posição para ampliar influência junto de Hetalion Seguintes, com o objetivo de derrubar o governo atual de Hetalion e enfrentar Amaranth." },
     ],
     atributosGerais: { forca: "D", destreza: "B", vigor: "C", carisma: "B", manipulacao: "A", compostura: "C", inteligencia: "B", perspicacia: "A", resolucao: "A" },
-    proficiencias: { armasDeFogo: "B", combateCorpoACorpo: "D", magiasOfensivas: "A", defesaProf: "C", resistFisicaProf: "D", resistMagicaProf: "B", tecnicaProf: "B" },
+    proficiencias: { armasDeFogo: "B", combateCorpoACorpo: "D", magiasOfensivas: "A", defesaProf: "C", resistFisicaProf: "D", resistMagicaProf: "B", manipulacaoManaProf: "B" },
     procs: ["toque_flamejante", "surto_arcano", "escudo_de_mana"],
     hp: { current: 4, max: 4 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
     history: "Yurity é filha da antiga general do Partido Vermelho, que morreu em serviço durante a guerra em Amaranth, há cerca de 20 anos. Para o povo, a mãe morreu como heroína; para Yurity, a morte foi desnecessária, causada pela negligência de Amaranth. O ódio por Amaranth mudou a forma como ela vê o mundo — pra ela, o continente inteiro está preso nas garras de Karphel e de um status quo que ninguém questiona. Seu plano é crescer no Exército Vermelho, ampliar a influência junto de Hetalion Seguintes e ter poder pra derrubar o governo atual de Hetalion, enfrentar Amaranth e se libertar desses grilhões. No início usava Seguintes como degrau; hoje a vê como aliada próxima — foi Yurity quem acendeu a centelha revolucionária de Seguintes, e Seguintes disse que não sacrificaria Yurity nem Crikon. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade e as regras do Elo (limite de conectados, alcance, custo) ainda não foram definidos; ver notas do mestre do reino.]",
@@ -4194,7 +4210,7 @@ const emptyCharacter = () => ({
   singularity: { name: "", level: "E", description: "" },
   attributes: {},
   statBase: { ...STAT_BASE_DEFAULTS },
-  statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, resistNaturalFisica: 0, resistNaturalMagica: 0, geral: 0 },
+  statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, geral: 0 },
   statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
   attacks: defaultAttacksForCharacter(),
   itens: { usaveis: [], principais: [], armadura: ["Armadura física"] },
@@ -4598,26 +4614,22 @@ function AbilityCategoryList({ title, items }) {
 
 // Card retangular de um ataque — usado na ficha (só exibição) e no Confronto (clicável,
 // dispara a rolagem quando onClick é passado).
+// Mostra um ataque físico do catálogo/ficha (docs/SISTEMA_MAGIA.md): dados do
+// pool (Atributo + Proficiência + ajuste da arma), feridas e descritores.
+// Ataques mágicos não passam mais por aqui — ver data/magias.js.
 function AttackCard({ atk, onClick, selected, character }) {
   const tipoInfo = TIPOS_ATAQUE[atk.tipo] || TIPOS_ATAQUE.marcial;
-  const findAnyAttrLabel = (key) => (ATTR_LIST.find((a) => a.key === key) || ATRIBUTOS_GERAIS_LIST.find((a) => a.key === key))?.label;
   const profInfo = atk.profKey ? PROFICIENCIAS_LIST.find((p) => p.key === atk.profKey) : null;
-  const acertoAttrLabel = tipoInfo.acertoAttr ? findAnyAttrLabel(tipoInfo.acertoAttr) : "só valor do ataque";
-  const danoAttrLabel = tipoInfo.danoAttr ? findAnyAttrLabel(tipoInfo.danoAttr) : "só valor do ataque";
+  const atributoKey = atk.atributoKey || tipoInfo.atributoKey || "destreza";
+  const atributoInfo = ATRIBUTOS_GERAIS_LIST.find((a) => a.key === atributoKey);
   const Wrapper = onClick ? "button" : "div";
 
-  const isFixedSuccess = /^\d*[sS]$/.test(String(atk.acerto ?? "").trim());
-  const acertoBase = parseFlatBonus(atk.acerto);
-  const danoBase = parseFlatBonus(atk.dano);
-  const acertoAttrGrade = character && tipoInfo.acertoAttr ? getAttrGrade(character, tipoInfo.acertoAttr) : null;
-  const danoAttrGrade = character && tipoInfo.danoAttr ? getAttrGrade(character, tipoInfo.danoAttr) : null;
+  const atributoGrade = character ? getAttrGrade(character, atributoKey) : null;
   const profGrade = character && atk.profKey ? character.proficiencias?.[atk.profKey] : null;
-  const acertoAttrBonus = acertoAttrGrade ? attrBonus(acertoAttrGrade) : 0;
-  const danoAttrBonus = danoAttrGrade ? attrBonus(danoAttrGrade) : 0;
-  const profBonus = profGrade ? attrBonus(profGrade) : 0;
-  const acertoTotal = acertoBase + acertoAttrBonus + (atk.profKey ? profBonus : 0);
-  const danoTotal = danoBase + danoAttrBonus + (atk.profKey ? profBonus : 0);
-  const hasTotals = !!character;
+  const totalDice = character
+    ? diceAtaqueFisico(character, atributoKey, atk.profKey, atk.ajusteDados || 0)
+    : (GRADE_VALUE[atributoGrade] || 1) + (GRADE_VALUE[profGrade] || 1) + (atk.ajusteDados || 0);
+  const descritoresEfetivos = character ? descritoresEfetivosDoAtaque(character, atk) : (atk.descritores || []);
 
   function MiniStat({ label, value, sub }) {
     return (
@@ -4643,42 +4655,23 @@ function AttackCard({ atk, onClick, selected, character }) {
         <span style={{ fontSize: 9.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>{tipoInfo.label}</span>
       </div>
 
-      <div style={{ display: "flex", alignItems: "stretch", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 8, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 3, letterSpacing: 0.5 }}>BASE</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <MiniStat label="ACERTO" value={isFixedSuccess ? atk.acerto : (atk.acerto || "0")} sub={isFixedSuccess ? "sucessos fixos" : null} />
-            <MiniStat label="DANO" value={atk.dano || "0"} />
-            <MiniStat label="FERIDA" value={atk.ferida || "1"} />
-          </div>
-        </div>
-
-        {hasTotals && !isFixedSuccess && (
-          <>
-            <div style={{ width: 1, background: LINE, alignSelf: "stretch" }} />
-            <div>
-              <div style={{ fontSize: 8, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 3, letterSpacing: 0.5, fontWeight: 700 }}>TOTAL (com atributo + proficiência)</div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <MiniStat
-                  label="ACERTO"
-                  value={<span style={{ color: PURPLE, fontWeight: 700 }}>{acertoTotal >= 0 ? "+" : ""}{acertoTotal}</span>}
-                  sub={(acertoAttrGrade || profGrade) ? `${acertoBase >= 0 ? "+" : ""}${acertoBase}${acertoAttrGrade ? ` + ${acertoAttrLabel[0]}${acertoAttrBonus}` : ""}${profInfo && profGrade ? ` + ${profInfo.label[0]}${profBonus}` : ""}` : null}
-                />
-                <MiniStat
-                  label="DANO"
-                  value={<span style={{ color: PURPLE, fontWeight: 700 }}>{danoTotal >= 0 ? "+" : ""}{danoTotal}</span>}
-                  sub={(danoAttrGrade || profGrade) ? `${danoBase >= 0 ? "+" : ""}${danoBase}${danoAttrGrade ? ` + ${danoAttrLabel[0]}${danoAttrBonus}` : ""}${profInfo && profGrade ? ` + ${profInfo.label[0]}${profBonus}` : ""}` : null}
-                />
-              </div>
-            </div>
-          </>
-        )}
+      <div style={{ display: "flex", gap: 10 }}>
+        <MiniStat label="DADOS" value={`${totalDice}d10`} sub={character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] || 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] || 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null} />
+        <MiniStat label="FERIDAS" value={atk.feridas ?? 1} />
       </div>
 
       <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.4, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${LINE}` }}>
-        Acerto usa {acertoAttrLabel} · Dano usa {danoAttrLabel}{profInfo ? ` · Proficiência: ${profInfo.label}` : ""}
+        {atributoInfo?.label || "Destreza"}{profInfo ? ` + ${profInfo.label}` : ""}, sucesso 6+ (7+ contra Blindado, exceto Perfurante)
       </div>
-      {atk.efeito && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 4, fontStyle: "italic" }}>{atk.efeito}</div>}
+      {descritoresEfetivos.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+          {descritoresEfetivos.map((id) => {
+            const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
+            return <span key={id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
+          })}
+        </div>
+      )}
+      {atk.descricao && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 4, fontStyle: "italic" }}>{atk.descricao}</div>}
     </Wrapper>
   );
 }
@@ -4891,13 +4884,61 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // app de verdade nunca passa essa prop — o modo real sempre começa em
   // "teste", preservando o comportamento de antes da feature).
   const [rollPanelMode, setRollPanelMode] = useState(initialTestPanelMode);
+  // Base mágica (docs/SISTEMA_MAGIA.md item 4): opção no seletor de Atributo
+  // Geral do Teste — 2d10 + mana gasta ACIMA do custo da magia, sem ler
+  // atributo nenhum da ficha. BASE_MAGICA_KEY é um valor sentinela que nunca
+  // colide com uma key de ATRIBUTOS_GERAIS_LIST de verdade.
+  const [manaGastaTeste, setManaGastaTeste] = useState(1);
+  const [custoMagiaTeste, setCustoMagiaTeste] = useState(1);
   const [ataqueIdx, setAtaqueIdx] = useState(0);
-  const [ataqueDefesa, setAtaqueDefesa] = useState(8);
-  const [ataqueUsaArmadura, setAtaqueUsaArmadura] = useState(true);
-  const [ataqueResistArmadura, setAtaqueResistArmadura] = useState(8);
-  const [ataqueResistNatural, setAtaqueResistNatural] = useState(4);
+  // Alvo sintético do modo Ataque (igual o Confronto): sem ficha de verdade,
+  // só os campos que resolveAtaque precisa pra rolar a defesa e o ferimento.
+  const [ataqueVigorGrau, setAtaqueVigorGrau] = useState("E");
+  const [ataqueDefesaAtributo, setAtaqueDefesaAtributo] = useState("vigor");
+  const [ataqueDefesaAtributoGrau, setAtaqueDefesaAtributoGrau] = useState("E");
+  const [ataqueResistFisicaGrau, setAtaqueResistFisicaGrau] = useState("E");
+  const [ataqueResistMagicaGrau, setAtaqueResistMagicaGrau] = useState("E");
+  const [ataqueBlindado, setAtaqueBlindado] = useState(false);
+  const [ataqueBlindadoMagico, setAtaqueBlindadoMagico] = useState(false);
   const [ataqueResult, setAtaqueResult] = useState(null);
   const [ataqueHistory, setAtaqueHistory] = useState([]);
+  // Modo Magia (docs/SISTEMA_MAGIA.md itens 4/6/7/9): conjura uma magia do
+  // catálogo (data/magias.js) contra o mesmo alvo sintético do modo Ataque.
+  const [magiaId, setMagiaId] = useState(MAGIAS[0]?.id);
+  const [manaGastaMagia, setManaGastaMagia] = useState(MAGIAS[0]?.custoMp ?? 1);
+  const [magiaResult, setMagiaResult] = useState(null);
+  const [magiaHistory, setMagiaHistory] = useState([]);
+  // Disciplinas mágicas (docs/SISTEMA_MAGIA.md item 8): até 3 "magias ativas"
+  // (o resto do catálogo fica de reserva); trocar depois de ter as 3
+  // escolhidas custa 1 MP ("ou grátis gastando uma ação" — fora do escopo
+  // atual, que não modela ações). As duas trocas pendentes abaixo (de/para)
+  // só valem quando já há 3 ativas; com menos de 3, marcar/desmarcar é livre.
+  const disciplinaMagica = character.disciplinaMagica || { tipo: null, escolhaMagiaInata: null, magiasAtivas: [] };
+  const magiasAtivas = disciplinaMagica.magiasAtivas || [];
+  const temDisciplina = !!disciplinaMagica.tipo;
+  const magiasDisponiveis = (temDisciplina && magiasAtivas.length > 0) ? MAGIAS.filter((m) => magiasAtivas.includes(m.id)) : MAGIAS;
+  const [trocaRemover, setTrocaRemover] = useState("");
+  const [trocaAdicionar, setTrocaAdicionar] = useState("");
+
+  function setDisciplinaMagica(patch) {
+    if (!onUpdateCharacter) return;
+    onUpdateCharacter(character.id, { disciplinaMagica: { ...disciplinaMagica, ...patch } });
+  }
+  function toggleMagiaAtiva(id) {
+    if (magiasAtivas.length >= 3 && !magiasAtivas.includes(id)) return; // trava — precisa usar a Troca
+    const novas = magiasAtivas.includes(id) ? magiasAtivas.filter((m) => m !== id) : [...magiasAtivas, id];
+    setDisciplinaMagica({ magiasAtivas: novas });
+  }
+  function confirmarTroca() {
+    if (!onUpdateCharacter || !trocaRemover || !trocaAdicionar || (character.mp?.current || 0) <= 0) return;
+    const novas = magiasAtivas.filter((m) => m !== trocaRemover).concat(trocaAdicionar);
+    onUpdateCharacter(character.id, {
+      disciplinaMagica: { ...disciplinaMagica, magiasAtivas: novas },
+      mp: { ...character.mp, current: character.mp.current - 1 },
+    });
+    setTrocaRemover("");
+    setTrocaAdicionar("");
+  }
   // Índice do espaço de habilidade aberto na tabela de 3 caixas (null = fechado).
   const [slotAberto, setSlotAberto] = useState(null);
   const habilidadesFicha = character.habilidadesFicha || { ativas: [], especial: [], racial: [], passivas: [], extras: [] };
@@ -4907,9 +4948,13 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const missingDefaultAttacks = defaultAttacksForCharacter().filter((a) => !attackNames.has(a.nome.trim().toLowerCase()));
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
+  const usandoBaseMagicaNoTeste = rollAttr === BASE_MAGICA_KEY;
   const rollAttrGrade = characterEfetivo.atributosGerais?.[rollAttr] || "E";
   const rollProfGrade = characterEfetivo.proficiencias?.[rollProf] || "E";
-  const totalDice = (GRADE_VALUE[rollAttrGrade] || 1) + (GRADE_VALUE[rollProfGrade] || 1) + Math.max(0, ascensaoDiff);
+  const diceDoAtributoTeste = usandoBaseMagicaNoTeste
+    ? diceBaseMagica(manaGastaTeste, custoMagiaTeste)
+    : (GRADE_VALUE[rollAttrGrade] || 1);
+  const totalDice = diceDoAtributoTeste + (GRADE_VALUE[rollProfGrade] || 1) + Math.max(0, ascensaoDiff);
 
   function roll() {
     setRolling(true);
@@ -4921,26 +4966,89 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     }, 380);
   }
 
-  // Modo Ataque do mesmo painel: ataques do próprio personagem (com fallback
-  // genérico, igual o Confronto) contra um alvo sintético definido na mão.
+  // Modo Ataque do mesmo painel: ataques físicos do próprio personagem (com
+  // fallback genérico, igual o Confronto) contra um alvo SINTÉTICO (sem ficha
+  // de verdade) definido na mão — Vigor, Resistência Física/Mágica e
+  // Blindado/Blindado Mágico. Ataques mágicos saíram daqui (ver aba "Magia",
+  // abaixo) — não há mais "arma mágica" em BASE_ATTACK_TYPES (data/magias.js
+  // é a fonte única pra isso, ver engine.js).
   const ataqueOptions = character.attacks && character.attacks.length > 0
     ? character.attacks
-    : [{ nome: "(ataque genérico)", tipo: "marcial", acerto: 0, dano: "0", ferida: "S" }];
+    : [{ nome: "(ataque genérico)", tipo: "marcial", atributoKey: "destreza", profKey: "combateCorpoACorpo", ajusteDados: 0, feridas: 1, descritores: [] }];
   const ataqueSelecionado = ataqueOptions[ataqueIdx] || ataqueOptions[0];
-  const ataqueTipoInfo = TIPOS_ATAQUE[ataqueSelecionado.tipo] || TIPOS_ATAQUE.marcial;
-  const ataqueResistLabel = ataqueTipoInfo.resistKey === "resistNaturalMagica" ? "Resistência Natural Mágica" : "Resistência Natural Física";
+  // Alvo sintético (mesma peça que o Confronto usa pro oponente Editável —
+  // ver resolveFichaAtaque/makeEditableOpponent) só pra montar o objeto que a
+  // aba Magia reaproveita (resolveAtaque chamado direto, pois a magia não
+  // vem de BASE_ATTACK_TYPES/resolveFichaAtaque).
+  const ataqueAlvoSintetico = {
+    atributosGerais: { vigor: ataqueVigorGrau, [ataqueDefesaAtributo]: ataqueDefesaAtributo === "vigor" ? ataqueVigorGrau : ataqueDefesaAtributoGrau },
+    proficiencias: { resistFisicaProf: ataqueResistFisicaGrau, resistMagicaProf: ataqueResistMagicaGrau },
+    descritores: [...(ataqueBlindado ? ["blindado"] : []), ...(ataqueBlindadoMagico ? ["blindado_magico"] : [])],
+  };
 
   function rollAtaque() {
     const r = resolveFichaAtaque({
-      character: characterEfetivo,
-      attack: ataqueSelecionado,
-      targetDefesa: ataqueDefesa,
-      targetResistNatural: ataqueResistNatural,
-      targetResistArmadura: ataqueResistArmadura,
-      targetUsaArmadura: ataqueUsaArmadura,
+      character: characterEfetivo, attack: ataqueSelecionado,
+      targetVigorGrau: ataqueVigorGrau, targetDefesaAtributo: ataqueDefesaAtributo, targetDefesaAtributoGrau: ataqueDefesaAtributoGrau,
+      targetResistFisicaGrau: ataqueResistFisicaGrau, targetResistMagicaGrau: ataqueResistMagicaGrau,
+      targetBlindado: ataqueBlindado, targetBlindadoMagico: ataqueBlindadoMagico,
     });
     setAtaqueResult(r);
     setAtaqueHistory((h) => [{ ...r, atkNome: ataqueSelecionado.nome, id: Date.now() }, ...h].slice(0, 6));
+  }
+
+  // Modo Magia: conjura uma magia do catálogo (data/magias.js) contra o MESMO
+  // alvo sintético do modo Ataque — desconta o custo da mana da ficha (item
+  // 7) e, se a magia não for "sem rolagem" (Escudo de Mana), rola Base mágica
+  // + Magias Ofensivas via resolveAtaque. Depois de conjurar, rola a
+  // recuperação de mana na cena (item 6) e guarda em mp.recuperarPendente —
+  // ver botões "Início de turno"/"Fim de cena" no painel de Recursos.
+  const magiaSelecionada = getMagiaPorId(magiaId) || MAGIAS[0];
+  const manaAtual = character.mp?.current ?? 0;
+  const manaInsuficiente = manaGastaMagia > manaAtual;
+
+  function castMagia() {
+    if (!onUpdateCharacter || manaInsuficiente) return;
+    const manaGasta = manaGastaMagia;
+    let resultadoAtaque = null;
+    if (!magiaSelecionada.semRolagem) {
+      const totalDiceAtaque = diceAtaqueMagico(characterEfetivo, manaGasta, magiaSelecionada.custoMp || 0, magiaSelecionada.ajusteDados || 0);
+      resultadoAtaque = resolveAtaque({
+        attacker: characterEfetivo, defender: ataqueAlvoSintetico, tipoAtaque: "magico",
+        totalDiceAtaque, descritoresAtaque: magiaSelecionada.descritores, defesaAtributo: ataqueDefesaAtributo,
+        feridas: magiaSelecionada.feridas || 1, superficial: !!magiaSelecionada.superficial,
+      });
+    }
+    const manipulacaoManaGrau = GRADE_VALUE[characterEfetivo.proficiencias?.manipulacaoManaProf] || 1;
+    const rolagemRecuperacao = rollSuccessDice(manipulacaoManaGrau + manaGasta, LIMIAR_SUCESSO);
+    const manaRecuperada = Math.min(rolagemRecuperacao.successes, manaGasta);
+    const r = { magia: magiaSelecionada, manaGasta, resultadoAtaque, rolagemRecuperacao, manaRecuperada };
+    setMagiaResult(r);
+    setMagiaHistory((h) => [{ ...r, id: Date.now() }, ...h].slice(0, 6));
+    const mpAtual = character.mp || { current: 0, max: 3 };
+    onUpdateCharacter(character.id, {
+      mp: {
+        ...mpAtual,
+        current: Math.max(0, mpAtual.current - manaGasta),
+        recuperarPendente: (mpAtual.recuperarPendente || 0) + manaRecuperada,
+      },
+    });
+  }
+
+  function inicioDeTurno() {
+    if (!onUpdateCharacter) return;
+    const mpAtual = character.mp || { current: 0, max: 3 };
+    const max = computeMaxMana(character);
+    onUpdateCharacter(character.id, {
+      mp: { ...mpAtual, current: Math.min(max, mpAtual.current + (mpAtual.recuperarPendente || 0)), recuperarPendente: 0 },
+    });
+  }
+
+  function fimDeCena() {
+    if (!onUpdateCharacter) return;
+    const mpAtual = character.mp || { current: 0, max: 3 };
+    const max = computeMaxMana(character);
+    onUpdateCharacter(character.id, { mp: { ...mpAtual, current: max, recuperarPendente: 0 } });
   }
 
   // Grava a habilidade escolhida num dos espaços da tabela. A lista `procs`
@@ -5064,7 +5172,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { hp: { ...character.hp, current: novo } }) : undefined}
             />
             <ResourceDots
-              key={`mp-${character.id}`} label="MP (Mana Points)" resource={character.mp} color={MP_COLOR} icon={Sparkles}
+              key={`mp-${character.id}`} label="MP (Mana Points)"
+              resource={{ current: Math.min(character.mp?.current ?? computeMaxMana(character), computeMaxMana(character)), max: computeMaxMana(character) }}
+              color={MP_COLOR} icon={Sparkles}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { mp: { ...character.mp, current: novo } }) : undefined}
             />
             <ResourceDots
@@ -5073,17 +5183,32 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               color={SP_COLOR} icon={Flame}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { sp: { ...character.sp, current: novo } }) : undefined}
             />
-            <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6){(character.procs || []).includes("persistente") ? " + 1 (Persistente)" : ""}. SP máximo{(character.procs || []).includes("persistente") ? " inclui +1 (Persistente)" : ""}.</div>
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6){(character.procs || []).includes("persistente") ? " + 1 (Persistente)" : ""}. SP máximo{(character.procs || []).includes("persistente") ? " inclui +1 (Persistente)" : ""}. MP de {MANA_MIN} a {MANA_MAX} (docs/SISTEMA_MAGIA.md).</div>
+            {(character.mp?.recuperarPendente || 0) > 0 && (
+              <div style={{ fontSize: 10.5, color: MP_COLOR, marginTop: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
+                +{character.mp.recuperarPendente} mana a recuperar (aplica no "Início de turno")
+              </div>
+            )}
             {onUpdateCharacter && (
-              <Btn
-                onClick={() => onUpdateCharacter(character.id, {
-                  mp: { ...character.mp, current: character.mp?.max ?? 0 },
-                  sp: { ...character.sp, current: computeMaxSP(character) },
-                })}
-                style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
-              >
-                <Sparkles size={13} color={MP_COLOR} /> Restaurar MP e SP
-              </Btn>
+              <>
+                <Btn
+                  onClick={() => onUpdateCharacter(character.id, {
+                    mp: { ...character.mp, current: computeMaxMana(character), recuperarPendente: 0 },
+                    sp: { ...character.sp, current: computeMaxSP(character) },
+                  })}
+                  style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
+                >
+                  <Sparkles size={13} color={MP_COLOR} /> Restaurar MP e SP
+                </Btn>
+                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  <Btn onClick={inicioDeTurno} disabled={!(character.mp?.recuperarPendente > 0)} style={{ flex: 1, justifyContent: "center" }}>
+                    <Sparkles size={13} color={MP_COLOR} /> Início de turno
+                  </Btn>
+                  <Btn onClick={fimDeCena} style={{ flex: 1, justifyContent: "center" }}>
+                    <Sparkles size={13} color={MP_COLOR} /> Fim de cena
+                  </Btn>
+                </div>
+              </>
             )}
             {onUpdateCharacter && character.habilidadePrincipal === "cla-corvus" && (() => {
               const hpAtual = character.hp?.current ?? computeMaxHP(character);
@@ -5240,6 +5365,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   fontWeight: rollPanelMode === "ataque" ? 700 : 400,
                 }}
               >Ataque</button>
+              <button
+                onClick={() => setRollPanelMode("magia")}
+                style={{
+                  flex: 1, padding: "6px 10px", borderRadius: 20, cursor: "pointer", fontSize: 11.5, fontFamily: "'IBM Plex Mono', monospace",
+                  border: `1px solid ${PURPLE}`, background: rollPanelMode === "magia" ? PURPLE : "transparent", color: rollPanelMode === "magia" ? "#fff" : PURPLE,
+                  fontWeight: rollPanelMode === "magia" ? 700 : 400,
+                }}
+              >Magia</button>
             </div>
 
             {rollPanelMode === "teste" && (
@@ -5247,8 +5380,19 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 <Field label="Atributo Geral">
                   <select value={rollAttr} onChange={(e) => setRollAttr(e.target.value)} style={inputStyle}>
                     {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({characterEfetivo.atributosGerais?.[a.key] || "E"})</option>)}
+                    <option value={BASE_MAGICA_KEY}>Base mágica (2d10 + mana extra)</option>
                   </select>
                 </Field>
+                {usandoBaseMagicaNoTeste && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <Field label="Mana gasta">
+                      <input type="number" min={0} style={inputStyle} value={manaGastaTeste} onChange={(e) => setManaGastaTeste(Math.max(0, Number(e.target.value)))} />
+                    </Field>
+                    <Field label="Custo da magia">
+                      <input type="number" min={0} style={inputStyle} value={custoMagiaTeste} onChange={(e) => setCustoMagiaTeste(Math.max(0, Number(e.target.value)))} />
+                    </Field>
+                  </div>
+                )}
                 <Field label="Perícia (Proficiência)">
                   <select value={rollProf} onChange={(e) => setRollProf(e.target.value)} style={inputStyle}>
                     {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({characterEfetivo.proficiencias?.[p.key] || "E"})</option>)}
@@ -5263,7 +5407,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   </Field>
                 </div>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
-                  Dados = grau do Atributo ({GRADE_VALUE[rollAttrGrade]}) + grau da Perícia ({GRADE_VALUE[rollProfGrade]}) + dados extra ({ascensaoDiff}) = {totalDice}d10. Sucesso se dado &gt; {successThreshold} (padrão: bate 6 = sucesso; um 10 natural sempre conta).
+                  {usandoBaseMagicaNoTeste
+                    ? `Dados = Base mágica (${diceDoAtributoTeste}, 2d10 + extra de mana) + grau da Perícia (${GRADE_VALUE[rollProfGrade]}) + dados extra (${ascensaoDiff}) = ${totalDice}d10.`
+                    : `Dados = grau do Atributo (${GRADE_VALUE[rollAttrGrade]}) + grau da Perícia (${GRADE_VALUE[rollProfGrade]}) + dados extra (${ascensaoDiff}) = ${totalDice}d10.`}
+                  {" "}Sucesso se dado &gt; {successThreshold} (padrão: bate 6 = sucesso; um 10 natural sempre conta).
                 </div>
 
                 <Btn variant="primary" onClick={roll} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
@@ -5341,26 +5488,48 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     {ataqueOptions.map((atk, i) => <option key={i} value={i}>{atk.nome} ({TIPOS_ATAQUE[atk.tipo]?.label || "Marcial"})</option>)}
                   </select>
                 </Field>
+                <div style={{ fontSize: 10.5, color: PURPLE, margin: "2px 0 8px", fontWeight: 600 }}>Alvo sintético (sem ficha — só pra testar o ataque)</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label="Defesa do alvo">
-                    <input type="number" style={inputStyle} value={ataqueDefesa} onChange={(e) => setAtaqueDefesa(Number(e.target.value) || 0)} />
+                  <Field label="Vigor do alvo (grau)">
+                    <select value={ataqueVigorGrau} onChange={(e) => setAtaqueVigorGrau(e.target.value)} style={inputStyle}>
+                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
                   </Field>
-                  <Field label={ataqueResistLabel}>
-                    <input type="number" style={inputStyle} value={ataqueResistNatural} onChange={(e) => setAtaqueResistNatural(Number(e.target.value) || 0)} />
+                  <Field label="Atributo de defesa">
+                    <select value={ataqueDefesaAtributo} onChange={(e) => setAtaqueDefesaAtributo(e.target.value)} style={inputStyle}>
+                      {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+                    </select>
                   </Field>
                 </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 0 10px", fontSize: 12, color: PARCHMENT }}>
-                  <input type="checkbox" checked={ataqueUsaArmadura} onChange={(e) => setAtaqueUsaArmadura(e.target.checked)} />
-                  O alvo usa armadura
-                </label>
-                <Field label="Resistência Armadura">
-                  <input
-                    type="number" style={inputStyle} value={ataqueResistArmadura} disabled={!ataqueUsaArmadura}
-                    onChange={(e) => setAtaqueResistArmadura(Number(e.target.value) || 0)}
-                  />
-                </Field>
+                {ataqueDefesaAtributo !== "vigor" && (
+                  <Field label={`Grau de ${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === ataqueDefesaAtributo)?.label}`}>
+                    <select value={ataqueDefesaAtributoGrau} onChange={(e) => setAtaqueDefesaAtributoGrau(e.target.value)} style={inputStyle}>
+                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </Field>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Field label="Resistência Física (grau)">
+                    <select value={ataqueResistFisicaGrau} onChange={(e) => setAtaqueResistFisicaGrau(e.target.value)} style={inputStyle}>
+                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Resistência Mágica (grau)">
+                    <select value={ataqueResistMagicaGrau} onChange={(e) => setAtaqueResistMagicaGrau(e.target.value)} style={inputStyle}>
+                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <div style={{ display: "flex", gap: 14, margin: "2px 0 10px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
+                    <input type="checkbox" checked={ataqueBlindado} onChange={(e) => setAtaqueBlindado(e.target.checked)} /> Blindado
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
+                    <input type="checkbox" checked={ataqueBlindadoMagico} onChange={(e) => setAtaqueBlindadoMagico(e.target.checked)} /> Blindado Mágico
+                  </label>
+                </div>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
-                  Padrões (Defesa 8, Armadura 8, Natural 4): alvo com tudo em grau E, referência do balanceamento. Sem armadura, as confirmações vão direto pra {ataqueResistLabel}.
+                  Sucessos líquidos = sucessos do ataque − sucessos da defesa (mínimo 0). Agravante se sucessos líquidos ≥ Vigor do alvo (grau cheio, Letal reduz em 1); senão, superficial.
                 </div>
 
                 <Btn variant="primary" onClick={rollAtaque} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
@@ -5377,7 +5546,124 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     {ataqueHistory.map((h) => (
                       <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, padding: "3px 0", fontFamily: "'IBM Plex Mono', monospace" }}>
                         <span>{h.atkNome}</span>
-                        <span style={{ color: BRASS }}>{h.causaDano ? `Ferida ${h.feridaValor}` : h.contato ? "Contato" : "Falhou"}</span>
+                        <span style={{ color: BRASS }}>{h.tipoFerimento ? `${h.tipoFerimento === "agravante" ? "Agravante" : "Superficial"} ×${h.feridas}` : "Sem ferimento"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {rollPanelMode === "magia" && (
+              <>
+                <div style={{ background: "#00000012", border: `1px solid ${LINE}`, borderRadius: 6, padding: 10, marginBottom: 12 }}>
+                  <Field label="Disciplina mágica">
+                    <select
+                      value={disciplinaMagica.tipo || ""}
+                      onChange={(e) => setDisciplinaMagica({ tipo: e.target.value || null, escolhaMagiaInata: null })}
+                      style={inputStyle}
+                    >
+                      <option value="">Nenhuma</option>
+                      <option value="oficio-magico">Ofício Mágico (+1 Magias Gerais/Ofensivas/Resist. Mágica)</option>
+                      <option value="magia-inata">Magia Inata (+1 MP máx. e +1 Ofensiva ou Resist. Mágica)</option>
+                    </select>
+                  </Field>
+                  {disciplinaMagica.tipo === "magia-inata" && (
+                    <Field label="Escolha da Magia Inata (TODO: deveria ser Magias Defensivas — ver docs/SISTEMA_MAGIA.md)">
+                      <select value={disciplinaMagica.escolhaMagiaInata || ""} onChange={(e) => setDisciplinaMagica({ escolhaMagiaInata: e.target.value || null })} style={inputStyle}>
+                        <option value="">Escolher...</option>
+                        <option value="ofensiva">+1 Magias Ofensivas</option>
+                        <option value="defensiva">+1 Resistência Mágica</option>
+                      </select>
+                    </Field>
+                  )}
+                  {temDisciplina && (
+                    <>
+                      <div style={{ fontSize: 10.5, color: PURPLE, margin: "8px 0 4px", fontWeight: 600 }}>Magias ativas (até 3 — o resto fica na reserva)</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                        {MAGIAS.filter((m) => !m.placeholder).map((m) => {
+                          const ativa = magiasAtivas.includes(m.id);
+                          const travada = !ativa && magiasAtivas.length >= 3;
+                          return (
+                            <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1 }}>
+                              <input type="checkbox" checked={ativa} disabled={travada} onChange={() => toggleMagiaAtiva(m.id)} /> {m.nome}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {magiasAtivas.length >= 3 && (
+                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                          <select value={trocaRemover} onChange={(e) => setTrocaRemover(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                            <option value="">Remover...</option>
+                            {magiasAtivas.map((id) => <option key={id} value={id}>{getMagiaPorId(id)?.nome}</option>)}
+                          </select>
+                          <select value={trocaAdicionar} onChange={(e) => setTrocaAdicionar(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                            <option value="">Adicionar...</option>
+                            {MAGIAS.filter((m) => !m.placeholder && !magiasAtivas.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                          </select>
+                          <Btn onClick={confirmarTroca} disabled={!trocaRemover || !trocaAdicionar || (character.mp?.current || 0) <= 0}>
+                            Trocar (1 MP)
+                          </Btn>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <Field label="Magia">
+                  <select
+                    value={magiaId}
+                    onChange={(e) => { setMagiaId(e.target.value); setManaGastaMagia(getMagiaPorId(e.target.value)?.custoMp ?? 1); setMagiaResult(null); }}
+                    style={inputStyle}
+                  >
+                    {magiasDisponiveis.map((m) => <option key={m.id} value={m.id}>{m.nome}{m.placeholder ? " (placeholder)" : ""}</option>)}
+                  </select>
+                </Field>
+                {magiaSelecionada?.descritores?.length > 0 && (
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", margin: "0 0 10px" }}>
+                    {magiaSelecionada.descritores.map((id) => {
+                      const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
+                      return <span key={id} title={info.descricao} style={{ fontSize: 9.5, padding: "2px 7px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
+                    })}
+                  </div>
+                )}
+                {magiaSelecionada?.placeholder ? (
+                  <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>
+                    {magiaSelecionada.efeito} — pool e custo ainda não definidos no guia (TODO: docs/SISTEMA_MAGIA.md).
+                  </div>
+                ) : magiaSelecionada?.semRolagem ? (
+                  <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>{magiaSelecionada.efeito}</div>
+                ) : null}
+                <Field label={`Mana gasta (custo da magia: ${magiaSelecionada?.custoMp ?? "—"})`}>
+                  <input type="number" min={0} style={inputStyle} value={manaGastaMagia} onChange={(e) => setManaGastaMagia(Math.max(0, Number(e.target.value)))} />
+                </Field>
+                <div style={{ fontSize: 10, color: manaInsuficiente ? EMBER : MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
+                  Mana atual: {manaAtual}/{computeMaxMana(character)}{manaInsuficiente ? " — mana insuficiente pra conjurar" : ""}. Usa o mesmo alvo sintético da aba Ataque.
+                </div>
+
+                <Btn variant="primary" onClick={castMagia} disabled={manaInsuficiente || magiaSelecionada?.placeholder} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
+                  <Sparkles size={15} /> Conjurar
+                </Btn>
+
+                {magiaResult && (
+                  <div style={{ marginTop: 14 }}>
+                    {magiaResult.resultadoAtaque ? (
+                      <AttackResultPanel result={magiaResult.resultadoAtaque} emptyMessage="" />
+                    ) : (
+                      <div style={{ fontSize: 12, color: PARCHMENT, textAlign: "center", padding: "10px 0" }}>{magiaResult.magia.efeito}</div>
+                    )}
+                    <div style={{ fontSize: 11, color: MUTED, textAlign: "center", marginTop: 8, fontFamily: "'IBM Plex Mono', monospace" }}>
+                      Recuperação de mana: [{magiaResult.rolagemRecuperacao.dice.join(",")}] · {magiaResult.rolagemRecuperacao.successes} sucesso{magiaResult.rolagemRecuperacao.successes === 1 ? "" : "s"} · recupera {magiaResult.manaRecuperada} mana (aplica no "Início de turno")
+                    </div>
+                  </div>
+                )}
+
+                {magiaHistory.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+                    <div style={{ fontSize: 10, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>HISTÓRICO</div>
+                    {magiaHistory.map((h) => (
+                      <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, padding: "3px 0", fontFamily: "'IBM Plex Mono', monospace" }}>
+                        <span>{h.magia.nome} (−{h.manaGasta} mana)</span>
+                        <span style={{ color: BRASS }}>{h.resultadoAtaque ? (h.resultadoAtaque.tipoFerimento || "sem ferimento") : "sem rolagem"} · +{h.manaRecuperada} mana</span>
                       </div>
                     ))}
                   </div>
@@ -6202,366 +6488,129 @@ export function CharacterForm({ initial, onSave, onCancel }) {
   );
 }
 
-// Exibição de um resultado de resolveAttack(): dados de Acerto, Confirmação
-// (com a camada que cada uma enfrentou), CHAMAS/IMPACTO/ENVENENAMENTO quando
-// houver, e a ferida final. Usado pelo Confronto (DuelRoller, com re-rolagem
-// via MP/SP) e pelo modo Ataque do painel de Teste da ficha (só leitura —
-// omite modoGasto/onAcertoDieClick/onConfirmDieClick). Extraído daqui pra não
+// Exibição de um resultado de resolveAtaque()/resolveAtaqueEmArea() (docs/
+// SISTEMA_MAGIA.md, 14/10): rolagem de ataque, rolagem de defesa, sucessos
+// líquidos e o ferimento final. Substitui o display antigo (Acerto/
+// Confirmação em duas fases, camadas de Armadura/Escudo de Mana) — esse
+// modelo não existe mais no motor. Usado pelo Confronto (DuelRoller) e pelo
+// modo Ataque/Magia do painel de Teste da ficha. Extraído daqui pra não
 // existir uma segunda versão divergente desse display.
-function AttackResultPanel({ result, modoGasto, onAcertoDieClick, onConfirmDieClick, emptyMessage = "Escolha um ataque à esquerda pra ver o resultado aqui." }) {
+function DiceRow({ dice, limiar, sortudoAplicado, cor }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+      {dice.map((d, i) => {
+        const hit = d === 10 || d > limiar;
+        const foiSortudo = sortudoAplicado && sortudoAplicado.indice === i;
+        return (
+          <div key={i} style={{ textAlign: "center" }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 6, border: `1px solid ${d === 10 ? EMBER : hit ? cor : LINE}`,
+              background: d === 10 ? `${EMBER}33` : hit ? `${cor}33` : "#00000040",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 14,
+            }}>{d}</div>
+            {foiSortudo && (
+              <div style={{ fontSize: 7.5, color: "#E0A800", fontWeight: 700, marginTop: 2 }} title="Sortudo: dado original re-rolado">
+                ★ {sortudoAplicado.original}→{d}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquerda pra ver o resultado aqui." }) {
+  if (!result) {
+    return (
+      <div style={{ textAlign: "center", color: MUTED, fontSize: 12.5, padding: "20px 0" }}>
+        {emptyMessage}
+      </div>
+    );
+  }
+  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal } = result;
   return (
     <>
-      {!result && (
-        <div style={{ textAlign: "center", color: MUTED, fontSize: 12.5, padding: "20px 0" }}>
-          {emptyMessage}
+      <div style={{ textAlign: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+          ATAQUE ({rolagemAtaque.dice.length}d10, sucesso {limiar === LIMIAR_BLINDADO ? "7+ — Blindado" : "6+"})
         </div>
-      )}
+        <DiceRow dice={rolagemAtaque.dice} limiar={limiar} sortudoAplicado={rolagemAtaque.sortudoAplicado} cor={BRASS_BRIGHT} />
+        <div style={{ fontSize: 11.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", marginTop: 4 }}>
+          {rolagemAtaque.successes} sucesso{rolagemAtaque.successes === 1 ? "" : "s"}{rolagemAtaque.criticos > 0 ? ` · ${rolagemAtaque.criticos} crítico${rolagemAtaque.criticos > 1 ? "s" : ""}` : ""}{letal ? " · Letal" : ""}
+        </div>
+      </div>
 
-      {result && (
-        <>
-          {result.semRolagemDeAcerto ? (
-            <div style={{ textAlign: "center", fontSize: 12.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 10 }}>
-              Este ataque não rola Acerto — considera {result.successesAntesDaResistencia} sucesso{result.successesAntesDaResistencia === 1 ? "" : "s"} fixo{result.successesAntesDaResistencia === 1 ? "" : "s"}, depois a Resistência do defensor reduz.
-            </div>
-          ) : (
-            <>
-              {result.desaceleracaoRoll && (
-                <div style={{ textAlign: "center", marginBottom: 8 }}>
-                  <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
-                    ⚡ DESACELERAÇÃO: dado {result.desaceleracaoRoll.dado}{result.desaceleracaoRoll.instancias > 1 ? ` +${result.desaceleracaoRoll.instancias - 1} = ${result.desaceleracaoRoll.dadoAjustado}` : ""} → Defesa do alvo -{result.desaceleracaoRoll.reducao} nesta rolagem de Acerto
-                  </div>
-                </div>
-              )}
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                {result.dice.map((d, i) => {
-                  const flag = result.successFlags?.[i];
-                  const isCrit = flag ? flag.isCrit : d >= result.critThreshold;
-                  const critBonus = isCrit ? 1 : 0;
-                  const aceleracaoBonus = flag?.aceleracaoBonusEsteDado || 0;
-                  const thresholdEfetivo = flag?.thresholdEfetivo ?? result.threshold;
-                  const total = d + result.acertoBonus + critBonus + aceleracaoBonus;
-                  const hit = flag ? flag.success : total > thresholdEfetivo;
-                  const proc = flag?.procAtacante || flag?.procDefensor;
-                  const procNaoDisparouAqui = proc?.id === "golpe_certeiro" && !flag?.golpeCerteiroDispara;
-                  const clicavel = !!modoGasto;
-                  const corModo = modoGasto === "mp" ? MP_COLOR : SP_COLOR;
-                  return (
-                    <div key={i} style={{ textAlign: "center" }}>
-                      <button
-                        onClick={() => clicavel && onAcertoDieClick && onAcertoDieClick(i)}
-                        disabled={!clicavel}
-                        title={clicavel ? (modoGasto === "mp" ? "Clique pra re-rolar este dado (gasta 1 MP)" : "Clique pra somar +5 neste dado (gasta 1 SP)") : ""}
-                        style={{
-                          width: 40, height: 40, borderRadius: 6, padding: 0, fontFamily: "inherit",
-                          border: `1px solid ${clicavel ? corModo : (isCrit ? EMBER : hit ? BRASS_BRIGHT : LINE)}`,
-                          background: isCrit ? `${EMBER}33` : hit ? `${BRASS}33` : "#00000040",
-                          boxShadow: clicavel ? `0 0 8px ${corModo}88` : (hit ? `0 0 8px ${isCrit ? EMBER : BRASS}66` : "none"),
-                          cursor: clicavel ? "pointer" : "default",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontWeight: 700, color: PARCHMENT, fontSize: 15,
-                        }}
-                      >{d}</button>
-                      <div style={{ fontSize: 9, color: isCrit ? EMBER : MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
-                        {d} + {result.acertoBonus}{isCrit ? " + 1 (crít.)" : ""}{aceleracaoBonus > 0 ? ` + ${aceleracaoBonus} (acel.)` : ""} = {total}{thresholdEfetivo !== result.threshold ? ` vs ${thresholdEfetivo}` : ""}
-                      </div>
-                      {flag?.enraizamentoAplicado && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="ENRAIZAMENTO: este dado enfrenta a Defesa do alvo com -2">
-                          ⚡ Enraizamento
-                        </div>
-                      )}
-                      {aceleracaoBonus > 0 && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="ACELERAÇÃO: bônus crescente por sucessos em sequência">
-                          ⚡ Aceleração +{aceleracaoBonus}
-                        </div>
-                      )}
-                      {flag?.mestreCriticoUsado && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="Mestre do Crítico: limiar de crítico reduzido pra Sorte, só no primeiro crítico da rolagem">
-                          ⚡ Mestre do Crítico
-                        </div>
-                      )}
-                      {flag?.rerolado && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title="Borrão: dado original re-rolado uma vez">
-                          ⚡ Borrão ({flag.dadoOriginal} → {d})
-                        </div>
-                      )}
-                      {proc && !procNaoDisparouAqui && !flag?.rerolado && !flag?.mestreCriticoUsado && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 64 }} title={proc.efeito}>
-                          ⚡ {proc.nome}{flag?.sucessosGerados === 2 ? " (2 sucessos!)" : ""}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ textAlign: "center", fontSize: 12.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>
-                {result.successesAntesDaResistencia} sucesso{result.successesAntesDaResistencia === 1 ? "" : "s"} no acerto{result.criticos > 0 ? ` · ${result.criticos} crítico${result.criticos > 1 ? "s" : ""}` : ""}{result.superSucesso ? " · SUPER SUCESSO" : ""}
-              </div>
-            </>
-          )}
+      <div style={{ textAlign: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+          DEFESA ({rolagemDefesa.totalDice}d10, {PROFICIENCIAS_LIST.find((p) => p.key === rolagemDefesa.profKey)?.label || "Resistência"})
+        </div>
+        <DiceRow dice={rolagemDefesa.dice} limiar={LIMIAR_SUCESSO} sortudoAplicado={rolagemDefesa.sortudoAplicado} cor={MP_COLOR} />
+        <div style={{ fontSize: 11.5, color: MP_COLOR, fontFamily: "'IBM Plex Mono', monospace", marginTop: 4 }}>
+          {rolagemDefesa.successes} sucesso{rolagemDefesa.successes === 1 ? "" : "s"}
+        </div>
+      </div>
 
-          {result.resistenciaAtiva && (
-            <div style={{ textAlign: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 10.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
-                RESISTÊNCIA DO DEFENSOR ({PROFICIENCIAS_LIST.find((p) => p.key === result.resistenciaAtiva.profKey)?.label}, {result.resistenciaAtiva.totalDice}d10)
-              </div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                {result.resistenciaAtiva.dice.map((d, i) => (
-                  <div key={i} style={{
-                    width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
-                    fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 12.5, color: PARCHMENT,
-                    border: `1px solid ${d === 10 ? EMBER : d > 5 ? MP_COLOR : LINE}`,
-                    background: d === 10 ? `${EMBER}33` : d > 5 ? `${MP_COLOR}33` : "#00000040",
-                  }}>{d}</div>
-                ))}
-              </div>
-              <div style={{ fontSize: 11.5, color: MP_COLOR, fontFamily: "'IBM Plex Mono', monospace" }}>
-                {result.resistenciaAtiva.successes} sucesso{result.resistenciaAtiva.successes === 1 ? "" : "s"} do defensor → sucessos do atacante: {result.successesAntesDaResistencia} → {result.successes}
-              </div>
-            </div>
-          )}
-
-          {result.confirmRolls.length > 0 && (
-            <>
-              <div style={{ fontSize: 10.5, color: MUTED, textAlign: "center", marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
-                CONFIRMAÇÃO (1d10 + bônus cada, +1 extra se veio de crítico) — em ordem, contra Armadura até romper, depois Natural
-              </div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                {result.confirmRolls.map((r, i) => {
-                  const proc = r.procAtacante || r.procDefensor;
-                  const clicavel = !!modoGasto;
-                  const corModo = modoGasto === "mp" ? MP_COLOR : SP_COLOR;
-                  return (
-                    <div key={i} style={{ textAlign: "center" }}>
-                      <button
-                        onClick={() => clicavel && onConfirmDieClick && onConfirmDieClick(i)}
-                        disabled={!clicavel}
-                        title={clicavel ? (modoGasto === "mp" ? "Clique pra re-rolar este dado (gasta 1 MP)" : "Clique pra somar +5 neste dado (gasta 1 SP)") : ""}
-                        style={{
-                          width: 36, height: 36, borderRadius: 6, padding: 0, fontFamily: "inherit",
-                          border: `1px solid ${clicavel ? corModo : (r.isCrit ? EMBER : r.passou ? BRASS_BRIGHT : LINE)}`,
-                          background: r.isCrit ? `${EMBER}33` : r.passou ? `${BRASS}33` : "#00000040",
-                          boxShadow: clicavel ? `0 0 6px ${corModo}88` : "none",
-                          cursor: clicavel ? "pointer" : "default",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontWeight: 700, color: PARCHMENT, fontSize: 14,
-                        }}
-                      >{r.die}</button>
-                      <div style={{ fontSize: 8, color: MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>{r.die} + {r.confirmBonus}{r.veioDeCritico ? " (+1 crít.)" : ""} = {r.total}</div>
-                      <div style={{ fontSize: 8, color: MUTED }}>vs {r.resistUsada === "escudoDeMana" ? "Escudo" : r.resistUsada === "resistArmadura" ? "Armad." : (STAT_LIST.find((s) => s.key === r.resistUsada)?.label.replace("Resistência Natural ", "") || "Nat.")} {r.resistValor}</div>
-                      <div style={{ fontSize: 8.5, color: r.passou ? BRASS_BRIGHT : MUTED }}>{r.passou ? "confirma" : "falha"}</div>
-                      {r.rerolado && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title="Giro Defensivo: dado original re-rolado uma vez">
-                          ⚡ Giro Defensivo ({r.dadoOriginal} → {r.die})
-                        </div>
-                      )}
-                      {r.blindada && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title="Mestre em Armadura: essa confirmação superou a Armadura, mas ela ainda não quebrou">
-                          ⚡ Mestre em Armadura (aguentou)
-                        </div>
-                      )}
-                      {proc && !r.rerolado && !r.blindada && (
-                        <div style={{ fontSize: 8, color: PURPLE, fontWeight: 700, marginTop: 2, maxWidth: 60 }} title={proc.efeito}>
-                          ⚡ {proc.nome}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {result.impactoRoll && (
-            <div style={{ textAlign: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-                ⚡ IMPACTO ({result.impactoRoll.instancias} instância{result.impactoRoll.instancias > 1 ? "s" : ""})
-              </div>
-              <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 6, border: `1px solid ${PURPLE}`, background: `${PURPLE}22`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 14,
-                }}>{result.impactoRoll.dado}</div>
-                <div style={{ fontSize: 9, color: MUTED, marginTop: 2, fontFamily: "'IBM Plex Mono', monospace" }}>
-                  {result.impactoRoll.instancias > 1 ? `${result.impactoRoll.dado} +${result.impactoRoll.instancias - 1} = ${result.impactoRoll.dadoAjustado} → ` : ""}+{result.impactoRoll.bonus} na Confirmação
-                </div>
-              </div>
-            </div>
-          )}
-
-          {result.chamasRolls.length > 0 && (
-            <div style={{ textAlign: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-                ⚡ CHAMAS ({result.chamasRolls.length} instância{result.chamasRolls.length > 1 ? "s" : ""}, vs Resistência Natural {result.resistNatural})
-              </div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                {result.chamasRolls.map((r, i) => (
-                  <div key={i} style={{ textAlign: "center" }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 6, border: `1px solid ${r.isCrit ? EMBER : r.passou ? PURPLE : LINE}`,
-                      background: r.isCrit ? `${EMBER}33` : r.passou ? `${PURPLE}22` : "#00000040",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 13,
-                    }}>{r.die}</div>
-                    <div style={{ fontSize: 8, color: r.passou ? PURPLE : MUTED }}>{r.passou ? "+1 ferida" : "falha"}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {result.envenenamentoRolls && result.envenenamentoRolls.length > 0 && (
-            <div style={{ textAlign: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-                ⚡ ENVENENAMENTO ({result.envenenamentoRolls.length} instância{result.envenenamentoRolls.length > 1 ? "s" : ""})
-              </div>
-              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                {result.envenenamentoRolls.map((r, i) => (
-                  <div key={i} style={{ textAlign: "center" }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 6, border: `1px solid ${r.isCrit ? EMBER : r.passou ? "#4A7A4E" : LINE}`,
-                      background: r.isCrit ? `${EMBER}33` : r.passou ? "#4A7A4E22" : "#00000040",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 13,
-                    }}>{r.die}</div>
-                    <div style={{ fontSize: 8, color: MUTED }}>vs Res. Mágica {r.resistValor}</div>
-                    <div style={{ fontSize: 8, color: r.passou ? "#4A7A4E" : MUTED }}>{r.passou ? "+1 ferida" : "falha"}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div style={{ textAlign: "center", borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
-            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 16, color: result.causaDano ? BRASS_BRIGHT : result.contato ? "#5C86B0" : MUTED }}>
-              {result.successes === 0
-                ? "Acerto falhou — sem sucesso algum"
-                : result.causaDano
-                  ? `Causa dano! ${result.confirmedHits} confirmação${result.confirmedHits > 1 ? "ões" : ""} passaram — Ferida: ${result.feridaValor}`
-                  : "CONTATO — acertou, mas nenhuma confirmação passou"}
-            </span>
-          </div>
-        </>
-      )}
+      <div style={{ textAlign: "center", borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+        <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+          Sucessos líquidos: {rolagemAtaque.successes} − {rolagemDefesa.successes} = {sucessosLiquidos}
+        </div>
+        <span style={{
+          fontFamily: "'Cinzel', serif", fontSize: 16,
+          color: tipoFerimento === "agravante" ? EMBER : tipoFerimento === "superficial" ? BRASS_BRIGHT : MUTED,
+        }}>
+          {tipoFerimento
+            ? `Ferimento ${tipoFerimento === "agravante" ? "AGRAVANTE" : "SUPERFICIAL"} ×${feridas}`
+            : "Sem ferimento"}
+        </span>
+      </div>
     </>
   );
 }
 
+// Rolagem de Confronto 1v1 (docs/SISTEMA_MAGIA.md, 14/10): ataca com um dos
+// ataques físicos de `a`, `b` defende com Resistência Física/Mágica + o
+// Atributo Geral escolhido abaixo. Substitui o antigo modelo Acerto/
+// Confirmação em duas fases (e a re-rolagem de dado a dado via MP/SP, que
+// dependia dele) — ver nota "simplificação" no relatório final da PR.
 function DuelRoller({ a, b, onUpdateCharacter }) {
-  const attacksA = a.attacks && a.attacks.length > 0 ? a.attacks : [{ nome: "(ataque genérico)", tipo: "marcial", acerto: 0, dano: "0", ferida: "S" }];
+  const attacksA = a.attacks && a.attacks.length > 0
+    ? a.attacks
+    : [{ nome: "(ataque genérico)", tipo: "marcial", atributoKey: "destreza", profKey: "combateCorpoACorpo", ajusteDados: 0, feridas: 1, descritores: [] }];
   const [attackIdx, setAttackIdx] = useState(0);
   const [result, setResult] = useState(null);
-  const [modoGasto, setModoGasto] = useState(null); // null | "mp" | "sp"
+  const [defesaAtributo, setDefesaAtributo] = useState("vigor");
   const attack = attacksA[attackIdx] || attacksA[0];
-  const tipoAtual = TIPOS_ATAQUE[attack.tipo] || TIPOS_ATAQUE.marcial;
-  const resistKeyAtual = tipoAtual.resistKey || "resistNaturalFisica";
+  const vigorGrauB = GRADE_VALUE[getAttrGrade(b, "vigor")] || 1;
 
   function chooseAndRoll(i) {
     setAttackIdx(i);
-    const r = resolveAttack({ attacker: a, defender: b, attack: attacksA[i] });
+    const atk = attacksA[i];
+    const tipoAtaque = atk.tipo || "marcial";
+    const descritoresAtaque = descritoresEfetivosDoAtaque(a, atk);
+    const totalDiceAtaque = diceAtaqueFisico(a, atk.atributoKey || "destreza", atk.profKey, atk.ajusteDados || 0);
+    const r = resolveAtaque({
+      attacker: a, defender: b, tipoAtaque, totalDiceAtaque, descritoresAtaque,
+      defesaAtributo, feridas: atk.feridas || 1, superficial: !!atk.superficial,
+    });
     setResult(r);
-    setModoGasto(null);
   }
-
-  // MP do atacante: gasta 1 pra re-rolar um dado (de Acerto ou de Confirmação). SP:
-  // gasta 1 pra somar +5 nele (limitado a 10). Fluxo: clica em "Usar MP" ou "Usar SP"
-  // pra entrar no modo, depois clica no dado que quer afetar - o gasto só acontece
-  // nesse segundo clique.
-  // Mudar um dado de Acerto muda quantos sucessos existem, entao a Confirmacao
-  // inteira e refeita do zero (via resolveConfirmationPhase) pra ficar consistente -
-  // os dados de Confirmacao ja rolados nao sao reaproveitados nesse caso.
-  function clicarDadoAcerto(index) {
-    if (!result || !onUpdateCharacter || !modoGasto) return;
-    if (modoGasto === "mp" && (a.mp?.current || 0) <= 0) return;
-    if (modoGasto === "sp" && (a.sp?.current || 0) <= 0) return;
-    const novosDados = [...result.dice];
-    novosDados[index] = modoGasto === "mp" ? (Math.floor(Math.random() * 10) + 1) : Math.min(10, novosDados[index] + 5);
-
-    const temMestreCritico = (a.procs || []).includes("furia_crescente");
-    const mestreCriticoInfo = PROC_ABILITIES.find((p) => p.id === "furia_crescente");
-    const limiarMestreCritico = result.critThreshold - (mestreCriticoInfo?.reduzCriticoEm || 0);
-    let golpeCerteiroUsado = false;
-    const novosFlags = novosDados.map((d) => {
-      const limiarEfetivo = temMestreCritico ? limiarMestreCritico : result.critThreshold;
-      const isCrit = d >= limiarEfetivo;
-      const critBonus = isCrit ? 1 : 0;
-      const success = d + result.acertoBonus + critBonus > result.threshold;
-      const procAtacante = findTriggeredProc(a, "acerto_proprio", d, attack.tipo);
-      const procDefensor = findTriggeredProc(b, "acerto_recebido", d, attack.tipo);
-      let sucessosGerados = success ? 1 : 0;
-      const golpeCerteiroDispara = success && procAtacante?.id === "golpe_certeiro" && !golpeCerteiroUsado;
-      if (golpeCerteiroDispara) { sucessosGerados = 2; golpeCerteiroUsado = true; }
-      return { isCrit, success, procAtacante, procDefensor, sucessosGerados, golpeCerteiroDispara };
-    });
-    const novosSuccesses = novosFlags.reduce((sum, f) => sum + f.sucessosGerados, 0);
-    const novosCriticos = novosFlags.filter((f) => f.isCrit).length;
-    let successCritOrder = [];
-    for (const f of novosFlags) for (let i = 0; i < f.sucessosGerados; i++) successCritOrder.push(f.isCrit);
-
-    // Reaproveita a MESMA rolagem de Resistência ativa já feita (não re-rola
-    // só porque um dado de Acerto mudou) — só recalcula quantos sucessos do
-    // Acerto sobram depois dela, igual resolveAttack faz na primeira vez.
-    const successesPosResistencia = Math.max(0, novosSuccesses - (result.resistenciaAtiva?.successes || 0));
-    successCritOrder = successCritOrder.slice(0, successesPosResistencia);
-
-    const confirmResult = resolveConfirmationPhase({
-      attacker: a, defender: b, attack, successes: successesPosResistencia, successFlags: novosFlags, successCritOrder, fixedSuccessMatch: false,
-    });
-    setResult({
-      ...result, dice: novosDados, successFlags: novosFlags, successesAntesDaResistencia: novosSuccesses, successes: successesPosResistencia,
-      criticos: novosCriticos, superSucesso: novosSuccesses >= 3,
-      ...confirmResult,
-    });
-    if (modoGasto === "mp") onUpdateCharacter(a.id, { mp: { ...a.mp, current: a.mp.current - 1 } });
-    else onUpdateCharacter(a.id, { sp: { ...a.sp, current: a.sp.current - 1 } });
-    setModoGasto(null);
-  }
-  function recomputeConfirm(confirmRolls) {
-    const confirmedHits = confirmRolls.filter((r) => r.passou).length;
-    const causaDano = confirmedHits > 0;
-    const feridaPorAcerto = attack.ferida !== undefined && attack.ferida !== "" ? parseFlatBonus(attack.ferida) || 1 : 1;
-    const escalaComSucessos = attack.tipo === "marcial";
-    const extraFeridaTotal = confirmRolls.reduce((sum, r) => sum + (r.passou ? (r.extraFerida || 0) : 0), 0);
-    const feridaValor = !causaDano ? 0 : (escalaComSucessos ? confirmedHits * feridaPorAcerto : feridaPorAcerto) + extraFeridaTotal;
-    const contato = result.successes > 0 && !causaDano;
-    return { ...result, confirmRolls, confirmedHits, causaDano, contato, feridaValor };
-  }
-  function clicarDadoConfirm(index) {
-    if (!result || !onUpdateCharacter || !modoGasto) return;
-    const r = { ...result.confirmRolls[index] };
-    if (modoGasto === "mp") {
-      if ((a.mp?.current || 0) <= 0) return;
-      r.die = Math.floor(Math.random() * 10) + 1;
-    } else {
-      if ((a.sp?.current || 0) <= 0) return;
-      r.die = Math.min(10, r.die + 5);
-    }
-    r.isCrit = r.die === 10;
-    r.total = r.die + r.confirmBonus;
-    r.passou = r.isCrit || r.total >= r.resistValor;
-    const novosConfirmRolls = [...result.confirmRolls];
-    novosConfirmRolls[index] = r;
-    setResult(recomputeConfirm(novosConfirmRolls));
-    if (modoGasto === "mp") onUpdateCharacter(a.id, { mp: { ...a.mp, current: a.mp.current - 1 } });
-    else onUpdateCharacter(a.id, { sp: { ...a.sp, current: a.sp.current - 1 } });
-    setModoGasto(null);
-  }
-
-  const defesaAlvo = computeStat(b, "defesa");
-  const threshold = defesaAlvo;
-  const resistArmaduraB = computeStat(b, "resistArmadura");
-  const resistNaturalB = computeStat(b, resistKeyAtual);
-  const temArmaduraB = (b.itens?.armadura || []).length > 0;
-  const critThresholdA = 10;
 
   return (
     <div style={{ marginTop: 24 }}>
-      <SectionTitle icon={Dices}>Rolagem de Confronto — Acerto × Defesa</SectionTitle>
+      <SectionTitle icon={Dices}>Rolagem de Confronto — Ataque × Defesa</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        {a.name} ataca, {b.name} defende. Acerto: 3d10 conta sucesso (S) se (dado + bônus do ataque + bônus de crítico) for maior que a Defesa do alvo (a Defesa já inclui a base 5). Um 10 natural é sempre crítico (+1 no próprio dado, mas não é sucesso automático). Confirmação: pra cada sucesso do Acerto, rola 1d10 + bônus (+1 extra se veio de acerto crítico) — um 10 natural na confirmação sempre passa. {temArmaduraB
-          ? "Como o alvo tem armadura, as confirmações checam a Armadura em ordem até uma romper (rolagem que iguala/supera o valor) — a partir dali, as seguintes checam a Resistência Natural (Física ou Mágica, conforme o Tipo do ataque)."
-          : "O alvo não tem armadura equipada, então todas as confirmações checam direto a Resistência Natural (Física ou Mágica, conforme o Tipo do ataque)."} A Ferida final depende do Tipo: em ataques Marciais (desarmado e arma branca) escala com a quantidade de confirmações que passaram; em Arma de fogo e Mágico é um valor fixo do ataque, aplicado uma vez.
+        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado/Blindado Mágico, exceto ataque Perfurante). Defesa: Resistência Física/Mágica de {b.name} + o Atributo Geral escolhido abaixo, mesmo limiar — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1) = ferimento agravante; senão, superficial.
       </p>
+
+      <div style={{ maxWidth: 260, marginBottom: 14 }}>
+        <Field label={`Atributo de defesa de ${b.name}`}>
+          <select style={inputStyle} value={defesaAtributo} onChange={(e) => { setDefesaAtributo(e.target.value); setResult(null); }}>
+            {ATRIBUTOS_GERAIS_LIST.map((at) => <option key={at.key} value={at.key}>{at.label} ({getAttrGrade(b, at.key) || "E"})</option>)}
+          </select>
+        </Field>
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 20 }}>
         <div>
@@ -6576,74 +6625,13 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
         </div>
 
         <div style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 16, alignSelf: "start" }}>
-          {/^\d*[sS]$/.test(String(attack.acerto ?? "").trim()) ? (
-            <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
-              Este ataque não rola Acerto — usa sucessos fixos direto na Confirmação.
-            </div>
-          ) : (
-            <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
-              Limiar de sucesso: dado + bônus &gt; {threshold} (Defesa {defesaAlvo}, já com a base 5 incluída) · crítico em dado ≥{critThresholdA}
-            </div>
-          )}
-          <div style={{ fontSize: 11.5, color: MUTED, marginBottom: 10, fontFamily: "'IBM Plex Mono', monospace" }}>
-            Resistência de {b.name} ({tipoAtual.label}): {temArmaduraB ? `Armadura ${resistArmaduraB} → depois ${STAT_LIST.find((s) => s.key === resistKeyAtual)?.label} ${resistNaturalB}` : `${STAT_LIST.find((s) => s.key === resistKeyAtual)?.label} ${resistNaturalB} (sem armadura)`}
-          </div>
-
-          {result && onUpdateCharacter && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-              <button
-                onClick={() => setModoGasto(modoGasto === "mp" ? null : "mp")}
-                disabled={(a.mp?.current || 0) <= 0}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, padding: "6px 12px", borderRadius: 20,
-                  border: `1px solid ${MP_COLOR}`, background: modoGasto === "mp" ? `${MP_COLOR}33` : "transparent",
-                  color: MP_COLOR, fontFamily: "'IBM Plex Mono', monospace", fontWeight: modoGasto === "mp" ? 700 : 400,
-                  cursor: (a.mp?.current || 0) > 0 ? "pointer" : "not-allowed", opacity: (a.mp?.current || 0) > 0 ? 1 : 0.4,
-                }}
-              >
-                <Sparkles size={13} /> Usar MP ({a.mp?.current || 0}) — re-rolar
-              </button>
-              <button
-                onClick={() => setModoGasto(modoGasto === "sp" ? null : "sp")}
-                disabled={(a.sp?.current || 0) <= 0}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, padding: "6px 12px", borderRadius: 20,
-                  border: `1px solid ${SP_COLOR}`, background: modoGasto === "sp" ? `${SP_COLOR}33` : "transparent",
-                  color: SP_COLOR, fontFamily: "'IBM Plex Mono', monospace", fontWeight: modoGasto === "sp" ? 700 : 400,
-                  cursor: (a.sp?.current || 0) > 0 ? "pointer" : "not-allowed", opacity: (a.sp?.current || 0) > 0 ? 1 : 0.4,
-                }}
-              >
-                <Flame size={13} /> Usar SP ({a.sp?.current || 0}) — +5
-              </button>
-              {onUpdateCharacter && (
-                <button
-                  onClick={() => onUpdateCharacter(a.id, {
-                    mp: { ...a.mp, current: a.mp?.max ?? 0 },
-                    sp: { ...a.sp, current: computeMaxSP(a) },
-                  })}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, padding: "6px 12px", borderRadius: 20,
-                    border: `1px solid ${LINE}`, background: "transparent", color: MUTED, fontFamily: "'IBM Plex Mono', monospace",
-                  }}
-                  title={`Restaura o MP e o SP de ${a.name} pro máximo`}
-                >
-                  ↺ Restaurar MP/SP
-                </button>
-              )}
-              {modoGasto && (
-                <span style={{ fontSize: 11, color: modoGasto === "mp" ? MP_COLOR : SP_COLOR, alignSelf: "center", fontStyle: "italic" }}>
-                  Clique num dado de Acerto ou Confirmação abaixo...
-                </span>
-              )}
-            </div>
-          )}
-
-          <AttackResultPanel result={result} modoGasto={modoGasto} onAcertoDieClick={clicarDadoAcerto} onConfirmDieClick={clicarDadoConfirm} />
+          <AttackResultPanel result={result} />
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ---------------------------------------------------------------
    COMPARATIVO — Confronto Direto (1v1)
@@ -6658,46 +6646,64 @@ function makeEditableOpponent(stats) {
     name: "Editável",
     epithet: "Oponente customizado",
     faction: "—",
-    singularity: { name: "—", level: "E", description: "Oponente genérico para testar Acerto/Defesa/Resistência sem precisar de uma ficha completa." },
+    singularity: { name: "—", level: "E", description: "Oponente genérico para testar Ataque/Defesa sem precisar de uma ficha completa." },
     attributes: { ...EDITABLE_ATTR_DEFAULTS, ...stats.attributes },
     atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT, ...stats.atributosGerais },
     proficiencias: { ...PROFICIENCIAS_DEFAULT, ...stats.proficiencias },
-    statBase: { acerto: 0, defesa: stats.defesa, resistArmadura: stats.resistArmadura, resistNaturalFisica: stats.resistNatural, resistNaturalMagica: stats.resistNatural, geral: 0 },
-    statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, resistNaturalFisica: 0, resistNaturalMagica: 0, geral: 0 },
-    statLinks: { acerto: [], defesa: [], resistArmadura: [], resistNaturalFisica: [], resistNaturalMagica: [], geral: [] },
-    itens: { usaveis: [], principais: [], armadura: stats.usaArmadura ? ["Armadura de teste"] : [] },
+    statBase: { ...STAT_BASE_DEFAULTS },
+    statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, geral: 0 },
+    statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
+    itens: { usaveis: [], principais: [], armadura: [] },
     attacks: [],
     abilities: [],
     procs: stats.procs || [],
+    // Blindado/Blindado Mágico (docs/SISTEMA_MAGIA.md) são descritores de
+    // PERSONAGEM — Resistência Armadura/Natural não têm mais função mecânica
+    // no resolveAtaque novo, então saíram deste oponente sintético.
+    descritores: [...(stats.blindado ? ["blindado"] : []), ...(stats.blindadoMagico ? ["blindado_magico"] : [])],
   };
 }
 
-// Monta o defensor sintético do modo Ataque do painel "Teste — Atributo +
-// Perícia / Ataque" da ficha (mesma peça que o Confronto usa pro oponente
-// Editável — ver makeEditableOpponent) e resolve o ataque contra ele. Extraído
-// como função pura (exportada só pra teste) pra poder verificar, sem precisar
-// de interação de UI, que os números digitados viram exatamente o defensor
-// que o motor recebe.
-export function resolveFichaAtaque({ character, attack, targetDefesa, targetResistNatural, targetResistArmadura, targetUsaArmadura }) {
-  const defender = makeEditableOpponent({
-    defesa: targetDefesa,
-    resistNatural: targetResistNatural,
-    resistArmadura: targetResistArmadura,
-    usaArmadura: targetUsaArmadura,
+// Monta o defensor sintético do modo Ataque/Magia do painel "Teste" da ficha
+// (mesma peça que o Confronto usa pro oponente Editável — ver
+// makeEditableOpponent) e resolve o ataque contra ele via resolveAtaque
+// (docs/SISTEMA_MAGIA.md, 14/10). Extraído como função pura (exportada só
+// pra teste) pra poder verificar, sem precisar de interação de UI, que os
+// valores escolhidos viram exatamente o defensor que o motor recebe.
+export function resolveFichaAtaque({
+  character, attack,
+  targetVigorGrau = "E", targetDefesaAtributo = "vigor", targetDefesaAtributoGrau = "E",
+  targetResistFisicaGrau = "E", targetResistMagicaGrau = "E",
+  targetBlindado = false, targetBlindadoMagico = false,
+}) {
+  const defender = {
+    atributosGerais: { vigor: targetVigorGrau, [targetDefesaAtributo]: targetDefesaAtributo === "vigor" ? targetVigorGrau : targetDefesaAtributoGrau },
+    proficiencias: { resistFisicaProf: targetResistFisicaGrau, resistMagicaProf: targetResistMagicaGrau },
+    descritores: [...(targetBlindado ? ["blindado"] : []), ...(targetBlindadoMagico ? ["blindado_magico"] : [])],
+  };
+  const tipoAtaque = attack.tipo || "marcial";
+  const descritoresAtaque = descritoresEfetivosDoAtaque(character, attack);
+  const totalDiceAtaque = diceAtaqueFisico(character, attack.atributoKey || "destreza", attack.profKey, attack.ajusteDados || 0);
+  return resolveAtaque({
+    attacker: character, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque,
+    defesaAtributo: targetDefesaAtributo, feridas: attack.feridas || 1, superficial: !!attack.superficial,
   });
-  return resolveAttack({ attacker: character, defender, attack });
 }
 
 export function CompareView({ characters, onUpdateCharacter }) {
   const [aId, setAId] = useState(characters[0]?.id || "");
   const [bId, setBId] = useState(EDITABLE_OPPONENT_ID);
   const [editableStats, setEditableStats] = useState({
-    defesa: 8, resistNatural: 6, resistArmadura: 8, usaArmadura: true,
+    blindado: false, blindadoMagico: false,
     attributes: { ...EDITABLE_ATTR_DEFAULTS },
     atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT },
     proficiencias: { ...PROFICIENCIAS_DEFAULT },
     procs: [],
   });
+  // Atributo Geral que o defensor usa como base da defesa (docs/SISTEMA_MAGIA.md
+  // — escolha do jogador; afeta inclusive Saturante, que reduz 2 dados só
+  // quando a defesa usar Destreza).
+  const [defesaAtributoDuelo, setDefesaAtributoDuelo] = useState("vigor");
 
 
   const selectOptions = [{ id: EDITABLE_OPPONENT_ID, name: "Editável (oponente customizado)" }, ...characters];
@@ -6707,9 +6713,6 @@ export function CompareView({ characters, onUpdateCharacter }) {
   const { character: a, bonusAplicado: bonusA } = comGrausEfetivos(aId === EDITABLE_OPPONENT_ID ? editableOpponent : characters.find((c) => c.id === aId));
   const { character: b, bonusAplicado: bonusB } = comGrausEfetivos(bId === EDITABLE_OPPONENT_ID ? editableOpponent : characters.find((c) => c.id === bId));
 
-  function updateEditableStat(key, value) {
-    setEditableStats((prev) => ({ ...prev, [key]: Number(value) || 0 }));
-  }
   function updateEditableAttr(key, grade) {
     setEditableStats((prev) => ({ ...prev, attributes: { ...prev.attributes, [key]: grade } }));
   }
@@ -6757,21 +6760,17 @@ export function CompareView({ characters, onUpdateCharacter }) {
           <div style={{ fontSize: 10.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, marginBottom: 8, textTransform: "uppercase" }}>
             Valores do oponente Editável
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            <Field label="Defesa">
-              <input type="number" style={inputStyle} value={editableStats.defesa} onChange={(e) => updateEditableStat("defesa", e.target.value)} />
-            </Field>
-            <Field label="Resistência Natural">
-              <input type="number" style={inputStyle} value={editableStats.resistNatural} onChange={(e) => updateEditableStat("resistNatural", e.target.value)} />
-            </Field>
-            <Field label="Resistência Armadura">
-              <input type="number" style={inputStyle} value={editableStats.resistArmadura} onChange={(e) => updateEditableStat("resistArmadura", e.target.value)} disabled={!editableStats.usaArmadura} />
-            </Field>
+          <div style={{ fontSize: 10, color: MUTED, margin: "0 0 8px", fontStyle: "italic" }}>
+            Vigor e Resistência Física/Mágica já são editáveis abaixo, nos Atributos Gerais e Proficiências de Combate — a defesa contra ataque é a rolagem ativa dessas duas (ver docs/SISTEMA_MAGIA.md).
           </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 12, color: PARCHMENT }}>
-            <input type="checkbox" checked={editableStats.usaArmadura} onChange={(e) => setEditableStats((prev) => ({ ...prev, usaArmadura: e.target.checked }))} />
-            Possui armadura equipada (as confirmações checam a Armadura primeiro, até uma romper — daí em diante checa a Resistência Natural)
-          </label>
+          <div style={{ display: "flex", gap: 14 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
+              <input type="checkbox" checked={editableStats.blindado} onChange={(e) => setEditableStats((prev) => ({ ...prev, blindado: e.target.checked }))} /> Blindado
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
+              <input type="checkbox" checked={editableStats.blindadoMagico} onChange={(e) => setEditableStats((prev) => ({ ...prev, blindadoMagico: e.target.checked }))} /> Blindado Mágico
+            </label>
+          </div>
 
           <div style={{ fontSize: 10.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, margin: "14px 0 8px", textTransform: "uppercase" }}>
             Atributos Gerais (Força/Destreza agora moram aqui)

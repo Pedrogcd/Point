@@ -227,6 +227,22 @@ export function bonusGrauDoPersonagem(character) {
       }
     }
   }
+  // Disciplinas mágicas (docs/SISTEMA_MAGIA.md item 8, 14/10): Ofício Mágico
+  // soma +1 grau (teto C, via grauComBonus abaixo) em Magias Gerais, Magias
+  // Ofensivas e Resistência Mágica; Magia Inata soma +1 em Magias Ofensivas OU
+  // Resistência Mágica, à escolha do jogador (disciplinaMagica.escolhaMagiaInata).
+  // TODO (docs/SISTEMA_MAGIA.md — "Pendente"): devia ser "Magias Defensivas",
+  // mas essa Proficiência não existe na ficha ainda — usa Resistência Mágica
+  // até o Pedro decidir se cria a Proficiência nova ou fica assim mesmo.
+  const disciplina = character?.disciplinaMagica;
+  if (disciplina?.tipo === "oficio-magico") {
+    for (const chave of ["magiasGerais", "magiasOfensivas", "resistMagicaProf"]) {
+      resultado.proficiencias[chave] = (resultado.proficiencias[chave] || 0) + 1;
+    }
+  } else if (disciplina?.tipo === "magia-inata") {
+    const chave = disciplina.escolhaMagiaInata === "ofensiva" ? "magiasOfensivas" : disciplina.escolhaMagiaInata === "defensiva" ? "resistMagicaProf" : null;
+    if (chave) resultado.proficiencias[chave] = (resultado.proficiencias[chave] || 0) + 1;
+  }
   return resultado;
 }
 

@@ -1,12 +1,18 @@
 # Sistema de Combate — Point
 
-Todas as fórmulas abaixo estão verificadas por 161 testes automatizados no motor.
+**Fonte de verdade do combate/magia (14/10): [docs/SISTEMA_MAGIA.md](docs/SISTEMA_MAGIA.md).**
+Este arquivo descrevia o modelo anterior (Acerto 3d10 → Resistência ativa →
+Confirmação por camadas de Armadura/Escudo de Mana). Esse modelo não existe
+mais no motor (`engine.js`) — foi substituído por uma rolagem única de
+ataque contra uma rolagem única de defesa, sem bônus somado ao dado (pool de
+dados), descrito no documento acima. O que ainda vale e não mudou continua
+aqui.
 
 ## Graus
 
 Todo atributo e proficiência vai de **E** a **A**:
 
-| Grau | Nível | Bônus |
+| Grau | Nível | Bônus (fora de combate) |
 |---|---|---|
 | E | 1 | +0 |
 | D | 2 | +1 |
@@ -14,94 +20,54 @@ Todo atributo e proficiência vai de **E** a **A**:
 | B | 4 | +3 |
 | A | 5 | +4 |
 
-## Resolução de ataque — 3 etapas
-
-### Etapa 1: Acerto (3d10)
-
-Cada dado é sucesso se: `dado + bônus do ataque + bônus de crítico > Defesa do alvo`
-
-**Bônus do ataque** = atributo do Tipo + Proficiência de Combate vinculada + valor manual do ataque.
-
-**Crítico**: 10 natural. Soma +1 ao próprio dado (não é sucesso automático) e +1 na Confirmação que aquele sucesso gerar.
-
-### Etapa 1.5: Resistência ativa (defensor) — 13/10
-
-O defensor rola Vigor + Resistência Física (Marcial/Arma de fogo) ou Mágica (Mágico) em dados: `totalDice = grau de Vigor + grau da Resistência certa`, sucesso com dado >5 ou 10 natural. Cada sucesso do defensor cancela 1 sucesso do Acerto do atacante, mínimo 0 — os sucessos que sobram é que seguem pra Confirmação. Substitui o uso antigo da Resistência (que só somava passivamente na Resistência Natural, etapa abaixo).
-
-### Etapa 2: Confirmação (1d10 por sucesso que sobrou da Resistência ativa)
-
-`dado + bônus de dano` contra as camadas de defesa, **nesta ordem**:
-
-1. **Escudo de Mana** (se o alvo tiver a habilidade) — vale 8 + Proficiência de Magias Ofensivas
-2. **Resistência Armadura** (se tiver item de armadura) — quebra na 1ª que superar
-3. **Resistência Natural** — Física (Marcial/Arma de fogo) ou Mágica (Mágico)
-
-## Tipos de ataque
-
-| Tipo | Acerto usa | Dano usa | Resistência alvo | Ferida |
-|---|---|---|---|---|
-| Marcial | Destreza + Proficiência | Força + Proficiência | Natural Física | Escala com confirmações |
-| Arma de fogo | Destreza + Proficiência | Só Proficiência | Natural Física | Fixa |
-| Mágico | Só Proficiência | Só Proficiência | Natural Mágica | Fixa |
-
-## Valores base
-
-| Estatística | Base | Soma |
-|---|---|---|
-| Defesa | 8 | + Proficiência de Defesa |
-| Resistência Armadura | 8 | — |
-| Resistência Natural Física | 2 | + Vigor (grau cheio) |
-| Resistência Natural Mágica | 2 | + Vigor (grau cheio) |
-
-A Proficiência de Resistência Física/Mágica não soma mais nada aqui — virou a rolagem ativa da Etapa 1.5.
-
-**Balanceamento**: com tudo em grau E, ataque desarmado contra alvo com armadura = ~11% de chance de causar dano (a Resistência ativa cancela em média 1 dos poucos sucessos do Acerto antes mesmo da Confirmação).
+Em combate (docs/SISTEMA_MAGIA.md) o que importa é o **grau cheio** (coluna
+"Nível" acima — E=1 .. A=5), não o bônus: cada ponto de grau é 1 dado no pool.
 
 ## Recursos
 
 - **HP** = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6)
-- **MP** (Mana Points, azul) — gasta 1 para **re-rolar** um dado
-- **SP** (Soul Points, verde) — gasta 1 para **somar +5** num dado (máx. 10)
+- **MP** (Mana Points, azul) — de 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Gasto ao
+  conjurar magias (ver catálogo em `data/magias.js`); parte volta durante a
+  cena pela rolagem de Manipulação de Mana, e tudo volta no fim da cena.
+- **SP** (Soul Points, verde) — gasta 1 para **somar +5** num dado do painel
+  "Teste — Atributo + Perícia" (fora de combate; não se aplica mais ao
+  ataque/defesa de combate, que não tem bônus somado ao dado).
 
-Na ficha, HP/MP/SP aparecem como bolinhas clicáveis. HP tem dois passos: 1º clique numa bolinha cheia racha (só visual), 2º clique quebra (cai 1 ponto); clicar numa vazia restaura na hora. MP e SP são um clique só: cheia → esvazia/evapora 1 ponto; vazia → enche 1 ponto.
+Na ficha, HP/MP/SP aparecem como bolinhas clicáveis. HP tem dois passos: 1º
+clique numa bolinha cheia racha (só visual), 2º clique quebra (cai 1 ponto);
+clicar numa vazia restaura na hora. MP e SP são um clique só: cheia →
+esvazia/evapora 1 ponto; vazia → enche 1 ponto. **Atenção**: esse gesto de
+"rachar" é só visual — o contador `hp.superficiais` (que decide quando um
+ferimento superficial vira agravante, docs/SISTEMA_MAGIA.md) é um campo
+separado, persistido, atualizado pelo motor (`aplicarFerimentos`), não por
+esse clique.
 
-## Status Effects
+## Status Effects e Habilidades Passivas de Combate (ÓRFÃOS desde 14/10)
 
-| Status | Quando | Efeito |
+As 11 Habilidades Passivas de Combate (catálogo em `engine.js`,
+`PROC_ABILITIES`) e os 6 status effects (IMPACTO, DESACELERAÇÃO,
+ENRAIZAMENTO, ACELERAÇÃO, CHAMAS, ENVENENAMENTO) dependiam das fases de
+Acerto/Confirmação e das camadas de Armadura/Escudo de Mana do modelo
+antigo — nenhuma dessas fases existe mais no `resolveAtaque` novo. Os dados
+das 11 habilidades continuam na ficha (campo `procs`, até 3 espaços) e
+aparecem na interface, mas **nenhum efeito automático dispara mais** — ficam
+só como referência narrativa até o Pedro decidir redesenhá-las pro modelo
+novo ou aposentar a feature. Os status effects de texto livre (tabela abaixo)
+também não têm mais nenhum gancho mecânico automatizado; continuam valendo
+como regra narrada pelo mestre, se o grupo quiser usar.
+
+| Status | Quando | Efeito (texto, sem automação) |
 |---|---|---|
-| **IMPACTO** | Após contato | 1d10: 1-4 nada, 5-7 +1 na Confirmação, 8-9 +2, 10 +3 |
-| **DESACELERAÇÃO** | Antes do Acerto | 1d10: 1-4 nada, 5-7 -1 na Defesa do alvo, 8-9 -2, 10 -3 |
-| **ENRAIZAMENTO** | Antes do Acerto | Sem dado. N instâncias = N primeiros dados enfrentam Defesa -2 (máx 3) |
-| **ACELERAÇÃO** | Durante o Acerto | Sem dado. Cada sucesso dá +1 ao dado seguinte; falha zera a cadeia |
-| **CHAMAS** | Após contato | 1d10 independente, sem bônus, vs Resistência Natural do tipo → +1 Ferida |
-| **ENVENENAMENTO** | Após contato | 1d10 independente, sem bônus, vs Resistência Natural **Mágica** → +1 Ferida |
-
-Instâncias extras: IMPACTO e DESACELERAÇÃO somam +1 no mesmo dado; CHAMAS e ENVENENAMENTO rolam dados adicionais.
-
-## Habilidades Passivas de Combate (11)
-
-Cada personagem escolhe até **2** + a Singularidade conta como a terceira.
-
-### Ataque
-- **Golpe Preciso** — dado do Acerto que bate o limiar de Técnica conta como 2 sucessos (1× por ataque)
-- **Ataque Poderoso** — dado que bate limiar de Força concede IMPACTO (só Marcial)
-- **Magia Pyro** — dado que bate limiar de Magias Ofensivas concede CHAMAS (só Mágico)
-- **Golpe Penetrante** — sempre ativa: ignora a Resistência Armadura. Técnica C/B = +1 na Confirmação, A = +2
-
-### Confirmação de Dano
-- **Mestre do Crítico** — crítico com 9+ em vez de só 10, em todos os dados
-- **Potencial Mágico Ofensivo** — dado que bate limiar de Magias Ofensivas soma +1 no Dano (só Mágico)
-
-### Defesa
-- **Borrão** — dado do Acerto inimigo que bate limiar de Técnica é re-rolado
-
-### Resistência
-- **Giro Defensivo** — dado de Confirmação inimiga que bate limiar de Técnica é re-rolado
-- **Mestre em Armadura** — sempre ativa: Armadura só quebra na 2ª vez que for superada
-- **Escudo de Mana** — sempre ativa: camada extra de 8 + Magias Ofensivas antes da Armadura
-- **Persistente** — sempre ativa: +1 HP máximo e +1 SP máximo
+| **IMPACTO** | Após contato | 1d10: 1-4 nada, 5-7 +1, 8-9 +2, 10 +3 — dano extra narrado pelo mestre |
+| **DESACELERAÇÃO** | Antes do ataque | 1d10: 1-4 nada, 5-7 -1, 8-9 -2, 10 -3 (dificulta o atacante) |
+| **ENRAIZAMENTO** | Antes do ataque | N instâncias dificultam os N primeiros dados (máx 3) |
+| **ACELERAÇÃO** | Durante o ataque | Cada sucesso facilita o próximo dado; falha zera a cadeia |
+| **CHAMAS** | Após contato | +1 ferida extra, narrado |
+| **ENVENENAMENTO** | Após contato | +1 ferida extra, narrado, sempre contra o lado mágico |
 
 ## Testes fora de combate
 
-`Atributo Geral + Perícia` = número de dados (soma dos graus, de 2d10 a 10d10).
-Limiar de sucesso customizável (padrão: dado > 5, ou seja, bate 6 = sucesso). Um 10 natural sempre conta.
+`Atributo Geral + Perícia` = número de dados (soma dos graus, de 2d10 a
+10d10). Limiar de sucesso customizável (padrão: dado > 5, ou seja, bate 6 =
+sucesso). Um 10 natural sempre conta. MP re-rola um dado, SP soma +5 num
+dado (máx. 10) — ver painel "Teste" da ficha.

@@ -175,6 +175,26 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
   });
 
+  it("Ofício Mágico dá +1 em Magias Gerais, Magias Ofensivas e Resistência Mágica", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { tipo: "oficio-magico" } });
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, magiasOfensivas: 1, resistMagicaProf: 1 }, atributos: {} });
+  });
+
+  it("Magia Inata (escolha ofensiva) dá +1 só em Magias Ofensivas", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { tipo: "magia-inata", escolhaMagiaInata: "ofensiva" } });
+    assert.deepEqual(bonus, { proficiencias: { magiasOfensivas: 1 }, atributos: {} });
+  });
+
+  it("Magia Inata (escolha defensiva) dá +1 em Resistência Mágica (TODO: Magias Defensivas não existe na ficha)", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { tipo: "magia-inata", escolhaMagiaInata: "defensiva" } });
+    assert.deepEqual(bonus, { proficiencias: { resistMagicaProf: 1 }, atributos: {} });
+  });
+
+  it("Magia Inata sem escolha feita ainda não dá bônus nenhum", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { tipo: "magia-inata" } });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
   it("Leonino (ningen) dá +1 em Investigação", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "leonino" });
     assert.deepEqual(bonus, { proficiencias: { investigacao: 1 }, atributos: {} });

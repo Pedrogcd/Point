@@ -3,8 +3,11 @@
 // point-amaranth-app.jsx importa deste módulo — esta é a fonte única da lógica
 // de regras. Não duplique estas funções de volta no jsx.
 //
-// Ver SISTEMA.md para as regras em prosa, e CONTEXTO.md para o "porquê" de
-// cada decisão de design (ex: por que as defensivas re-rolam em vez de anular).
+// Fonte de verdade das regras de combate/magia: docs/SISTEMA_MAGIA.md (14/10) —
+// substitui o modelo antigo de Acerto/Confirmação em duas fases por rolagem +
+// ferimento direto. SISTEMA.md (mais antigo) ainda cobre o que não mudou
+// (Teste genérico, recursos, status effects de texto livre). Ver CONTEXTO.md
+// pro "porquê" de cada decisão de design.
 
 export const GRADE_VALUE = { E: 1, D: 2, C: 3, B: 4, A: 5 };
 export const GRADE_ORDER = ["E", "D", "C", "B", "A"];
@@ -14,9 +17,7 @@ export const GRADE_ORDER = ["E", "D", "C", "B", "A"];
 // duas Proficiências (Magias Ofensivas pro ataque, Magias Gerais no Mental);
 // Defesa/Resistência Física/Resistência Mágica agora são só as Proficiências de
 // Combate com o mesmo nome; Sorte foi removida (não tem substituto ainda);
-// Técnica também foi removida (as habilidades que usavam ela como limiar vão
-// ganhar outro atributo/proficiência depois - por enquanto ficam sem limiar
-// especial, seguindo o padrão normal).
+// Técnica virou Manipulação de Mana (14/10, ver PROFICIENCIAS_LIST).
 export const ATTR_LIST = [];
 
 // Atributos Gerais — Físicos, Sociais e Mentais, adaptados de Vampiro: A Máscara
@@ -53,6 +54,18 @@ export function getAttrGrade(character, key) {
 // Proficiências — perícias adaptadas de Vampiro: A Máscara (V5), traduzidas e
 // organizadas nas 3 categorias do livro (Física, Social, Mental). Usam o mesmo
 // grau E–A dos atributos.
+//
+// "tecnicaProf"/"Técnica" virou "manipulacaoManaProf"/"Manipulação de Mana"
+// (14/10, docs/SISTEMA_MAGIA.md item 5 — pedido explícito do Pedro). O grau
+// salvo em cada ficha é preservado pela migração (ver personagens.js,
+// migrarTecnicaParaManipulacaoMana). Referências à chave antiga antes do
+// rename (listadas no relatório final da PR): PROFICIENCIAS_LIST (este
+// arquivo), PROC_ABILITIES (golpe_certeiro/fortaleza_viva/reflexo_agil usavam
+// "tecnicaProf" como proficienciaLimiar; golpe_penetrante lia
+// attacker.proficiencias.tecnicaProf direto pro bônus de Confirmação — ambos
+// os mecanismos saíram do resolveAtaque novo, ver nota em PROC_ABILITIES),
+// point-amaranth-app.jsx (proficiencias de todo personagem semente, texto da
+// aba Habilidades/Proficiências), engine.test.js.
 export const PROFICIENCIAS_LIST = [
   // Combate — perícias usadas nos cálculos de combate (somam com o atributo correspondente).
   // "Briga" foi eliminada (21/09) — Ataque desarmado passou a usar Combate Corpo a Corpo,
@@ -63,7 +76,7 @@ export const PROFICIENCIAS_LIST = [
   { key: "defesaProf", label: "Defesa", categoria: "combate" },
   { key: "resistFisicaProf", label: "Resistência Física", categoria: "combate" },
   { key: "resistMagicaProf", label: "Resistência Mágica", categoria: "combate" },
-  { key: "tecnicaProf", label: "Técnica", categoria: "combate" },
+  { key: "manipulacaoManaProf", label: "Manipulação de Mana", categoria: "combate" },
   // Física (não-combate)
   { key: "atletismo", label: "Atletismo", categoria: "fisica" },
   { key: "oficio", label: "Ofício", categoria: "fisica" },
@@ -102,43 +115,48 @@ export const PROFICIENCIAS_LIST = [
 
 export const PROFICIENCIAS_DEFAULT = PROFICIENCIAS_LIST.reduce((acc, p) => ({ ...acc, [p.key]: "E" }), {});
 
-// "acerto" saiu daqui: era uma estatística decorativa (o motor nunca a lia). Os
-// Acertos reais, por tipo de ataque, vêm de ACERTOS_POR_TIPO / computeAcertoTipo.
+// "acerto" saiu daqui: era uma estatística decorativa (o motor nunca a lia).
+// "Resistência Natural Física/Mágica" saíram em 14/10 (docs/SISTEMA_MAGIA.md
+// item 2, "Resistência Natural não existe mais") — a defesa contra ataque
+// agora é a rolagem ativa de Resistência Física/Mágica (ver
+// resolveRolagemDefesa), não mais uma estatística passiva somada na
+// Confirmação (esse conceito de "Confirmação" também não existe mais).
+// "Resistência Armadura" fica — o guia não manda removê-la, mas o novo
+// resolveAtaque não a consulta em lugar nenhum (o modelo novo não tem camada
+// de armadura: é só ataque vs defesa, sucessos líquidos, ferimento por
+// Vigor). Ela continua existindo como estatística configurável na ficha, só
+// sem função mecânica até o Pedro decidir o que fazer com ela.
 export const STAT_LIST = [
   { key: "defesa", label: "Defesa" },
   { key: "resistArmadura", label: "Resistência Armadura" },
-  { key: "resistNaturalFisica", label: "Resistência Natural Física" },
-  { key: "resistNaturalMagica", label: "Resistência Natural Mágica" },
   { key: "geral", label: "Geral" },
 ];
 
 // Vínculo padrão sugerido entre atributo e estatística de combate — o grau do
-// atributo soma automaticamente na estatística vinculada (bônus E=0..A=+4, exceto
-// as Resistências Naturais, que usam o grau cheio — ver STAT_USA_GRAU_CHEIO).
+// atributo soma automaticamente na estatística vinculada (bônus E=0..A=+4).
 // Isso é uma SUGESTÃO ajustável por ficha (não uma regra confirmada no material
 // original) — dá pra reatribuir por personagem em "Vínculos de atributo".
 export const DEFAULT_STAT_LINKS = {
   acerto: ["destreza"],
   defesa: [],
   resistArmadura: [],
-  resistNaturalFisica: ["vigor"],
-  resistNaturalMagica: ["vigor"],
   geral: [],
 };
 
-export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, resistNaturalFisica: 2, resistNaturalMagica: 2, geral: 0 };
+export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, geral: 0 };
 
-// As duas Resistências Naturais seguem "2 + Vigor + Resistência (Física/Mágica)",
-// onde os graus contam pelo NÍVEL (E=1, D=2, C=3, B=4, A=5) — tanto o do atributo
-// vinculado (Vigor) quanto o da Proficiência de Resistência — em vez do bônus
-// (E=0..A=+4) que as outras estatísticas usam. Com tudo em E: 2 + 1 + 1 = 4.
-export const STAT_USA_GRAU_CHEIO = new Set(["resistNaturalFisica", "resistNaturalMagica"]);
+// Nenhuma estatística usa mais grau cheio (as Resistências Naturais, que
+// usavam, saíram do STAT_LIST em 14/10) — mantido como Set vazio só pra não
+// quebrar quem ainda importa STAT_USA_GRAU_CHEIO.
+export const STAT_USA_GRAU_CHEIO = new Set();
 
-// Os Acertos reais do personagem, um por tipo de ataque. O motor NÃO usa a
-// estatística "acerto" da ficha: ele monta o Acerto do zero com o atributo do
-// Tipo + a Proficiência de Combate do ataque + o bônus manual da arma. Estes são
-// os valores que o personagem leva pra qualquer ataque daquele tipo, antes do
-// bônus da arma.
+// Os Acertos reais do personagem, um por tipo de ataque — usado só como
+// RESUMO/exibição na ficha (não alimenta resolveAtaque, que já lê o grau do
+// atributo/proficiência direto). Esses números de bônus (E=0..A=+4) são do
+// modelo antigo "dado + bônus vs limiar"; o modelo novo é pool de dados
+// (sem bônus somado ao dado), então esse resumo mostra uma ideia aproximada
+// de "força de ataque" mas não corresponde 1:1 à fórmula nova. TODO: revisar
+// esse painel pra mostrar o número de dados do pool em vez do bônus antigo.
 export const ACERTOS_POR_TIPO = [
   { key: "corpoACorpo", label: "Corpo a corpo", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
   { key: "armaDeFogo", label: "Arma de fogo", attr: "destreza", prof: "armasDeFogo", tipo: "arma_de_fogo" },
@@ -151,15 +169,18 @@ export function computeAcertoTipo(character, entrada) {
   return { total: doAtributo + daProficiencia, doAtributo, daProficiencia };
 }
 
-// Catálogo NOVO de Habilidades Passivas de Combate — substitui o sistema antigo
-// (as 92 habilidades ficam arquivadas na aba Habilidades, só como referência).
-// Cada uma dispara sozinha, olhando um dado que JÁ foi rolado (Acerto ou
-// Confirmação) contra um limiar definido por um atributo do dono da habilidade
-// (o mesmo limiar usado pro crítico: 11 - grau do atributo => E=10, D=9, C=8,
-// B=7, A=6). Se dois procs poderiam disparar no mesmo dado, só o de maior
-// "prioridade" ativa. Cada ficha tem MAX_PROCS espaços pra essas habilidades (a
-// tabela de 3 caixas na ficha). A Singularidade NÃO ocupa espaço: ela fica acima
-// das tabelas, junto da Habilidade de Raça e das duas Classes, que têm tabela própria.
+// Catálogo de Habilidades Passivas de Combate — ÓRFÃ desde 14/10. O modelo de
+// combate novo (docs/SISTEMA_MAGIA.md) não tem mais fase de Acerto/Confirmação
+// separadas nem camada de Armadura/Escudo de Mana com valor numérico — é só
+// ataque vs defesa, sucessos líquidos, ferimento por Vigor. Os gatilhos destas
+// 11 habilidades (acerto_proprio, confirmacao_recebida, passivo_armadura,
+// passivo_escudo_mana, passivo_ignora_armadura) dependiam exatamente dessas
+// fases, que não existem mais — resolveAtaque NÃO chama mais findTriggeredProc
+// em lugar nenhum. Os dados (catálogo, character.procs, a tabela de 3 espaços
+// na ficha) continuam intactos — só o efeito automático parou de disparar.
+// TODO (decisão do Pedro): redesenhar as 11 pra encaixar no modelo novo, ou
+// aposentar a feature. Não decidi isso sozinho porque o guia novo não fala
+// nada sobre elas.
 export const MAX_PROCS = 3;
 export const PROC_ABILITIES = [
   {
@@ -177,17 +198,17 @@ export const PROC_ABILITIES = [
     id: "golpe_certeiro",
     nome: "Golpe Preciso",
     gatilho: "acerto_proprio",
-    proficienciaLimiar: "tecnicaProf",
+    proficienciaLimiar: "manipulacaoManaProf",
     prioridade: 2,
-    efeito: "Quando um dado do seu Acerto bate o limiar da sua Proficiência de Técnica, esse dado conta como 2 sucessos em vez de 1 — só pode disparar uma vez por ataque.",
+    efeito: "Quando um dado do seu Acerto bate o limiar da sua Proficiência de Manipulação de Mana, esse dado conta como 2 sucessos em vez de 1 — só pode disparar uma vez por ataque.",
   },
   {
     id: "fortaleza_viva",
     nome: "Giro Defensivo",
     gatilho: "confirmacao_recebida",
-    proficienciaLimiar: "tecnicaProf",
+    proficienciaLimiar: "manipulacaoManaProf",
     prioridade: 2,
-    efeito: "Quando um dado de Confirmação inimiga contra você bate o limiar da sua Proficiência de Técnica, esse dado é re-rolado uma vez — vale o novo valor.",
+    efeito: "Quando um dado de Confirmação inimiga contra você bate o limiar da sua Proficiência de Manipulação de Mana, esse dado é re-rolado uma vez — vale o novo valor.",
   },
   {
     id: "surto_arcano",
@@ -202,9 +223,9 @@ export const PROC_ABILITIES = [
     id: "reflexo_agil",
     nome: "Borrão",
     gatilho: "acerto_recebido",
-    proficienciaLimiar: "tecnicaProf",
+    proficienciaLimiar: "manipulacaoManaProf",
     prioridade: 1,
-    efeito: "Quando um dado do Acerto inimigo contra você bate o limiar da sua Proficiência de Técnica, esse dado é re-rolado uma vez — vale o novo valor.",
+    efeito: "Quando um dado do Acerto inimigo contra você bate o limiar da sua Proficiência de Manipulação de Mana, esse dado é re-rolado uma vez — vale o novo valor.",
   },
   {
     id: "instinto_selvagem",
@@ -214,7 +235,7 @@ export const PROC_ABILITIES = [
     prioridade: 1,
     restricaoTipo: "marcial",
     concedeEfeito: "impacto",
-    efeito: "Em ataques Marciais, quando um dado do seu Acerto bate o limiar de Força, soma mais uma instância de IMPACTO ao ataque (mesmo se ele já tiver) — lembrando que várias instâncias de IMPACTO não rolam vários dados: cada instância extra só soma +1 no dado de IMPACTO antes de checar a tabela.",
+    efeito: "Em ataques Marciais, quando um dado do Acerto bate o limiar de Força, soma mais uma instância de IMPACTO ao ataque (mesmo se ele já tiver) — lembrando que várias instâncias de IMPACTO não rolam vários dados: cada instância extra só soma +1 no dado de IMPACTO antes de checar a tabela.",
   },
   {
     id: "blindagem_reativa",
@@ -232,7 +253,7 @@ export const PROC_ABILITIES = [
     id: "golpe_penetrante",
     nome: "Golpe Penetrante",
     gatilho: "passivo_ignora_armadura",
-    efeito: "Sempre ativa (não precisa bater limiar de dado): seus ataques físicos ignoram a Resistência Armadura do alvo — as confirmações vão direto pra Resistência Natural, mesmo que o alvo tenha armadura equipada. Além disso, com sua Proficiência de Técnica em grau C ou mais, soma +1 na Confirmação de dano; sendo grau A, soma mais +1 (total +2).",
+    efeito: "Sempre ativa (não precisa bater limiar de dado): seus ataques físicos ignoram a Resistência Armadura do alvo — as confirmações vão direto pra Resistência Natural, mesmo que o alvo tenha armadura equipada. Além disso, com sua Proficiência de Manipulação de Mana em grau C ou mais, soma +1 na Confirmação de dano; sendo grau A, soma mais +1 (total +2).",
   },
   {
     id: "persistente",
@@ -255,6 +276,7 @@ export const PROC_ABILITIES = [
 // Categoriza cada Habilidade Passiva de Combate pela área que ela afeta, direto
 // a partir do gatilho: acerto_proprio -> Ataque, confirmacao_propria -> Confirmação
 // de Dano, acerto_recebido -> Defesa, confirmacao_recebida/passivo_armadura -> Resistência.
+// Mantido só pra exibição (ver nota de "órfã" acima — o gatilho não dispara mais sozinho).
 export function categoriaDaHabilidade(p) {
   if (p.gatilho === "acerto_proprio" || p.gatilho === "passivo_ignora_armadura") return "ataque";
   if (p.gatilho === "confirmacao_propria") return "confirmacao";
@@ -271,155 +293,131 @@ export const PROC_ABILITIES_AGRUPADAS = [...PROC_ABILITIES].sort(
   (a, b) => CATEGORIA_ORDEM.indexOf(categoriaDaHabilidade(a)) - CATEGORIA_ORDEM.indexOf(categoriaDaHabilidade(b))
 );
 
-// Tipos de Ataque — define automaticamente qual atributo entra no Acerto e qual
-// entra no Dano (confirmação). Substitui o antigo par zona+atributoBase.
+// Tipos de Ataque — define o atributo somado no pool de dados do Acerto (pra
+// ataques físicos) e qual "bucket" de defesa ele enfrenta (física ou mágica).
+// Mágico não tem atributoKey: usa Base mágica (ver diceAtaqueMagico), não um
+// Atributo Geral da ficha.
 export const TIPOS_ATAQUE = {
-  marcial: { label: "Marcial", acertoAttr: "destreza", danoAttr: "forca", resistKey: "resistNaturalFisica" },
-  arma_de_fogo: { label: "Arma de fogo", acertoAttr: "destreza", danoAttr: null, resistKey: "resistNaturalFisica" },
-  // Mágico não soma mais atributo nenhum no Dano - a Magia (atributo) foi dividida:
-  // o lado de ataque virou a Proficiência "Magias Ofensivas" (já entra via profKey
-  // do próprio ataque), e o lado geral virou a Proficiência Mental "Magias Gerais".
-  magico: { label: "Mágico", acertoAttr: null, danoAttr: null, resistKey: "resistNaturalMagica" },
+  marcial: { label: "Marcial", atributoKey: "destreza", tipoDefesa: "fisico" },
+  arma_de_fogo: { label: "Arma de fogo", atributoKey: "destreza", tipoDefesa: "fisico" },
+  magico: { label: "Mágico", atributoKey: null, tipoDefesa: "magico" },
 };
 
-// Catálogo de Tipos de Ataque Base — formas de atacar em sua forma genérica,
-// sem estar ligadas a nenhum personagem específico. Um personagem "aprende" um
-// destes e ele vira uma entrada na sua tabela de Ataques (podendo variar os
-// bônus manuais, se fizer sentido narrativamente).
-// Campos: tipo (marcial/arma_de_fogo/magico — define os atributos automaticamente),
-// acerto (bônus manual no Acerto), dano (bônus manual na rolagem de Confirmação, 1 por
-// sucesso), ferida (valor fixo por confirmação bem-sucedida).
+// Catálogo de Armas — formas de atacar fisicamente em sua forma genérica, sem
+// estar ligadas a nenhum personagem específico. Um personagem "aprende" uma
+// destas e ela vira uma entrada na sua tabela de Ataques.
+//
+// Reescrito em 14/10 pro modelo de pool de dados (docs/SISTEMA_MAGIA.md): as
+// armas MÁGICAS que existiam aqui (Shin, Tiro Mágico, Torrente Mágica,
+// Bombardeio de Mana) foram REMOVIDAS — o catálogo de magias (data/magias.js)
+// é agora a fonte única pra ataques mágicos, pra não duplicar/divergir dados
+// entre os dois catálogos. `acerto` (antigo bônus flat tipo "+1"/"-1") virou
+// `ajusteDados` (dados extras ou a menos no pool) — é a interpretação mais
+// direta num sistema sem bônus somado ao dado; não é uma regra confirmada
+// pelo Pedro, é decisão minha, listada no relatório final. `dano` (antigo
+// bônus flat na Confirmação) foi removido — não existe mais rolagem de dano
+// separada. `letal`/`descritores` são novos: marquei como Letal toda arma de
+// verdade (lâmina, arma de fogo) e deixei o ataque desarmado SEM Letal por
+// padrão, preservando o que já existia (Leonino/Reptiliano/Lobo-Canino etc.
+// davam o descritor de personagem "desarmado_letal" justamente pra TORNAR o
+// desarmado letal — ver descritoresEfetivosDoAtaque, abaixo). Morteiro Pesado
+// perdeu o mecanismo de "carga" (1 turno antes de disparar) — isso é sobre
+// rodadas/ações, fora do escopo do guia novo; fica como TODO.
 export const BASE_ATTACK_TYPES = [
   {
-    id: "soco", profKey: "combateCorpoACorpo",
+    id: "soco", profKey: "combateCorpoACorpo", atributoKey: "destreza",
     nome: "Ataque desarmado",
     categoria: "Corpo a corpo — desarmado",
     caracteristicas: ["físico", "corpo a corpo"],
     tipo: "marcial",
-    acerto: "+1",
-    dano: "0",
-    ferida: "1",
-    descricao: "Ataque desarmado básico (soco, chute, etc). Acerto: 3d10 +1 + bônus de Destreza vs Defesa do alvo, gera sucessos. Confirmação: para cada sucesso, rola 1d10 + Força vs Resistência Física do alvo — a ferida final é a quantidade de confirmações que passaram (1 por confirmação, por ser Marcial).",
+    ajusteDados: 1,
+    feridas: 1,
+    ehDesarmado: true,
+    descritores: [],
+    descricao: "Ataque desarmado básico (soco, chute, etc). Rola Destreza + Combate Corpo a Corpo + 1 dado extra, sucesso 6+ (7+ se o alvo tiver Blindado). O defensor rola a própria defesa (Resistência Física) pra reduzir os sucessos. Sucessos líquidos ≥ Vigor do alvo = ferimento agravante; senão, superficial.",
   },
   {
-    id: "arma_branca", profKey: "combateCorpoACorpo",
+    id: "arma_branca", profKey: "combateCorpoACorpo", atributoKey: "destreza",
     nome: "Arma branca",
     categoria: "Corpo a corpo — arma",
     caracteristicas: ["físico", "corpo a corpo"],
     tipo: "marcial",
-    acerto: "0",
-    dano: "+1",
-    ferida: "1",
-    descricao: "Arma branca comum (espada, adaga, etc). Acerto: Destreza, sem bônus/penalidade. Confirmação: 1d10 + Força + 1 (bônus da arma) vs Resistência Física — a ferida final é a quantidade de confirmações que passaram (1 por confirmação, por ser Marcial).",
+    ajusteDados: 0,
+    feridas: 1,
+    descritores: ["letal"],
+    descricao: "Arma branca comum (espada, adaga, etc). Rola Destreza + Combate Corpo a Corpo, sucesso 6+. Letal: reduz em 1 o Vigor necessário pro ferimento virar agravante.",
   },
   {
-    id: "arma_branca_pesada", profKey: "combateCorpoACorpo",
+    id: "arma_branca_pesada", profKey: "combateCorpoACorpo", atributoKey: "destreza",
     nome: "Arma branca pesada",
     categoria: "Corpo a corpo — arma",
     caracteristicas: ["físico", "corpo a corpo"],
     tipo: "marcial",
-    acerto: "-1",
-    dano: "+2",
-    ferida: "1",
-    descricao: "Arma branca de duas mãos — menos precisa, mais confirmação. Acerto: Destreza -1. Confirmação: 1d10 + Força + 2 vs Resistência Física — a ferida final é a quantidade de confirmações que passaram (1 por confirmação, por ser Marcial).",
+    ajusteDados: -1,
+    feridas: 1,
+    descritores: ["letal"],
+    descricao: "Arma branca de duas mãos — menos precisa (-1 dado), mas letal igual qualquer arma de verdade.",
   },
   {
-    id: "mosquetao", profKey: "armasDeFogo",
+    id: "mosquetao", profKey: "armasDeFogo", atributoKey: "destreza",
     nome: "Mosquete",
     categoria: "À distância",
     caracteristicas: ["físico", "longa distância"],
     tipo: "arma_de_fogo",
-    tipoAtaque: "Distância, carga 1",
-    acerto: "-1",
-    dano: "+4",
-    ferida: "2",
-    descricao: "Arma de fogo de longa distância, carrega antes de atirar. Acerto: Destreza -1. Confirmação: 1d10 + 4 (valor da arma, sem somar atributo) vs Resistência Física. 2 de ferimento por confirmação.",
+    ajusteDados: -1,
+    feridas: 2,
+    descritores: ["letal"],
+    descricao: "Arma de fogo de longa distância. Rola Destreza + Armas de Fogo -1 dado, sucesso 6+. Letal, 2 feridas por ataque.",
   },
   {
-    id: "revolver", profKey: "armasDeFogo",
+    id: "revolver", profKey: "armasDeFogo", atributoKey: "destreza",
     nome: "Revólver",
     categoria: "À distância",
     caracteristicas: ["físico", "longa distância"],
     tipo: "arma_de_fogo",
-    tipoAtaque: "Distância (alcance 6), carga",
-    acerto: "0",
-    dano: "+2",
-    ferida: "2",
-    descricao: "Arma de fogo curta, sem precisar mudar de zona pra usar. Acerto: Destreza. Confirmação: 1d10 + 2 (valor da arma, sem somar atributo) vs Resistência Física. 2 de ferimento por confirmação.",
+    ajusteDados: 0,
+    feridas: 2,
+    descritores: ["letal"],
+    descricao: "Arma de fogo curta. Rola Destreza + Armas de Fogo, sucesso 6+. Letal, 2 feridas por ataque.",
   },
   {
-    id: "morteiro_pesado", profKey: "armasDeFogo",
+    id: "morteiro_pesado", profKey: "armasDeFogo", atributoKey: "destreza",
     nome: "Morteiro pesado",
     categoria: "À distância — área",
     caracteristicas: ["físico", "longa distância"],
     tipo: "arma_de_fogo",
-    tipoAtaque: "Distância, carga 1",
-    acerto: "S (da carga)",
-    cargaTest: "Antes de atirar, gasta 1 turno de carga: rola 3d10 sem atributo, sucesso >5. Os sucessos obtidos (S) viram o bônus de Acerto do disparo no turno seguinte.",
-    dano: "6",
-    ferida: "1",
-    modificadores: ["Prioridade -1"],
-    descricao: "Arma de área/indireta. Precisa carregar 1 turno antes de disparar (teste de carga: 3d10, sucesso >5 — os sucessos viram o bônus de Acerto do disparo). Confirmação do disparo: 1d10 + 6 (valor da arma, sem somar atributo) vs Resistência, 1 de ferimento por confirmação.",
-  },
-  {
-    id: "shin", profKey: "magiasOfensivas",
-    nome: "Shin",
-    categoria: "Mágico",
-    caracteristicas: ["mágico", "área"],
-    tipo: "magico",
-    custoMp: 1,
-    acerto: "+3",
-    dano: "+1",
-    ferida: "1",
-    descricao: "Magia de mana pura em área. Acerto: +3 (só o valor da magia, sem atributo). Confirmação: 1d10 + 1 + Magia vs Resistência Mágica. 1 de ferimento por confirmação.",
-  },
-  {
-    id: "tiro_magico", profKey: "magiasOfensivas",
-    nome: "Tiro mágico",
-    categoria: "Mágico",
-    caracteristicas: ["mágico", "distância"],
-    tipo: "magico",
-    custoMp: 1,
-    acerto: "+2",
-    dano: "+1",
-    ferida: "1",
-    descricao: "Magia de mana pura à distância. Acerto: +2 (só o valor da magia). Confirmação: 1d10 + 1 + Magia vs Resistência Mágica. 1 de ferimento por confirmação.",
-  },
-  {
-    id: "torrente_magica", profKey: "magiasOfensivas",
-    nome: "Torrente mágica",
-    categoria: "Mágico",
-    caracteristicas: ["mágico", "distância", "curta"],
-    tipo: "magico",
-    custoMp: 2,
-    acerto: "+1",
-    dano: "+1",
-    ferida: "1",
-    descricao: "Magia de mana pura, distância ou curta. Acerto: +1 (só o valor da magia). Confirmação: 1d10 + 1 + Magia vs Resistência Mágica. 1 de ferimento por confirmação.",
-  },
-  {
-    id: "bombardeio_de_mana", profKey: "magiasOfensivas",
-    nome: "Bombardeio de mana",
-    categoria: "Mágico",
-    caracteristicas: ["mágico", "área"],
-    tipo: "magico",
-    custoMp: 2,
-    acerto: "2S",
-    dano: "+1",
-    ferida: "1",
-    descricao: "Magia de mana pura em área. Não rola Acerto — já considera 2 sucessos fixos e vai direto pra Confirmação. Confirmação: 1d10 + 1 + Magia vs Resistência Mágica, para cada um dos 2 sucessos. 1 de ferimento por confirmação.",
+    ajusteDados: -1,
+    feridas: 1,
+    descritores: ["letal", "em_area"],
+    descricao: "Arma de área/indireta. TODO: o mecanismo antigo de carregar 1 turno antes de disparar dependia de rodadas/ações — fora do escopo do guia novo, removido por enquanto.",
   },
 ];
 
-// Os 4 ataques padrão (Ataque desarmado/Arma branca/Revólver/Shin) que todo
+// Os 3 ataques físicos padrão (Ataque desarmado/Arma branca/Revólver) que todo
 // personagem novo ganha, e que a migração de personagens antigos também usa
-// pra repor quem foi salvo antes dessa funcionalidade existir.
+// pra repor quem foi salvo antes dessa funcionalidade existir. Ataques mágicos
+// não entram mais aqui — ver data/magias.js e a aba de conjuração na ficha.
 export function defaultAttacksForCharacter() {
   const pick = (id) => BASE_ATTACK_TYPES.find((t) => t.id === id);
-  return [pick("soco"), pick("arma_branca"), pick("revolver"), pick("shin")].filter(Boolean).map((t) => ({
-    nome: t.nome, tipo: t.tipo, acerto: t.acerto,
-    dano: t.dano, ferida: t.ferida, efeito: t.modificadores ? t.modificadores.join(", ") : "", profKey: t.profKey,
+  return [pick("soco"), pick("arma_branca"), pick("revolver")].filter(Boolean).map((t) => ({
+    nome: t.nome, tipo: t.tipo, profKey: t.profKey, atributoKey: t.atributoKey,
+    ajusteDados: t.ajusteDados, feridas: t.feridas, descritores: [...t.descritores], ehDesarmado: !!t.ehDesarmado,
   }));
+}
+
+// Descritores EFETIVOS de um ataque do catálogo (BASE_ATTACK_TYPES) pro
+// atacante que vai usá-lo — hoje só cobre desarmado_letal (descritor de
+// PERSONAGEM concedido por Garras e Presas/Agressividade Oni em
+// catalogo-racas.json, de antes desta mudança): torna ataques desarmados
+// (ehDesarmado) letais, preservando o que essas habilidades já faziam.
+// Chame esta função (não `attack.descritores` direto) ao montar
+// `descritoresAtaque` pro resolveAtaque/resolveAtaqueEmArea.
+export function descritoresEfetivosDoAtaque(attacker, attack) {
+  const base = attack?.descritores || [];
+  if (attack?.ehDesarmado && temDescritor(attacker, "desarmado_letal") && !base.includes("letal")) {
+    return [...base, "letal"];
+  }
+  return base;
 }
 
 export function attrBonus(grade) {
@@ -441,6 +439,16 @@ export function computeMaxSP(character) {
   const base = character?.sp?.max ?? 3;
   const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
   return base + bonusPersistente;
+}
+
+// MP (mana) máximo: 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Magia Inata (+1 MP
+// máximo) soma aqui, igual Persistente soma em HP/SP.
+export const MANA_MIN = 1;
+export const MANA_MAX = 6;
+export function computeMaxMana(character) {
+  const bonusMagiaInata = (character?.disciplinaMagica?.tipo === "magia-inata") ? 1 : 0;
+  const base = character?.mp?.max ?? 3;
+  return Math.max(MANA_MIN, Math.min(MANA_MAX, base + bonusMagiaInata));
 }
 
 // Avalia formulas simples do tipo "+1", "-1", "0" para bonus manuais de ataque.
@@ -468,11 +476,13 @@ export function attrLabelDaHabilidade(p) {
   return [...attrLabels, ...profLabels].filter(Boolean).join(" ou ");
 }
 
+// Mantido só pra exibição/referência (ver nota de "órfã" em PROC_ABILITIES) —
+// resolveAtaque não chama mais esta função.
 export function findTriggeredProc(character, gatilho, dieValue, attackTipo) {
   const procIds = character?.procs || [];
   if (!procIds.length) return null;
   const matching = PROC_ABILITIES.filter((p) => {
-    if (p.id === "furia_crescente") return false; // Mestre do Crítico é tratado à parte (muda o limiar de crítico, não é um proc de "olhar dado já rolado")
+    if (p.id === "furia_crescente") return false;
     if (!procIds.includes(p.id) || p.gatilho !== gatilho) return false;
     if (p.restricaoTipo && p.restricaoTipo !== attackTipo) return false;
     const limiar = limiarDaHabilidade(character, p);
@@ -483,22 +493,13 @@ export function findTriggeredProc(character, gatilho, dieValue, attackTipo) {
 }
 
 // Cada estatística de combate pode ter uma Proficiência de Combate correspondente
-// que soma junto com os atributos vinculados (hoje só Defesa). Resistência
-// Física/Mágica SAÍRAM de aqui em 13/10 (pedido do Pedro, confirmado via
-// pergunta direta): a proficiência de Resistência passou a ser uma defesa
-// ATIVA (ver resolveResistenciaAtiva) em vez de só inflar passivamente o
-// limiar da Confirmação — manter as duas coisas contaria a mesma proficiência
-// duas vezes. resistNaturalFisica/resistNaturalMagica continuam existindo
-// como estatística (ainda somam Vigor, grau cheio, via DEFAULT_STAT_LINKS) —
-// é esse valor reduzido que a Confirmação checa, só sem mais o bônus da
-// proficiência.
+// que soma junto com os atributos vinculados (hoje só Defesa).
 export const STAT_PROF_LINK = { defesa: "defesaProf" };
 
 export function computeStat(character, statKey) {
   const base = (character.statBase && character.statBase[statKey]) ?? STAT_BASE_DEFAULTS[statKey] ?? 0;
   const temp = (character.statTemp && character.statTemp[statKey]) ?? 0;
   const links = (character.statLinks && character.statLinks[statKey]) ?? DEFAULT_STAT_LINKS[statKey] ?? [];
-  // Resistências Naturais contam o grau cheio (E=1..A=5); as demais, o bônus (E=0..A=+4).
   const peso = STAT_USA_GRAU_CHEIO.has(statKey) ? (g) => GRADE_VALUE[g] || 1 : attrBonus;
   const fromAttrs = links.reduce((sum, attrKey) => sum + peso(getAttrGrade(character, attrKey)), 0);
   const profKey = STAT_PROF_LINK[statKey];
@@ -513,8 +514,9 @@ export function migrateBrigaProfKey(attacks) {
   return (attacks || []).map((atk) => (atk.profKey === "briga" ? { ...atk, profKey: "combateCorpoACorpo" } : atk));
 }
 
-// Rola N dados de 10, sucesso se dado > limiar (customizável, padrão 5). Um 10
-// natural sempre conta como sucesso e como crítico, mesmo abaixo do limiar.
+// Rola N dados de 10, sucesso se dado > limiar (customizável, padrão 5, ou
+// seja, 6+). Um 10 natural sempre conta como sucesso (crítico "a confirmar"
+// no guia novo — contado aqui, mas sem efeito mecânico ainda).
 export function rollSuccessDice(totalDice, limiar = 5) {
   const dice = Array.from({ length: Math.max(1, totalDice) }, () => Math.floor(Math.random() * 10) + 1);
   const successes = dice.filter((d) => d === 10 || d > limiar).length;
@@ -523,363 +525,189 @@ export function rollSuccessDice(totalDice, limiar = 5) {
   return { dice, successes, criticos, superSucesso };
 }
 
-// Resolucao de combate ajustada nas sessoes de revisao (difere do texto bruto dos
-// docs - ver nota na aba Regras). Tres etapas, cada uma com sua propria rolagem:
-// 1) Acerto: rola 3d10. Critico e sempre um 10 natural (Sorte nao afeta mais isso -
-//    virou o atributo que governa as Habilidades Passivas de Combate). Um dado
-//    critico soma +1 a si mesmo antes de comparar com o limiar (nao e sucesso
-//    automatico) - e tambem soma +1 na rolagem de confirmacao que esse sucesso gerar.
-//    Cada dado conta sucesso (S) se (dado + bonus do ataque + bonus de critico) > Defesa
-//    do alvo (a Defesa ja inclui a base 5 embutida, nao soma de novo aqui).
-// 1.5) Resistencia ATIVA (NOVO em 13/10, ver resolveResistenciaAtiva): o defensor
-//    rola Vigor + Resistencia Fisica/Magica (dados = soma dos graus, igual um
-//    Teste normal) - cada sucesso do defensor cancela 1 sucesso do Acerto do
-//    atacante (minimo 0). Substitui o uso passivo que a Resistencia tinha antes
-//    (inflar o limiar da Confirmacao) - contar as duas coisas seria dobrar o
-//    efeito da mesma proficiencia.
-// 2) Confirmacao: PARA CADA sucesso que sobrou depois da Resistencia, rola 1d10 + bonus de dano do
-//    ataque (+1 extra se esse sucesso veio de um dado critico). A Armadura funciona
-//    como um escudo de uso unico: confirmacoes checam a Armadura em ordem ate uma
-//    romper (iguala/supera seu valor) - a partir dali, checam a Resistencia Natural
-//    correspondente ao tipo do ataque (Fisica para Marcial/Arma de fogo, Magica para
-//    Magico). Cada confirmacao bem-sucedida causa Ferida (valor fixo por acerto
-//    confirmado, definido no proprio ataque - padrao 1).
-// Habilidades Passivas de Combate (procs) - efeitos aplicados AUTOMATICAMENTE:
-//  - furia_crescente (nome: Mestre do Crítico): reduz o limiar de critico no Acerto
-//    em 1 flat (9+ em vez de 10) - vale pra TODOS os criticos da rolagem. Tratado a
-//    parte, fora do sistema generico de findTriggeredProc.
-//  - golpe_certeiro: aquele dado de Acerto conta como 2 sucessos em vez de 1 - so uma vez por ataque.
-//  - fortaleza_viva: aquele dado de confirmacao inimiga eh re-rolado uma vez (nao
-//    anula mais o hit direto - anular deixava Resistencia alta "inquebravel",
-//    ja que os dados que fariam a confirmacao passar sao os mesmos que disparam
-//    a habilidade).
-//  - surto_arcano: +1 na rolagem daquela confirmacao (magico).
-//  - reflexo_agil: aquele dado de acerto inimigo eh re-rolado uma vez (mesma logica
-//    da fortaleza_viva - re-rolar em vez de anular).
-//  - blindagem_reativa (nome: Mestre em Armadura): passiva SEMPRE ativa, nao depende
-//    de bater limiar de dado - com ela equipada, a Armadura so quebra na SEGUNDA vez
-//    que for superada em vez da primeira (dentro do mesmo ataque).
-//  - instinto_selvagem (nome: Ataque Poderoso): em ataques Marciais, quando um dado
-//    do Acerto bate o limiar de Força, soma mais uma instancia de IMPACTO (mesmo se
-//    ja tiver - instancias extras so somam +1 no dado de IMPACTO, nao rolam de novo).
-//  - toque_flamejante (nome: Magias energeticas): mesma logica, mas com limiar de Magia em
-//    ataques Magicos, somando mais uma instancia de CHAMAS (cada instancia de CHAMAS
-//    rola 1d10 separado, diferente do IMPACTO).
-// Etapa 2 (Confirmacao + IMPACTO/CHAMAS + Ferida final) extraida em funcao propria
-// pra poder ser chamada de novo depois que um dado do Acerto for alterado (gastando
-// MP/SP no Confronto), sem precisar re-rolar o Acerto inteiro.
-export function resolveConfirmationPhase({ attacker, defender, attack, successes, successFlags, successCritOrder, fixedSuccessMatch }) {
-  const tipoInfo = TIPOS_ATAQUE[attack.tipo] || TIPOS_ATAQUE.marcial;
-  // IMPACTO e CHAMAS: efeitos que disparam "quando o ataque faz contato" (successes>0),
-  // uma vez por ataque (nao por dado de confirmacao). Podem vir do texto do proprio ataque
-  // (campo Efeito menciona "impacto"/"chamas") e/ou de uma Habilidade Passiva de Combate
-  // equipada que concede o efeito quando um dado do Acerto bate o limiar do atributo
-  // dela (Força pro Impacto, Magia pro Chamas) - cada fonte conta como 1 instancia.
-  const fezContato = successes > 0;
-  const efeitoTexto = (attack.efeito || "").toLowerCase();
-  const impactoDeProc = fezContato && !fixedSuccessMatch && successFlags.some((f) => f.success && f.procAtacante?.concedeEfeito === "impacto");
-  const chamasDeProc = fezContato && !fixedSuccessMatch && successFlags.some((f) => f.success && f.procAtacante?.concedeEfeito === "chamas");
-  // Efeitos por texto do ataque também exigem contato (fezContato) — sem essa
-  // checagem, um ataque que ERROU o Acerto ainda rolaria a confirmação de
-  // Impacto/Chamas/Envenenamento, contradizendo a própria regra ("quando o
-  // ataque faz contato"). Não filtra por !fixedSuccessMatch (esse filtro só
-  // faz sentido pra concessão via Habilidade Passiva, que depende de olhar um
-  // dado de Acerto que não existe em ataques de sucesso fixo tipo "2S" — mas
-  // esses ataques TÊM contato, successes já vem preenchido, e fezContato
-  // funciona neles normalmente).
-  const instanciasImpacto = (fezContato && efeitoTexto.includes("impacto") ? 1 : 0) + (impactoDeProc ? 1 : 0);
-  const instanciasChamas = (fezContato && efeitoTexto.includes("chamas") ? 1 : 0) + (chamasDeProc ? 1 : 0);
-  const instanciasEnvenenamento = fezContato && efeitoTexto.includes("envenenamento") ? 1 : 0;
+// Descritor Sortudo (docs/SISTEMA_MAGIA.md): "re-rola o primeiro 1 ou 2 do
+// teste (inclusive de ataque), mostrando o dado original e o novo". Vale uma
+// vez por rolagem — re-rola só o PRIMEIRO dado (na ordem rolada) que saiu 1
+// ou 2; se nenhum saiu 1/2, não faz nada. Usado tanto pela rolagem de Ataque
+// quanto pela de Defesa (cada lado aplica Sortudo de forma independente, se
+// tiver o descritor) e pelo Teste genérico da ficha.
+export function rolarComSortudo(totalDice, limiar, temSortudo) {
+  const base = rollSuccessDice(totalDice, limiar);
+  if (!temSortudo) return { ...base, sortudoAplicado: null };
+  const idx = base.dice.findIndex((d) => d === 1 || d === 2);
+  if (idx === -1) return { ...base, sortudoAplicado: null };
+  const dice = [...base.dice];
+  const original = dice[idx];
+  const novo = Math.floor(Math.random() * 10) + 1;
+  dice[idx] = novo;
+  const successes = dice.filter((d) => d === 10 || d > limiar).length;
+  const criticos = dice.filter((d) => d === 10).length;
+  return { dice, successes, criticos, superSucesso: successes >= 3, sortudoAplicado: { indice: idx, original, novo } };
+}
 
-  let impactoBonus = 0;
-  let impactoRoll = null;
-  if (instanciasImpacto > 0) {
-    const dBase = Math.floor(Math.random() * 10) + 1;
-    const dAjustado = Math.min(10, dBase + (instanciasImpacto - 1));
-    impactoBonus = dAjustado <= 4 ? 0 : dAjustado <= 7 ? 1 : dAjustado <= 9 ? 2 : 3;
-    impactoRoll = { dado: dBase, instancias: instanciasImpacto, dadoAjustado: dAjustado, bonus: impactoBonus };
-  }
+// Checa se uma entidade (personagem OU ataque/magia — qualquer coisa com um
+// array `descritores`) tem um descritor específico. Único ponto de checagem
+// de descritor no motor (docs/SISTEMA_MAGIA.md item 3, função pedida
+// explicitamente: temDescritor(entidade, nome)).
+export function temDescritor(entidade, nome) {
+  return (entidade?.descritores || []).includes(nome);
+}
 
-  // Etapa 2 - Confirmacao: uma rolagem de 1d10 por sucesso obtido no Acerto.
-  // O atributo somado depende do tipo do ataque (marcial soma Forca, magico soma
-  // Magia, arma de fogo nao soma atributo nenhum - so o valor da arma). A
-  // Proficiencia de Combate do ataque (Combate Corpo a Corpo/Armas de Fogo/
-  // Magias Ofensivas) soma tanto no Acerto quanto aqui na Confirmacao.
-  const danoAttrBonus = tipoInfo.danoAttr ? attrBonus(getAttrGrade(attacker, tipoInfo.danoAttr)) : 0;
-  const danoProfBonus = attack.profKey ? attrBonus(attacker.proficiencias?.[attack.profKey]) : 0;
-  const manualDanoBonus = parseFlatBonus(attack.dano);
-  // golpe_penetrante: em ataques fisicos, ignora a Resistencia Armadura do alvo (vai
-  // direto pra Resistencia Natural) e soma bonus extra conforme a Tecnica do atacante:
-  // grau C+ soma +1, grau A soma +1 adicional (total +2).
-  const temGolpePenetrante = (attacker.procs || []).includes("golpe_penetrante") && (attack.tipo === "marcial" || attack.tipo === "arma_de_fogo");
-  const tecnicaGolpePenetrante = attacker.proficiencias?.tecnicaProf;
-  const golpePenetranteBonus = temGolpePenetrante
-    ? ((GRADE_VALUE[tecnicaGolpePenetrante] || 1) >= 3 ? 1 : 0) + (tecnicaGolpePenetrante === "A" ? 1 : 0)
-    : 0;
-  const confirmBonusBase = danoAttrBonus + danoProfBonus + manualDanoBonus + impactoBonus + golpePenetranteBonus;
-  const resistArmadura = computeStat(defender, "resistArmadura");
-  const resistNaturalKey = tipoInfo.resistKey || "resistNaturalFisica";
-  const resistNatural = computeStat(defender, resistNaturalKey);
-  // So conta com Armadura se houver de fato um item de armadura cadastrado em Itens.
-  const temArmadura = (defender.itens?.armadura || []).length > 0;
-  const feridaPorAcerto = attack.ferida !== undefined && attack.ferida !== "" ? parseFlatBonus(attack.ferida) || 1 : 1;
+export const LIMIAR_SUCESSO = 5; // dado > 5 => 6+ é sucesso
+export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado/Blindado Mágico
 
-  // A armadura funciona como um "escudo de uso unico": as confirmacoes sao checadas
-  // em ordem contra a Armadura ate uma delas igualar/superar seu valor - essa rompe
-  // a armadura e causa dano. A partir dali (e se nao houver armadura), as confirmacoes
-  // seguintes checam contra a Resistencia Natural do tipo do ataque.
-  // Mestre em Armadura (blindagem_reativa) e uma passiva SEMPRE ativa (nao depende de
-  // bater limiar de dado nenhum): com ela equipada, a Armadura so quebra na SEGUNDA
-  // vez que for superada, em vez da primeira.
-  const temMestreEmArmadura = (defender.procs || []).includes("blindagem_reativa");
-  const golpesParaQuebrarArmadura = temMestreEmArmadura ? 2 : 1;
-  let golpesNaArmadura = 0;
-  let armaduraQuebrada = !temArmadura || temGolpePenetrante;
-  // Escudo de Mana e uma passiva SEMPRE ativa que cria uma camada extra ANTES da
-  // Armadura: vale 8 + bonus de Magia, quebra igual uma Armadura (primeira confirmacao
-  // que igualar/superar rompe), e só depois disso as confirmacoes passam a checar a
-  // Armadura de verdade (se houver) e por fim a Resistencia Natural.
-  const temEscudoDeMana = (defender.procs || []).includes("escudo_de_mana");
-  const escudoDeManaValor = temEscudoDeMana ? 8 + attrBonus(defender.proficiencias?.magiasOfensivas) : 0;
-  let escudoDeManaQuebrado = !temEscudoDeMana;
-  const confirmRolls = [];
-  for (let i = 0; i < successes; i++) {
-    const veioDeCritico = !!successCritOrder[i];
-    // fortaleza_viva: em vez de anular a confirmação (o que tornava Resistência
-    // alta "inquebrável"), o dado que bater o limiar de Resistência Física é
-    // RE-ROLADO uma vez, e o novo valor é o que vale pra tudo daqui pra frente.
-    const dRolado = Math.floor(Math.random() * 10) + 1;
-    const procDefensorPreCheck = findTriggeredProc(defender, "confirmacao_recebida", dRolado, attack.tipo);
-    let d = dRolado;
-    let rerolado = false;
-    if (procDefensorPreCheck?.id === "fortaleza_viva") {
-      d = Math.floor(Math.random() * 10) + 1;
-      rerolado = true;
-    }
-    const isCrit = d === 10;
-    const procAtacante = findTriggeredProc(attacker, "confirmacao_propria", d, attack.tipo);
-    const procDefensor = findTriggeredProc(defender, "confirmacao_recebida", d, attack.tipo);
+// Limiar efetivo do dado de ATAQUE contra um defensor: 7+ se o defensor tiver
+// Blindado (ataque físico) ou Blindado Mágico (ataque mágico), exceto se o
+// ataque for Perfurante (ignora Blindado/Blindado Mágico) — "quando duas
+// habilidades se contradizem, a negação vence" (docs/SISTEMA_MAGIA.md),
+// então Perfurante sempre vence Blindado, sem exceção adicional.
+//
+// Retrocompatibilidade (decisão minha, não pedida explicitamente — listada no
+// relatório final): o descritor de PERSONAGEM "ignora_blindado" (concedido
+// por Garras e Presas/Agressividade Oni em catalogo-racas.json, de antes
+// desta mudança) também ignora Blindado, do mesmo jeito que Perfurante —
+// preserva o que essas habilidades já faziam, já que o guia novo não fala
+// delas.
+export function limiarAtaque({ atacante, defensor, tipoAtaque, descritoresAtaque }) {
+  const ds = descritoresAtaque || [];
+  const perfurante = ds.includes("perfurante") || temDescritor(atacante, "ignora_blindado");
+  if (perfurante) return LIMIAR_SUCESSO;
+  const descritorBlindado = tipoAtaque === "magico" ? "blindado_magico" : "blindado";
+  return temDescritor(defensor, descritorBlindado) ? LIMIAR_BLINDADO : LIMIAR_SUCESSO;
+}
 
-    let extraConfirmBonus = 0;
-    let extraFerida = 0;
-    if (procAtacante?.id === "surto_arcano") extraConfirmBonus += 1;
+// "Extra" de dados da Base Mágica: mana gasta ACIMA do custo da magia (mínimo
+// 0). Função única (docs/SISTEMA_MAGIA.md item 4: "Deixe a definição de
+// 'extra' em uma única função") — usada tanto pelo painel de Teste (opção
+// Base mágica) quanto pela conjuração de magias do catálogo.
+export function extraDeManaMagica(manaGasta, custoMagia) {
+  return Math.max(0, (manaGasta || 0) - (custoMagia || 0));
+}
 
-    const confirmBonus = confirmBonusBase + (veioDeCritico ? 1 : 0) + extraConfirmBonus;
-    const total = d + confirmBonus;
+// Dados da Base Mágica: sempre 2d10 + o extra acima. Não lê nenhum Atributo
+// Geral da ficha (docs/SISTEMA_MAGIA.md item 4).
+export function diceBaseMagica(manaGasta, custoMagia) {
+  return 2 + extraDeManaMagica(manaGasta, custoMagia);
+}
 
-    // Ordem das camadas: Escudo de Mana -> Armadura -> Resistência Natural.
-    let resistUsada, alvo, romperiaArmadura = false, romperiaEscudo = false;
-    if (!escudoDeManaQuebrado) {
-      resistUsada = "escudoDeMana";
-      alvo = escudoDeManaValor;
-      romperiaEscudo = true;
-    } else if (!armaduraQuebrada) {
-      resistUsada = "resistArmadura";
-      alvo = resistArmadura;
-      romperiaArmadura = true;
+// Pool de dados de um ataque FÍSICO: grau do Atributo Geral + grau da
+// Proficiência de Combate do ataque + ajuste manual da arma (dados extra ou a
+// menos, mínimo 0 no total).
+export function diceAtaqueFisico(attacker, atributoKey, profKey, ajusteDados = 0) {
+  const base = (GRADE_VALUE[getAttrGrade(attacker, atributoKey)] || 1) + (GRADE_VALUE[attacker?.proficiencias?.[profKey]] || 1);
+  return Math.max(0, base + (ajusteDados || 0));
+}
+
+// Pool de dados de um ataque MÁGICO: Base Mágica (2d10 + extra de mana) +
+// grau de Magias Ofensivas + ajuste da magia (ex.: Mísseis Mágicos é "Base
+// mágica + 1 + Magias Ofensivas", ajusteDados=1).
+export function diceAtaqueMagico(attacker, manaGasta, custoMagia, ajusteDados = 0) {
+  const base = diceBaseMagica(manaGasta, custoMagia) + (GRADE_VALUE[attacker?.proficiencias?.magiasOfensivas] || 1);
+  return Math.max(0, base + (ajusteDados || 0));
+}
+
+// Rolagem de DEFESA do personagem atacado: Resistência Física (ataque físico)
+// ou Resistência Mágica (ataque mágico) + o Atributo Geral que o jogador
+// escolher como base da defesa (docs/SISTEMA_MAGIA.md — "Contra ataque
+// físico: Resistência Física. Contra ataque mágico: Resistência Mágica").
+// Saturante: se `defesaAtributo` for "destreza", rola 2 dados a menos (mín. 0).
+export function resolveRolagemDefesa({ defensor, tipoAtaque, defesaAtributo, saturante, limiar = LIMIAR_SUCESSO }) {
+  const profKey = tipoAtaque === "magico" ? "resistMagicaProf" : "resistFisicaProf";
+  let totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] || 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] || 1);
+  if (saturante && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - 2);
+  const temSortudo = temDescritor(defensor, "sortudo");
+  return { ...rolarComSortudo(totalDice, limiar, temSortudo), totalDice, profKey };
+}
+
+// Determina o tipo de ferimento causado pelos sucessos líquidos de um ataque
+// (docs/SISTEMA_MAGIA.md — Dano): sem sucesso líquido, sem ferimento.
+// "superficialForcado" (magia marcada "superficial") sempre causa superficial,
+// mesmo com sucessos líquidos altos. Senão: agravante se sucessos líquidos >=
+// Vigor do defensor (grau cheio; Letal reduz esse Vigor necessário em 1,
+// mínimo 1) — superficial caso contrário.
+export function determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado }) {
+  if (sucessosLiquidos <= 0) return null;
+  if (superficialForcado) return "superficial";
+  const vigorNecessario = letal ? Math.max(1, (vigorGrauCheio || 1) - 1) : (vigorGrauCheio || 1);
+  return sucessosLiquidos >= vigorNecessario ? "agravante" : "superficial";
+}
+
+// Aplica `quantidade` ferimentos de um `tipo` ("agravante"|"superficial") num
+// hp = { current, max, superficiais }. "superficiais" é NOVO (14/10): conta
+// quantos pontos de HP já têm um ferimento superficial registrado, pra
+// aplicar a regra "com todos os pontos quebrados, os próximos ferimentos
+// viram agravantes" — sem esse contador persistido não dá pra saber quantos
+// pontos já foram "quebrados" entre um ataque e outro (o clique manual de
+// rachar/quebrar da UI é só um efeito visual passageiro, não salva nada).
+// Agravante remove 1 HP de verdade; superficial só marca (não reduz HP), a
+// não ser que todos os pontos restantes já estejam marcados — aí vira
+// agravante mesmo. Clamps current em 0 e superficiais em current.
+export function aplicarFerimentos(hp, tipo, quantidade = 1) {
+  let current = hp?.current ?? 0;
+  let superficiais = hp?.superficiais ?? 0;
+  for (let i = 0; i < quantidade; i++) {
+    const viraAgravante = tipo === "agravante" || superficiais >= current;
+    if (viraAgravante) {
+      current = Math.max(0, current - 1);
+      superficiais = Math.min(superficiais, current);
     } else {
-      resistUsada = resistNaturalKey;
-      alvo = resistNatural;
+      superficiais = Math.min(current, superficiais + 1);
     }
-    const passou = isCrit || total >= alvo;
-
-    let blindada = false;
-    if (passou && romperiaEscudo) {
-      escudoDeManaQuebrado = true; // Escudo de Mana quebra na primeira que superar, igual uma Armadura
-    } else if (passou && romperiaArmadura) {
-      golpesNaArmadura += 1;
-      if (golpesNaArmadura >= golpesParaQuebrarArmadura) {
-        armaduraQuebrada = true;
-      } else {
-        blindada = true; // aguentou esse golpe, mas ainda nao quebrou (Mestre em Armadura)
-      }
-    }
-
-    confirmRolls.push({
-      die: d, isCrit, total, passou, resistUsada, resistValor: alvo, confirmBonus, veioDeCritico,
-      procAtacante, procDefensor, extraFerida, blindada, rerolado, dadoOriginal: dRolado,
-    });
   }
+  return { ...hp, current, superficiais };
+}
 
-  // CHAMAS: uma rolagem de confirmacao INDEPENDENTE por instancia, sem bonus nenhum,
-  // contra a Resistencia Natural do alvo (nao interage com Armadura) - 1 de Ferida cada uma.
-  const chamasRolls = [];
-  for (let i = 0; i < instanciasChamas; i++) {
-    const d = Math.floor(Math.random() * 10) + 1;
-    const isCrit = d === 10;
-    const passou = isCrit || d >= resistNatural;
-    chamasRolls.push({ die: d, isCrit, passou, resistValor: resistNatural });
-  }
-
-  // ENVENENAMENTO: igual o Chamas (rolagem independente, sem bonus, 1 de Ferida cada
-  // uma, sem interagir com Armadura ou Escudo de Mana) mas vai DIRETO na Resistencia
-  // Natural MAGICA do alvo, independente do tipo do proprio ataque (o Chamas vai na
-  // Natural do tipo do ataque - Fisica pra Marcial/Arma de fogo, Magica pra Magico).
-  const resistNaturalMagicaVal = computeStat(defender, "resistNaturalMagica");
-  const envenenamentoRolls = [];
-  for (let i = 0; i < instanciasEnvenenamento; i++) {
-    const d = Math.floor(Math.random() * 10) + 1;
-    const isCrit = d === 10;
-    const passou = isCrit || d >= resistNaturalMagicaVal;
-    envenenamentoRolls.push({ die: d, isCrit, passou, resistValor: resistNaturalMagicaVal });
-  }
-
-  const confirmedHits = confirmRolls.filter((r) => r.passou).length;
-  const chamasConfirmedHits = chamasRolls.filter((r) => r.passou).length;
-  const envenenamentoConfirmedHits = envenenamentoRolls.filter((r) => r.passou).length;
-  const causaDano = confirmedHits > 0 || chamasConfirmedHits > 0 || envenenamentoConfirmedHits > 0;
-  const extraFeridaTotal = confirmRolls.reduce((sum, r) => sum + (r.passou ? r.extraFerida : 0), 0) + chamasConfirmedHits + envenenamentoConfirmedHits;
-  // Ataques Marciais (desarmado e arma branca) escalam: ferida = confirmações que passaram × ferida do ataque.
-  // Arma de fogo e Mágico: ferida fixa (o valor do ataque), independente de quantas confirmaram.
-  const escalaComSucessos = attack.tipo === "marcial";
-  const feridaValor = confirmedHits === 0 ? extraFeridaTotal : (escalaComSucessos ? confirmedHits * feridaPorAcerto : feridaPorAcerto) + extraFeridaTotal;
-  const contato = successes > 0 && !causaDano;
-
+// Resolução de um ataque genérico (físico ou mágico) — docs/SISTEMA_MAGIA.md.
+// `totalDiceAtaque` já vem calculado pelo chamador (diceAtaqueFisico ou
+// diceAtaqueMagico), porque a origem do pool difere bastante entre os dois
+// (atributo da ficha vs Base Mágica) — mantém esta função agnóstica à fonte.
+// `descritoresAtaque` é o array de descritores do PRÓPRIO ataque/magia (ex.:
+// ["letal"], ["perfurante"], ["saturante", "sortudo"]). `defesaAtributo` é o
+// Atributo Geral que o defensor está usando como base da defesa (escolha do
+// jogador, ver UI). `feridas`/`superficial` vêm da arma/magia (padrão 1
+// ferida, não forçado a superficial).
+export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, feridas = 1, superficial = false }) {
+  const limiar = limiarAtaque({ atacante: attacker, defensor: defender, tipoAtaque, descritoresAtaque });
+  const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo");
+  const rolagemAtaque = rolarComSortudo(totalDiceAtaque, limiar, temSortudoAtacante);
+  const saturante = descritoresAtaque.includes("saturante");
+  const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, tipoAtaque, defesaAtributo, saturante });
+  const sucessosLiquidos = Math.max(0, rolagemAtaque.successes - rolagemDefesa.successes);
+  const letal = descritoresAtaque.includes("letal");
+  const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1;
+  const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado: superficial });
   return {
-    danoAttrBonus, confirmBonus: confirmBonusBase, resistArmadura, resistNatural, resistNaturalKey, temArmadura,
-    confirmRolls, confirmedHits, causaDano, contato, feridaValor,
-    impactoRoll, chamasRolls, envenenamentoRolls,
+    limiar, rolagemAtaque, rolagemDefesa, sucessosLiquidos, letal,
+    tipoFerimento, feridas: tipoFerimento ? feridas : 0,
   };
 }
 
-// Defesa ATIVA por Resistência (NOVO em 13/10, substitui o uso passivo que
-// Resistência Física/Mágica tinha antes — ver nota em STAT_PROF_LINK). O
-// defensor rola um teste de proficiência normal: Resistência Física contra
-// ataque marcial/arma de fogo, Resistência Mágica contra ataque mágico —
-// mesma fórmula de dados dos Testes genéricos da ficha (soma do grau de
-// Vigor + grau da Resistência certa, sucesso com d>5 igual rollSuccessDice).
-// Cada sucesso do defensor cancela 1 sucesso do Acerto do atacante (mínimo
-// 0) — entra DEPOIS do Acerto e ANTES da Confirmação (resolveAttack decide
-// a ordem; esta função só rola o teste do defensor, isolada, pra poder ser
-// testada e exibida sem depender do resto do ataque).
-export function resolveResistenciaAtiva(defender, attackTipo) {
-  const tipoInfo = TIPOS_ATAQUE[attackTipo] || TIPOS_ATAQUE.marcial;
-  const profKey = tipoInfo.resistKey === "resistNaturalMagica" ? "resistMagicaProf" : "resistFisicaProf";
-  const totalDice = (GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1) + (GRADE_VALUE[defender?.proficiencias?.[profKey]] || 1);
-  const rolagem = rollSuccessDice(totalDice);
-  return { ...rolagem, profKey, totalDice };
-}
-
-export function resolveAttack({ attacker, defender, attack }) {
-  const tipoInfo = TIPOS_ATAQUE[attack.tipo] || TIPOS_ATAQUE.marcial;
-  const critThreshold = 10; // crítico só em 10 natural — Sorte não afeta mais isso, virou só uma stat de habilidades
-
-  // Etapa 1 - Acerto. Alguns ataques (ex: "2S" no campo Acerto) nao rolam dado nenhum
-  // aqui - ja consideram um numero fixo de sucessos e vao direto pra Confirmacao.
-  const fixedSuccessMatch = String(attack.acerto ?? "").trim().match(/^(\d*)[sS]$/);
-  let dice = [];
-  let acertoBonus = 0;
-  let threshold = null;
-  let successFlags = []; // um por dado: { isCrit, success, procAtacante, procDefensor, sucessosGerados }
-  let successes;
-  let desaceleracaoRollOut = null;
-  if (fixedSuccessMatch) {
-    successes = fixedSuccessMatch[1] ? parseInt(fixedSuccessMatch[1], 10) : 1;
-  } else {
-    const acertoAttrBonus = tipoInfo.acertoAttr ? attrBonus(getAttrGrade(attacker, tipoInfo.acertoAttr)) : 0;
-    const acertoProfBonus = attack.profKey ? attrBonus(attacker.proficiencias?.[attack.profKey]) : 0;
-    const manualAcertoBonus = parseFlatBonus(attack.acerto);
-    acertoBonus = acertoAttrBonus + acertoProfBonus + manualAcertoBonus;
-    const defesaAlvo = computeStat(defender, "defesa");
-    threshold = defesaAlvo; // Defesa já inclui a base 5 embutida — não soma de novo aqui
-    dice = [1, 2, 3].map(() => Math.floor(Math.random() * 10) + 1);
-    let golpeCerteiroUsado = false; // só pode dobrar sucesso uma vez por ataque, não em cada dado
-    // mestre_do_critico (furia_crescente): reduz o limiar de critico em 1 (flat -
-    // sem depender de atributo/proficiencia, pra nao ficar forte demais) - vale pra
-    // TODOS os criticos da rolagem, nao so o primeiro.
-    const temMestreCritico = (attacker.procs || []).includes("furia_crescente");
-    const mestreCriticoInfo = PROC_ABILITIES.find((p) => p.id === "furia_crescente");
-    const limiarMestreCritico = critThreshold - (mestreCriticoInfo?.reduzCriticoEm || 0);
-
-    // DESACELERACAO: rola 1d10 (tabela igual Impacto) ANTES do Acerto - o resultado
-    // reduz a Defesa do alvo pra TODOS os 3 dados dessa rolagem (nao e por dado).
-    const efeitoTextoAcerto = (attack.efeito || "").toLowerCase();
-    const instanciasDesaceleracao = efeitoTextoAcerto.includes("desaceleração") || efeitoTextoAcerto.includes("desaceleracao") ? 1 : 0;
-    let desaceleracaoRoll = null;
-    let desaceleracaoReducao = 0;
-    if (instanciasDesaceleracao > 0) {
-      const dBase = Math.floor(Math.random() * 10) + 1;
-      const dAjustado = Math.min(10, dBase + (instanciasDesaceleracao - 1));
-      desaceleracaoReducao = dAjustado <= 4 ? 0 : dAjustado <= 7 ? 1 : dAjustado <= 9 ? 2 : 3;
-      desaceleracaoRoll = { dado: dBase, instancias: instanciasDesaceleracao, dadoAjustado: dAjustado, reducao: desaceleracaoReducao };
-    }
-    // ENRAIZAMENTO: sem tabela - o numero de instancias (ate 3) decide quantos dos
-    // 3 dados do Acerto, comecando do primeiro, enfrentam Defesa -2.
-    const instanciasEnraizamento = Math.min(3, efeitoTextoAcerto.includes("enraizamento") ? 1 : 0);
-    // ACELERACAO: sem tabela - dispara em sequencia. O 1o dado nao tem bonus; cada
-    // dado seguinte so ganha bonus (o anterior +1) se o dado anterior confirmou
-    // sucesso - senao volta pra 0.
-    const temAceleracao = efeitoTextoAcerto.includes("aceleração") || efeitoTextoAcerto.includes("aceleracao");
-    let bonusAceleracao = 0;
-
-    successFlags = dice.map((dRolado, idx) => {
-      // reflexo_agil: em vez de anular o sucesso (o que tornava defesas altas
-      // "inquebráveis"), o dado que bater o limiar é RE-ROLADO uma vez, e o novo
-      // valor é o que vale pra tudo daqui pra frente.
-      const procDefensorPreCheck = findTriggeredProc(defender, "acerto_recebido", dRolado, attack.tipo);
-      let d = dRolado;
-      let rerolado = false;
-      if (procDefensorPreCheck?.id === "reflexo_agil") {
-        d = Math.floor(Math.random() * 10) + 1;
-        rerolado = true;
-        dice[idx] = d; // atualiza o dado exibido/usado pro valor final
-      }
-      const limiarEfetivo = temMestreCritico ? limiarMestreCritico : critThreshold;
-      const isCrit = d >= limiarEfetivo;
-      const mestreCriticoUsado = temMestreCritico && isCrit && limiarEfetivo < critThreshold;
-      const critBonus = isCrit ? 1 : 0;
-      const enraizamentoAplicado = idx < instanciasEnraizamento;
-      const enraizamentoPenalidade = enraizamentoAplicado ? 2 : 0;
-      const thresholdEfetivo = threshold - desaceleracaoReducao - enraizamentoPenalidade;
-      const aceleracaoBonusEsteDado = temAceleracao ? bonusAceleracao : 0;
-      const success = d + acertoBonus + critBonus + aceleracaoBonusEsteDado > thresholdEfetivo;
-      if (temAceleracao) bonusAceleracao = success ? aceleracaoBonusEsteDado + 1 : 0;
-      const procAtacante = findTriggeredProc(attacker, "acerto_proprio", d, attack.tipo);
-      const procDefensor = findTriggeredProc(defender, "acerto_recebido", d, attack.tipo);
-      // golpe_certeiro: esse dado gera 2 sucessos em vez de 1 - só na primeira vez que disparar no ataque
-      let sucessosGerados = success ? 1 : 0;
-      const golpeCerteiroDispara = success && procAtacante?.id === "golpe_certeiro" && !golpeCerteiroUsado;
-      if (golpeCerteiroDispara) {
-        sucessosGerados = 2;
-        golpeCerteiroUsado = true;
-      }
-      return {
-        isCrit, success, procAtacante, procDefensor, sucessosGerados, golpeCerteiroDispara, rerolado, dadoOriginal: dRolado, mestreCriticoUsado,
-        thresholdEfetivo, enraizamentoAplicado, aceleracaoBonusEsteDado,
-      };
-    });
-    successes = successFlags.reduce((sum, f) => sum + f.sucessosGerados, 0);
-    desaceleracaoRollOut = desaceleracaoRoll; // exposto pro retorno da funcao
-  }
-  const criticosAcerto = successFlags.filter((f) => f.isCrit).length;
-  const superSucesso = successes >= 3; // "Super Sucesso" é propriedade do Acerto em si — não muda com a Resistência, que vem depois
-  // Ordem dos sucessos (para saber quais rolagens de confirmação ganham +1 de crítico) -
-  // cada dado entra na lista uma vez por sucesso que gerou (golpe_certeiro gera 2 entradas).
-  let successCritOrder = [];
-  if (!fixedSuccessMatch) {
-    for (const f of successFlags) {
-      for (let i = 0; i < f.sucessosGerados; i++) successCritOrder.push(f.isCrit);
-    }
-  }
-
-  // Defesa ATIVA por Resistência (ver resolveResistenciaAtiva): cada sucesso do
-  // defensor cancela 1 sucesso do Acerto do atacante, mínimo 0 — entra aqui,
-  // depois do Acerto e antes da Confirmação. successCritOrder é truncado pro
-  // novo total (mantém os primeiros, descarta os sucessos cancelados do fim —
-  // não há como saber "qual" sucesso foi cancelado, então a escolha é
-  // arbitrária mas determinística).
-  const successesAntesDaResistencia = successes;
-  const resistenciaAtiva = resolveResistenciaAtiva(defender, attack.tipo);
-  successes = Math.max(0, successes - resistenciaAtiva.successes);
-  successCritOrder = successCritOrder.slice(0, successes);
-
-  const confirmResult = resolveConfirmationPhase({ attacker, defender, attack, successes, successFlags, successCritOrder, fixedSuccessMatch });
-
-  return {
-    dice, acertoBonus, threshold, successes, successesAntesDaResistencia, resistenciaAtiva,
-    criticos: criticosAcerto, superSucesso, critThreshold,
-    semRolagemDeAcerto: !!fixedSuccessMatch, successFlags,
-    desaceleracaoRoll: desaceleracaoRollOut,
-    ...confirmResult,
-  };
+// Descritor "Em área" (docs/SISTEMA_MAGIA.md): "atinge todos os alvos da
+// zona; cada alvo rola a própria defesa; o conjurador rola uma vez; aliados
+// na zona também são atingidos". O conjurador rola os dados do ataque UMA
+// única vez (mesmas faces pra todo mundo); cada defensor rola a própria
+// defesa e tem os sucessos recontados com o SEU limiar (um alvo Blindado
+// ainda exige 7+ nessas mesmas faces, mesmo que outro alvo na área não seja).
+// `defenders` é a lista de todos os atingidos (inimigos e aliados na zona).
+// `defesaAtributoPorDefensor(defender)` escolhe o Atributo Geral de defesa de
+// cada um (default: pede o mesmo pra todos via `defesaAtributo`).
+export function resolveAtaqueEmArea({ attacker, defenders, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, defesaAtributoPorDefensor, feridas = 1, superficial = false }) {
+  const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo");
+  const rolagemAtaqueBase = rolarComSortudo(totalDiceAtaque, LIMIAR_SUCESSO, temSortudoAtacante);
+  const resultados = (defenders || []).map((defender) => {
+    const limiar = limiarAtaque({ atacante: attacker, defensor: defender, tipoAtaque, descritoresAtaque });
+    const sucessosAtaque = rolagemAtaqueBase.dice.filter((d) => d === 10 || d > limiar).length;
+    const atributoDefesa = defesaAtributoPorDefensor ? defesaAtributoPorDefensor(defender) : defesaAtributo;
+    const saturante = descritoresAtaque.includes("saturante");
+    const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, tipoAtaque, defesaAtributo: atributoDefesa, saturante });
+    const sucessosLiquidos = Math.max(0, sucessosAtaque - rolagemDefesa.successes);
+    const letal = descritoresAtaque.includes("letal");
+    const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1;
+    const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado: superficial });
+    return {
+      defender, limiar, sucessosAtaque, rolagemDefesa, sucessosLiquidos, letal,
+      tipoFerimento, feridas: tipoFerimento ? feridas : 0,
+    };
+  });
+  return { rolagemAtaqueBase, resultados };
 }

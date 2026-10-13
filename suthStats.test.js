@@ -17,22 +17,26 @@ before(async () => {
 
 // Defesa / Armadura / ResNatFís / ResNatMág / Acerto CaC,Fogo,Mág / HP / MP
 // Armadura null = personagem sem item de armadura (mostrado como "–" na UI).
+// resNatFis/resNatMag = 2 + Vigor (grau cheio) — a Resistência Física/Mágica
+// saiu de alimentar isso passivamente em 13/10 (virou defesa ativa, ver
+// resolveResistenciaAtiva em engine.js), por isso os dois números agora
+// sempre coincidem por personagem (nenhum dos dois soma mais proficiência).
 const TABELA_ESPERADA = {
-  suth_emphes: { defesa: 10, armadura: null, resNatFis: 7, resNatMag: 8, acerto: [3, 1, 1], hp: 5, mp: 3 },
-  suth_velmira: { defesa: 8, armadura: null, resNatFis: 4, resNatMag: 4, acerto: [0, 0, 0], hp: 2, mp: 3 },
-  suth_victoria: { defesa: 8, armadura: 8, resNatFis: 11, resNatMag: 8, acerto: [2, 0, 0], hp: 6, mp: 3 },
-  suth_valeria: { defesa: 10, armadura: 8, resNatFis: 9, resNatMag: 10, acerto: [4, 2, 1], hp: 5, mp: 3 },
-  suth_mars: { defesa: 11, armadura: 8, resNatFis: 11, resNatMag: 10, acerto: [4, 2, 1], hp: 6, mp: 3 },
-  suth_zero: { defesa: 9, armadura: null, resNatFis: 8, resNatMag: 9, acerto: [0, 0, 4], hp: 5, mp: 3 },
-  suth_kirilia: { defesa: 11, armadura: 8, resNatFis: 8, resNatMag: 6, acerto: [6, 3, 0], hp: 4, mp: 3 },
-  suth_galantia: { defesa: 10, armadura: 8, resNatFis: 11, resNatMag: 8, acerto: [3, 2, 0], hp: 5, mp: 3 },
-  suth_kyubei: { defesa: 12, armadura: null, resNatFis: 7, resNatMag: 8, acerto: [6, 4, 0], hp: 4, mp: 3 },
-  suth_draguna: { defesa: 10, armadura: null, resNatFis: 12, resNatMag: 10, acerto: [2, 2, 0], hp: 6, mp: 3 },
-  fate: { defesa: 12, armadura: 8, resNatFis: 7, resNatMag: 6, acerto: [8, 4, 0], hp: 3, mp: 3 },
-  suth_athena: { defesa: 11, armadura: 8, resNatFis: 8, resNatMag: 8, acerto: [6, 3, 0], hp: 4, mp: 3 },
-  suth_azula: { defesa: 10, armadura: null, resNatFis: 7, resNatMag: 9, acerto: [1, 1, 3], hp: 4, mp: 5 },
-  suth_farron: { defesa: 10, armadura: 8, resNatFis: 7, resNatMag: 7, acerto: [6, 3, 2], hp: 4, mp: 3 },
-  suth_athermis: { defesa: 11, armadura: null, resNatFis: 6, resNatMag: 7, acerto: [4, 3, 0], hp: 4, mp: 3 },
+  suth_emphes: { defesa: 10, armadura: null, resNatFis: 5, resNatMag: 5, acerto: [3, 1, 1], hp: 5, mp: 3 },
+  suth_velmira: { defesa: 8, armadura: null, resNatFis: 3, resNatMag: 3, acerto: [0, 0, 0], hp: 2, mp: 3 },
+  suth_victoria: { defesa: 8, armadura: 8, resNatFis: 7, resNatMag: 7, acerto: [2, 0, 0], hp: 6, mp: 3 },
+  suth_valeria: { defesa: 10, armadura: 8, resNatFis: 6, resNatMag: 6, acerto: [4, 2, 1], hp: 5, mp: 3 },
+  suth_mars: { defesa: 11, armadura: 8, resNatFis: 7, resNatMag: 7, acerto: [4, 2, 1], hp: 6, mp: 3 },
+  suth_zero: { defesa: 9, armadura: null, resNatFis: 5, resNatMag: 5, acerto: [0, 0, 4], hp: 5, mp: 3 },
+  suth_kirilia: { defesa: 11, armadura: 8, resNatFis: 5, resNatMag: 5, acerto: [6, 3, 0], hp: 4, mp: 3 },
+  suth_galantia: { defesa: 10, armadura: 8, resNatFis: 6, resNatMag: 6, acerto: [3, 2, 0], hp: 5, mp: 3 },
+  suth_kyubei: { defesa: 12, armadura: null, resNatFis: 5, resNatMag: 5, acerto: [6, 4, 0], hp: 4, mp: 3 },
+  suth_draguna: { defesa: 10, armadura: null, resNatFis: 7, resNatMag: 7, acerto: [2, 2, 0], hp: 6, mp: 3 },
+  fate: { defesa: 12, armadura: 8, resNatFis: 4, resNatMag: 4, acerto: [8, 4, 0], hp: 3, mp: 3 },
+  suth_athena: { defesa: 11, armadura: 8, resNatFis: 5, resNatMag: 5, acerto: [6, 3, 0], hp: 4, mp: 3 },
+  suth_azula: { defesa: 10, armadura: null, resNatFis: 4, resNatMag: 4, acerto: [1, 1, 3], hp: 4, mp: 5 },
+  suth_farron: { defesa: 10, armadura: 8, resNatFis: 5, resNatMag: 5, acerto: [6, 3, 2], hp: 4, mp: 3 },
+  suth_athermis: { defesa: 11, armadura: null, resNatFis: 4, resNatMag: 4, acerto: [4, 3, 0], hp: 4, mp: 3 },
 };
 
 describe("Tabela de estatísticas do Grupo Suth (engine.js x documento de conversão)", () => {

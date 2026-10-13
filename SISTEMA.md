@@ -14,7 +14,7 @@ Todo atributo e proficiência vai de **E** a **A**:
 | B | 4 | +3 |
 | A | 5 | +4 |
 
-## Resolução de ataque — 2 etapas
+## Resolução de ataque — 3 etapas
 
 ### Etapa 1: Acerto (3d10)
 
@@ -24,7 +24,11 @@ Cada dado é sucesso se: `dado + bônus do ataque + bônus de crítico > Defesa 
 
 **Crítico**: 10 natural. Soma +1 ao próprio dado (não é sucesso automático) e +1 na Confirmação que aquele sucesso gerar.
 
-### Etapa 2: Confirmação (1d10 por sucesso)
+### Etapa 1.5: Resistência ativa (defensor) — 13/10
+
+O defensor rola Vigor + Resistência Física (Marcial/Arma de fogo) ou Mágica (Mágico) em dados: `totalDice = grau de Vigor + grau da Resistência certa`, sucesso com dado >5 ou 10 natural. Cada sucesso do defensor cancela 1 sucesso do Acerto do atacante, mínimo 0 — os sucessos que sobram é que seguem pra Confirmação. Substitui o uso antigo da Resistência (que só somava passivamente na Resistência Natural, etapa abaixo).
+
+### Etapa 2: Confirmação (1d10 por sucesso que sobrou da Resistência ativa)
 
 `dado + bônus de dano` contra as camadas de defesa, **nesta ordem**:
 
@@ -46,10 +50,12 @@ Cada dado é sucesso se: `dado + bônus do ataque + bônus de crítico > Defesa 
 |---|---|---|
 | Defesa | 8 | + Proficiência de Defesa |
 | Resistência Armadura | 8 | — |
-| Resistência Natural Física | 6 | + Proficiência de Resistência Física |
-| Resistência Natural Mágica | 6 | + Proficiência de Resistência Mágica |
+| Resistência Natural Física | 2 | + Vigor (grau cheio) |
+| Resistência Natural Mágica | 2 | + Vigor (grau cheio) |
 
-**Balanceamento**: com tudo em grau E, ataque desarmado contra alvo com armadura = ~25% de chance de causar dano.
+A Proficiência de Resistência Física/Mágica não soma mais nada aqui — virou a rolagem ativa da Etapa 1.5.
+
+**Balanceamento**: com tudo em grau E, ataque desarmado contra alvo com armadura = ~11% de chance de causar dano (a Resistência ativa cancela em média 1 dos poucos sucessos do Acerto antes mesmo da Confirmação).
 
 ## Recursos
 

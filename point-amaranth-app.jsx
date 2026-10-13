@@ -33,7 +33,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, temDescritor,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -131,16 +131,20 @@ const HABILIDADE_CATEGORIA_INFO = {
   resistencia: { label: "Resistência", icon: Shield, color: PURPLE },
 };
 
-// Texto de exibição dos descritores (character.descritores) — os 5 ids que o
+// Texto de exibição dos descritores (character.descritores) — os 6 ids que o
 // catalogo-racas.json usa hoje. O catálogo só guarda o id (ex.: "blindado"),
 // sem rótulo/descrição pronta pra mostrar; esse mapa existe só pra isso, não
 // pra regra nenhuma (nenhum descritor ainda afeta fórmula — ver engine.js).
+// "sortudo" (Clã Radiante/Noctis, catálogo 2026-10-11 v3) é só exibição por
+// enquanto: a mecânica de re-roll automático (primeiro 1 ou 2 de cada teste)
+// depende de decidir o alcance exato antes de tocar em engine.js.
 const DESCRITOR_INFO = {
   blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
   blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
   desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
   ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
   veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "+1 de prioridade na iniciativa." },
+  sortudo: { label: "Sortudo", cor: "#E0A800", descricao: "O primeiro dado que sair 1 ou 2 em cada teste (inclusive de ataque) é re-rolado automaticamente, uma vez." },
 };
 
 
@@ -5081,6 +5085,25 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 <Sparkles size={13} color={MP_COLOR} /> Restaurar MP e SP
               </Btn>
             )}
+            {onUpdateCharacter && character.habilidadePrincipal === "cla-corvus" && (() => {
+              const hpAtual = character.hp?.current ?? computeMaxHP(character);
+              const mpAtual = character.mp?.current ?? 0;
+              const mpMax = character.mp?.max ?? 3;
+              const podeConverter = hpAtual > 0 && mpAtual < mpMax;
+              return (
+                <Btn
+                  onClick={() => podeConverter && onUpdateCharacter(character.id, {
+                    hp: { ...character.hp, current: hpAtual - 1 },
+                    mp: { ...character.mp, current: mpAtual + 1 },
+                  })}
+                  disabled={!podeConverter}
+                  style={{ width: "100%", justifyContent: "center", marginTop: 6 }}
+                  title="Clã Corvus: causa dano não letal em si para usar como MP, 1 para 1."
+                >
+                  <Droplet size={13} color={EMBER} /> Causar 1 dano em si (+1 MP)
+                </Btn>
+              );
+            })()}
           </div>
         </div>
 
@@ -6198,7 +6221,7 @@ function AttackResultPanel({ result, modoGasto, onAcertoDieClick, onConfirmDieCl
         <>
           {result.semRolagemDeAcerto ? (
             <div style={{ textAlign: "center", fontSize: 12.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 10 }}>
-              Este ataque não rola Acerto — considera {result.successes} sucesso{result.successes === 1 ? "" : "s"} fixo{result.successes === 1 ? "" : "s"} e vai direto pra Confirmação.
+              Este ataque não rola Acerto — considera {result.successesAntesDaResistencia} sucesso{result.successesAntesDaResistencia === 1 ? "" : "s"} fixo{result.successesAntesDaResistencia === 1 ? "" : "s"}, depois a Resistência do defensor reduz.
             </div>
           ) : (
             <>
@@ -6271,9 +6294,30 @@ function AttackResultPanel({ result, modoGasto, onAcertoDieClick, onConfirmDieCl
                 })}
               </div>
               <div style={{ textAlign: "center", fontSize: 12.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 8 }}>
-                {result.successes} sucesso{result.successes === 1 ? "" : "s"} no acerto{result.criticos > 0 ? ` · ${result.criticos} crítico${result.criticos > 1 ? "s" : ""}` : ""}{result.superSucesso ? " · SUPER SUCESSO" : ""}
+                {result.successesAntesDaResistencia} sucesso{result.successesAntesDaResistencia === 1 ? "" : "s"} no acerto{result.criticos > 0 ? ` · ${result.criticos} crítico${result.criticos > 1 ? "s" : ""}` : ""}{result.superSucesso ? " · SUPER SUCESSO" : ""}
               </div>
             </>
+          )}
+
+          {result.resistenciaAtiva && (
+            <div style={{ textAlign: "center", marginBottom: 10 }}>
+              <div style={{ fontSize: 10.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
+                RESISTÊNCIA DO DEFENSOR ({PROFICIENCIAS_LIST.find((p) => p.key === result.resistenciaAtiva.profKey)?.label}, {result.resistenciaAtiva.totalDice}d10)
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                {result.resistenciaAtiva.dice.map((d, i) => (
+                  <div key={i} style={{
+                    width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 12.5, color: PARCHMENT,
+                    border: `1px solid ${d === 10 ? EMBER : d > 5 ? MP_COLOR : LINE}`,
+                    background: d === 10 ? `${EMBER}33` : d > 5 ? `${MP_COLOR}33` : "#00000040",
+                  }}>{d}</div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11.5, color: MP_COLOR, fontFamily: "'IBM Plex Mono', monospace" }}>
+                {result.resistenciaAtiva.successes} sucesso{result.resistenciaAtiva.successes === 1 ? "" : "s"} do defensor → sucessos do atacante: {result.successesAntesDaResistencia} → {result.successes}
+              </div>
+            </div>
           )}
 
           {result.confirmRolls.length > 0 && (
@@ -6451,14 +6495,21 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     });
     const novosSuccesses = novosFlags.reduce((sum, f) => sum + f.sucessosGerados, 0);
     const novosCriticos = novosFlags.filter((f) => f.isCrit).length;
-    const successCritOrder = [];
+    let successCritOrder = [];
     for (const f of novosFlags) for (let i = 0; i < f.sucessosGerados; i++) successCritOrder.push(f.isCrit);
 
+    // Reaproveita a MESMA rolagem de Resistência ativa já feita (não re-rola
+    // só porque um dado de Acerto mudou) — só recalcula quantos sucessos do
+    // Acerto sobram depois dela, igual resolveAttack faz na primeira vez.
+    const successesPosResistencia = Math.max(0, novosSuccesses - (result.resistenciaAtiva?.successes || 0));
+    successCritOrder = successCritOrder.slice(0, successesPosResistencia);
+
     const confirmResult = resolveConfirmationPhase({
-      attacker: a, defender: b, attack, successes: novosSuccesses, successFlags: novosFlags, successCritOrder, fixedSuccessMatch: false,
+      attacker: a, defender: b, attack, successes: successesPosResistencia, successFlags: novosFlags, successCritOrder, fixedSuccessMatch: false,
     });
     setResult({
-      ...result, dice: novosDados, successFlags: novosFlags, successes: novosSuccesses, criticos: novosCriticos, superSucesso: novosSuccesses >= 3,
+      ...result, dice: novosDados, successFlags: novosFlags, successesAntesDaResistencia: novosSuccesses, successes: successesPosResistencia,
+      criticos: novosCriticos, superSucesso: novosSuccesses >= 3,
       ...confirmResult,
     });
     if (modoGasto === "mp") onUpdateCharacter(a.id, { mp: { ...a.mp, current: a.mp.current - 1 } });

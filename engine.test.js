@@ -114,27 +114,30 @@ describe("computeStat", () => {
     // proficiências de combate não afetam a Resistência Armadura
     assert.equal(computeStat(withProfs(c, { defesaProf: "A", resistFisicaProf: "A" }), "resistArmadura"), 8);
   });
-  it("Resistências Naturais = 2 + Vigor + Resistência (Física/Mágica), pelo GRAU CHEIO (E=1..A=5)", () => {
+  it("Resistências Naturais = 2 + Vigor, pelo GRAU CHEIO (E=1..A=5) — Resistência Física/Mágica SAIU daqui em 13/10", () => {
     const c = makeCharacter(); // tudo em E
-    assert.equal(computeStat(c, "resistNaturalFisica"), 4); // 2 + 1(vigor E) + 1(resistFisicaProf E)
-    assert.equal(computeStat(c, "resistNaturalMagica"), 4);
+    assert.equal(computeStat(c, "resistNaturalFisica"), 3); // 2 + 1(vigor E)
+    assert.equal(computeStat(c, "resistNaturalMagica"), 3);
   });
-  it("Resistência Natural Física varia com Vigor e com a Proficiência de Resistência Física, pelo grau cheio", () => {
+  it("Resistência Natural Física varia só com Vigor, pelo grau cheio", () => {
     const casos = [
-      ["E", "E", 4], // 2+1+1
-      ["A", "E", 8], // 2+5+1
-      ["E", "A", 8], // 2+1+5
-      ["C", "C", 8], // 2+3+3
-      ["A", "A", 12], // 2+5+5
+      ["E", 3], // 2+1
+      ["A", 7], // 2+5
+      ["C", 5], // 2+3
     ];
-    for (const [vigor, resistFisicaProf, esperado] of casos) {
-      const c = withProfs(withAttrs(makeCharacter(), { vigor }), { resistFisicaProf });
-      assert.equal(computeStat(c, "resistNaturalFisica"), esperado, `vigor ${vigor} / resistFisicaProf ${resistFisicaProf}`);
+    for (const [vigor, esperado] of casos) {
+      const c = withAttrs(makeCharacter(), { vigor });
+      assert.equal(computeStat(c, "resistNaturalFisica"), esperado, `vigor ${vigor}`);
     }
   });
-  it("Resistência Natural Mágica varia com Vigor e com a Proficiência de Resistência Mágica, pelo grau cheio", () => {
-    const c = withProfs(withAttrs(makeCharacter(), { vigor: "B" }), { resistMagicaProf: "C" });
-    assert.equal(computeStat(c, "resistNaturalMagica"), 2 + 4 + 3); // 9
+  it("a Proficiência de Resistência Física/Mágica NÃO afeta mais a Resistência Natural — virou defesa ativa (ver resolveResistenciaAtiva)", () => {
+    const c = withProfs(makeCharacter(), { resistFisicaProf: "A", resistMagicaProf: "A" });
+    assert.equal(computeStat(c, "resistNaturalFisica"), 3); // igual grau E — a proficiência não conta mais aqui
+    assert.equal(computeStat(c, "resistNaturalMagica"), 3);
+  });
+  it("Resistência Natural Mágica varia com Vigor, pelo grau cheio", () => {
+    const c = withAttrs(makeCharacter(), { vigor: "B" });
+    assert.equal(computeStat(c, "resistNaturalMagica"), 2 + 4); // 6
   });
   it("respeita statBase customizado e statTemp", () => {
     const c = { ...makeCharacter(), statBase: { defesa: 10 }, statTemp: { defesa: -2 } };
@@ -283,25 +286,32 @@ describe("rollSuccessDice", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveAttack — Acerto e Confirmação básicos", () => {
+  // Depois do Acerto (e antes da Confirmação), toda rolagem agora também
+  // consome a Resistência ATIVA do defensor (resolveResistenciaAtiva, 13/10) —
+  // com o defensor padrão (Vigor E + Resistência E), são sempre 2 dados. Os
+  // testes abaixo enfileiram 2 dados BAIXOS (sem sucesso, limiar 5) nessa
+  // posição só pra não interferir nos sucessos do Acerto que cada teste quer
+  // verificar — ver describe("resolveResistenciaAtiva") pra testes dedicados
+  // a essa fase.
   it("sucesso no Acerto é dado + bônus > Defesa do alvo (estritamente maior)", (t) => {
     const attacker = makeCharacter();
     const defender = makeCharacter(); // Defesa 8
     // Ataque desarmado: acertoBonus = destreza(0) + combateCorpoACorpo(0) + manual(+1) = 1
-    mockDice(t, [7, 1, 1, /*confirm*/ 1]); // 7+1=8, não é >8 → falha
+    mockDice(t, [7, 1, 1, /*resist*/ 1, 1]); // 7+1=8, não é >8 → falha
     const r1 = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r1.successes, 0);
   });
   it("8 no dado bate a Defesa 8 (8+1=9>8)", (t) => {
     const attacker = makeCharacter();
     const defender = makeCharacter();
-    mockDice(t, [8, 1, 1, 5]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm*/ 5]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successes, 1);
   });
   it("crítico é 10 natural: soma +1 ao próprio dado e +1 na Confirmação gerada", (t) => {
     const attacker = makeCharacter();
     const defender = makeCharacter();
-    mockDice(t, [10, 1, 1, /*confirm*/ 1]);
+    mockDice(t, [10, 1, 1, /*resist*/ 1, 1, /*confirm*/ 1]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successFlags[0].isCrit, true);
     assert.equal(r.successes, 1);
@@ -311,20 +321,20 @@ describe("resolveAttack — Acerto e Confirmação básicos", () => {
   });
   it("Confirmação: 1d10 + bônus de dano por sucesso, contra a Resistência Natural (sem armadura)", (t) => {
     const attacker = withAttrs(makeCharacter(), { forca: "C" }); // danoAttrBonus +2
-    const defender = makeCharacter(); // resistNaturalFisica 4 (2 + Vigor E + resistFisicaProf E), sem armadura
-    mockDice(t, [8, 1, 1, /*confirm*/ 1]);
+    const defender = makeCharacter(); // resistNaturalFisica 3 (2 + Vigor E — a Resistência Física não conta mais aqui), sem armadura
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm*/ 1]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
-    // confirmBonusBase = forca(+2) + combateCorpoACorpo(0) + manual dano(0) = 2; total = 1+2 = 3 >= 4? não
+    // confirmBonusBase = forca(+2) + combateCorpoACorpo(0) + manual dano(0) = 2; total = 1+2 = 3 >= 3? sim
     assert.equal(r.confirmRolls[0].confirmBonus, 2);
     assert.equal(r.confirmRolls[0].total, 3);
-    assert.equal(r.confirmRolls[0].passou, false);
-    assert.equal(r.feridaValor, 0);
+    assert.equal(r.confirmRolls[0].passou, true);
+    assert.equal(r.feridaValor, 1);
   });
   it("Marcial escala: ferida = confirmações bem-sucedidas × ferida do ataque", (t) => {
     const attacker = withProfs(makeCharacter(), { combateCorpoACorpo: "A" }); // acertoProf +4, danoProf +4
     const defender = makeCharacter();
     // 2 sucessos no Acerto (dice 6 e 6: 6+1+4=11>8), 1 falha (die 1)
-    mockDice(t, [6, 6, 1, /*confirm x2*/ 9, 9]);
+    mockDice(t, [6, 6, 1, /*resist*/ 1, 1, /*confirm x2*/ 9, 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successes, 2);
     assert.equal(r.confirmedHits, 2);
@@ -334,20 +344,67 @@ describe("resolveAttack — Acerto e Confirmação básicos", () => {
     const attacker = withProfs(makeCharacter(), { magiasOfensivas: "A" });
     const defender = makeCharacter();
     // shin: acerto "+3" fixo + profBonus(+4) = +7 — die baixo já garante sucesso
-    mockDice(t, [3, 1, 1, /*confirm*/ 9]);
+    mockDice(t, [3, 1, 1, /*resist*/ 1, 1, /*confirm*/ 9]);
     const r = resolveAttack({ attacker, defender, attack: SHIN });
     assert.equal(r.successes, 1);
     assert.equal(r.feridaValor, 1); // ferida fixa do Shin, não multiplica
   });
-  it("ataque com Acerto fixo (\"2S\") não rola dados de Acerto, vai direto pra Confirmação", (t) => {
+  it("ataque com Acerto fixo (\"2S\") não rola dados de Acerto, mas rola a Resistência ativa antes de ir pra Confirmação", (t) => {
     const attacker = makeCharacter();
     const defender = makeCharacter();
     const bombardeio = BASE_ATTACK_TYPES.find((a) => a.id === "bombardeio_de_mana");
-    mockDice(t, [/*confirm x2*/ 9, 9]);
+    mockDice(t, [/*resist*/ 1, 1, /*confirm x2*/ 9, 9]);
     const r = resolveAttack({ attacker, defender, attack: bombardeio });
     assert.equal(r.semRolagemDeAcerto, true);
     assert.equal(r.dice.length, 0);
+    assert.equal(r.successesAntesDaResistencia, 2);
     assert.equal(r.successes, 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveResistenciaAtiva — defesa ativa por Resistência (13/10)
+// ---------------------------------------------------------------------------
+
+describe("resolveResistenciaAtiva (via resolveAttack)", () => {
+  it("rola Vigor + Resistência Física em dados (grau cheio) pra ataque marcial", (t) => {
+    const attacker = makeCharacter();
+    const defender = withProfs(withAttrs(makeCharacter(), { vigor: "C" }), { resistFisicaProf: "B" }); // 3 + 4 = 7 dados
+    mockDice(t, [8, 1, 1, /*resist x7, todas baixas*/ 1, 1, 1, 1, 1, 1, 1, /*confirm*/ 9]);
+    const r = resolveAttack({ attacker, defender, attack: SOCO });
+    assert.equal(r.resistenciaAtiva.totalDice, 7);
+    assert.equal(r.resistenciaAtiva.profKey, "resistFisicaProf");
+    assert.equal(r.resistenciaAtiva.successes, 0);
+  });
+  it("rola Resistência Mágica (não a Física) pra ataque mágico", (t) => {
+    const attacker = makeCharacter();
+    const defender = withProfs(makeCharacter(), { resistMagicaProf: "A", resistFisicaProf: "A" });
+    mockDice(t, [3, 1, 1, /*resist: vigor E(1) + resistMagicaProf A(5) = 6 dados*/ 1, 1, 1, 1, 1, 1, /*confirm*/ 9]);
+    const r = resolveAttack({ attacker, defender, attack: SHIN });
+    assert.equal(r.resistenciaAtiva.profKey, "resistMagicaProf");
+    assert.equal(r.resistenciaAtiva.totalDice, 6); // vigor E=1 + resistMagicaProf A=5
+  });
+  it("cada sucesso do defensor cancela 1 sucesso do Acerto do atacante, mínimo 0", (t) => {
+    const attacker = withProfs(makeCharacter(), { combateCorpoACorpo: "A" }); // 2 sucessos no Acerto, igual o teste de "Marcial escala"
+    const defender = makeCharacter(); // Vigor E + resistFisicaProf E = 2 dados
+    // Acerto: 6,6 acertam; 1 falha. Resistência: 2 dados altos (8,9) = 2 sucessos → cancela os 2 sucessos do Acerto.
+    mockDice(t, [6, 6, 1, /*resist*/ 8, 9]);
+    const r = resolveAttack({ attacker, defender, attack: SOCO });
+    assert.equal(r.successesAntesDaResistencia, 2);
+    assert.equal(r.resistenciaAtiva.successes, 2);
+    assert.equal(r.successes, 0); // 2 - 2 = 0, não fica negativo
+    assert.equal(r.confirmRolls.length, 0); // sem sucessos, Confirmação nem roda
+  });
+  it("resistência parcial: cancela só parte dos sucessos (mínimo 0, nunca negativo)", (t) => {
+    const attacker = withProfs(makeCharacter(), { combateCorpoACorpo: "A" });
+    const defender = makeCharacter();
+    // Acerto: 2 sucessos (6,6). Resistência: 1 sucesso (8) e 1 falha (1) → cancela só 1.
+    mockDice(t, [6, 6, 1, /*resist*/ 8, 1, /*confirm*/ 9]);
+    const r = resolveAttack({ attacker, defender, attack: SOCO });
+    assert.equal(r.successesAntesDaResistencia, 2);
+    assert.equal(r.resistenciaAtiva.successes, 1);
+    assert.equal(r.successes, 1);
+    assert.equal(r.confirmRolls.length, 1);
   });
 });
 
@@ -362,7 +419,7 @@ describe("camadas de defesa", () => {
       withProfs({ ...makeCharacter(), procs: ["escudo_de_mana"] }, { magiasOfensivas: "C" }) // escudo = 8+2 = 10
     );
     // 3 sucessos no Acerto (combateCorpoACorpo A dá acertoBonus 4+1=5; defesa 8; die 6: 6+5=11>8)
-    mockDice(t, [6, 6, 6, /*confirm x3*/ 9, 9, 9]);
+    mockDice(t, [6, 6, 6, /*resist*/ 1, 1, /*confirm x3*/ 9, 9, 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successes, 3);
     // confirmBonusBase = danoAttr forca(0) + danoProf combateCorpoACorpo(+4) = 4; total = 9+4 = 13 em cada uma
@@ -371,12 +428,12 @@ describe("camadas de defesa", () => {
     assert.equal(r.confirmRolls[1].resistUsada, "resistArmadura");
     assert.equal(r.confirmRolls[1].resistValor, 8);
     assert.equal(r.confirmRolls[2].resistUsada, "resistNaturalFisica");
-    assert.equal(r.confirmRolls[2].resistValor, 4); // 2 + Vigor E(1) + resistFisicaProf E(1)
+    assert.equal(r.confirmRolls[2].resistValor, 3); // 2 + Vigor E(1) — a Resistência Física não conta mais aqui
   });
   it("sem Escudo de Mana e sem Armadura, vai direto pra Resistência Natural", (t) => {
     const attacker = makeCharacter();
     const defender = makeCharacter();
-    mockDice(t, [8, 1, 1, 9]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.confirmRolls[0].resistUsada, "resistNaturalFisica");
   });
@@ -390,7 +447,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Mestre do Crítico (furia_crescente): reduz o limiar de crítico em 1 (9+ em vez de 10)", (t) => {
     const attacker = { ...makeCharacter(), procs: ["furia_crescente"] };
     const defender = makeCharacter();
-    mockDice(t, [9, 1, 1, /*confirm*/ 1]);
+    mockDice(t, [9, 1, 1, /*resist*/ 1, 1, /*confirm*/ 1]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successFlags[0].isCrit, true);
     assert.equal(r.successFlags[0].mestreCriticoUsado, true);
@@ -398,7 +455,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("sem Mestre do Crítico, 9 não é crítico", (t) => {
     const attacker = makeCharacter();
     const defender = makeCharacter();
-    mockDice(t, [9, 1, 1, 1]);
+    mockDice(t, [9, 1, 1, /*resist*/ 1, 1, /*confirm*/ 1]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successFlags[0].isCrit, false);
   });
@@ -406,7 +463,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Golpe Preciso (golpe_certeiro): dado que bate o limiar de Técnica conta como 2 sucessos, uma vez por ataque", (t) => {
     const attacker = withProfs({ ...makeCharacter(), procs: ["golpe_certeiro"] }, { tecnicaProf: "A" }); // limiar 6
     const defender = makeCharacter();
-    mockDice(t, [8, 1, 1, /*confirm x2*/ 9, 9]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm x2*/ 9, 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successFlags[0].golpeCerteiroDispara, true);
     assert.equal(r.successFlags[0].sucessosGerados, 2);
@@ -416,7 +473,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Giro Defensivo (fortaleza_viva): dado de Confirmação inimiga que bate o limiar é re-rolado uma vez", (t) => {
     const attacker = makeCharacter();
     const defender = withProfs({ ...makeCharacter(), procs: ["fortaleza_viva"] }, { tecnicaProf: "A" }); // limiar 6
-    mockDice(t, [8, 1, 1, /*confirm dRolado*/ 7, /*reroll*/ 3]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm dRolado*/ 7, /*reroll*/ 3]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.confirmRolls[0].rerolado, true);
     assert.equal(r.confirmRolls[0].dadoOriginal, 7);
@@ -426,7 +483,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Potencial Mágico Ofensivo (surto_arcano): em Mágico, dado de Confirmação que bate limiar soma +1 no Dano", (t) => {
     const attacker = withProfs({ ...makeCharacter(), procs: ["surto_arcano"] }, { magiasOfensivas: "A" }); // limiar 6
     const defender = makeCharacter();
-    mockDice(t, [2, 1, 1, /*confirm*/ 7]);
+    mockDice(t, [2, 1, 1, /*resist*/ 1, 1, /*confirm*/ 7]);
     const r = resolveAttack({ attacker, defender, attack: SHIN });
     assert.equal(r.confirmRolls[0].procAtacante?.id, "surto_arcano");
     // confirmBonusBase = danoProf magiasOfensivas(+4) + manual dano shin("+1")=1 => 5; +1 do surto_arcano = 6
@@ -438,8 +495,8 @@ describe("Habilidades Passivas de Combate", () => {
     const defender = withProfs({ ...makeCharacter(), procs: ["reflexo_agil"] }, { tecnicaProf: "A" }); // limiar 6
     // Os 3 dados do Acerto são pré-rolados em lote (die1, die2, die3) e só DEPOIS
     // vem uma segunda passada checando re-rolagens — por isso a re-rolagem do die1
-    // é o 4º valor da fila, não o 2º.
-    mockDice(t, [/*die1*/ 7, /*die2*/ 1, /*die3*/ 1, /*reroll do die1*/ 2]);
+    // é o 4º valor da fila, não o 2º. A Resistência ativa vem depois de tudo isso.
+    mockDice(t, [/*die1*/ 7, /*die2*/ 1, /*die3*/ 1, /*reroll do die1*/ 2, /*resist*/ 1, 1]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successFlags[0].rerolado, true);
     assert.equal(r.successFlags[0].dadoOriginal, 7);
@@ -449,7 +506,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Ataque Poderoso (instinto_selvagem): em Marcial, dado de Acerto que bate limiar de Força concede IMPACTO", (t) => {
     const attacker = withAttrs({ ...makeCharacter(), procs: ["instinto_selvagem"] }, { forca: "A" }); // limiar 6
     const defender = makeCharacter();
-    mockDice(t, [8, 1, 1, /*impacto dBase*/ 5, /*confirm*/ 9]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*impacto dBase*/ 5, /*confirm*/ 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.successFlags[0].procAtacante?.id, "instinto_selvagem");
     assert.equal(r.impactoRoll.instancias, 1);
@@ -458,7 +515,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("não dispara Ataque Poderoso em ataques que não são Marciais", (t) => {
     const attacker = withAttrs({ ...makeCharacter(), procs: ["instinto_selvagem"] }, { forca: "A" });
     const defender = makeCharacter();
-    mockDice(t, [7, 1, 1, /*confirm*/ 9]); // Shin é mágico: profBonus alto garante sucesso com die baixo
+    mockDice(t, [7, 1, 1, /*resist*/ 1, 1, /*confirm*/ 9]); // Shin é mágico: profBonus alto garante sucesso com die baixo
     const r = resolveAttack({ attacker, defender, attack: SHIN });
     assert.equal(r.successFlags[0].procAtacante, null);
     assert.equal(r.impactoRoll, null);
@@ -467,7 +524,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Mestre em Armadura (blindagem_reativa): a Armadura só quebra na segunda vez que for superada", (t) => {
     const attacker = withProfs(makeCharacter(), { combateCorpoACorpo: "A" }); // danoProf +4
     const defender = withArmadura({ ...makeCharacter(), procs: ["blindagem_reativa"] });
-    mockDice(t, [6, 6, 1, /*confirm x2*/ 9, 9]);
+    mockDice(t, [6, 6, 1, /*resist*/ 1, 1, /*confirm x2*/ 9, 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.confirmRolls[0].resistUsada, "resistArmadura");
     assert.equal(r.confirmRolls[0].blindada, true); // primeira, ainda não quebrou
@@ -477,7 +534,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("sem Mestre em Armadura, a Armadura quebra na primeira vez que for superada", (t) => {
     const attacker = withProfs(makeCharacter(), { combateCorpoACorpo: "A" });
     const defender = withArmadura(makeCharacter());
-    mockDice(t, [6, 6, 1, 9, 9]);
+    mockDice(t, [6, 6, 1, /*resist*/ 1, 1, 9, 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.confirmRolls[0].blindada, false);
     assert.equal(r.confirmRolls[1].resistUsada, "resistNaturalFisica"); // armadura já quebrou na 1ª
@@ -487,7 +544,7 @@ describe("Habilidades Passivas de Combate", () => {
     const defender = withProfs({ ...makeCharacter(), procs: ["escudo_de_mana"] }, { magiasOfensivas: "B" });
     assert.equal(computeStat(defender, "defesa"), 8); // confirma que não mexe em Defesa
     const attacker = makeCharacter();
-    mockDice(t, [8, 1, 1, /*confirm*/ 9]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm*/ 9]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.confirmRolls[0].resistUsada, "escudoDeMana");
     assert.equal(r.confirmRolls[0].resistValor, 11); // 8 + bônus B (+3)
@@ -496,7 +553,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Golpe Penetrante (golpe_penetrante): ignora Resistência Armadura e soma bônus de Técnica na Confirmação", (t) => {
     const attacker = withProfs({ ...makeCharacter(), procs: ["golpe_penetrante"] }, { tecnicaProf: "A" }); // +2
     const defender = withArmadura(makeCharacter()); // tem armadura, mas deve ser ignorada
-    mockDice(t, [8, 1, 1, /*confirm*/ 5]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm*/ 5]);
     const r = resolveAttack({ attacker, defender, attack: SOCO });
     assert.equal(r.confirmRolls[0].resistUsada, "resistNaturalFisica"); // pulou a Armadura
     assert.equal(r.confirmRolls[0].confirmBonus, 2); // só o bônus de Técnica A (+2), sem outros bônus
@@ -508,7 +565,7 @@ describe("Habilidades Passivas de Combate", () => {
       const defender = withArmadura(makeCharacter());
       // isolado: mocka só o suficiente pra este cálculo, num teste próprio
       const restore = Math.random;
-      Math.random = queuedRandom([8, 1, 1, 5]);
+      Math.random = queuedRandom([8, 1, 1, /*resist*/ 1, 1, 5]);
       try {
         const r = resolveAttack({ attacker, defender, attack: SOCO });
         assert.equal(r.confirmRolls[0].confirmBonus, esperado, `Técnica ${grau}`);
@@ -526,7 +583,7 @@ describe("Habilidades Passivas de Combate", () => {
   it("Magia Pyro (toque_flamejante): em Mágico, dado de Acerto que bate limiar de Magias Ofensivas concede CHAMAS", (t) => {
     const attacker = withProfs({ ...makeCharacter(), procs: ["toque_flamejante"] }, { magiasOfensivas: "A" }); // limiar 6
     const defender = makeCharacter();
-    mockDice(t, [6, 1, 1, /*confirm*/ 5, /*chamas*/ 7]);
+    mockDice(t, [6, 1, 1, /*resist*/ 1, 1, /*confirm*/ 5, /*chamas*/ 7]);
     const r = resolveAttack({ attacker, defender, attack: SHIN });
     assert.equal(r.successFlags[0].procAtacante?.concedeEfeito, "chamas");
     assert.equal(r.chamasRolls.length, 1);
@@ -544,7 +601,7 @@ describe("Status effects", () => {
     const attack = { ...SOCO, efeito: "impacto" };
     for (const [dBase, esperado] of casos) {
       const restore = Math.random;
-      Math.random = queuedRandom([8, 1, 1, dBase, 9]);
+      Math.random = queuedRandom([8, 1, 1, /*resist*/ 1, 1, dBase, 9]);
       try {
         const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
         assert.equal(r.impactoRoll.bonus, esperado, `dBase ${dBase}`);
@@ -557,7 +614,7 @@ describe("Status effects", () => {
   it("DESACELERAÇÃO: 1d10 antes do Acerto reduz a Defesa do alvo pros 3 dados dessa rolagem", (t) => {
     const attack = { ...SOCO, efeito: "desaceleração" };
     // dBase=6 (tabela 5-7 => reducao 1): threshold efetivo 8-1=7
-    mockDice(t, [7, 1, 1, /*desaceleração dBase*/ 6, /*confirm*/ 9]);
+    mockDice(t, [7, 1, 1, /*desaceleração dBase*/ 6, /*resist*/ 1, 1, /*confirm*/ 9]);
     const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
     assert.equal(r.desaceleracaoRoll.reducao, 1);
     assert.equal(r.successFlags[0].thresholdEfetivo, 7);
@@ -566,7 +623,7 @@ describe("Status effects", () => {
 
   it("ENRAIZAMENTO: sem tabela — só o(s) primeiro(s) dado(s) enfrentam Defesa -2", (t) => {
     const attack = { ...SOCO, efeito: "enraizamento" };
-    mockDice(t, [7, 7, 1, /*confirm do único sucesso (die1)*/ 5]);
+    mockDice(t, [7, 7, 1, /*resist*/ 1, 1, /*confirm do único sucesso (die1)*/ 5]);
     const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
     assert.equal(r.successFlags[0].enraizamentoAplicado, true);
     assert.equal(r.successFlags[0].thresholdEfetivo, 6); // 8-2
@@ -578,7 +635,7 @@ describe("Status effects", () => {
 
   it("ACELERAÇÃO: cada sucesso dá +1 ao dado seguinte; falha zera a cadeia", (t) => {
     const attack = { ...SOCO, acerto: "0", efeito: "aceleração" };
-    mockDice(t, [9, 8, 6, /*confirm dos 2 sucessos (die1, die2)*/ 5, 5]);
+    mockDice(t, [9, 8, 6, /*resist*/ 1, 1, /*confirm dos 2 sucessos (die1, die2)*/ 5, 5]);
     const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
     assert.equal(r.successFlags[0].aceleracaoBonusEsteDado, 0);
     assert.equal(r.successFlags[0].success, true);
@@ -590,10 +647,10 @@ describe("Status effects", () => {
 
   it("CHAMAS: rolagem de confirmação independente, sem bônus, contra a Resistência do tipo do ataque", (t) => {
     const attack = { ...SOCO, efeito: "chamas" };
-    mockDice(t, [8, 1, 1, /*confirm*/ 9, /*chamas*/ 7]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm*/ 9, /*chamas*/ 7]);
     const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
     assert.equal(r.chamasRolls.length, 1);
-    assert.equal(r.chamasRolls[0].resistValor, 4); // resistNaturalFisica (ataque marcial)
+    assert.equal(r.chamasRolls[0].resistValor, 3); // resistNaturalFisica (ataque marcial) — 2 + Vigor E, sem a Resistência
     assert.equal(r.chamasRolls[0].passou, true);
     // marcial escala: 1 confirmação × 1 ferida + 1 de Chamas = 2
     assert.equal(r.feridaValor, 2);
@@ -601,11 +658,12 @@ describe("Status effects", () => {
 
   it("ENVENENAMENTO: igual Chamas, mas sempre contra a Resistência Natural MÁGICA, mesmo em ataque Marcial", (t) => {
     const attack = { ...SOCO, efeito: "envenenamento" };
-    const defender = withProfs(makeCharacter(), { resistMagicaProf: "A" }); // resistNaturalMagica = 2+Vigor E(1)+A(5) = 8 (mais alta que a Física = 4)
-    mockDice(t, [8, 1, 1, /*confirm*/ 9, /*envenenamento*/ 7]);
+    // resistMagicaProf não conta mais pra resistNaturalMagica (virou defesa ativa) — fica em 2+Vigor E = 3
+    const defender = withProfs(makeCharacter(), { resistMagicaProf: "A" });
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, /*confirm*/ 9, /*envenenamento*/ 7]);
     const r = resolveAttack({ attacker: makeCharacter(), defender, attack });
-    assert.equal(r.envenenamentoRolls[0].resistValor, 8);
-    assert.equal(r.envenenamentoRolls[0].passou, false); // 7 não bate 8 (e não é crítico)
+    assert.equal(r.envenenamentoRolls[0].resistValor, 3);
+    assert.equal(r.envenenamentoRolls[0].passou, true); // 7 bate 3 (resistMagicaProf não ajuda mais o defensor aqui)
   });
 
   it("IMPACTO/CHAMAS/ENVENENAMENTO por texto do ataque não disparam se o ataque errar o Acerto", (t) => {
@@ -613,7 +671,7 @@ describe("Status effects", () => {
       const attack = { ...SOCO, efeito };
       // acertoBonus = destreza(0) + combateCorpoACorpo(0) + manual(+1) = 1; defesa 8 — die<=7 sempre falha (d+1 não é >8)
       const restore = Math.random;
-      Math.random = queuedRandom([1, 1, 1]);
+      Math.random = queuedRandom([1, 1, 1, /*resist*/ 1, 1]);
       try {
         const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
         assert.equal(r.successes, 0, `efeito ${efeito}: successes`);
@@ -631,8 +689,8 @@ describe("Status effects", () => {
   it("ataque de sucesso fixo (\"2S\") tem contato mesmo sem rolar Acerto — CHAMAS ainda dispara", (t) => {
     const bombardeio = BASE_ATTACK_TYPES.find((a) => a.id === "bombardeio_de_mana");
     const attack = { ...bombardeio, efeito: "chamas" };
-    // sem rolagem de Acerto (successes=2 fixo): 2 confirmações + 1 rolagem de Chamas
-    mockDice(t, [/*confirm x2*/ 9, 9, /*chamas*/ 7]);
+    // sem rolagem de Acerto (successes=2 fixo): resistência ativa primeiro, depois 2 confirmações + 1 rolagem de Chamas
+    mockDice(t, [/*resist*/ 1, 1, /*confirm x2*/ 9, 9, /*chamas*/ 7]);
     const r = resolveAttack({ attacker: makeCharacter(), defender: makeCharacter(), attack });
     assert.equal(r.semRolagemDeAcerto, true);
     assert.equal(r.successes, 2);
@@ -658,16 +716,17 @@ describe("balanceamento estatístico", () => {
     return hits / n;
   }
 
-  it("tudo em grau E, ataque desarmado vs armadura: ~27% de chance de causar ferimento", () => {
+  it("tudo em grau E, ataque desarmado vs armadura: ~11% de chance de causar ferimento", () => {
     const p = simulate(true, 20000);
-    // Resistências Naturais 2+Vigor+Resistência (tudo E = 4) — CONTEXTO.md documenta
-    // ~27% medido por simulação — margem generosa pra não ficar flaky.
-    assert.ok(p > 0.20 && p < 0.36, `esperado ~0.27 (20%-36%), obtido ${p}`);
+    // Com a Resistência ativa (13/10), o defensor cancela em média 1 sucesso do
+    // Acerto (Vigor E + Resistência E = 2 dados, ~50% de sucesso cada) — medido
+    // por simulação ~11% — margem generosa pra não ficar flaky.
+    assert.ok(p > 0.06 && p < 0.18, `esperado ~0.11 (6%-18%), obtido ${p}`);
   });
 
-  it("tudo em grau E, ataque desarmado sem armadura: ~53% de chance de causar ferimento", () => {
+  it("tudo em grau E, ataque desarmado sem armadura: ~24% de chance de causar ferimento", () => {
     const p = simulate(false, 20000);
-    assert.ok(p > 0.44 && p < 0.62, `esperado ~0.53 (44%-62%), obtido ${p}`);
+    assert.ok(p > 0.17 && p < 0.33, `esperado ~0.24 (17%-33%), obtido ${p}`);
   });
 });
 
@@ -690,7 +749,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E" },
       procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
       mpMax: 3,
-      esperado: { defesa: 9, natFisica: 4, natMagica: 4, acerto: [4, 2, 0], hp: 3, sp: 4 },
+      esperado: { defesa: 9, natFisica: 3, natMagica: 3, acerto: [4, 2, 0], hp: 3, sp: 4 }, // natFisica/Magica = 2+Vigor (Resistência saiu daqui em 13/10)
     },
     {
       nome: "Merkel Winters",
@@ -698,7 +757,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E" },
       procs: ["persistente", "instinto_selvagem", "furia_crescente"],
       mpMax: 3,
-      esperado: { defesa: 9, natFisica: 6, natMagica: 5, acerto: [3, 1, 0], hp: 4, sp: 4 },
+      esperado: { defesa: 9, natFisica: 4, natMagica: 4, acerto: [3, 1, 0], hp: 4, sp: 4 },
     },
     {
       nome: "Raiko",
@@ -706,7 +765,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "D" },
       procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
       mpMax: 3,
-      esperado: { defesa: 8, natFisica: 5, natMagica: 6, acerto: [1, 0, 1], hp: 3, sp: 3 },
+      esperado: { defesa: 8, natFisica: 4, natMagica: 4, acerto: [1, 0, 1], hp: 3, sp: 3 },
     },
     {
       nome: "Akira Cagliostro",
@@ -714,7 +773,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       proficiencias: { combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E" },
       procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
       mpMax: 4,
-      esperado: { defesa: 9, natFisica: 4, natMagica: 4, acerto: [2, 2, 0], hp: 3, sp: 4 },
+      esperado: { defesa: 9, natFisica: 3, natMagica: 3, acerto: [2, 2, 0], hp: 3, sp: 4 },
     },
     {
       nome: "K (Kanny)",
@@ -722,7 +781,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "E" },
       procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
       mpMax: 3,
-      esperado: { defesa: 8, natFisica: 4, natMagica: 4, acerto: [3, 3, 0], hp: 2, sp: 3 },
+      esperado: { defesa: 8, natFisica: 3, natMagica: 3, acerto: [3, 3, 0], hp: 2, sp: 3 },
     },
     {
       nome: "Mevil Ishran",
@@ -730,7 +789,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E" },
       procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
       mpMax: 3,
-      esperado: { defesa: 9, natFisica: 6, natMagica: 5, acerto: [1, 0, 0], hp: 4, sp: 4 },
+      esperado: { defesa: 9, natFisica: 4, natMagica: 4, acerto: [1, 0, 0], hp: 4, sp: 4 },
     },
   ];
 

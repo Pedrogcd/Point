@@ -43,6 +43,17 @@ export function descritoresDeSelecao(...entradas) {
   return resultado;
 }
 
+// Checa se o personagem tem um descritor ativo (vindo de `character.descritores`
+// — já é a união sem duplicar das habilidades principal/secundária escolhidas,
+// ver descritoresDeSelecao). Existe pra não repetir `(character?.descritores ||
+// []).includes(id)` em todo lugar que precisa checar um descritor específico
+// (ex.: Sortudo, Ignora Blindado) — hoje é só esse `includes`, mas é o ponto
+// único pra outras fontes de descritor (ex.: armadura dando Blindado) entrarem
+// no futuro sem precisar caçar cada chamada.
+export function temDescritor(character, id) {
+  return (character?.descritores || []).includes(id);
+}
+
 // Remapeamento do esquema antigo (racaId/habilidadePrincipalId/habilidadeSecundariaId,
 // enviado nos PRs #30/#31) pro novo (raca/habilidadePrincipal) — os ids de
 // habilidade principal mudaram de formato (ex.: "sharkan" -> "descendentes-de-sharkan").
@@ -110,16 +121,18 @@ export function migrarSelecaoRacaLegado(ch) {
 // Curado à mão, não derivado de `bonus[]`, porque esse array do catálogo é
 // incompleto pra esse fim — ex.: "Descendentes de Sabato" só tem "+1 grau em
 // Força" no `efeito`, nunca em `bonus[]`. Toda entrada aqui foi conferida
-// contra o `efeito` de cada uma das 39 habilidades do catálogo (24 principais
-// + 15 secundárias) em 13/10 (catálogo "2026-10-11" com a regra de Blindado
-// separada em físico/mágico): essas 13 mencionam "+1 grau" ou "+1 na(s)
-// proficiência(s)" — 12 têm uma chave FIXA (tabela abaixo) e 2 (Mana
-// Concentrada, Homúnculo) deixam a escolha pro jogador (ver
-// BONUS_GRAU_ESCOLHA_POR_HABILIDADE); Homúnculo tem as duas coisas ao mesmo
-// tempo (Atletismo é fixo, Força-ou-Destreza é escolha). Se o catálogo mudar
-// nomes de raça/efeito de novo, conferir aqui também (racasCatalogo.test.js
-// tem uma checagem automática: toda habilidade cujo `efeito` contenha essas
-// frases-chave precisa estar numa das duas tabelas, e vice-versa).
+// contra o `efeito` de cada uma das habilidades do catálogo em 13/10 (catálogo
+// "2026-10-11" v3 — Elfo reescrito com vários bônus de grau novos, e
+// Resistência Física/Resistência Mágica entraram como proficiências que
+// também recebem esse bônus, igual qualquer outra): essas 22 habilidades
+// mencionam "+1 grau" ou "+1 na(s) proficiência(s)" — 21 têm uma chave FIXA
+// (tabela abaixo) e 2 (Mana Concentrada, Homúnculo) deixam a escolha pro
+// jogador (ver BONUS_GRAU_ESCOLHA_POR_HABILIDADE); Homúnculo tem as duas
+// coisas ao mesmo tempo (Atletismo é fixo, Força-ou-Destreza é escolha). Se o
+// catálogo mudar nomes de raça/efeito de novo, conferir aqui também
+// (racasCatalogo.test.js tem uma checagem automática: toda habilidade cujo
+// `efeito` contenha essas frases-chave precisa estar numa das duas tabelas, e
+// vice-versa).
 export const BONUS_GRAU_POR_HABILIDADE = {
   "descendentes-de-sabato": [{ tipo: "atributo", chave: "forca" }],
   goethiano: [{ tipo: "atributo", chave: "vigor" }],
@@ -142,6 +155,35 @@ export const BONUS_GRAU_POR_HABILIDADE = {
   ],
   "escamas-fortes": [{ tipo: "atributo", chave: "forca" }],
   "corpo-resistente": [{ tipo: "atributo", chave: "vigor" }],
+  "mana-estatica": [
+    { tipo: "proficiencia", chave: "resistFisicaProf" },
+    { tipo: "proficiencia", chave: "resistMagicaProf" },
+  ],
+  "pele-grossa": [
+    { tipo: "proficiencia", chave: "resistFisicaProf" },
+    { tipo: "proficiencia", chave: "resistMagicaProf" },
+  ],
+  "cla-radiante": [{ tipo: "atributo", chave: "carisma" }],
+  "cla-noctis": [{ tipo: "atributo", chave: "manipulacao" }],
+  "cla-corvus": [
+    { tipo: "proficiencia", chave: "furtividade" },
+    { tipo: "proficiencia", chave: "magiasOfensivas" },
+  ],
+  "cla-seasus": [
+    { tipo: "proficiencia", chave: "magiasOfensivas" },
+    { tipo: "proficiencia", chave: "magiasGerais" },
+    { tipo: "proficiencia", chave: "resistMagicaProf" },
+  ],
+  "cla-natrus": [
+    { tipo: "proficiencia", chave: "resistMagicaProf" },
+    { tipo: "proficiencia", chave: "sobrevivencia" },
+  ],
+  "resistencia-a-dor": [{ tipo: "atributo", chave: "resolucao" }],
+  "arte-e-tradicao": [
+    { tipo: "proficiencia", chave: "etiqueta" },
+    { tipo: "proficiencia", chave: "atuacao" },
+    { tipo: "proficiencia", chave: "malandragem" },
+  ],
 };
 
 // Habilidades cujo bônus de grau é à ESCOLHA do jogador (pedido confirmado em

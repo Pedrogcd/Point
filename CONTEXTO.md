@@ -222,6 +222,20 @@ Verificado via Playwright em dois personagens: Leona (Grupo C, raça não reconh
 
 Suíte de testes: 502 → **516 testes em 77 suítes** (`racasCatalogo.test.js` novo, 14 testes). Build de produção confirmado com o import do JSON via import attributes.
 
+### `catalogo-racas.json` atualizado pelo Pedro: descritor renomeado, raça Ningen ganha novo principal (13/10)
+
+Pedro substituiu o catálogo por uma versão nova (mesma `versao: "2026-10-11"`, conteúdo diferente). Mudanças relevantes pro código: o descritor `"ferida_agravante_desarmado"` virou `"desarmado_letal"` (agora em Leonino, Reptiliano, Lobo/Canino e na secundária "Garras e Presas"); `"ignora_blindado"` continua (só em "Garras e Presas", junto com `desarmado_letal`); a raça Ningen troca o principal "Urso" por "Raposa/Kitsune" (novo id `raposa-kitsune`, ícone `cauda-raposa`); ganha a secundária "Pelagem e Couro" (Blindado que "não pode ser ignorado por habilidades" — uma trava textual que ainda não tem nenhuma lógica no motor, só prosa).
+
+**Só o arquivo de dados foi trocado — nenhuma lógica de jogo foi implementada** (isso é o pedido separado de pesquisa, respondido na mesma mensagem, ver abaixo). Rodei a suíte depois da troca pra conferir impacto:
+- **1 teste quebrou** (`racasCatalogo.test.js`, "dedupe quando duas entradas dão o mesmo descritor") porque usava Reptiliano+Pele Grossa esperando só `["blindado"]` — no catálogo novo, Reptiliano também ganhou `desarmado_letal`, então o resultado real tinha os dois. Troquei o par do teste pra Leonino+Garras e Presas (ambos com `desarmado_letal`, Garras e Presas também com `ignora_blindado`) — mesma coisa que o teste queria provar (dedupe), só com dados que não mudam de novo se o Pedro ajustar o Reptiliano outra vez.
+- **Nada mais quebrou**: `migrarSelecaoRacaLegado`/`encontrarRaca`/`encontrarPrincipal`/`encontrarSecundaria` são genéricos, não dependem de ids específicos além dos já cobertos.
+
+**Duas lacunas que ficaram, sinalizadas mas não corrigidas** (fora do que foi pedido — só a troca do JSON):
+- `cauda-raposa` (ícone do Raposa/Kitsune) não existe em `ICONES` (`icones-racas.jsx`) — cai pro ícone `neutro` pelo fallback que já existia (`iconePara`), sem quebrar nada, só sem o ícone próprio.
+- `REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO` (`racasCatalogo.js`) ainda tem a entrada `urso: "urso"` do esquema antigo — como "urso" não é mais um id de principal do Ningen no catálogo novo, uma ficha legada que migrasse por esse caminho cairia num id que `encontrarPrincipal` não acha (`null`, mesmo comportamento gracioso de "nenhuma raça reconhecida" já usado em outros lugares — não quebra, só não resolve).
+
+Suíte de testes: sem mudança de contagem (516 testes) — só o fixture de um teste existente foi ajustado pros dados novos. Build de produção confirmado.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

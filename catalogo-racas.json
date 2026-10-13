@@ -201,14 +201,16 @@
           "icone": "juba",
           "cor": "#D08B1E",
           "descricao": "Orelhas e cauda de felinos.",
-          "efeito": "+1 na proficiência Investigação. +1 dado em testes que usam o faro. Ataques desarmados podem causar ferida agravante. +1 SP máximo.",
+          "efeito": "+1 na proficiência Investigação. +1 dado em testes que usam o faro. Ataques desarmados são tratados como armas letais e contam como arma branca para habilidades. +1 SP máximo.",
           "bonus": [
             "Investigação +1",
             "+1 dado em faro",
-            "Ferida agravante desarmado",
+            "Desarmado letal",
             "SP +1"
           ],
-          "descritores": []
+          "descritores": [
+            "desarmado_letal"
+          ]
         },
         {
           "id": "reptiliano",
@@ -217,15 +219,16 @@
           "icone": "olho-pupila-fendida",
           "cor": "#1F8A70",
           "descricao": "Escamas, cauda e rosto longo com muitos dentes.",
-          "efeito": "+1 na proficiência Intimidação. +1 dado em testes de resistência a veneno e a ENVENENAMENTO. Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. +1 SP máximo.",
+          "efeito": "+1 na proficiência Intimidação. Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Ataques desarmados são tratados como armas letais e contam como arma branca para habilidades. +1 HP máximo.",
           "bonus": [
             "Intimidação +1",
-            "+1 dado vs veneno",
             "Blindado",
-            "SP +1"
+            "Desarmado letal",
+            "HP +1"
           ],
           "descritores": [
-            "blindado"
+            "blindado",
+            "desarmado_letal"
           ]
         },
         {
@@ -235,27 +238,29 @@
           "icone": "lobo-uivando",
           "cor": "#5E7C9A",
           "descricao": "Caça em grupo, de faro apurado e voz de alcateia.",
-          "efeito": "+1 na proficiência Liderança. +1 dado em testes que usam o faro. Alcateia: +1 dado de acerto se um aliado está na zona do alvo. +1 SP máximo.",
+          "efeito": "+1 na proficiência Liderança. +1 dado em testes que usam o faro. Ataques desarmados são tratados como armas letais e contam como arma branca para habilidades. +1 SP máximo.",
           "bonus": [
             "Liderança +1",
             "+1 dado em faro",
-            "+1 dado de acerto com aliado",
+            "Desarmado letal",
             "SP +1"
           ],
-          "descritores": []
+          "descritores": [
+            "desarmado_letal"
+          ]
         },
         {
-          "id": "urso",
-          "nome": "Urso",
+          "id": "raposa-kitsune",
+          "nome": "Raposa/Kitsune",
           "papel": "principal",
-          "icone": "pata-larga",
-          "cor": "#8B5A2B",
-          "descricao": "Corpo grande, força e vitalidade.",
-          "efeito": "+1 na proficiência Atletismo. +1 dado em testes de força, como agarrar e empurrar. +1 HP máximo. +1 SP máximo.",
+          "icone": "cauda-raposa",
+          "cor": "#D9582B",
+          "descricao": "Astúcia e ilusão leve.",
+          "efeito": "+1 na proficiência Intuição. +1 dado em testes que usam o faro. +1 na proficiência Malandragem. +1 SP máximo.",
           "bonus": [
-            "Atletismo +1",
-            "+1 dado em força",
-            "HP +1",
+            "Intuição +1",
+            "+1 dado em faro",
+            "Malandragem +1",
             "SP +1"
           ],
           "descritores": []
@@ -298,10 +303,56 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Olfato, audição e visão acima do humano.",
-          "efeito": "+1d10 em testes de percepção. +1 na proficiência Intuição e +1 na proficiência Investigação.",
+          "efeito": "+1 grau em Perspicácia (até o teto C). +1 na proficiência Intuição. +1d10 em testes envolvendo olfato, audição e visão para localizar ou identificar.",
           "bonus": [
+            "Perspicácia +1 grau",
             "Intuição +1",
-            "Investigação +1"
+            "+1d10 em sentidos"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "pelagem-e-couro",
+          "nome": "Pelagem e Couro",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Proteção natural mesmo na forma humanoide.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Se já tiver o descritor, ele não poderá ser ignorado por habilidades.",
+          "bonus": [
+            "Blindado"
+          ],
+          "descritores": [
+            "blindado"
+          ]
+        },
+        {
+          "id": "garras-e-presas",
+          "nome": "Garras e Presas",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Armas naturais.",
+          "efeito": "Ataques desarmados são tratados como armas letais e contam como arma branca para habilidades. Se já tiver ataques desarmados letais (de outra habilidade), eles são capazes de ignorar o efeito Blindado.",
+          "bonus": [
+            "Desarmado letal"
+          ],
+          "descritores": [
+            "desarmado_letal",
+            "ignora_blindado"
+          ]
+        },
+        {
+          "id": "camuflagem-animal",
+          "nome": "Camuflagem Animal",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Mistura-se ao terreno natural.",
+          "efeito": "+1 nas proficiências Furtividade e Sobrevivência. Pode realizar cenas de furtividade no início de um combate como se possuísse prioridade +1.",
+          "bonus": [
+            "Furtividade +1",
+            "Sobrevivência +1"
           ],
           "descritores": []
         }

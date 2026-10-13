@@ -44,10 +44,10 @@ describe("racasCatalogo — descritoresDeSelecao", () => {
 
   it("dedupe quando duas entradas dão o mesmo descritor", () => {
     const ningen = encontrarRaca("ningen");
-    const principal = encontrarPrincipal(ningen, "reptiliano"); // descritores: ["blindado"]
-    const secundaria = encontrarSecundaria(encontrarRaca("niosh"), "pele-grossa"); // descritores: ["blindado"]
+    const principal = encontrarPrincipal(ningen, "leonino"); // descritores: ["desarmado_letal"]
+    const secundaria = encontrarSecundaria(ningen, "garras-e-presas"); // descritores: ["desarmado_letal", "ignora_blindado"]
     const resultado = descritoresDeSelecao(principal, secundaria);
-    assert.deepEqual(resultado, ["blindado"]);
+    assert.deepEqual(resultado, ["desarmado_letal", "ignora_blindado"]);
   });
 
   it("entradas null/undefined não quebram e não entram no resultado", () => {

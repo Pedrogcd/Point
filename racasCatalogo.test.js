@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria,
   descritoresDeSelecao, migrarSelecaoRacaLegado,
+  CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
 } from "./racasCatalogo.js";
 
 describe("racasCatalogo — lookups", () => {
@@ -99,5 +100,131 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
     const uma = migrarSelecaoRacaLegado(ch);
     const duas = migrarSelecaoRacaLegado(uma);
     assert.deepEqual(uma, duas);
+  });
+});
+
+// Checagem automática de deriva: toda habilidade (principal ou secundária, de
+// qualquer raça) cujo `efeito` mencione "+1 grau" ou "+1 na proficiência"/
+// "+1 nas proficiências" precisa estar em BONUS_GRAU_POR_HABILIDADE, e
+// vice-versa — se o Pedro editar o catálogo de novo (mudar um efeito, trocar
+// uma habilidade) e isso mexer em quem dá bônus de grau, o teste quebra aqui
+// em vez de silenciosamente ficar desatualizado.
+describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE cobre o catálogo inteiro", () => {
+  const todasHabilidades = CATALOGO_RACAS.racas.flatMap((r) => [...r.principais, ...r.secundarias]);
+  const mencionamBonusDeGrau = todasHabilidades.filter((h) => /\+1 grau|\+1 na proficiência|\+1 nas proficiências/.test(h.efeito));
+
+  it("toda habilidade cujo efeito menciona bônus de grau está mapeada", () => {
+    const faltando = mencionamBonusDeGrau.filter((h) => !BONUS_GRAU_POR_HABILIDADE[h.id]).map((h) => h.id);
+    assert.deepEqual(faltando, [], `habilidades com "+1 grau"/"+1 na(s) proficiência(s)" no efeito mas sem entrada em BONUS_GRAU_POR_HABILIDADE: ${faltando.join(", ")}`);
+  });
+
+  it("todo id mapeado existe de verdade no catálogo e seu efeito realmente menciona bônus de grau", () => {
+    const idsCatalogo = new Set(todasHabilidades.map((h) => h.id));
+    const idsMencionam = new Set(mencionamBonusDeGrau.map((h) => h.id));
+    for (const id of Object.keys(BONUS_GRAU_POR_HABILIDADE)) {
+      assert.ok(idsCatalogo.has(id), `id mapeado "${id}" não existe mais no catálogo`);
+      assert.ok(idsMencionam.has(id), `id mapeado "${id}" existe, mas o efeito dele não menciona mais bônus de grau`);
+    }
+  });
+
+  it("cobertura esperada: 10 habilidades (7 principais + 3 secundárias — confirmado em 13/10)", () => {
+    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 10);
+  });
+});
+
+describe("racasCatalogo — grauComBonus", () => {
+  it("soma passos normalmente abaixo do teto", () => {
+    assert.equal(grauComBonus("E", 1), "D");
+    assert.equal(grauComBonus("D", 1), "C");
+  });
+
+  it("não passa do teto C, mesmo com vários passos", () => {
+    assert.equal(grauComBonus("E", 5), "C");
+    assert.equal(grauComBonus("D", 2), "C");
+  });
+
+  it("grau já C ou acima não muda (nem sobe nem desce)", () => {
+    assert.equal(grauComBonus("C", 1), "C");
+    assert.equal(grauComBonus("B", 1), "B");
+    assert.equal(grauComBonus("A", 1), "A");
+  });
+
+  it("sem passos (0/undefined), devolve o grau base", () => {
+    assert.equal(grauComBonus("D", 0), "D");
+    assert.equal(grauComBonus("D", undefined), "D");
+  });
+
+  it("grau base ausente conta como E", () => {
+    assert.equal(grauComBonus(undefined, 1), "D");
+  });
+});
+
+describe("racasCatalogo — bonusGrauDoPersonagem", () => {
+  it("personagem sem raça escolhida não dá bônus nenhum", () => {
+    assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
+  });
+
+  it("Leonino (ningen) dá +1 em Investigação", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "leonino" });
+    assert.deepEqual(bonus, { proficiencias: { investigacao: 1 }, atributos: {} });
+  });
+
+  it("Descendentes de Sharkan (niosh) dá +1 em Força — vem só do efeito, não do bonus[] do catálogo", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sharkan" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
+  });
+
+  it("habilidade com dois bônus (Raposa/Kitsune) soma os dois", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "raposa-kitsune" });
+    assert.deepEqual(bonus, { proficiencias: { intuicao: 1, malandragem: 1 }, atributos: {} });
+  });
+
+  it("principal + secundária que bonificam a mesma chave somam (ex.: duas fontes de Sobrevivência)", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "coelho-bode", habilidadeSecundaria: "camuflagem-animal" });
+    assert.equal(bonus.proficiencias.sobrevivencia, 2); // coelho-bode +1, camuflagem-animal +1
+    assert.equal(bonus.proficiencias.furtividade, 1);
+  });
+
+  it("habilidade sem bônus de grau (ex.: Mana Fluida) não aparece no resultado", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-fluida" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+});
+
+describe("racasCatalogo — comGrausEfetivos", () => {
+  it("sem bônus nenhum, devolve o mesmo personagem por referência", () => {
+    const ch = { proficiencias: { investigacao: "E" }, atributosGerais: { forca: "E" } };
+    const { character, bonusAplicado } = comGrausEfetivos(ch);
+    assert.equal(character, ch); // mesma referência, não clonou à toa
+    assert.deepEqual(bonusAplicado, { proficiencias: {}, atributos: {} });
+  });
+
+  it("Leonino com Investigação em E: ficha efetiva mostra D, bonusAplicado=1", () => {
+    const ch = { raca: "ningen", habilidadePrincipal: "leonino", proficiencias: { investigacao: "E" }, atributosGerais: {} };
+    const { character, bonusAplicado } = comGrausEfetivos(ch);
+    assert.equal(character.proficiencias.investigacao, "D");
+    assert.equal(bonusAplicado.proficiencias.investigacao, 1);
+    assert.equal(ch.proficiencias.investigacao, "E"); // original não foi mutado
+  });
+
+  it("quando o teto já impede o bônus (grau já C), bonusAplicado fica 0", () => {
+    const ch = { raca: "ningen", habilidadePrincipal: "leonino", proficiencias: { investigacao: "C" }, atributosGerais: {} };
+    const { character, bonusAplicado } = comGrausEfetivos(ch);
+    assert.equal(character.proficiencias.investigacao, "C");
+    assert.equal(bonusAplicado.proficiencias.investigacao, 0);
+  });
+
+  it("personagem sem character (null/undefined) não quebra", () => {
+    const { character, bonusAplicado } = comGrausEfetivos(null);
+    assert.equal(character, null);
+    assert.deepEqual(bonusAplicado, { proficiencias: {}, atributos: {} });
+  });
+
+  it("mantém todos os outros campos do personagem intactos", () => {
+    const ch = { id: "x", name: "X", raca: "ningen", habilidadePrincipal: "leonino", proficiencias: { investigacao: "E" }, atributosGerais: {}, hp: { current: 3, max: 3 } };
+    const { character } = comGrausEfetivos(ch);
+    assert.equal(character.id, "x");
+    assert.equal(character.name, "X");
+    assert.deepEqual(character.hp, { current: 3, max: 3 });
   });
 });

@@ -33,6 +33,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
+  comGrausEfetivos,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -74,6 +75,12 @@ const GRADE_COLOR = {
   EX: "#A8341E",
   "Divino": "#B8850F",
 };
+
+// Cor fixa pro "bônus de habilidade de raça" nas barrinhas de Atributo/Proficiência
+// (AttrBar) — azul, sem relação com GRADE_COLOR/a cor da habilidade, pra sempre
+// significar a mesma coisa em qualquer raça/habilidade: "esse pedaço do grau
+// veio de uma escolha, não é o grau base salvo na ficha".
+const BONUS_RACIAL_COR = "#2F6FDE";
 
 function tierColor(level) {
   if (!level) return MUTED;
@@ -4299,16 +4306,31 @@ function Seal({ grade, size = 34 }) {
   );
 }
 
-function AttrBar({ label, grade, highlight }) {
+// `bonus`: quantos dos segmentos (de 5, E..A) vieram de uma habilidade de raça
+// (já calculado — ver racasCatalogo.js: bonusAplicado, pós-teto). `grade` já
+// vem como o grau EFETIVO (base + bônus) — a barra desenha a base em cinza/cor
+// normal e só o pedaço do bônus em azul (BONUS_RACIAL_COR), pra mostrar de
+// onde veio o crescimento sem esconder o grau final.
+function AttrBar({ label, grade, highlight, bonus = 0 }) {
   const value = GRADE_VALUE[grade] || 1;
   const color = GRADE_COLOR[grade] || BRASS;
+  const baseValue = Math.max(0, value - bonus);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
       <span style={{ width: 100, fontSize: 12.5, color: PARCHMENT, letterSpacing: 0.3, fontFamily: "'Spectral', serif" }}>{label}</span>
-      <div style={{ flex: 1, height: 8, background: "#00000015", borderRadius: 4, border: `1px solid ${LINE}`, overflow: "hidden" }}>
-        <div style={{ width: `${value * 20}%`, height: "100%", background: `linear-gradient(90deg, ${color}99, ${color})`, transition: "width 0.4s ease" }} />
+      <div style={{ flex: 1, height: 8, background: "#00000015", borderRadius: 4, border: `1px solid ${LINE}`, overflow: "hidden", position: "relative" }}>
+        <div style={{ width: `${baseValue * 20}%`, height: "100%", background: `linear-gradient(90deg, ${color}99, ${color})`, transition: "width 0.4s ease" }} />
+        {bonus > 0 && (
+          <div
+            title="Bônus de habilidade de raça"
+            style={{
+              position: "absolute", left: `${baseValue * 20}%`, top: 0, bottom: 0, width: `${bonus * 20}%`,
+              background: `linear-gradient(90deg, ${BONUS_RACIAL_COR}99, ${BONUS_RACIAL_COR})`, transition: "width 0.4s ease, left 0.4s ease",
+            }}
+          />
+        )}
       </div>
-      <span style={{ width: 20, textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: highlight ? BRASS_BRIGHT : color, fontWeight: highlight ? 700 : 500 }}>{grade}</span>
+      <span style={{ width: 20, textAlign: "center", fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: highlight ? BRASS_BRIGHT : (bonus > 0 ? BONUS_RACIAL_COR : color), fontWeight: highlight || bonus > 0 ? 700 : 500 }}>{grade}</span>
     </div>
   );
 }
@@ -4829,6 +4851,13 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
 // characterForm.render.test.js. `initialTestPanelMode` também é um seam de
 // teste: a prop nunca é passada pelo App de verdade.
 export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreAttacks, onPrev, onNext, onUpdateCharacter, initialTestPanelMode = "teste" }) {
+  // Grau EFETIVO (base salvo na ficha + bônus de habilidade de raça, com teto
+  // C) — usado em TODO lugar que mostra ou rola um atributo/proficiência
+  // (barras, Acerto/Dano/Defesa, Teste, Ataque). `character` cru só continua
+  // sendo usado pros campos que o bônus não toca (nome, imagem, hp/mp/sp,
+  // raça texto livre etc.) e pra abrir o formulário de edição — editar sempre
+  // mexe no grau BASE, nunca no efetivo. Ver racasCatalogo.js:comGrausEfetivos.
+  const { character: characterEfetivo, bonusAplicado } = useMemo(() => comGrausEfetivos(character), [character]);
   const [rollAttr, setRollAttr] = useState(ATRIBUTOS_GERAIS_LIST[0].key);
   const [rollProf, setRollProf] = useState(PROFICIENCIAS_LIST[0].key);
   // Limiar de sucesso do Teste — Atributo + Perícia: ajustável pelo jogador,
@@ -4860,8 +4889,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const missingDefaultAttacks = defaultAttacksForCharacter().filter((a) => !attackNames.has(a.nome.trim().toLowerCase()));
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
-  const rollAttrGrade = character.atributosGerais?.[rollAttr] || "E";
-  const rollProfGrade = character.proficiencias?.[rollProf] || "E";
+  const rollAttrGrade = characterEfetivo.atributosGerais?.[rollAttr] || "E";
+  const rollProfGrade = characterEfetivo.proficiencias?.[rollProf] || "E";
   const totalDice = (GRADE_VALUE[rollAttrGrade] || 1) + (GRADE_VALUE[rollProfGrade] || 1) + Math.max(0, ascensaoDiff);
 
   function roll() {
@@ -4885,7 +4914,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
   function rollAtaque() {
     const r = resolveFichaAtaque({
-      character,
+      character: characterEfetivo,
       attack: ataqueSelecionado,
       targetDefesa: ataqueDefesa,
       targetResistNatural: ataqueResistNatural,
@@ -5050,7 +5079,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             )}
             {attacks.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {attacks.map((atk, i) => <AttackCard key={i} atk={atk} character={character} />)}
+                {attacks.map((atk, i) => <AttackCard key={i} atk={atk} character={characterEfetivo} />)}
               </div>
             )}
             {missingDefaultAttacks.length > 0 && onRestoreAttacks && (
@@ -5092,7 +5121,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
           <div style={panelStyle}>
             <div style={panelHeadStyle}>Estatísticas de Combate</div>
-            <StatBlock character={character} />
+            <StatBlock character={characterEfetivo} />
             <div style={{ fontSize: 10, color: MUTED, marginTop: 8, fontStyle: "italic" }}>
               Acerto não é estatística da ficha: cada tipo de ataque monta o seu com o atributo do Tipo + a Proficiência de Combate, e a arma soma o bônus dela por cima. Defesa = base + Proficiência de Defesa. As duas Resistências Naturais seguem 2 + Vigor + Resistência (Física ou Mágica), contando o grau cheio (E=1 … A=5) — com tudo em E dá 4. Resistência Armadura é um valor manual da ficha.
             </div>
@@ -5167,12 +5196,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               <>
                 <Field label="Atributo Geral">
                   <select value={rollAttr} onChange={(e) => setRollAttr(e.target.value)} style={inputStyle}>
-                    {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({character.atributosGerais?.[a.key] || "E"})</option>)}
+                    {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({characterEfetivo.atributosGerais?.[a.key] || "E"})</option>)}
                   </select>
                 </Field>
                 <Field label="Perícia (Proficiência)">
                   <select value={rollProf} onChange={(e) => setRollProf(e.target.value)} style={inputStyle}>
-                    {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({character.proficiencias?.[p.key] || "E"})</option>)}
+                    {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({characterEfetivo.proficiencias?.[p.key] || "E"})</option>)}
                   </select>
                 </Field>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -5449,19 +5478,19 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           <div>
             <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO.fisica.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Físicos</div>
             {ATRIBUTOS_GERAIS_LIST.filter((a) => a.categoria === "fisica").map((a) => (
-              <AttrBar key={a.key} label={a.label} grade={character.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} />
+              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} />
             ))}
           </div>
           <div>
             <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO.social.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Sociais</div>
             {ATRIBUTOS_GERAIS_LIST.filter((a) => a.categoria === "social").map((a) => (
-              <AttrBar key={a.key} label={a.label} grade={character.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} />
+              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} />
             ))}
           </div>
           <div>
             <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO.mental.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Mentais</div>
             {ATRIBUTOS_GERAIS_LIST.filter((a) => a.categoria === "mental").map((a) => (
-              <AttrBar key={a.key} label={a.label} grade={character.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} />
+              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} />
             ))}
           </div>
         </div>
@@ -5472,7 +5501,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             <div key={cat}>
               <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO[cat].color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>{CATEGORIA_GERAL_INFO[cat].label}</div>
               {PROFICIENCIAS_LIST.filter((p) => p.categoria === cat).map((p) => (
-                <AttrBar key={p.key} label={p.label} grade={character.proficiencias?.[p.key] || "E"} />
+                <AttrBar key={p.key} label={p.label} grade={characterEfetivo.proficiencias?.[p.key] || "E"} bonus={bonusAplicado.proficiencias[p.key] || 0} />
               ))}
             </div>
           ))}
@@ -6551,8 +6580,10 @@ export function CompareView({ characters, onUpdateCharacter }) {
 
   const selectOptions = [{ id: EDITABLE_OPPONENT_ID, name: "Editável (oponente customizado)" }, ...characters];
   const editableOpponent = makeEditableOpponent(editableStats);
-  const a = aId === EDITABLE_OPPONENT_ID ? editableOpponent : characters.find((c) => c.id === aId);
-  const b = bId === EDITABLE_OPPONENT_ID ? editableOpponent : characters.find((c) => c.id === bId);
+  // Grau efetivo (base + bônus de raça) pros dois lados — mesma regra da ficha
+  // (CharacterSheet), pro Confronto comparar/rolar com os números de verdade.
+  const { character: a, bonusAplicado: bonusA } = comGrausEfetivos(aId === EDITABLE_OPPONENT_ID ? editableOpponent : characters.find((c) => c.id === aId));
+  const { character: b, bonusAplicado: bonusB } = comGrausEfetivos(bId === EDITABLE_OPPONENT_ID ? editableOpponent : characters.find((c) => c.id === bId));
 
   function updateEditableStat(key, value) {
     setEditableStats((prev) => ({ ...prev, [key]: Number(value) || 0 }));
@@ -6704,15 +6735,17 @@ export function CompareView({ characters, onUpdateCharacter }) {
                 </div>
                 {ATRIBUTOS_GERAIS_LIST.filter((attr) => attr.categoria === "fisica").map((attr) => {
                   const outro = (side === 0 ? b : a);
+                  const bonus = (side === 0 ? bonusA : bonusB);
                   const otherVal = GRADE_VALUE[outro.atributosGerais?.[attr.key]] || 1;
                   const thisVal = GRADE_VALUE[ch.atributosGerais?.[attr.key]] || 1;
-                  return <AttrBar key={attr.key} label={attr.label} grade={ch.atributosGerais?.[attr.key] || "E"} highlight={thisVal > otherVal} />;
+                  return <AttrBar key={attr.key} label={attr.label} grade={ch.atributosGerais?.[attr.key] || "E"} highlight={thisVal > otherVal} bonus={bonus.atributos[attr.key] || 0} />;
                 })}
                 {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => {
                   const outro = (side === 0 ? b : a);
+                  const bonus = (side === 0 ? bonusA : bonusB);
                   const otherVal = GRADE_VALUE[outro.proficiencias?.[p.key]] || 1;
                   const thisVal = GRADE_VALUE[ch.proficiencias?.[p.key]] || 1;
-                  return <AttrBar key={p.key} label={p.label} grade={ch.proficiencias?.[p.key] || "E"} highlight={thisVal > otherVal} />;
+                  return <AttrBar key={p.key} label={p.label} grade={ch.proficiencias?.[p.key] || "E"} highlight={thisVal > otherVal} bonus={bonus.proficiencias[p.key] || 0} />;
                 })}
                 <div style={{ marginTop: 10 }}>
                   <StatBlock character={ch} />

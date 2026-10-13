@@ -30,7 +30,10 @@ import {
 } from "./mapaMundo.js";
 import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
 import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
-import { RACAS, HABILIDADES_RACIAIS } from "./icones-racas.jsx";
+import { iconePara, ICONES } from "./icones-racas.jsx";
+import {
+  listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
+} from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
@@ -475,9 +478,11 @@ function withFichaDefaults(c) {
   return {
     traits: "",
     xp: 0,
-    racaId: null,
-    habilidadePrincipalId: null,
-    habilidadeSecundariaId: null,
+    raca: null,
+    habilidadePrincipal: null,
+    habilidadeSecundaria: null,
+    disciplinaHumano: null,
+    descritores: [],
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
@@ -4172,6 +4177,11 @@ const emptyCharacter = () => ({
   abilities: [],
   habilidadesFicha: { ativas: [], especial: [], racial: [], passivas: [], extras: [] },
   procs: [],
+  raca: null,
+  habilidadePrincipal: null,
+  habilidadeSecundaria: null,
+  disciplinaHumano: null,
+  descritores: [],
   racialAbility: { name: "", description: "" },
   classes: [{ name: "", description: "" }, { name: "", description: "" }],
   grupo: "c",
@@ -4635,7 +4645,7 @@ function AttackCard({ atk, onClick, selected, character }) {
 
 // Caixa genérica usada nas duas tabelas de 3 colunas da ficha (Raça/Classes e
 // Habilidades Passivas de Combate) — mostra vazio/preenchido de forma consistente.
-function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, vazio, onClick, acao }) {
+function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, efeito, vazio, onClick, acao }) {
   const clicavel = !!onClick;
   return (
     <div
@@ -4667,8 +4677,42 @@ function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, vazio, onClick
           <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, lineHeight: 1.25 }}>{titulo}</div>
           {subtitulo && <div style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace", color: cor }}>{subtitulo}</div>}
           <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{corpo}</div>
+          {efeito && <div style={{ fontSize: 11, color: cor, marginTop: 2, fontStyle: "italic" }}>Efeito: {efeito}</div>}
         </>
       )}
+    </div>
+  );
+}
+
+// Lista de botões navegável (raça/habilidade principal/secundária do
+// catálogo, ver CharacterForm). Cada opção é um <button> com aria-pressed —
+// focável e ativável por teclado sem lógica extra, e com role="group" +
+// aria-label pro grupo todo pra leitor de tela. `corForcada` sobrescreve a
+// cor de cada opção (usada pelas secundárias, que no catálogo já nascem com
+// `cor: null` — mas blindamos o visual mesmo assim).
+function SeletorCards({ titulo, opcoes, selecionadoId, onEscolher, corForcada }) {
+  return (
+    <div role="group" aria-label={titulo}>
+      <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>{titulo}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {opcoes.map((o) => {
+          const ativo = o.id === selecionadoId;
+          const cor = corForcada || o.cor || MUTED;
+          const Icon = iconePara(o.icone);
+          return (
+            <button
+              key={o.id} type="button" aria-pressed={ativo} onClick={() => onEscolher(o.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6,
+                border: `1px solid ${ativo ? cor : LINE}`, background: ativo ? `${cor}1F` : "transparent",
+                color: cor, cursor: "pointer", fontSize: 12.5, fontFamily: "'Cinzel', serif",
+              }}
+            >
+              <Icon width={15} height={15} /> {o.nome}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -5271,21 +5315,28 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
       {/* TABELA 1 — Habilidade de Raça (principal + secundária) + as duas
           Classes. `racialAbility`/`race` continuam texto livre; quando vazios,
-          o cartão principal cai pro label do catálogo (`habilidadePrincipalId`)
+          o cartão principal cai pro nome do catálogo (`habilidadePrincipal`)
           — dá pra usar só os seletores, sem escrever nada. A secundária nunca
-          tem cor própria: aparece sempre neutra (cinza, ícone da raça), por
-          design (ver icones-racas.jsx). */}
+          tem cor própria: no catálogo, toda habilidade secundária já nasce com
+          `cor: null` — não precisa forçar neutro no código. Pro Humano
+          (`secundariaEhDisciplina`), o espaço da secundária mostra a
+          Disciplina escolhida (nome livre + grau E/D/C) em vez da lista, já
+          que a raça não tem secundarias[] no catálogo. */}
       {(() => {
-        const racaInfo = character.racaId ? RACAS[character.racaId] : null;
-        const habPrincipal = character.habilidadePrincipalId ? HABILIDADES_RACIAIS[character.habilidadePrincipalId] : null;
-        const habSecundaria = character.habilidadeSecundariaId ? HABILIDADES_RACIAIS[character.habilidadeSecundariaId] : null;
+        const racaInfo = encontrarRaca(character.raca);
+        const ehHumano = character.raca === "humano";
+        const habPrincipal = encontrarPrincipal(racaInfo, character.habilidadePrincipal);
+        const habSecundaria = ehHumano ? null : encontrarSecundaria(racaInfo, character.habilidadeSecundaria);
+        const disciplina = character.disciplinaHumano;
         const principalVazio = !character.racialAbility?.name && !habPrincipal;
         const corPrincipal = habPrincipal ? habPrincipal.cor : MUTED;
-        const iconPrincipal = habPrincipal?.Icon || racaInfo?.Icon;
+        const iconPrincipal = habPrincipal ? iconePara(habPrincipal.icone) : (racaInfo ? iconePara(racaInfo.icone) : null);
+        const IconRaca = racaInfo ? iconePara(racaInfo.icone) : null;
+        const secundariaVazia = ehHumano ? !disciplina?.nome : !habSecundaria;
         return (
       <div style={panelStyle}>
         <div style={{ ...panelHeadStyle, color: racaInfo?.cor || PURPLE, display: "flex", alignItems: "center", gap: 6 }}>
-          {racaInfo && <racaInfo.Icon width={13} height={13} />}
+          {IconRaca && <IconRaca width={13} height={13} />}
           Raça e Classes
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
@@ -5294,20 +5345,24 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             cor={corPrincipal}
             Icon={iconPrincipal}
             vazio={principalVazio}
-            titulo={character.racialAbility?.name || habPrincipal?.label}
-            subtitulo={character.race || racaInfo?.label || null}
+            titulo={character.racialAbility?.name || habPrincipal?.nome}
+            subtitulo={character.race || racaInfo?.nome || null}
             corpo={principalVazio
               ? `Ainda não definida${character.race ? ` (raça: ${character.race})` : ""} — a criar.`
-              : (character.racialAbility?.description || "Sem descrição.")}
+              : (character.racialAbility?.description || habPrincipal?.descricao || "Sem descrição.")}
+            efeito={!principalVazio ? habPrincipal?.efeito : undefined}
           />
           <SlotBox
-            etiqueta="Habilidade de Raça — secundária"
+            etiqueta={ehHumano ? "Vaga de Disciplina" : "Habilidade de Raça — secundária"}
             cor={MUTED}
-            Icon={racaInfo?.Icon}
-            vazio={!habSecundaria}
-            titulo={habSecundaria?.label}
-            subtitulo={racaInfo?.label || null}
-            corpo={habSecundaria ? "Secundária — mostrada neutra, sem cor própria." : "Nenhuma secundária escolhida ainda."}
+            Icon={IconRaca}
+            vazio={secundariaVazia}
+            titulo={ehHumano ? disciplina?.nome : habSecundaria?.nome}
+            subtitulo={ehHumano ? (disciplina?.nome ? `Grau ${disciplina.grau}` : null) : (racaInfo?.nome || null)}
+            corpo={ehHumano
+              ? (secundariaVazia ? "Nenhuma disciplina escolhida ainda." : "Disciplina — grau livre, definida pelo jogador.")
+              : (secundariaVazia ? "Nenhuma secundária escolhida ainda." : (habSecundaria?.descricao || "Sem descrição."))}
+            efeito={!ehHumano && !secundariaVazia ? habSecundaria?.efeito : undefined}
           />
           {[0, 1].map((i) => (
             <SlotBox
@@ -5507,6 +5562,36 @@ export function CharacterForm({ initial, onSave, onCancel }) {
     });
   }
 
+  // Seleção de raça/habilidade pelo catálogo (catalogo-racas.json via
+  // racasCatalogo.js). Trocar a raça limpa principal/secundária/disciplina e
+  // os descritores (o conceito muda por completo); trocar a principal NÃO
+  // limpa a secundária, só recalcula os descritores ativos. `race`/`racialAbility`
+  // (texto livre) nunca são tocados aqui — ficam só como legado de exibição.
+  function escolherRaca(racaId) {
+    setC((prev) => ({
+      ...prev,
+      raca: racaId,
+      habilidadePrincipal: null,
+      habilidadeSecundaria: null,
+      disciplinaHumano: racaId === "humano" ? { nome: "", grau: "E" } : null,
+      descritores: [],
+    }));
+  }
+  function escolherPrincipal(principalId) {
+    setC((prev) => {
+      const raca = encontrarRaca(prev.raca);
+      const descritores = descritoresDeSelecao(encontrarPrincipal(raca, principalId), encontrarSecundaria(raca, prev.habilidadeSecundaria));
+      return { ...prev, habilidadePrincipal: principalId, descritores };
+    });
+  }
+  function escolherSecundaria(secundariaId) {
+    setC((prev) => {
+      const raca = encontrarRaca(prev.raca);
+      const descritores = descritoresDeSelecao(encontrarPrincipal(raca, prev.habilidadePrincipal), encontrarSecundaria(raca, secundariaId));
+      return { ...prev, habilidadeSecundaria: secundariaId, descritores };
+    });
+  }
+
   function addAbility() {
     setC((prev) => ({ ...prev, abilities: [...(prev.abilities || []), { name: "", grade: "E", description: "" }] }));
   }
@@ -5601,13 +5686,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <Field label="Nome"><input style={inputStyle} value={c.name} onChange={(e) => set(["name"], e.target.value)} /></Field>
         <Field label="Epíteto"><input style={inputStyle} value={c.epithet} onChange={(e) => set(["epithet"], e.target.value)} /></Field>
-        <Field label="Raça"><input style={inputStyle} value={c.race} onChange={(e) => set(["race"], e.target.value)} /></Field>
-        <Field label="Raça (ícone/cor — opcional)">
-          <select style={inputStyle} value={c.racaId || ""} onChange={(e) => set(["racaId"], e.target.value || null)}>
-            <option value="">— nenhuma —</option>
-            {Object.entries(RACAS).map(([id, r]) => <option key={id} value={id}>{r.label}</option>)}
-          </select>
-        </Field>
+        <Field label="Raça (texto livre — legado)"><input style={inputStyle} value={c.race} onChange={(e) => set(["race"], e.target.value)} /></Field>
         <Field label="Grupo (mesa)">
           <select style={inputStyle} value={c.grupo || grupoDoPersonagem(c)} onChange={(e) => set(["grupo"], e.target.value)}>
             {GRUPOS.map((g) => <option key={g.id} value={g.id}>{g.label} — {g.subtitulo}</option>)}
@@ -5690,36 +5769,87 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={ShieldHalf}>Raça e Classes</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Aparecem na primeira tabela de 4 caixas da ficha, logo abaixo da Singularidade. O sistema de raças e classes ainda vai ser criado — por enquanto são campos livres.
+        Escolha a raça e as habilidades (ou a Disciplina, no caso do Humano) a partir do catálogo abaixo. O campo "Raça" (texto livre, acima) não é alterado por essa escolha — fica só como legado de exibição pra fichas antigas.
       </p>
+      {(() => {
+        const racaAtual = encontrarRaca(c.raca);
+        return (
+          <div style={{ marginBottom: 20 }}>
+            {!c.raca && c.race && (
+              <p style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>
+                Raça atual (texto livre): <strong style={{ color: PARCHMENT, fontStyle: "normal" }}>{c.race}</strong> — não precisa bater com o catálogo. Escolher abaixo não apaga esse texto, só adiciona ícone/cor.
+              </p>
+            )}
+            <SeletorCards
+              titulo="Raça"
+              opcoes={listaRacas().map((r) => ({ id: r.id, nome: r.nome, icone: r.icone, cor: r.cor }))}
+              selecionadoId={c.raca}
+              onEscolher={escolherRaca}
+            />
+            {racaAtual && (() => {
+              const principalAtual = encontrarPrincipal(racaAtual, c.habilidadePrincipal);
+              return (
+                <div style={{ marginTop: 14 }}>
+                  <SeletorCards
+                    titulo={racaAtual.principalNome || "Habilidade principal"}
+                    opcoes={racaAtual.principais.map((p) => ({ id: p.id, nome: p.nome, icone: p.icone, cor: p.cor }))}
+                    selecionadoId={c.habilidadePrincipal}
+                    onEscolher={escolherPrincipal}
+                  />
+                  {principalAtual && (
+                    <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
+                      {principalAtual.descricao} <em>Efeito: {principalAtual.efeito}</em>
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+            {racaAtual && racaAtual.secundariaEhDisciplina && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                  {racaAtual.secundariaNome || "Vaga de Disciplina"}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    style={{ ...inputStyle, flex: 1 }} placeholder="Nome da disciplina"
+                    value={c.disciplinaHumano?.nome || ""}
+                    onChange={(e) => set(["disciplinaHumano", "nome"], e.target.value)}
+                  />
+                  <select
+                    style={{ ...inputStyle, width: 90 }} value={c.disciplinaHumano?.grau || "E"}
+                    onChange={(e) => set(["disciplinaHumano", "grau"], e.target.value)}
+                  >
+                    {["E", "D", "C"].map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            {racaAtual && !racaAtual.secundariaEhDisciplina && (() => {
+              const secundariaAtual = encontrarSecundaria(racaAtual, c.habilidadeSecundaria);
+              return (
+                <div style={{ marginTop: 14 }}>
+                  <SeletorCards
+                    titulo={racaAtual.secundariaNome || "Habilidade secundária"}
+                    opcoes={racaAtual.secundarias.map((s) => ({ id: s.id, nome: s.nome, icone: s.icone, cor: s.cor }))}
+                    selecionadoId={c.habilidadeSecundaria}
+                    onEscolher={escolherSecundaria}
+                    corForcada={MUTED}
+                  />
+                  {secundariaAtual && (
+                    <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
+                      {secundariaAtual.descricao} <em>Efeito: {secundariaAtual.efeito}</em>
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
         <div>
-          <Field label="Habilidade de Raça — nome">
+          <Field label="Habilidade de Raça — nome (texto livre, opcional)">
             <input style={inputStyle} value={c.racialAbility?.name || ""} onChange={(e) => set(["racialAbility", "name"], e.target.value)} />
-          </Field>
-          <Field label="Habilidade principal (ícone/cor — opcional)">
-            <select style={inputStyle} value={c.habilidadePrincipalId || ""} onChange={(e) => set(["habilidadePrincipalId"], e.target.value || null)}>
-              <option value="">— nenhuma —</option>
-              {c.racaId
-                ? Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === c.racaId && id !== c.habilidadeSecundariaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)
-                : Object.entries(RACAS).map(([racaId, raca]) => (
-                    <optgroup key={racaId} label={raca.label}>
-                      {Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === racaId && id !== c.habilidadeSecundariaId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)}
-                    </optgroup>
-                  ))}
-            </select>
-          </Field>
-          <Field label="Habilidade secundária (opcional)">
-            <select style={inputStyle} value={c.habilidadeSecundariaId || ""} onChange={(e) => set(["habilidadeSecundariaId"], e.target.value || null)}>
-              <option value="">— nenhuma —</option>
-              {c.racaId
-                ? Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === c.racaId && id !== c.habilidadePrincipalId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)
-                : Object.entries(RACAS).map(([racaId, raca]) => (
-                    <optgroup key={racaId} label={raca.label}>
-                      {Object.entries(HABILIDADES_RACIAIS).filter(([id, h]) => h.racaId === racaId && id !== c.habilidadePrincipalId).map(([id, h]) => <option key={id} value={id}>{h.label}</option>)}
-                    </optgroup>
-                  ))}
-            </select>
           </Field>
           <Field label="Descrição">
             <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.racialAbility?.description || ""} onChange={(e) => set(["racialAbility", "description"], e.target.value)} />

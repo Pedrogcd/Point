@@ -248,6 +248,24 @@ Verificado via Playwright (Leona, Grupo C): raça Ningen → principal Leonino �
 
 Suíte de testes: sem mudança de contagem (516 testes) — mudança é só de layout/cor, sem lógica nova. Build de produção confirmado.
 
+### Bônus de grau das habilidades de raça: passa a valer de verdade nos dados, barra em azul mostra a origem (13/10)
+
+Pedido do Pedro, com print marcado à mão (Leonino dá "+1 na proficiência Investigação", a ficha mostrava Investigação em E do mesmo jeito): o bônus precisava subir o grau de verdade (E→D no exemplo) e a barrinha precisava mostrar em azul qual pedaço veio da habilidade. **Antes de implementar, perguntei uma coisa que não dava pra decidir sozinho**: se o bônus devia só aparecer na tela ou valer de verdade nos cálculos de ataque/teste — Pedro confirmou que vale de verdade.
+
+**O catálogo (`bonus[]`) não é fonte confiável pra isso**: descobri lendo o `efeito` das 39 habilidades (24 principais + 15 secundárias) que "Descendentes de Sharkan" dá "+1 grau em Força" só no texto do `efeito`, nunca no array `bonus[]`. Por isso criei uma tabela curada à mão em `racasCatalogo.js` (`BONUS_GRAU_POR_HABILIDADE`) em vez de parsear o array — mais confiável que tentar extrair de texto livre. São **10 habilidades** que dão bônus de grau (confirmado por regex contra o `efeito` de todas): Sharkan (Força), Coelho/Bode (Sobrevivência), Leonino (Investigação), Reptiliano (Intimidação), Lobo/Canino (Liderança), Raposa/Kitsune (Intuição **e** Malandragem), Sentidos Aguçados (Perspicácia **e** Intuição), Camuflagem Animal (Furtividade **e** Sobrevivência), Escamas Fortes (Força) e Corpo Resistente (Vigor). As várias outras menções a "+1 dado"/"+1d10" no `efeito` (bônus pontual numa rolagem, não um grau permanente) ficaram de fora de propósito — são um mecanismo diferente.
+
+**Proteção contra desatualização**: `racasCatalogo.test.js` tem uma checagem automática que varre todo `efeito` do catálogo atrás de "+1 grau"/"+1 na(s) proficiência(s)" e falha se alguma habilidade que bate nesse padrão não estiver na tabela (ou vice-versa) — se o Pedro editar o catálogo de novo, o teste avisa em vez de ficar silenciosamente desatualizado.
+
+**Engine.js não mudou nada** — ele já lê `character.proficiencias`/`character.atributosGerais` direto (via `getAttrGrade` ou acesso direto), então bastou criar `comGrausEfetivos(character)` (`racasCatalogo.js`) que devolve `{ character, bonusAplicado }`: uma cópia do personagem com os graus já no valor EFETIVO (base + bônus, teto C — regra do Pedro: "aumentos de proficiência e atributo de raça são +1 grau, com teto C") e um mapa de quantos passos foram realmente aplicados (já descontado o teto, pra UI saber quanto pintar de azul). `grauComBonus` faz a conta (não sobe além de C; grau já C ou acima não sobe nem desce).
+
+**UI**: `CharacterSheet` calcula `characterEfetivo`/`bonusAplicado` uma vez (`useMemo`) e troca `character` pelo efetivo em todo lugar que mostra ou rola estatística — `AttrBar` (Atributos Gerais, Proficiências), `AttackCard`, `StatBlock`, o painel "Teste — Atributo + Perícia/Ataque" (incluindo os dropdowns de prévia) e `resolveFichaAtaque`. `character` cru continua valendo pro resto (nome, imagem, hp/mp/sp, raça texto livre) e pra abrir o formulário de edição — editar sempre mexe no grau BASE salvo, nunca no efetivo (confirmado: `onUpdateCharacter` só grava patches parciais de hp/mp/sp/procs, nunca proficiencias/atributosGerais inteiros, então usar o personagem "inflado" pra leitura não arrisca persistir o bônus por engano). O Confronto (`CompareView`) ganhou o mesmo tratamento: `a`/`b` já saem calculados como efetivos, e `DuelRoller`/`StatBlock` nem precisaram mudar (só recebem os valores já prontos).
+
+`AttrBar` ganhou um prop `bonus` (passos vindos de raça): desenha a barra em dois segmentos — a parte base na cor normal do grau, e os últimos `bonus` segmentos numa cor azul fixa (`BONUS_RACIAL_COR`, `#2F6FDE`, sem relação com a cor da habilidade — significa sempre a mesma coisa em qualquer raça). A letra do grau também fica azul quando há bônus.
+
+Verificado via Playwright (Leona, Grupo C): escolhe Ningen → Leonino, salva, confere via DOM que a barra de Investigação tem 2 segmentos (20% cinza + 20% azul, total 40% = grau D) e a letra "D" em `rgb(47, 111, 222)` (= `#2F6FDE`). Screenshot confirma visualmente. Zero erros JS.
+
+Suíte de testes: 516 → **535 testes em 81 suítes** (19 novos em `racasCatalogo.test.js`: cobertura da tabela de bônus contra o catálogo inteiro, `grauComBonus`, `bonusGrauDoPersonagem`, `comGrausEfetivos`). Build de produção confirmado.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

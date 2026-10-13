@@ -2,7 +2,7 @@
 // Funções puras (sem React), usadas pela UI (point-amaranth-app.jsx) e pela
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
-import { GRADE_ORDER } from "./engine.js";
+import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
 
 export const CATALOGO_RACAS = catalogo;
 
@@ -77,10 +77,10 @@ export const REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO = {
   fada: "fada",
 };
 
-// Resolve os 5 campos novos (raca/habilidadePrincipal/habilidadeSecundaria/
-// disciplinaHumano/descritores) a partir de uma ficha que pode já estar no
-// esquema novo, no esquema antigo (racaId/...Id), ou em nenhum dos dois
-// (ficha anterior a qualquer um dos dois sistemas).
+// Resolve os 6 campos novos (raca/habilidadePrincipal/habilidadeSecundaria/
+// disciplinaHumano/descritores/bonusGrauEscolha) a partir de uma ficha que pode
+// já estar no esquema novo, no esquema antigo (racaId/...Id), ou em nenhum dos
+// dois (ficha anterior a qualquer um dos dois sistemas).
 export function migrarSelecaoRacaLegado(ch) {
   if (ch.raca !== undefined) {
     return {
@@ -89,6 +89,7 @@ export function migrarSelecaoRacaLegado(ch) {
       habilidadeSecundaria: ch.habilidadeSecundaria ?? null,
       disciplinaHumano: ch.disciplinaHumano ?? null,
       descritores: ch.descritores ?? [],
+      bonusGrauEscolha: ch.bonusGrauEscolha ?? {},
     };
   }
   const racaId = ch.racaId ?? null;
@@ -96,7 +97,7 @@ export function migrarSelecaoRacaLegado(ch) {
   const habilidadePrincipal = principalIdLegado
     ? (REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO[principalIdLegado] || null)
     : null;
-  return { raca: racaId, habilidadePrincipal, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [] };
+  return { raca: racaId, habilidadePrincipal, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} };
 }
 
 // Mapeamento manual (não vem do catalogo-racas.json) de quais habilidades dão
@@ -107,16 +108,22 @@ export function migrarSelecaoRacaLegado(ch) {
 // específica, não mudam o grau salvo — fora do escopo daqui).
 //
 // Curado à mão, não derivado de `bonus[]`, porque esse array do catálogo é
-// incompleto pra esse fim — ex.: "Descendentes de Sharkan" só tem "+1 grau em
+// incompleto pra esse fim — ex.: "Descendentes de Sabato" só tem "+1 grau em
 // Força" no `efeito`, nunca em `bonus[]`. Toda entrada aqui foi conferida
 // contra o `efeito` de cada uma das 39 habilidades do catálogo (24 principais
-// + 15 secundárias) em 13/10: só essas 10 mencionam "+1 grau" ou "+1 na(s)
-// proficiência(s)". Se o catálogo mudar nomes de raça/efeito de novo, conferir
-// aqui também (racasCatalogo.test.js tem uma checagem automática: toda
-// habilidade cujo `efeito` contenha essas duas frases-chave precisa estar
-// listada aqui, e vice-versa).
+// + 15 secundárias) em 13/10 (catálogo "2026-10-11" com a regra de Blindado
+// separada em físico/mágico): essas 13 mencionam "+1 grau" ou "+1 na(s)
+// proficiência(s)" — 12 têm uma chave FIXA (tabela abaixo) e 2 (Mana
+// Concentrada, Homúnculo) deixam a escolha pro jogador (ver
+// BONUS_GRAU_ESCOLHA_POR_HABILIDADE); Homúnculo tem as duas coisas ao mesmo
+// tempo (Atletismo é fixo, Força-ou-Destreza é escolha). Se o catálogo mudar
+// nomes de raça/efeito de novo, conferir aqui também (racasCatalogo.test.js
+// tem uma checagem automática: toda habilidade cujo `efeito` contenha essas
+// frases-chave precisa estar numa das duas tabelas, e vice-versa).
 export const BONUS_GRAU_POR_HABILIDADE = {
-  "descendentes-de-sharkan": [{ tipo: "atributo", chave: "forca" }],
+  "descendentes-de-sabato": [{ tipo: "atributo", chave: "forca" }],
+  goethiano: [{ tipo: "atributo", chave: "vigor" }],
+  homunculo: [{ tipo: "proficiencia", chave: "atletismo" }],
   "coelho-bode": [{ tipo: "proficiencia", chave: "sobrevivencia" }],
   leonino: [{ tipo: "proficiencia", chave: "investigacao" }],
   reptiliano: [{ tipo: "proficiencia", chave: "intimidacao" }],
@@ -137,21 +144,45 @@ export const BONUS_GRAU_POR_HABILIDADE = {
   "corpo-resistente": [{ tipo: "atributo", chave: "vigor" }],
 };
 
+// Habilidades cujo bônus de grau é à ESCOLHA do jogador (pedido confirmado em
+// 13/10) — a chave concreta não vem do catálogo, é guardada por personagem em
+// `character.bonusGrauEscolha[habilidadeId]` (preenchida pela UI em
+// CharacterForm). `opcoes` restringe o que é um valor válido: Mana Concentrada
+// aceita qualquer proficiência do catálogo ("uma proficiência à sua
+// escolha"); Homúnculo só Força ou Destreza ("+1 grau em Força ou Destreza").
+export const BONUS_GRAU_ESCOLHA_POR_HABILIDADE = {
+  "mana-concentrada": { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.map((p) => p.key) },
+  homunculo: { tipo: "atributo", opcoes: ["forca", "destreza"] },
+};
+
 // Soma os bônus de grau das habilidades ATIVAS do personagem (principal +
 // secundária — Disciplina do Humano não dá bônus de grau, não tem entrada no
 // catálogo pra isso). Duas habilidades podem bonificar a mesma chave — os
-// passos somam antes de aplicar o teto (ver grauComBonus).
+// passos somam antes de aplicar o teto (ver grauComBonus). Quando a habilidade
+// tem bônus à escolha (BONUS_GRAU_ESCOLHA_POR_HABILIDADE) e o jogador ainda não
+// escolheu (ou escolheu algo fora de `opcoes`), esse bônus simplesmente não
+// soma nada — não há valor "padrão" que faça sentido escolher por ele.
 export function bonusGrauDoPersonagem(character) {
   const raca = encontrarRaca(character?.raca);
   const principal = encontrarPrincipal(raca, character?.habilidadePrincipal);
   const secundaria = encontrarSecundaria(raca, character?.habilidadeSecundaria);
   const resultado = { proficiencias: {}, atributos: {} };
   for (const hab of [principal, secundaria]) {
-    const bonus = hab ? BONUS_GRAU_POR_HABILIDADE[hab.id] : null;
-    if (!bonus) continue;
-    for (const b of bonus) {
-      const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
-      alvo[b.chave] = (alvo[b.chave] || 0) + 1;
+    if (!hab) continue;
+    const bonus = BONUS_GRAU_POR_HABILIDADE[hab.id];
+    if (bonus) {
+      for (const b of bonus) {
+        const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+        alvo[b.chave] = (alvo[b.chave] || 0) + 1;
+      }
+    }
+    const escolha = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[hab.id];
+    if (escolha) {
+      const chave = character?.bonusGrauEscolha?.[hab.id];
+      if (chave && escolha.opcoes.includes(chave)) {
+        const alvo = escolha.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+        alvo[chave] = (alvo[chave] || 0) + 1;
+      }
     }
   }
   return resultado;

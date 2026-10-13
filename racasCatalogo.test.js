@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria,
   descritoresDeSelecao, migrarSelecaoRacaLegado,
-  CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
+  CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
+  bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
 } from "./racasCatalogo.js";
 
 describe("racasCatalogo — lookups", () => {
@@ -26,12 +27,15 @@ describe("racasCatalogo — lookups", () => {
     assert.equal(encontrarPrincipal(null, "leonino"), null);
   });
 
-  it("encontrarSecundaria resolve dentro da raça certa; Humano não tem nenhuma (usa Disciplina)", () => {
+  it("encontrarSecundaria resolve dentro da raça certa; Humano tem 3, e só Vaga de Disciplina tem o flag disciplina", () => {
     const ningen = encontrarRaca("ningen");
     assert.equal(encontrarSecundaria(ningen, "transformacao").nome, "Transformação");
     const humano = encontrarRaca("humano");
-    assert.equal(humano.secundarias.length, 0);
-    assert.equal(humano.secundariaEhDisciplina, true);
+    assert.equal(humano.secundarias.length, 3);
+    assert.deepEqual(humano.secundarias.map((s) => s.id), ["vaga-de-disciplina", "homunculo", "goethiano"]);
+    assert.equal(encontrarSecundaria(humano, "vaga-de-disciplina").disciplina, true);
+    assert.equal(encontrarSecundaria(humano, "homunculo").disciplina, undefined);
+    assert.equal(encontrarSecundaria(humano, "goethiano").disciplina, undefined);
   });
 });
 
@@ -66,11 +70,11 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
   it("ficha sem nenhum dos dois esquemas (ex.: a Leona) fica toda null, sem inventar nada", () => {
     const leona = { id: "leona", name: "Leona", race: "Ningen Leonino" };
     const migrado = migrarSelecaoRacaLegado(leona);
-    assert.deepEqual(migrado, { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [] });
+    assert.deepEqual(migrado, { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} });
   });
 
   it("esquema novo já presente (mesmo com valores null) não é tocado", () => {
-    const ch = { raca: "humano", habilidadePrincipal: "mana-concentrada", habilidadeSecundaria: null, disciplinaHumano: { nome: "Alquimia", grau: "D" }, descritores: [] };
+    const ch = { raca: "humano", habilidadePrincipal: "mana-concentrada", habilidadeSecundaria: null, disciplinaHumano: { nome: "Alquimia", grau: "D" }, descritores: [], bonusGrauEscolha: { "mana-concentrada": "investigacao" } };
     assert.deepEqual(migrarSelecaoRacaLegado(ch), ch);
   });
 
@@ -82,6 +86,7 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
     assert.equal(migrado.habilidadeSecundaria, null); // sem de-para seguro, não migra
     assert.equal(migrado.disciplinaHumano, null);
     assert.deepEqual(migrado.descritores, []);
+    assert.deepEqual(migrado.bonusGrauEscolha, {});
   });
 
   it("racaId antigo sem habilidadePrincipalId migra só a raça", () => {
@@ -105,30 +110,36 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
 
 // Checagem automática de deriva: toda habilidade (principal ou secundária, de
 // qualquer raça) cujo `efeito` mencione "+1 grau" ou "+1 na proficiência"/
-// "+1 nas proficiências" precisa estar em BONUS_GRAU_POR_HABILIDADE, e
-// vice-versa — se o Pedro editar o catálogo de novo (mudar um efeito, trocar
-// uma habilidade) e isso mexer em quem dá bônus de grau, o teste quebra aqui
-// em vez de silenciosamente ficar desatualizado.
-describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE cobre o catálogo inteiro", () => {
+// "+1 nas proficiências" precisa estar em BONUS_GRAU_POR_HABILIDADE (bônus
+// fixo) e/ou BONUS_GRAU_ESCOLHA_POR_HABILIDADE (bônus à escolha do jogador —
+// ex.: Mana Concentrada, Homúnculo), e vice-versa — se o Pedro editar o
+// catálogo de novo (mudar um efeito, trocar uma habilidade) e isso mexer em
+// quem dá bônus de grau, o teste quebra aqui em vez de silenciosamente ficar
+// desatualizado. Homúnculo aparece nas duas tabelas (Atletismo é fixo,
+// Força-ou-Destreza é escolha) — por isso a cobertura usa a UNIÃO dos ids.
+describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálogo inteiro", () => {
   const todasHabilidades = CATALOGO_RACAS.racas.flatMap((r) => [...r.principais, ...r.secundarias]);
   const mencionamBonusDeGrau = todasHabilidades.filter((h) => /\+1 grau|\+1 na proficiência|\+1 nas proficiências/.test(h.efeito));
+  const idsMapeados = new Set([...Object.keys(BONUS_GRAU_POR_HABILIDADE), ...Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE)]);
 
-  it("toda habilidade cujo efeito menciona bônus de grau está mapeada", () => {
-    const faltando = mencionamBonusDeGrau.filter((h) => !BONUS_GRAU_POR_HABILIDADE[h.id]).map((h) => h.id);
-    assert.deepEqual(faltando, [], `habilidades com "+1 grau"/"+1 na(s) proficiência(s)" no efeito mas sem entrada em BONUS_GRAU_POR_HABILIDADE: ${faltando.join(", ")}`);
+  it("toda habilidade cujo efeito menciona bônus de grau está mapeada (fixa ou à escolha)", () => {
+    const faltando = mencionamBonusDeGrau.filter((h) => !idsMapeados.has(h.id)).map((h) => h.id);
+    assert.deepEqual(faltando, [], `habilidades com "+1 grau"/"+1 na(s) proficiência(s)" no efeito mas sem entrada em nenhuma das duas tabelas: ${faltando.join(", ")}`);
   });
 
-  it("todo id mapeado existe de verdade no catálogo e seu efeito realmente menciona bônus de grau", () => {
+  it("todo id mapeado (nas duas tabelas) existe de verdade no catálogo e seu efeito realmente menciona bônus de grau", () => {
     const idsCatalogo = new Set(todasHabilidades.map((h) => h.id));
     const idsMencionam = new Set(mencionamBonusDeGrau.map((h) => h.id));
-    for (const id of Object.keys(BONUS_GRAU_POR_HABILIDADE)) {
+    for (const id of idsMapeados) {
       assert.ok(idsCatalogo.has(id), `id mapeado "${id}" não existe mais no catálogo`);
       assert.ok(idsMencionam.has(id), `id mapeado "${id}" existe, mas o efeito dele não menciona mais bônus de grau`);
     }
   });
 
-  it("cobertura esperada: 10 habilidades (7 principais + 3 secundárias — confirmado em 13/10)", () => {
-    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 10);
+  it("cobertura esperada: 13 habilidades distintas (12 com bônus fixo, 2 à escolha, Homúnculo nas duas — confirmado em 13/10)", () => {
+    assert.equal(idsMapeados.size, 13);
+    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 12);
+    assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 2);
   });
 });
 
@@ -169,9 +180,49 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: { investigacao: 1 }, atributos: {} });
   });
 
-  it("Descendentes de Sharkan (niosh) dá +1 em Força — vem só do efeito, não do bonus[] do catálogo", () => {
+  it("Descendentes de Sharkan (niosh) NÃO dá bônus de grau (perdeu o +1 em Força na atualização de 13/10)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sharkan" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("Descendentes de Sabato (niosh) dá +1 em Força — vem só do efeito, não do bonus[] do catálogo", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sabato" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
+  });
+
+  it("Goethiano (secundária humana) dá +1 em Vigor", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "goethiano" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { vigor: 1 } });
+  });
+
+  it("Homúnculo dá +1 fixo em Atletismo mesmo sem escolha de Força/Destreza feita", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo" });
+    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: {} });
+  });
+
+  it("Homúnculo soma também o bônus à escolha quando o jogador escolheu Força", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo", bonusGrauEscolha: { homunculo: "forca" } });
+    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: { forca: 1 } });
+  });
+
+  it("Homúnculo com escolha em Destreza bonifica destreza, não força", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo", bonusGrauEscolha: { homunculo: "destreza" } });
+    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: { destreza: 1 } });
+  });
+
+  it("Homúnculo com escolha fora das opções válidas (ex.: vigor) ignora a escolha", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo", bonusGrauEscolha: { homunculo: "vigor" } });
+    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: {} });
+  });
+
+  it("Mana Concentrada sem escolha não dá bônus de grau nenhum", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-concentrada" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("Mana Concentrada com escolha de proficiência soma o bônus nela", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-concentrada", bonusGrauEscolha: { "mana-concentrada": "furtividade" } });
+    assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
   });
 
   it("habilidade com dois bônus (Raposa/Kitsune) soma os dois", () => {

@@ -114,7 +114,7 @@ export function migrarPersonagem(ch) {
   // Raça/habilidades do catálogo (catalogo-racas.json): migra o esquema antigo
   // (racaId/habilidadePrincipalId/habilidadeSecundariaId, PR #30/#31) pro novo
   // quando a ficha ainda não tiver os campos novos — ver racasCatalogo.js.
-  const { raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores } = migrarSelecaoRacaLegado(ch);
+  const { raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha } = migrarSelecaoRacaLegado(ch);
   // hp/mp/sp: toda ficha criada pelo app (semente, "Nova Ficha", Sidepoint) já
   // nasce com os três — por isso nunca precisou de default aqui. Mas um backup
   // incompleto ou salvo num formato bem antigo pode não ter; sem isso, a ficha
@@ -132,7 +132,7 @@ export function migrarPersonagem(ch) {
   return {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
     abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos,
-    raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores,
+    raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha,
   };
 }
 

@@ -3,7 +3,7 @@
   "regras": [
     "Habilidade racial é inteira: efeito fixo, sem grau E/D/C.",
     "Bônus somam dados (+1 dado), nunca +N no valor do dado.",
-    "Blindado: dados de ataque contra o personagem precisam de no mínimo 6 em vez de 5."
+    "Blindado: dados de ataque físico contra o personagem precisam de no mínimo 6 em vez de 5. Blindado Mágico: o mesmo para ataque mágico. Cada um cobre só o seu tipo."
   ],
   "racas": [
     {
@@ -18,7 +18,7 @@
         "Escolhem um tipo de mana, que é o tipo principal."
       ],
       "fraquezas": [
-        "Nenhuma fixa. O preço da versatilidade é não ter habilidade secundária de raça."
+        "Nenhuma."
       ],
       "principalNome": "Tipo de mana",
       "secundariaNome": "Vaga de Disciplina",
@@ -31,9 +31,10 @@
           "icone": "pontos-convergindo",
           "cor": "#2E9E5B",
           "descricao": "Mana verde concentrada nas extremidades; destreza e percepção mais apuradas e alma mais forte. Usam a mana das extremidades para impulsos momentâneos.",
-          "efeito": "+1 SP máximo.",
+          "efeito": "+1 SP máximo e +1 grau em uma proficiência à sua escolha (até o teto C).",
           "bonus": [
-            "SP +1"
+            "SP +1",
+            "Proficiência +1 grau"
           ],
           "descritores": []
         },
@@ -44,8 +45,10 @@
           "icone": "gota-onda",
           "cor": "#2F6FDE",
           "descricao": "Mana azul que se mantém fluida; mente mais aguçada e troca de mana com o exterior com facilidade.",
-          "efeito": "+1d10 na recuperação de mana na manutenção.",
-          "bonus": [],
+          "efeito": "+1 MP máximo.",
+          "bonus": [
+            "MP +1"
+          ],
           "descritores": []
         },
         {
@@ -55,7 +58,7 @@
           "icone": "losango-solido",
           "cor": "#D23B3B",
           "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano físico.",
-          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
           "bonus": [
             "Blindado"
           ],
@@ -64,7 +67,52 @@
           ]
         }
       ],
-      "secundarias": []
+      "secundarias": [
+        {
+          "id": "vaga-de-disciplina",
+          "nome": "Vaga de Disciplina",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "No lugar da habilidade secundária, o humano coloca uma Disciplina: Escola de Magia, Artes Marciais, Maestria de Armas ou Engenharia e Alquimia. Única habilidade de raça com grau: gasta pontos do orçamento de disciplina, como qualquer outra. Equivale à Adaptabilidade antiga (+1 habilidade passiva).",
+          "efeito": "Segue a escada E/D/C da disciplina escolhida.",
+          "bonus": [],
+          "descritores": [],
+          "disciplina": true
+        },
+        {
+          "id": "homunculo",
+          "nome": "Homúnculo",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Humano criado artificialmente: corpo projetado para a perfeição, alma mais vulnerável.",
+          "efeito": "+1 HP máximo. +1 grau em Força ou Destreza (até o teto C). +1 grau em Atletismo.",
+          "bonus": [
+            "HP +1",
+            "Atletismo +1 grau"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "goethiano",
+          "nome": "Goethiano",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Humanos nascidos em Goethia e abençoados pelo sangue dos Primals.",
+          "efeito": "+1 grau em Vigor (até o teto C). Ganha os descritores Blindado (dados de ataque físico contra você precisam de no mínimo 6, em vez de 5) e Blindado Mágico (o mesmo para ataque mágico). Cobre os dois tipos de ataque.",
+          "bonus": [
+            "Vigor +1 grau",
+            "Blindado",
+            "Blindado Mágico"
+          ],
+          "descritores": [
+            "blindado",
+            "blindado_magico"
+          ]
+        }
+      ]
     },
     {
       "id": "niosh",
@@ -75,7 +123,7 @@
       "anatomia": "Humanoide de até 2,3 m. A pele varia, sendo vermelho e azul comuns; a cada cerca de 5 anos trocam de pele e podem mudar de cor.",
       "divindade": "Umbra, Dulahand ou Arcanis.",
       "fixos": [
-        "+1 HP (hoje sem campo no motor)."
+        "+1 HP máximo para toda a raça (hoje sem campo no motor)."
       ],
       "fraquezas": [
         "Não usam armadura pesada nem mágica."
@@ -91,8 +139,11 @@
           "icone": "boca-dentes",
           "cor": "#8A8420",
           "descricao": "Imunes a veneno, buscam o prazer da gula e exageram em tudo: comer, beber, qualquer excesso.",
-          "efeito": "+1 grau em Força (até o teto) e +1 dado em testes de resistência que usam Resistência.",
-          "bonus": [],
+          "efeito": "+1 dado em testes de resistência contra veneno e efeitos de envenenamento. Ao sofrer dano de arma letal, pode tentar intoxicar com veneno as pessoas da zona: dificuldade de 3 sucessos para causar 1 de dano não letal de toxina. Pode adicionar Toxina aos ataques, causando envenenamento no alvo com dificuldade 3 (o envenenamento deixa uma ferida não letal que não se cura naturalmente).",
+          "bonus": [
+            "+1 dado vs veneno",
+            "Toxina nos ataques"
+          ],
           "descritores": []
         },
         {
@@ -102,9 +153,10 @@
           "icone": "olho-espiral",
           "cor": "#C0309B",
           "descricao": "Poderes psiônicos que simulam magia; obsessivos, acumuladores naturais e avarentos.",
-          "efeito": "Ganha o descritor Blindado Mágico: dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "efeito": "Ganha o descritor Blindado Mágico: dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. +1 MP máximo.",
           "bonus": [
-            "Blindado Mágico"
+            "Blindado Mágico",
+            "MP +1"
           ],
           "descritores": [
             "blindado_magico"
@@ -117,8 +169,11 @@
           "icone": "garra-tres-riscos",
           "cor": "#8E1F3A",
           "descricao": "Agressivos, buscam o prazer na violência: sangue ou prazer carnal.",
-          "efeito": "+1 dado em testes de resistência que usam Força.",
-          "bonus": [],
+          "efeito": "+1 grau em Força, até o teto C. +1 HP máximo.",
+          "bonus": [
+            "Força +1 grau",
+            "HP +1"
+          ],
           "descritores": []
         }
       ],
@@ -130,9 +185,13 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Niosh são naturalmente fortes.",
-          "efeito": "+1 dado na confirmação de dano físico.",
-          "bonus": [],
-          "descritores": []
+          "efeito": "Ataques físicos ignoram o descritor Blindado, exceto o Blindado que não pode ser ignorado (a negação vence sempre).",
+          "bonus": [
+            "Ignora Blindado (físico)"
+          ],
+          "descritores": [
+            "ignora_blindado"
+          ]
         },
         {
           "id": "sangue-quente",
@@ -141,8 +200,10 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Quanto mais ferido, mais perigoso.",
-          "efeito": "Com 1 ferida, ao rolar crítico no ataque, +1d10 na confirmação de dano.",
-          "bonus": [],
+          "efeito": "Transforma o primeiro dano de arma letal sofrido após um descanso longo em dano não letal. Uma vez por descanso longo, se tiver uma ferida, pode gastar 1 SP para regenerar uma ferida não letal.",
+          "bonus": [
+            "1º dano letal vira não letal"
+          ],
           "descritores": []
         },
         {
@@ -152,11 +213,28 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Pele grossa de Oni; compensa a proibição de armadura pesada.",
-          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
-          "bonus": [],
+          "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Se já tiver o descritor, o seu Blindado não pode ser ignorado por habilidades.",
+          "bonus": [
+            "Blindado"
+          ],
           "descritores": [
             "blindado"
           ]
+        },
+        {
+          "id": "adaptado",
+          "nome": "Adaptado",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Oni de montanha, de mata e de áreas cobertas, como subtipos da descendência (o texto antigo cita onde vivem).",
+          "efeito": "+1 dado em Sobrevivência, +1 em Atletismo e +1 em Furtividade.",
+          "bonus": [
+            "+1 dado em Sobrevivência",
+            "Atletismo +1",
+            "Furtividade +1"
+          ],
+          "descritores": []
         }
       ]
     },
@@ -219,7 +297,7 @@
           "icone": "olho-pupila-fendida",
           "cor": "#1F8A70",
           "descricao": "Escamas, cauda e rosto longo com muitos dentes.",
-          "efeito": "+1 na proficiência Intimidação. Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Ataques desarmados são tratados como armas letais e contam como arma branca para habilidades. +1 HP máximo.",
+          "efeito": "+1 na proficiência Intimidação. Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Ataques desarmados são tratados como armas letais e contam como arma branca para habilidades. +1 HP máximo.",
           "bonus": [
             "Intimidação +1",
             "Blindado",
@@ -318,7 +396,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Proteção natural mesmo na forma humanoide.",
-          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Se já tiver o descritor, ele não poderá ser ignorado por habilidades.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Se já tiver o descritor, ele não poderá ser ignorado por habilidades.",
           "bonus": [
             "Blindado"
           ],
@@ -496,7 +574,7 @@
           "icone": "escama-metalica",
           "cor": "#6C7A89",
           "descricao": "Escamas metálicas e pele extremamente resistente; não gostam de armadura por já terem uma natural forte.",
-          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
           "bonus": [
             "Blindado"
           ],

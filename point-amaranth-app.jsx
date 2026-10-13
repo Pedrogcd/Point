@@ -33,7 +33,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -139,7 +139,7 @@ const DESCRITOR_INFO = {
   blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
   blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
   desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
-  ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques desarmados letais ignoram o efeito Blindado do alvo." },
+  ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
   veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "+1 de prioridade na iniciativa." },
 };
 
@@ -502,6 +502,7 @@ function withFichaDefaults(c) {
     habilidadeSecundaria: null,
     disciplinaHumano: null,
     descritores: [],
+    bonusGrauEscolha: {},
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
@@ -4201,6 +4202,7 @@ const emptyCharacter = () => ({
   habilidadeSecundaria: null,
   disciplinaHumano: null,
   descritores: [],
+  bonusGrauEscolha: {},
   racialAbility: { name: "", description: "" },
   classes: [{ name: "", description: "" }, { name: "", description: "" }],
   grupo: "c",
@@ -5384,21 +5386,23 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           o cartão principal cai pro nome do catálogo (`habilidadePrincipal`)
           — dá pra usar só os seletores, sem escrever nada. A secundária nunca
           tem cor própria: no catálogo, toda habilidade secundária já nasce com
-          `cor: null` — não precisa forçar neutro no código. Pro Humano
-          (`secundariaEhDisciplina`), o espaço da secundária mostra a
-          Disciplina escolhida (nome livre + grau E/D/C) em vez da lista, já
-          que a raça não tem secundarias[] no catálogo. */}
+          `cor: null` — não precisa forçar neutro no código. Quando a
+          secundária ESCOLHIDA tem o flag `disciplina` (hoje só a "Vaga de
+          Disciplina" do Humano), o espaço da secundária mostra a Disciplina
+          escolhida (nome livre + grau E/D/C) em vez da descrição/efeito do
+          catálogo — a checagem é pela habilidade escolhida, não pela raça, já
+          que o Humano agora tem outras secundárias normais também. */}
       {(() => {
         const racaInfo = encontrarRaca(character.raca);
-        const ehHumano = character.raca === "humano";
         const habPrincipal = encontrarPrincipal(racaInfo, character.habilidadePrincipal);
-        const habSecundaria = ehHumano ? null : encontrarSecundaria(racaInfo, character.habilidadeSecundaria);
+        const habSecundaria = encontrarSecundaria(racaInfo, character.habilidadeSecundaria);
+        const ehDisciplina = habSecundaria?.disciplina === true;
         const disciplina = character.disciplinaHumano;
         const principalVazio = !character.racialAbility?.name && !habPrincipal;
         const corPrincipal = habPrincipal ? habPrincipal.cor : MUTED;
         const iconPrincipal = habPrincipal ? iconePara(habPrincipal.icone) : (racaInfo ? iconePara(racaInfo.icone) : null);
         const IconRaca = racaInfo ? iconePara(racaInfo.icone) : null;
-        const secundariaVazia = ehHumano ? !disciplina?.nome : !habSecundaria;
+        const secundariaVazia = ehDisciplina ? !disciplina?.nome : !habSecundaria;
         return (
       <div style={panelStyle}>
         <div style={{ ...panelHeadStyle, color: racaInfo?.cor || PURPLE, display: "flex", alignItems: "center", gap: 6 }}>
@@ -5419,16 +5423,16 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             efeito={!principalVazio ? habPrincipal?.efeito : undefined}
           />
           <SlotBox
-            etiqueta={ehHumano ? "Vaga de Disciplina" : "Habilidade de Raça — secundária"}
+            etiqueta={ehDisciplina ? (racaInfo?.secundariaNome || "Vaga de Disciplina") : "Habilidade de Raça — secundária"}
             cor={MUTED}
             Icon={IconRaca}
             vazio={secundariaVazia}
-            titulo={ehHumano ? disciplina?.nome : habSecundaria?.nome}
-            subtitulo={ehHumano ? (disciplina?.nome ? `Grau ${disciplina.grau}` : null) : (racaInfo?.nome || null)}
-            corpo={ehHumano
+            titulo={ehDisciplina ? disciplina?.nome : habSecundaria?.nome}
+            subtitulo={ehDisciplina ? (disciplina?.nome ? `Grau ${disciplina.grau}` : null) : (racaInfo?.nome || null)}
+            corpo={ehDisciplina
               ? (secundariaVazia ? "Nenhuma disciplina escolhida ainda." : "Disciplina — grau livre, definida pelo jogador.")
               : (secundariaVazia ? "Nenhuma secundária escolhida ainda." : (habSecundaria?.descricao || "Sem descrição."))}
-            efeito={!ehHumano && !secundariaVazia ? habSecundaria?.efeito : undefined}
+            efeito={!ehDisciplina && !secundariaVazia ? habSecundaria?.efeito : undefined}
           />
           {[0, 1].map((i) => (
             <SlotBox
@@ -5639,8 +5643,9 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       raca: racaId,
       habilidadePrincipal: null,
       habilidadeSecundaria: null,
-      disciplinaHumano: racaId === "humano" ? { nome: "", grau: "E" } : null,
+      disciplinaHumano: null,
       descritores: [],
+      bonusGrauEscolha: {},
     }));
   }
   function escolherPrincipal(principalId) {
@@ -5653,9 +5658,47 @@ export function CharacterForm({ initial, onSave, onCancel }) {
   function escolherSecundaria(secundariaId) {
     setC((prev) => {
       const raca = encontrarRaca(prev.raca);
-      const descritores = descritoresDeSelecao(encontrarPrincipal(raca, prev.habilidadePrincipal), encontrarSecundaria(raca, secundariaId));
-      return { ...prev, habilidadeSecundaria: secundariaId, descritores };
+      const secundaria = encontrarSecundaria(raca, secundariaId);
+      const descritores = descritoresDeSelecao(encontrarPrincipal(raca, prev.habilidadePrincipal), secundaria);
+      return {
+        ...prev,
+        habilidadeSecundaria: secundariaId,
+        disciplinaHumano: secundaria?.disciplina ? (prev.disciplinaHumano || { nome: "", grau: "E" }) : null,
+        descritores,
+      };
     });
+  }
+  // Bônus de grau à escolha do jogador (Mana Concentrada, Homúnculo — ver
+  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE em racasCatalogo.js). Guardado por
+  // habilidade (não por raça/personagem) pra não se perder se o jogador trocar
+  // de principal/secundária e voltar.
+  function escolherBonusGrau(habilidadeId, chave) {
+    setC((prev) => ({ ...prev, bonusGrauEscolha: { ...(prev.bonusGrauEscolha || {}), [habilidadeId]: chave } }));
+  }
+  // Seletor extra pro bônus de grau à escolha (ver escolherBonusGrau acima) —
+  // só aparece sob a habilidade que de fato tem entrada em
+  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE (hoje: Mana Concentrada, Homúnculo).
+  function renderEscolhaBonusGrau(habilidadeId) {
+    const escolha = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[habilidadeId];
+    if (!escolha) return null;
+    const lista = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+    return (
+      <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <label style={{ fontSize: 11, color: MUTED }}>
+          Bônus de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha):
+        </label>
+        <select
+          style={{ ...inputStyle, width: 200 }}
+          value={c.bonusGrauEscolha?.[habilidadeId] || ""}
+          onChange={(e) => escolherBonusGrau(habilidadeId, e.target.value)}
+        >
+          <option value="">— escolher —</option>
+          {escolha.opcoes.map((chave) => (
+            <option key={chave} value={chave}>{lista.find((x) => x.key === chave)?.label || chave}</option>
+          ))}
+        </select>
+      </div>
+    );
   }
 
   function addAbility() {
@@ -5863,35 +5906,19 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                     onEscolher={escolherPrincipal}
                   />
                   {principalAtual && (
-                    <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
-                      {principalAtual.descricao} <em>Efeito: {principalAtual.efeito}</em>
-                    </p>
+                    <>
+                      <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
+                        {principalAtual.descricao} <em>Efeito: {principalAtual.efeito}</em>
+                      </p>
+                      {renderEscolhaBonusGrau(principalAtual.id)}
+                    </>
                   )}
                 </div>
               );
             })()}
-            {racaAtual && racaAtual.secundariaEhDisciplina && (
-              <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
-                  {racaAtual.secundariaNome || "Vaga de Disciplina"}
-                </div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <input
-                    style={{ ...inputStyle, flex: 1 }} placeholder="Nome da disciplina"
-                    value={c.disciplinaHumano?.nome || ""}
-                    onChange={(e) => set(["disciplinaHumano", "nome"], e.target.value)}
-                  />
-                  <select
-                    style={{ ...inputStyle, width: 90 }} value={c.disciplinaHumano?.grau || "E"}
-                    onChange={(e) => set(["disciplinaHumano", "grau"], e.target.value)}
-                  >
-                    {["E", "D", "C"].map((g) => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-            {racaAtual && !racaAtual.secundariaEhDisciplina && (() => {
+            {racaAtual && (() => {
               const secundariaAtual = encontrarSecundaria(racaAtual, c.habilidadeSecundaria);
+              const ehDisciplina = secundariaAtual?.disciplina === true;
               return (
                 <div style={{ marginTop: 14 }}>
                   <SeletorCards
@@ -5901,10 +5928,29 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                     onEscolher={escolherSecundaria}
                     corForcada={MUTED}
                   />
-                  {secundariaAtual && (
-                    <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
-                      {secundariaAtual.descricao} <em>Efeito: {secundariaAtual.efeito}</em>
-                    </p>
+                  {ehDisciplina ? (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <input
+                          style={{ ...inputStyle, flex: 1 }} placeholder="Nome da disciplina"
+                          value={c.disciplinaHumano?.nome || ""}
+                          onChange={(e) => set(["disciplinaHumano", "nome"], e.target.value)}
+                        />
+                        <select
+                          style={{ ...inputStyle, width: 90 }} value={c.disciplinaHumano?.grau || "E"}
+                          onChange={(e) => set(["disciplinaHumano", "grau"], e.target.value)}
+                        >
+                          {["E", "D", "C"].map((g) => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : secundariaAtual && (
+                    <>
+                      <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
+                        {secundariaAtual.descricao} <em>Efeito: {secundariaAtual.efeito}</em>
+                      </p>
+                      {renderEscolhaBonusGrau(secundariaAtual.id)}
+                    </>
                   )}
                 </div>
               );

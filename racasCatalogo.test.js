@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria,
-  descritoresDeSelecao, migrarSelecaoRacaLegado,
+  descritoresDeSelecao, migrarSelecaoRacaLegado, temDescritor,
   CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
   bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
 } from "./racasCatalogo.js";
@@ -136,9 +136,9 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
     }
   });
 
-  it("cobertura esperada: 13 habilidades distintas (12 com bônus fixo, 2 à escolha, Homúnculo nas duas — confirmado em 13/10)", () => {
-    assert.equal(idsMapeados.size, 13);
-    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 12);
+  it("cobertura esperada: 22 habilidades distintas (21 com bônus fixo, 2 à escolha, Homúnculo nas duas — catálogo v3, 13/10)", () => {
+    assert.equal(idsMapeados.size, 22);
+    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 21);
     assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 2);
   });
 });
@@ -225,6 +225,51 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
   });
 
+  it("Mana Estática (humano) dá +1 em Resistência Física e +1 em Resistência Mágica — catálogo v3 trocou o Blindado por isso", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-estatica" });
+    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1, resistMagicaProf: 1 }, atributos: {} });
+  });
+
+  it("Pele Grossa (niosh) dá +1 em Resistência Física e +1 em Resistência Mágica — mesma troca do Blindado", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
+    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1, resistMagicaProf: 1 }, atributos: {} });
+  });
+
+  it("Clã Radiante (elfo) dá +1 em Carisma", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-radiante" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { carisma: 1 } });
+  });
+
+  it("Clã Noctis (elfo) dá +1 em Manipulação", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-noctis" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { manipulacao: 1 } });
+  });
+
+  it("Clã Corvus (elfo) dá +1 em Furtividade e +1 em Magias Ofensivas", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-corvus" });
+    assert.deepEqual(bonus, { proficiencias: { furtividade: 1, magiasOfensivas: 1 }, atributos: {} });
+  });
+
+  it("Clã Seasus (elfo) dá +1 em Magias Ofensivas, Magias Gerais e Resistência Mágica", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-seasus" });
+    assert.deepEqual(bonus, { proficiencias: { magiasOfensivas: 1, magiasGerais: 1, resistMagicaProf: 1 }, atributos: {} });
+  });
+
+  it("Clã Natrus (elfo) dá +1 em Resistência Mágica e Sobrevivência", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-natrus" });
+    assert.deepEqual(bonus, { proficiencias: { resistMagicaProf: 1, sobrevivencia: 1 }, atributos: {} });
+  });
+
+  it("Resistência à Dor (elfo secundária) dá +1 em Resolução — trocou de '+1 dado' pontual pra grau permanente", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadeSecundaria: "resistencia-a-dor" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { resolucao: 1 } });
+  });
+
+  it("Arte e Tradição (elfo secundária) dá +1 em Etiqueta, Atuação e Malandragem", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadeSecundaria: "arte-e-tradicao" });
+    assert.deepEqual(bonus, { proficiencias: { etiqueta: 1, atuacao: 1, malandragem: 1 }, atributos: {} });
+  });
+
   it("habilidade com dois bônus (Raposa/Kitsune) soma os dois", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "raposa-kitsune" });
     assert.deepEqual(bonus, { proficiencias: { intuicao: 1, malandragem: 1 }, atributos: {} });
@@ -277,5 +322,22 @@ describe("racasCatalogo — comGrausEfetivos", () => {
     assert.equal(character.id, "x");
     assert.equal(character.name, "X");
     assert.deepEqual(character.hp, { current: 3, max: 3 });
+  });
+});
+
+describe("racasCatalogo — temDescritor", () => {
+  it("true quando o descritor está em character.descritores", () => {
+    assert.equal(temDescritor({ descritores: ["sortudo", "blindado"] }, "sortudo"), true);
+  });
+
+  it("false quando o descritor não está presente", () => {
+    assert.equal(temDescritor({ descritores: ["blindado"] }, "sortudo"), false);
+  });
+
+  it("personagem sem descritores (ou sem o campo) não quebra, devolve false", () => {
+    assert.equal(temDescritor({ descritores: [] }, "sortudo"), false);
+    assert.equal(temDescritor({}, "sortudo"), false);
+    assert.equal(temDescritor(null, "sortudo"), false);
+    assert.equal(temDescritor(undefined, "sortudo"), false);
   });
 });

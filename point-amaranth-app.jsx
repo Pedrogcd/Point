@@ -33,7 +33,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, temDescritor,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -131,16 +131,20 @@ const HABILIDADE_CATEGORIA_INFO = {
   resistencia: { label: "Resistência", icon: Shield, color: PURPLE },
 };
 
-// Texto de exibição dos descritores (character.descritores) — os 5 ids que o
+// Texto de exibição dos descritores (character.descritores) — os 6 ids que o
 // catalogo-racas.json usa hoje. O catálogo só guarda o id (ex.: "blindado"),
 // sem rótulo/descrição pronta pra mostrar; esse mapa existe só pra isso, não
 // pra regra nenhuma (nenhum descritor ainda afeta fórmula — ver engine.js).
+// "sortudo" (Clã Radiante/Noctis, catálogo 2026-10-11 v3) é só exibição por
+// enquanto: a mecânica de re-roll automático (primeiro 1 ou 2 de cada teste)
+// depende de decidir o alcance exato antes de tocar em engine.js.
 const DESCRITOR_INFO = {
   blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
   blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
   desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
   ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
   veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "+1 de prioridade na iniciativa." },
+  sortudo: { label: "Sortudo", cor: "#E0A800", descricao: "O primeiro dado que sair 1 ou 2 em cada teste (inclusive de ataque) é re-rolado automaticamente, uma vez." },
 };
 
 
@@ -5081,6 +5085,25 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 <Sparkles size={13} color={MP_COLOR} /> Restaurar MP e SP
               </Btn>
             )}
+            {onUpdateCharacter && character.habilidadePrincipal === "cla-corvus" && (() => {
+              const hpAtual = character.hp?.current ?? computeMaxHP(character);
+              const mpAtual = character.mp?.current ?? 0;
+              const mpMax = character.mp?.max ?? 3;
+              const podeConverter = hpAtual > 0 && mpAtual < mpMax;
+              return (
+                <Btn
+                  onClick={() => podeConverter && onUpdateCharacter(character.id, {
+                    hp: { ...character.hp, current: hpAtual - 1 },
+                    mp: { ...character.mp, current: mpAtual + 1 },
+                  })}
+                  disabled={!podeConverter}
+                  style={{ width: "100%", justifyContent: "center", marginTop: 6 }}
+                  title="Clã Corvus: causa dano não letal em si para usar como MP, 1 para 1."
+                >
+                  <Droplet size={13} color={EMBER} /> Causar 1 dano em si (+1 MP)
+                </Btn>
+              );
+            })()}
           </div>
         </div>
 

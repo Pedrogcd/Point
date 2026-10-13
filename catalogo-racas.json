@@ -57,14 +57,13 @@
           "papel": "principal",
           "icone": "losango-solido",
           "cor": "#D23B3B",
-          "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano físico.",
-          "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano.",
+          "efeito": "+1 grau em Resistência Física e +1 grau em Resistência Mágica (até o teto C).",
           "bonus": [
-            "Blindado"
+            "Resistência Física +1 grau",
+            "Resistência Mágica +1 grau"
           ],
-          "descritores": [
-            "blindado"
-          ]
+          "descritores": []
         }
       ],
       "secundarias": [
@@ -213,13 +212,12 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Pele grossa de Oni; compensa a proibição de armadura pesada.",
-          "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. Se já tiver o descritor, o seu Blindado não pode ser ignorado por habilidades.",
+          "efeito": "+1 grau em Resistência Mágica e +1 grau em Resistência Física (até o teto C).",
           "bonus": [
-            "Blindado"
+            "Resistência Física +1 grau",
+            "Resistência Mágica +1 grau"
           ],
-          "descritores": [
-            "blindado"
-          ]
+          "descritores": []
         },
         {
           "id": "adaptado",
@@ -461,9 +459,14 @@
           "icone": "sol",
           "cor": "#E0A800",
           "descricao": "Poder de Dulahand, do sol; sorte, e geram mana da matéria.",
-          "efeito": "Re-rolar um dado próprio, uma vez por turno.",
-          "bonus": [],
-          "descritores": []
+          "efeito": "Ganha o descritor Sortudo: re-rola automaticamente o primeiro 1 ou 2 de cada teste, inclusive de ataque; o resultado mostra o dado original e o novo. +1 grau em Carisma (até o teto C).",
+          "bonus": [
+            "Sortudo",
+            "Carisma +1 grau"
+          ],
+          "descritores": [
+            "sortudo"
+          ]
         },
         {
           "id": "cla-noctis",
@@ -472,9 +475,14 @@
           "icone": "lua-crescente",
           "cor": "#4B4FC4",
           "descricao": "Poder de Umbra, da lua; sua bênção; geram mana da matéria.",
-          "efeito": "Re-rolar um dado de aliado ou inimigo na mesma zona, uma vez por turno.",
-          "bonus": [],
-          "descritores": []
+          "efeito": "Ganha o descritor Sortudo: re-rola automaticamente o primeiro 1 ou 2 de cada teste, inclusive de ataque; o resultado mostra o dado original e o novo. +1 grau em Manipulação (até o teto C).",
+          "bonus": [
+            "Sortudo",
+            "Manipulação +1 grau"
+          ],
+          "descritores": [
+            "sortudo"
+          ]
         },
         {
           "id": "cla-corvus",
@@ -483,8 +491,11 @@
           "icone": "gota-sangue-pena",
           "cor": "#A1122B",
           "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
-          "efeito": "Gastar HP como MP.",
-          "bonus": [],
+          "efeito": "Causa dano não letal em si para usar como MP, na proporção de 1 de dano para 1 MP. +1 grau em Furtividade e +1 grau em Magias Ofensivas.",
+          "bonus": [
+            "Furtividade +1 grau",
+            "Magias Ofensivas +1 grau"
+          ],
           "descritores": []
         },
         {
@@ -494,8 +505,12 @@
           "icone": "circulo-quatro",
           "cor": "#14A3A8",
           "descricao": "Poder dos conhecimentos dos primordiais e das estações.",
-          "efeito": "Começa com Magia sem gastar slot.",
-          "bonus": [],
+          "efeito": "+1 grau em Magias Ofensivas, em Magias Gerais e em Resistência Mágica.",
+          "bonus": [
+            "Magias Ofensivas +1 grau",
+            "Magias Gerais +1 grau",
+            "Resistência Mágica +1 grau"
+          ],
           "descritores": []
         },
         {
@@ -505,9 +520,15 @@
           "icone": "folha",
           "cor": "#3F8F3A",
           "descricao": "Elfos nobres, ligados aos elementos da natureza e do mundo material.",
-          "efeito": "Começa com um sistema elemental sem gastar slot.",
-          "bonus": [],
-          "descritores": []
+          "efeito": "Ganha o descritor Blindado Mágico: dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. +1 grau em Resistência Mágica e +1 grau em Sobrevivência.",
+          "bonus": [
+            "Blindado Mágico",
+            "Resistência Mágica +1 grau",
+            "Sobrevivência +1 grau"
+          ],
+          "descritores": [
+            "blindado_magico"
+          ]
         }
       ],
       "secundarias": [
@@ -531,8 +552,10 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "O texto antigo diz que elfos são bastante resistentes à dor.",
-          "efeito": "+1 dado em testes de Resolução contra dor ou tortura.",
-          "bonus": [],
+          "efeito": "+1 grau em Resolução.",
+          "bonus": [
+            "Resolução +1 grau"
+          ],
           "descritores": []
         },
         {
@@ -542,7 +565,22 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Emoção expressa pela arte; costumes antigos.",
-          "efeito": "+1d10 em testes de Atuação e Etiqueta.",
+          "efeito": "+1 grau em Etiqueta, em Atuação e em Malandragem.",
+          "bonus": [
+            "Etiqueta +1 grau",
+            "Atuação +1 grau",
+            "Malandragem +1 grau"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "elfo-da-natureza",
+          "nome": "Elfo da Natureza",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Tira mana direto da terra. Linha antiga da planilha, sem clã nomeado.",
+          "efeito": "Como Ação e gastando 1 SP, recuperar 3 MP.",
           "bonus": [],
           "descritores": []
         }

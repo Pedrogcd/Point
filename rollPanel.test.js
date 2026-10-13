@@ -70,12 +70,11 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtta
     assert.equal(r.threshold, 8, "Defesa do alvo (já com a base embutida) deve ser exatamente a digitada");
     assert.equal(r.resistArmadura, 8, "resistArmadura não tem Proficiência vinculada (STAT_PROF_LINK) — passa direto");
     // resistNatural passa pelo mesmo computeStat do Confronto: makeEditableOpponent
-    // zera o vínculo de ATRIBUTO (statLinks), mas resistNaturalFisica/Magica têm
-    // uma Proficiência vinculada (STAT_PROF_LINK) que fica no grau padrão E — e
-    // essas duas usam grau cheio (GRADE_VALUE.E=1), não bônus — então o valor
-    // final é sempre o digitado +1. Mesma conta que o Confronto já faz pro
-    // oponente Editável; não é um comportamento novo desta feature.
-    assert.equal(r.resistNatural, 5);
+    // zera o vínculo de ATRIBUTO (statLinks) E, desde 13/10, resistNaturalFisica/
+    // Magica não têm mais Proficiência vinculada (STAT_PROF_LINK) — então o
+    // valor final é exatamente o digitado, sem nenhum +1 de quebra. Mesma conta
+    // que o Confronto já faz pro oponente Editável.
+    assert.equal(r.resistNatural, 4);
     assert.equal(r.resistNaturalKey, "resistNaturalFisica"); // SOCO é marcial
     assert.equal(r.temArmadura, true);
   });
@@ -91,7 +90,7 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtta
     });
     assert.equal(r.threshold, 12);
     assert.equal(r.resistArmadura, 15);
-    assert.equal(r.resistNatural, 10);
+    assert.equal(r.resistNatural, 9);
     assert.equal(r.temArmadura, true);
   });
 
@@ -111,8 +110,9 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtta
 
   it("com armadura marcada, a primeira confirmação enfrenta a Armadura", (t) => {
     // 3 dados de Acerto: só o primeiro (8) gera sucesso (8+1 bônus=9 > Defesa 8).
+    // 2 dados de Resistência ativa do defensor (baixos, não cancelam nada).
     // 1 dado de Confirmação (valor irrelevante pro teste, só precisa existir).
-    mockDice(t, [8, 1, 1, 5]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, 5]);
     const r = resolveFichaAtaque({
       character: makeAttacker(),
       attack: SOCO,
@@ -127,7 +127,7 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtta
   });
 
   it("sem armadura, a confirmação vai direto pra Resistência Natural (não passa pela Armadura)", (t) => {
-    mockDice(t, [8, 1, 1, 5]);
+    mockDice(t, [8, 1, 1, /*resist*/ 1, 1, 5]);
     const r = resolveFichaAtaque({
       character: makeAttacker(),
       attack: SOCO,

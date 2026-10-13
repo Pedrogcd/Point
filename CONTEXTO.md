@@ -321,6 +321,22 @@ Pedro anexou um `catalogo-racas.json` novo (v3, mesmo dia da v2), substituindo o
 
 As 3 perguntas foram feitas ao Pedro via pergunta direta (não implementadas "no escuro") — respostas pendentes antes de tocar em `resolveAttack`/`resolveConfirmationPhase`.
 
+### Defesa ativa por Resistência: substitui o uso passivo, dados escalam por grau (13/10, mesmo dia)
+
+Resposta do Pedro às perguntas da seção anterior: a rolagem ativa de Resistência **substitui** o uso passivo (não soma às duas coisas) e os dados **escalam por grau** (não fica fixo em 3d10). Confirmei também, com números concretos, que isso derruba a Resistência Natural de **todo personagem já existente** (não só fichas novas) — ex.: suth_draguna caía de 12→7 (Física) e 10→7 (Mágica) — e o Pedro confirmou que vale pra todo mundo mesmo.
+
+**`engine.js`**:
+- `STAT_PROF_LINK` perdeu as entradas de `resistNaturalFisica`/`resistNaturalMagica` (ficou só `{ defesa: "defesaProf" }`) — essa estatística agora soma só Vigor (grau cheio, igual sempre), sem a Proficiência de Resistência.
+- Nova função `resolveResistenciaAtiva(defender, attackTipo)`: o defensor rola Vigor + Resistência Física/Mágica (a certa pro tipo do ataque) em dados — `totalDice = GRADE_VALUE[vigor] + GRADE_VALUE[resistência]`, mesma lógica de "soma os graus em dados" que os Testes genéricos da ficha já usam — e aplica o mesmo `rollSuccessDice` (sucesso com d>5 ou d=10). Essa escolha de atributo (Vigor) segue o vínculo que `resistNaturalFisica`/`resistNaturalMagica` já tinham em `DEFAULT_STAT_LINKS` antes dessa mudança — não é um vínculo novo.
+- `resolveAttack` chama essa função logo depois do Acerto (ou imediatamente, pra ataques de sucesso fixo tipo "2S") e ANTES da Confirmação: cada sucesso do defensor cancela 1 sucesso do Acerto do atacante, mínimo 0. `successCritOrder` (lista de quais sucessos vieram de dado crítico, usada pra saber quais Confirmações ganham +1) é truncada pro novo total — mantém os primeiros, descarta do fim (não há como saber "qual" sucesso foi cancelado). O retorno de `resolveAttack` ganhou `successesAntesDaResistencia` (valor bruto do Acerto, pra UI mostrar o antes/depois) e `resistenciaAtiva` (dados, sucessos, `profKey`, `totalDice`).
+- Blindado continua sem nenhuma implementação em `engine.js` (só descritor exibido) — o pedido original ligava Blindado a essa rolagem ("o Blindado muda o limiar do dado do atacante"), mas isso exigiria reconciliar com o Acerto-vs-Defesa que já existe (não é um limiar fixo "5/6"); ficou de fora desta rodada por falta de resposta específica pra esse ponto.
+
+**UI**: `AttackResultPanel` (componente compartilhado pela ficha e pelo Confronto) ganhou um bloco "RESISTÊNCIA DO DEFENSOR" entre o resumo do Acerto e a Confirmação — mostra os dados rolados, quantos sucessos o defensor tirou e a redução (`successesAntesDaResistencia → successes`). `DuelRoller` (Confronto): ao gastar MP/SP pra re-rolar um dado de Acerto, a rolagem de Resistência NÃO é refeita (seria estranho re-rolar algo que não mudou) — só reaplica a MESMA redução (`result.resistenciaAtiva.successes`) sobre o novo total de sucessos do Acerto.
+
+**Efeito colateral grande, intencional**: toda ficha existente (Grupo C, Aurora, Suth, Hetalion) teve sua Resistência Natural Física/Mágica recalculada pra baixo — as duas tabelas de teste que conferem essas fichas contra os documentos de conversão do Pedro (`suthStats.test.js`, `hetalionStats.test.js`) foram atualizadas pros valores novos (agora Física e Mágica sempre coincidem, já que as duas dependem só de Vigor). O teste de balanceamento estatístico (`engine.test.js`) também mudou: a chance de um Ataque Desarmado causar ferimento contra um alvo todo em grau E caiu de ~27%→~11% (com armadura) e ~53%→~24% (sem armadura) — medido por simulação, não é uma regra nova, é a consequência direta da rolagem ativa cancelando sucessos do Acerto antes mesmo de chegar na Confirmação.
+
+Suíte de testes: 555 → **560 testes em 82 suítes** (novo describe `resolveResistenciaAtiva (via resolveAttack)` com 4 testes; os demais ajustes foram nos fixtures existentes, sem mudar a contagem líquida). Build de produção confirmado; verificado no Confronto via Playwright (screenshot do bloco "RESISTÊNCIA DO DEFENSOR" mostrando 2d10, 1 sucesso cancelando o único sucesso do Acerto).
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

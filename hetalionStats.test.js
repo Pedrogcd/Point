@@ -18,9 +18,13 @@ before(async () => {
 });
 
 // Defesa / ResNatFís / ResNatMág / Acerto CaC,Fogo,Mág / HP / MP
+// resNatFis/resNatMag = 2 + Vigor (grau cheio) — a Resistência Física/Mágica
+// saiu de alimentar isso passivamente em 13/10 (virou defesa ativa, ver
+// resolveResistenciaAtiva em engine.js), por isso os dois números agora
+// sempre coincidem (nenhum dos dois soma proficiência).
 const TABELA_ESPERADA = {
-  hetalion_valefor: { defesa: 9, resNatFis: 6, resNatMag: 8, acerto: [2, 2, 4], hp: 3, mp: 3 },
-  hetalion_yurity: { defesa: 10, resNatFis: 7, resNatMag: 9, acerto: [4, 6, 4], hp: 4, mp: 3 },
+  hetalion_valefor: { defesa: 9, resNatFis: 4, resNatMag: 4, acerto: [2, 2, 4], hp: 3, mp: 3 },
+  hetalion_yurity: { defesa: 10, resNatFis: 5, resNatMag: 5, acerto: [4, 6, 4], hp: 4, mp: 3 },
 };
 
 describe("Tabela de estatísticas do Valefor/Yurity (engine.js x dossiê enviado)", () => {

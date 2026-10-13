@@ -483,8 +483,16 @@ export function findTriggeredProc(character, gatilho, dieValue, attackTipo) {
 }
 
 // Cada estatística de combate pode ter uma Proficiência de Combate correspondente
-// que soma junto com os atributos vinculados (Defesa, Resistência Física/Mágica).
-export const STAT_PROF_LINK = { defesa: "defesaProf", resistNaturalFisica: "resistFisicaProf", resistNaturalMagica: "resistMagicaProf" };
+// que soma junto com os atributos vinculados (hoje só Defesa). Resistência
+// Física/Mágica SAÍRAM de aqui em 13/10 (pedido do Pedro, confirmado via
+// pergunta direta): a proficiência de Resistência passou a ser uma defesa
+// ATIVA (ver resolveResistenciaAtiva) em vez de só inflar passivamente o
+// limiar da Confirmação — manter as duas coisas contaria a mesma proficiência
+// duas vezes. resistNaturalFisica/resistNaturalMagica continuam existindo
+// como estatística (ainda somam Vigor, grau cheio, via DEFAULT_STAT_LINKS) —
+// é esse valor reduzido que a Confirmação checa, só sem mais o bônus da
+// proficiência.
+export const STAT_PROF_LINK = { defesa: "defesaProf" };
 
 export function computeStat(character, statKey) {
   const base = (character.statBase && character.statBase[statKey]) ?? STAT_BASE_DEFAULTS[statKey] ?? 0;
@@ -516,14 +524,20 @@ export function rollSuccessDice(totalDice, limiar = 5) {
 }
 
 // Resolucao de combate ajustada nas sessoes de revisao (difere do texto bruto dos
-// docs - ver nota na aba Regras). Duas etapas, cada uma com sua propria rolagem:
+// docs - ver nota na aba Regras). Tres etapas, cada uma com sua propria rolagem:
 // 1) Acerto: rola 3d10. Critico e sempre um 10 natural (Sorte nao afeta mais isso -
 //    virou o atributo que governa as Habilidades Passivas de Combate). Um dado
 //    critico soma +1 a si mesmo antes de comparar com o limiar (nao e sucesso
 //    automatico) - e tambem soma +1 na rolagem de confirmacao que esse sucesso gerar.
 //    Cada dado conta sucesso (S) se (dado + bonus do ataque + bonus de critico) > Defesa
 //    do alvo (a Defesa ja inclui a base 5 embutida, nao soma de novo aqui).
-// 2) Confirmacao: PARA CADA sucesso obtido no Acerto, rola 1d10 + bonus de dano do
+// 1.5) Resistencia ATIVA (NOVO em 13/10, ver resolveResistenciaAtiva): o defensor
+//    rola Vigor + Resistencia Fisica/Magica (dados = soma dos graus, igual um
+//    Teste normal) - cada sucesso do defensor cancela 1 sucesso do Acerto do
+//    atacante (minimo 0). Substitui o uso passivo que a Resistencia tinha antes
+//    (inflar o limiar da Confirmacao) - contar as duas coisas seria dobrar o
+//    efeito da mesma proficiencia.
+// 2) Confirmacao: PARA CADA sucesso que sobrou depois da Resistencia, rola 1d10 + bonus de dano do
 //    ataque (+1 extra se esse sucesso veio de um dado critico). A Armadura funciona
 //    como um escudo de uso unico: confirmacoes checam a Armadura em ordem ate uma
 //    romper (iguala/supera seu valor) - a partir dali, checam a Resistencia Natural
@@ -728,6 +742,24 @@ export function resolveConfirmationPhase({ attacker, defender, attack, successes
   };
 }
 
+// Defesa ATIVA por Resistência (NOVO em 13/10, substitui o uso passivo que
+// Resistência Física/Mágica tinha antes — ver nota em STAT_PROF_LINK). O
+// defensor rola um teste de proficiência normal: Resistência Física contra
+// ataque marcial/arma de fogo, Resistência Mágica contra ataque mágico —
+// mesma fórmula de dados dos Testes genéricos da ficha (soma do grau de
+// Vigor + grau da Resistência certa, sucesso com d>5 igual rollSuccessDice).
+// Cada sucesso do defensor cancela 1 sucesso do Acerto do atacante (mínimo
+// 0) — entra DEPOIS do Acerto e ANTES da Confirmação (resolveAttack decide
+// a ordem; esta função só rola o teste do defensor, isolada, pra poder ser
+// testada e exibida sem depender do resto do ataque).
+export function resolveResistenciaAtiva(defender, attackTipo) {
+  const tipoInfo = TIPOS_ATAQUE[attackTipo] || TIPOS_ATAQUE.marcial;
+  const profKey = tipoInfo.resistKey === "resistNaturalMagica" ? "resistMagicaProf" : "resistFisicaProf";
+  const totalDice = (GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1) + (GRADE_VALUE[defender?.proficiencias?.[profKey]] || 1);
+  const rolagem = rollSuccessDice(totalDice);
+  return { ...rolagem, profKey, totalDice };
+}
+
 export function resolveAttack({ attacker, defender, attack }) {
   const tipoInfo = TIPOS_ATAQUE[attack.tipo] || TIPOS_ATAQUE.marcial;
   const critThreshold = 10; // crítico só em 10 natural — Sorte não afeta mais isso, virou só uma stat de habilidades
@@ -820,20 +852,32 @@ export function resolveAttack({ attacker, defender, attack }) {
     desaceleracaoRollOut = desaceleracaoRoll; // exposto pro retorno da funcao
   }
   const criticosAcerto = successFlags.filter((f) => f.isCrit).length;
-  const superSucesso = successes >= 3;
+  const superSucesso = successes >= 3; // "Super Sucesso" é propriedade do Acerto em si — não muda com a Resistência, que vem depois
   // Ordem dos sucessos (para saber quais rolagens de confirmação ganham +1 de crítico) -
   // cada dado entra na lista uma vez por sucesso que gerou (golpe_certeiro gera 2 entradas).
-  const successCritOrder = [];
+  let successCritOrder = [];
   if (!fixedSuccessMatch) {
     for (const f of successFlags) {
       for (let i = 0; i < f.sucessosGerados; i++) successCritOrder.push(f.isCrit);
     }
   }
 
+  // Defesa ATIVA por Resistência (ver resolveResistenciaAtiva): cada sucesso do
+  // defensor cancela 1 sucesso do Acerto do atacante, mínimo 0 — entra aqui,
+  // depois do Acerto e antes da Confirmação. successCritOrder é truncado pro
+  // novo total (mantém os primeiros, descarta os sucessos cancelados do fim —
+  // não há como saber "qual" sucesso foi cancelado, então a escolha é
+  // arbitrária mas determinística).
+  const successesAntesDaResistencia = successes;
+  const resistenciaAtiva = resolveResistenciaAtiva(defender, attack.tipo);
+  successes = Math.max(0, successes - resistenciaAtiva.successes);
+  successCritOrder = successCritOrder.slice(0, successes);
+
   const confirmResult = resolveConfirmationPhase({ attacker, defender, attack, successes, successFlags, successCritOrder, fixedSuccessMatch });
 
   return {
-    dice, acertoBonus, threshold, successes, criticos: criticosAcerto, superSucesso, critThreshold,
+    dice, acertoBonus, threshold, successes, successesAntesDaResistencia, resistenciaAtiva,
+    criticos: criticosAcerto, superSucesso, critThreshold,
     semRolagemDeAcerto: !!fixedSuccessMatch, successFlags,
     desaceleracaoRoll: desaceleracaoRollOut,
     ...confirmResult,

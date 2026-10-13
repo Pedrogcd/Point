@@ -266,6 +266,20 @@ Verificado via Playwright (Leona, Grupo C): escolhe Ningen → Leonino, salva, c
 
 Suíte de testes: 516 → **535 testes em 81 suítes** (19 novos em `racasCatalogo.test.js`: cobertura da tabela de bônus contra o catálogo inteiro, `grauComBonus`, `bonusGrauDoPersonagem`, `comGrausEfetivos`). Build de produção confirmado.
 
+### Painel "Estatísticas de Combate" vira "Descritores" na ficha (13/10)
+
+Pedido do Pedro, com print do painel: "como o sistema mudou, pode tirar isso e coloque os descritores que a personagem possui". Perguntei o que exatamente devia sair — só o texto explicativo de rodapé, ou o painel inteiro (cartões de Acerto/Defesa/Resistências e tudo) — confirmado: **o painel inteiro**.
+
+O painel "Estatísticas de Combate" (`CharacterSheet`, `point-amaranth-app.jsx`) — que mostrava `StatBlock` (Acerto por tipo de ataque, Defesa, as duas Resistências Naturais, Resistência Armadura, Geral) mais um parágrafo fixo explicando as fórmulas — virou "Descritores": uma lista dos `character.descritores` ativos (vindos da habilidade de raça principal/secundária escolhida, já com dedupe — ver `descritoresDeSelecao`), cada um com nome e descrição numa cor própria. Sem descritor nenhum, mostra um estado vazio ("Nenhum descritor ativo — vêm da habilidade de raça principal/secundária escolhida.").
+
+`StatBlock` (o componente) não foi apagado — continua usado no Confronto (`CompareView`), que não foi tocado por esse pedido (o print era da ficha, não do Confronto, e lá os números de Acerto/Defesa de ambos os lados continuam úteis pra comparar antes de uma luta).
+
+**Novo mapa `DESCRITOR_INFO`** (`point-amaranth-app.jsx`, perto de `HABILIDADE_CATEGORIA_INFO`): rótulo + descrição pra exibir os 5 ids que `catalogo-racas.json` usa hoje (`blindado`, `blindado_magico`, `desarmado_letal`, `ignora_blindado`, `veloz`) — o catálogo só guarda o id puro, sem texto pronto pra mostrar. Um id desconhecido (catálogo futuro com descritor novo) cai num fallback (mostra o próprio id, cor neutra) em vez de sumir ou quebrar.
+
+Verificado via Playwright (Leona, Grupo C): painel "Estatísticas de Combate" sumiu, "Descritores" aparece; estado vazio antes de escolher raça; depois de Ningen → Leonino, "Desarmado Letal" aparece com a descrição certa; testado também com Leonino + Garras e Presas (duas fontes do mesmo descritor `desarmado_letal`) — "Desarmado Letal" aparece só uma vez (dedupe) e "Ignora Blindado" (só do Garras e Presas) aparece também. Zero erros JS.
+
+Suíte de testes: sem mudança de contagem (535 testes) — mudança é só de UI/exibição, sem lógica nova (a dedupe já era testada). Build de produção confirmado.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

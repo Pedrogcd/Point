@@ -131,6 +131,18 @@ const HABILIDADE_CATEGORIA_INFO = {
   resistencia: { label: "Resistência", icon: Shield, color: PURPLE },
 };
 
+// Texto de exibição dos descritores (character.descritores) — os 5 ids que o
+// catalogo-racas.json usa hoje. O catálogo só guarda o id (ex.: "blindado"),
+// sem rótulo/descrição pronta pra mostrar; esse mapa existe só pra isso, não
+// pra regra nenhuma (nenhum descritor ainda afeta fórmula — ver engine.js).
+const DESCRITOR_INFO = {
+  blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
+  blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso." },
+  desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
+  ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques desarmados letais ignoram o efeito Blindado do alvo." },
+  veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "+1 de prioridade na iniciativa." },
+};
+
 
 
 const HABILIDADE_CATEGORIAS = [
@@ -5120,11 +5132,24 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           </div>
 
           <div style={panelStyle}>
-            <div style={panelHeadStyle}>Estatísticas de Combate</div>
-            <StatBlock character={characterEfetivo} />
-            <div style={{ fontSize: 10, color: MUTED, marginTop: 8, fontStyle: "italic" }}>
-              Acerto não é estatística da ficha: cada tipo de ataque monta o seu com o atributo do Tipo + a Proficiência de Combate, e a arma soma o bônus dela por cima. Defesa = base + Proficiência de Defesa. As duas Resistências Naturais seguem 2 + Vigor + Resistência (Física ou Mágica), contando o grau cheio (E=1 … A=5) — com tudo em E dá 4. Resistência Armadura é um valor manual da ficha.
-            </div>
+            <div style={panelHeadStyle}>Descritores</div>
+            {(character.descritores || []).length === 0 ? (
+              <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", textAlign: "center", padding: "16px 0" }}>
+                Nenhum descritor ativo — vêm da habilidade de raça principal/secundária escolhida.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {character.descritores.map((id) => {
+                  const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED, descricao: null };
+                  return (
+                    <div key={id} style={{ background: `${info.cor}12`, border: `1px solid ${info.cor}88`, borderLeft: `4px solid ${info.cor}`, borderRadius: 8, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: info.cor }}>{info.label}</div>
+                      {info.descricao && <div style={{ fontSize: 11, color: INK, marginTop: 2 }}>{info.descricao}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

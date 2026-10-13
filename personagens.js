@@ -9,6 +9,7 @@ import {
   migrateBrigaProfKey, defaultAttacksForCharacter, MAX_PROCS, computeMaxHP, computeMaxSP,
 } from "./engine.js";
 import { grupoDoPersonagem } from "./sidepoint.js";
+import { migrarSelecaoRacaLegado } from "./racasCatalogo.js";
 
 const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
 const REMOVED_NAMES = new Set(["chute"]);
@@ -110,6 +111,10 @@ export function migrarPersonagem(ch) {
   const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
   const classes = [0, 1].map((i) => classesSalvas[i] || { name: "", description: "" });
   const abilities = Array.isArray(ch.abilities) ? ch.abilities : [];
+  // Raça/habilidades do catálogo (catalogo-racas.json): migra o esquema antigo
+  // (racaId/habilidadePrincipalId/habilidadeSecundariaId, PR #30/#31) pro novo
+  // quando a ficha ainda não tiver os campos novos — ver racasCatalogo.js.
+  const { raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores } = migrarSelecaoRacaLegado(ch);
   // hp/mp/sp: toda ficha criada pelo app (semente, "Nova Ficha", Sidepoint) já
   // nasce com os três — por isso nunca precisou de default aqui. Mas um backup
   // incompleto ou salvo num formato bem antigo pode não ter; sem isso, a ficha
@@ -124,7 +129,11 @@ export function migrarPersonagem(ch) {
   // (ou um backup de formato antigo) ganham o padrão centralizado/sem zoom —
   // sem sobrescrever quem já tiver um valor customizado.
   const imagemPos = { y: 50, zoom: 1, ...(ch.imagemPos || {}) };
-  return { ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes, abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos };
+  return {
+    ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
+    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos,
+    raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores,
+  };
 }
 
 export function migrarPersonagens(characters) {

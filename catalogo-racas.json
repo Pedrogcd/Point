@@ -1,0 +1,640 @@
+{
+  "versao": "2026-10-11",
+  "regras": [
+    "Habilidade racial é inteira: efeito fixo, sem grau E/D/C.",
+    "Bônus somam dados (+1 dado), nunca +N no valor do dado.",
+    "Blindado: dados de ataque contra o personagem precisam de no mínimo 6 em vez de 5."
+  ],
+  "racas": [
+    {
+      "id": "humano",
+      "nome": "Humano",
+      "icone": "figura-humana",
+      "cor": "#5B6B7F",
+      "resumo": "A espécie mais comum do mundo, com grande capacidade de adaptação e aprendizado. Compensam as fraquezas biológicas com magia e técnica. Foram criados pelos celestiais com a ajuda dos biocários e carregam sangue de primordiais.",
+      "anatomia": "Corpo humanoide de referência. A raça é separada pela distribuição de mana mais do que pela biologia.",
+      "divindade": "Todos os deuses.",
+      "fixos": [
+        "Escolhem um tipo de mana, que é o tipo principal."
+      ],
+      "fraquezas": [
+        "Nenhuma fixa. O preço da versatilidade é não ter habilidade secundária de raça."
+      ],
+      "principalNome": "Tipo de mana",
+      "secundariaNome": "Vaga de Disciplina",
+      "secundariaEhDisciplina": true,
+      "principais": [
+        {
+          "id": "mana-concentrada",
+          "nome": "Mana Concentrada",
+          "papel": "principal",
+          "icone": "pontos-convergindo",
+          "cor": "#2E9E5B",
+          "descricao": "Mana verde concentrada nas extremidades; destreza e percepção mais apuradas e alma mais forte. Usam a mana das extremidades para impulsos momentâneos.",
+          "efeito": "+1 SP máximo.",
+          "bonus": [
+            "SP +1"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "mana-fluida",
+          "nome": "Mana Fluida",
+          "papel": "principal",
+          "icone": "gota-onda",
+          "cor": "#2F6FDE",
+          "descricao": "Mana azul que se mantém fluida; mente mais aguçada e troca de mana com o exterior com facilidade.",
+          "efeito": "+1d10 na recuperação de mana na manutenção.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "mana-estatica",
+          "nome": "Mana Estática",
+          "papel": "principal",
+          "icone": "losango-solido",
+          "cor": "#D23B3B",
+          "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano físico.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "bonus": [
+            "Blindado"
+          ],
+          "descritores": [
+            "blindado"
+          ]
+        }
+      ],
+      "secundarias": []
+    },
+    {
+      "id": "niosh",
+      "nome": "Niosh",
+      "icone": "chifres-oni",
+      "cor": "#B5472F",
+      "resumo": "Os Onis são criaturas fortes de pele grossa que ocupam montanhas e áreas cobertas. Têm caninos avantajados e chifres de até 30 cm. Descendem dos Primals, uma raça de semideuses, e as descendências se distinguem pela herança primordial.",
+      "anatomia": "Humanoide de até 2,3 m. A pele varia, sendo vermelho e azul comuns; a cada cerca de 5 anos trocam de pele e podem mudar de cor.",
+      "divindade": "Umbra, Dulahand ou Arcanis.",
+      "fixos": [
+        "+1 HP (hoje sem campo no motor)."
+      ],
+      "fraquezas": [
+        "Não usam armadura pesada nem mágica."
+      ],
+      "principalNome": "Descendência",
+      "secundariaNome": "Herança Oni",
+      "secundariaEhDisciplina": false,
+      "principais": [
+        {
+          "id": "descendentes-de-sharkan",
+          "nome": "Descendentes de Sharkan",
+          "papel": "principal",
+          "icone": "boca-dentes",
+          "cor": "#8A8420",
+          "descricao": "Imunes a veneno, buscam o prazer da gula e exageram em tudo: comer, beber, qualquer excesso.",
+          "efeito": "+1 grau em Força (até o teto) e +1 dado em testes de resistência que usam Resistência.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "descendentes-de-arcani",
+          "nome": "Descendentes de Arcani",
+          "papel": "principal",
+          "icone": "olho-espiral",
+          "cor": "#C0309B",
+          "descricao": "Poderes psiônicos que simulam magia; obsessivos, acumuladores naturais e avarentos.",
+          "efeito": "Ganha o descritor Blindado Mágico: dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "bonus": [
+            "Blindado Mágico"
+          ],
+          "descritores": [
+            "blindado_magico"
+          ]
+        },
+        {
+          "id": "descendentes-de-sabato",
+          "nome": "Descendentes de Sabato",
+          "papel": "principal",
+          "icone": "garra-tres-riscos",
+          "cor": "#8E1F3A",
+          "descricao": "Agressivos, buscam o prazer na violência: sangue ou prazer carnal.",
+          "efeito": "+1 dado em testes de resistência que usam Força.",
+          "bonus": [],
+          "descritores": []
+        }
+      ],
+      "secundarias": [
+        {
+          "id": "agressividade-oni",
+          "nome": "Agressividade Oni",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Niosh são naturalmente fortes.",
+          "efeito": "+1 dado na confirmação de dano físico.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "sangue-quente",
+          "nome": "Sangue Quente",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Quanto mais ferido, mais perigoso.",
+          "efeito": "Com 1 ferida, ao rolar crítico no ataque, +1d10 na confirmação de dano.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "pele-grossa",
+          "nome": "Pele Grossa",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Pele grossa de Oni; compensa a proibição de armadura pesada.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "bonus": [],
+          "descritores": [
+            "blindado"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ningen",
+      "nome": "Ningen",
+      "icone": "pegada-pata",
+      "cor": "#A8742A",
+      "resumo": "Humanoides com características bestiais. São crias do caos, criadas pela divindade A Besta, o efeito do fey no mundo material. Quem tem a habilidade Transformação muda entre uma forma humanoide e outra bestial.",
+      "anatomia": "Varia com a base animal: orelhas, caudas, escamas.",
+      "divindade": "A Besta, deusa do caos.",
+      "fixos": [
+        "Todo Ningen escolhe uma base animal. Só quem escolhe a habilidade secundária Transformação muda de forma."
+      ],
+      "fraquezas": [
+        "Nenhuma por enquanto."
+      ],
+      "principalNome": "Base animal",
+      "secundariaNome": "Instinto",
+      "secundariaEhDisciplina": false,
+      "principais": [
+        {
+          "id": "coelho-bode",
+          "nome": "Coelho/Bode",
+          "papel": "principal",
+          "icone": "orelhas-longas",
+          "cor": "#B88A3E",
+          "descricao": "Orelhas longas e pernas fortes.",
+          "efeito": "+1 na proficiência Sobrevivência. +1 dado em testes de salto e +1 dado em testes que usam o faro. +1 SP máximo.",
+          "bonus": [
+            "Sobrevivência +1",
+            "+1 dado em salto",
+            "+1 dado em faro",
+            "SP +1"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "leonino",
+          "nome": "Leonino",
+          "papel": "principal",
+          "icone": "juba",
+          "cor": "#D08B1E",
+          "descricao": "Orelhas e cauda de felinos.",
+          "efeito": "+1 na proficiência Investigação. +1 dado em testes que usam o faro. Ataques desarmados podem causar ferida agravante. +1 SP máximo.",
+          "bonus": [
+            "Investigação +1",
+            "+1 dado em faro",
+            "Ferida agravante desarmado",
+            "SP +1"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "reptiliano",
+          "nome": "Reptiliano",
+          "papel": "principal",
+          "icone": "olho-pupila-fendida",
+          "cor": "#1F8A70",
+          "descricao": "Escamas, cauda e rosto longo com muitos dentes.",
+          "efeito": "+1 na proficiência Intimidação. +1 dado em testes de resistência a veneno e a ENVENENAMENTO. Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. +1 SP máximo.",
+          "bonus": [
+            "Intimidação +1",
+            "+1 dado vs veneno",
+            "Blindado",
+            "SP +1"
+          ],
+          "descritores": [
+            "blindado"
+          ]
+        },
+        {
+          "id": "lobo-canino",
+          "nome": "Lobo/Canino",
+          "papel": "principal",
+          "icone": "lobo-uivando",
+          "cor": "#5E7C9A",
+          "descricao": "Caça em grupo, de faro apurado e voz de alcateia.",
+          "efeito": "+1 na proficiência Liderança. +1 dado em testes que usam o faro. Alcateia: +1 dado de acerto se um aliado está na zona do alvo. +1 SP máximo.",
+          "bonus": [
+            "Liderança +1",
+            "+1 dado em faro",
+            "+1 dado de acerto com aliado",
+            "SP +1"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "urso",
+          "nome": "Urso",
+          "papel": "principal",
+          "icone": "pata-larga",
+          "cor": "#8B5A2B",
+          "descricao": "Corpo grande, força e vitalidade.",
+          "efeito": "+1 na proficiência Atletismo. +1 dado em testes de força, como agarrar e empurrar. +1 HP máximo. +1 SP máximo.",
+          "bonus": [
+            "Atletismo +1",
+            "+1 dado em força",
+            "HP +1",
+            "SP +1"
+          ],
+          "descritores": []
+        }
+      ],
+      "secundarias": [
+        {
+          "id": "transformacao",
+          "nome": "Transformação",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Alternar entre a forma humanoide e a bestial, como definido por Pedro em 08/10.",
+          "efeito": "Só o Ningen que escolhe esta habilidade secundária se transforma. Gastar 1 SP para se transformar na forma bestial: +1 dado em testes físicos e −1 dado em testes mentais. A forma dura até o Ningen escolher se destransformar, e voltar à humanoide (sem bônus nem demérito) não custa SP. Enquanto estiver transformado, não pode fazer descanso longo.",
+          "bonus": [
+            "Bestial: +1d10 físico"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "agilidade-bestial",
+          "nome": "Agilidade Bestial",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Reflexos de predador. Vem das antigas linhas Corredor e Caçador.",
+          "efeito": "Ganha o descritor Veloz e +1 de prioridade na iniciativa.",
+          "bonus": [
+            "Veloz",
+            "Iniciativa: prioridade +1"
+          ],
+          "descritores": [
+            "veloz"
+          ]
+        },
+        {
+          "id": "sentidos-agucados",
+          "nome": "Sentidos Aguçados",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Olfato, audição e visão acima do humano.",
+          "efeito": "+1d10 em testes de percepção. +1 na proficiência Intuição e +1 na proficiência Investigação.",
+          "bonus": [
+            "Intuição +1",
+            "Investigação +1"
+          ],
+          "descritores": []
+        }
+      ]
+    },
+    {
+      "id": "elfo",
+      "nome": "Elfo",
+      "icone": "folha-pontiaguda",
+      "cor": "#3B8F7A",
+      "resumo": "Grande afinidade com a arte e a magia; interesse maior pela natureza do que pela tecnologia. São tradicionais, resistentes à dor e só sabem expressar emoções pela arte. Descendem dos celestiais; muitos clãs seguem os primordiais, mas têm maior conexão com Dragoalma.",
+      "anatomia": "Humanoides de orelhas alongadas, de 1,8 m a 2,4 m.",
+      "divindade": "Dragoalma; por clã, Dulahand ou Umbra.",
+      "fixos": [
+        "Cada elfo tem um clã e um dom genérico."
+      ],
+      "fraquezas": [
+        "Só expressam emoção pela arte (narrativo)."
+      ],
+      "principalNome": "Clã",
+      "secundariaNome": "Dom élfico",
+      "secundariaEhDisciplina": false,
+      "principais": [
+        {
+          "id": "cla-radiante",
+          "nome": "Clã Radiante",
+          "papel": "principal",
+          "icone": "sol",
+          "cor": "#E0A800",
+          "descricao": "Poder de Dulahand, do sol; sorte, e geram mana da matéria.",
+          "efeito": "Re-rolar um dado próprio, uma vez por turno.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "cla-noctis",
+          "nome": "Clã Noctis",
+          "papel": "principal",
+          "icone": "lua-crescente",
+          "cor": "#4B4FC4",
+          "descricao": "Poder de Umbra, da lua; sua bênção; geram mana da matéria.",
+          "efeito": "Re-rolar um dado de aliado ou inimigo na mesma zona, uma vez por turno.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "cla-corvus",
+          "nome": "Clã Corvus",
+          "papel": "principal",
+          "icone": "gota-sangue-pena",
+          "cor": "#A1122B",
+          "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
+          "efeito": "Gastar HP como MP.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "cla-seasus",
+          "nome": "Clã Seasus",
+          "papel": "principal",
+          "icone": "circulo-quatro",
+          "cor": "#14A3A8",
+          "descricao": "Poder dos conhecimentos dos primordiais e das estações.",
+          "efeito": "Começa com Magia sem gastar slot.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "cla-natrus",
+          "nome": "Clã Natrus",
+          "papel": "principal",
+          "icone": "folha",
+          "cor": "#3F8F3A",
+          "descricao": "Elfos nobres, ligados aos elementos da natureza e do mundo material.",
+          "efeito": "Começa com um sistema elemental sem gastar slot.",
+          "bonus": [],
+          "descritores": []
+        }
+      ],
+      "secundarias": [
+        {
+          "id": "reservatorio-de-mana",
+          "nome": "Reservatório de Mana",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Reservatório de mana ampliado, o dom comum dos elfos.",
+          "efeito": "+1 MP máximo.",
+          "bonus": [
+            "MP +1"
+          ],
+          "descritores": []
+        },
+        {
+          "id": "resistencia-a-dor",
+          "nome": "Resistência à Dor",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "O texto antigo diz que elfos são bastante resistentes à dor.",
+          "efeito": "+1 dado em testes de Resolução contra dor ou tortura.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "arte-e-tradicao",
+          "nome": "Arte e Tradição",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Emoção expressa pela arte; costumes antigos.",
+          "efeito": "+1d10 em testes de Atuação e Etiqueta.",
+          "bonus": [],
+          "descritores": []
+        }
+      ]
+    },
+    {
+      "id": "dragonato",
+      "nome": "Dragonato",
+      "icone": "escama",
+      "cor": "#6B4FA0",
+      "resumo": "Crias do caos transformadas pelo poder de Gigas e dos antigos Kamis, com grande conexão com Gigas, a deusa da ordem.",
+      "anatomia": "Humanoide com poderes draconianos: chifres e cauda, podendo ter asas. Na terceira ascensão podem virar dragões.",
+      "divindade": "Gigas.",
+      "fixos": [
+        "Descritor Blindado (dados de ataque contra o Dragonato precisam de no mínimo 6, em vez de 5).",
+        "Transformação draconiana."
+      ],
+      "fraquezas": [
+        "Não usam armadura mágica."
+      ],
+      "principalNome": "Clã",
+      "secundariaNome": "Arsenal Dracônico",
+      "secundariaEhDisciplina": false,
+      "principais": [
+        {
+          "id": "texoni",
+          "nome": "Texoni",
+          "papel": "principal",
+          "icone": "escama-metalica",
+          "cor": "#6C7A89",
+          "descricao": "Escamas metálicas e pele extremamente resistente; não gostam de armadura por já terem uma natural forte.",
+          "efeito": "Ganha o descritor Blindado: dados de ataque contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
+          "bonus": [
+            "Blindado"
+          ],
+          "descritores": [
+            "blindado"
+          ]
+        },
+        {
+          "id": "kutrefas",
+          "nome": "Kutrefas",
+          "papel": "principal",
+          "icone": "gota-veneno",
+          "cor": "#7B3FBF",
+          "descricao": "Escamas violeta ou roxas; secretam veneno na saliva e deixam miasma venenoso nos ninhos.",
+          "efeito": "Imune a veneno biológico e +1d10 na recuperação de MP.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "terramak",
+          "nome": "Terramak",
+          "papel": "principal",
+          "icone": "chama",
+          "cor": "#D9481C",
+          "descricao": "Escamas escarlates, ligados ao fogo, com sopro de dragão natural sem se transformar.",
+          "efeito": "Começa com o bafo de dragão pyro.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "kurlav",
+          "nome": "Kurlav",
+          "papel": "principal",
+          "icone": "montanha",
+          "cor": "#7A5C3A",
+          "descricao": "Afinidade com a terra, que moldam ao seu redor; boa resistência natural.",
+          "efeito": "Começa com o sistema Geo sem gastar slot.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "haxos",
+          "nome": "Haxos",
+          "papel": "principal",
+          "icone": "punho",
+          "cor": "#C2A13A",
+          "descricao": "Grande força natural e vitalidade, mas incapazes de usar o sopro de dragão.",
+          "efeito": "+1 HP.",
+          "bonus": [
+            "HP +1"
+          ],
+          "descritores": []
+        }
+      ],
+      "secundarias": [
+        {
+          "id": "escamas-fortes",
+          "nome": "Escamas Fortes",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Opção do arsenal (Forte C). Força dracônica.",
+          "efeito": "+1 grau em Força (até o teto C).",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "corpo-resistente",
+          "nome": "Corpo Resistente",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Opção do arsenal (Resistente C).",
+          "efeito": "+1 grau em Vigor (até o teto C).",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "sopro-de-dragao",
+          "nome": "Sopro de Dragão",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Opção do arsenal. O elemento segue o clã (ou mana pura).",
+          "efeito": "Ataque de sopro na própria zona.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "voar",
+          "nome": "Voar",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Opção do arsenal. Asas ou impulso dracônico.",
+          "efeito": "Saltos longos e planar; movimento especial.",
+          "bonus": [],
+          "descritores": []
+        }
+      ]
+    },
+    {
+      "id": "tengou",
+      "nome": "Tengou",
+      "icone": "asas",
+      "cor": "#C8A24A",
+      "resumo": "Criações originais dos celestiais com os biocários. São hoje os defensores dos planos da ordem, do caos e do submundo, embora existam tengous no plano material sem relação com seus deveres. Nascem das penas de outros tengous: passam um século absorvendo mana até virar uma fada pequena, outro século até virar uma casca, e então tomam a forma de anjo, demônio ou fada maior durante uma década.",
+      "anatomia": "Humanoide com asas. Alimentam-se da energia gerada pela alma. São imortais ao tempo e não envelhecem.",
+      "divindade": "Os planos da ordem, do caos e do submundo.",
+      "fixos": [
+        "Todo tengou possui uma Singularidade; se já tiver uma, ganha +2 MP."
+      ],
+      "fraquezas": [
+        "Asas molhadas perdem altitude.",
+        "Dependem de alimento de alma."
+      ],
+      "principalNome": "Forma adulta",
+      "secundariaNome": "Natureza Tengou",
+      "secundariaEhDisciplina": false,
+      "principais": [
+        {
+          "id": "anjo",
+          "nome": "Anjo",
+          "papel": "principal",
+          "icone": "halo",
+          "cor": "#B89B3A",
+          "descricao": "Alimenta-se de energias positivas; grande empatia, mas prefere a ordem aos próprios sentimentos; leal e ordeiro.",
+          "efeito": "Gastar 1 HP para dar 1 HP a alguém como B.Ação.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "demonio",
+          "nome": "Demônio",
+          "papel": "principal",
+          "icone": "pequenos-chifres",
+          "cor": "#B5173A",
+          "descricao": "Alimenta-se de energias negativas; dificuldade de empatia, egoísta por natureza.",
+          "efeito": "Ao causar ferimento, ganha essa quantidade em MP extra.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "fada",
+          "nome": "Fada",
+          "papel": "principal",
+          "icone": "asa-libelula",
+          "cor": "#D14FA0",
+          "descricao": "Alimenta-se de energias caóticas e prazerosas; busca a verdadeira natureza das criaturas e adora a liberdade.",
+          "efeito": "Ao tirar 1 ou 10 no d10, o menor dado dela e o de quem faz teste na zona é re-rolado.",
+          "bonus": [],
+          "descritores": []
+        }
+      ],
+      "secundarias": [
+        {
+          "id": "voar-tengou",
+          "nome": "Voar Tengou",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Com as penas secas, flutuam a até 100 m do solo com as asas fechadas, ou 2 km com elas abertas.",
+          "efeito": "Ignora diferença de altura entre zonas.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "superioridade-natural",
+          "nome": "Superioridade Natural",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Atributos naturais acima do normal.",
+          "efeito": "+1d10 em testes de atributo fora de combate, se a passiva do atributo não for sua.",
+          "bonus": [],
+          "descritores": []
+        },
+        {
+          "id": "alimentacao-de-alma",
+          "nome": "Alimentação de Alma",
+          "papel": "secundaria",
+          "icone": "neutro",
+          "cor": null,
+          "descricao": "Absorvem a mana ao redor, se alimentando.",
+          "efeito": "+1d10 na recuperação de MP.",
+          "bonus": [],
+          "descritores": []
+        }
+      ]
+    }
+  ]
+}

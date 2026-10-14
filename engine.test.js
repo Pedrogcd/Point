@@ -700,6 +700,28 @@ describe("resolveAtaque", () => {
     const r = resolveAtaque({ attacker: makeCharacter(), defender: makeCharacter(), tipoAtaque: "marcial", totalDiceAtaque: 1, descritoresAtaque: ["sortudo"], defesaAtributo: "vigor" });
     assert.equal(r.rolagemAtaque.sortudoAplicado.novo, 9);
   });
+  // sortudo_fisico (14/10, Descendentes de Sabato, pedido do Pedro: "ganhe o
+  // descritor sortudo para ataques físicos") — versão restrita do Sortudo
+  // normal que só vale quando o ataque NÃO tem o descritor "magia".
+  it("atacante com sortudo_fisico aplica o re-roll num ataque FÍSICO (sem descritor magia)", (t) => {
+    const attacker = withDescritores(makeCharacter(), ["sortudo_fisico"]);
+    mockDice(t, [1, /*reroll*/ 9, /*defesa*/ 1, 1]);
+    const r = resolveAtaque({ attacker, defender: makeCharacter(), tipoAtaque: "marcial", totalDiceAtaque: 1, descritoresAtaque: [], defesaAtributo: "vigor" });
+    assert.equal(r.rolagemAtaque.sortudoAplicado.novo, 9);
+  });
+  it("atacante com sortudo_fisico NÃO re-rola num ataque MÁGICO (descritor magia presente)", (t) => {
+    const attacker = withDescritores(makeCharacter(), ["sortudo_fisico"]);
+    mockDice(t, [1, /*defesa*/ 1, 1]); // sem reroll — só 3 dados consumidos
+    const r = resolveAtaque({ attacker, defender: makeCharacter(), tipoAtaque: "magico", totalDiceAtaque: 1, descritoresAtaque: ["magia"], defesaAtributo: "vigor" });
+    assert.equal(r.rolagemAtaque.sortudoAplicado, null);
+    assert.deepEqual(r.rolagemAtaque.dice, [1]);
+  });
+  it("sortudo normal (não o _fisico) continua valendo em ataque mágico também", (t) => {
+    const attacker = withDescritores(makeCharacter(), ["sortudo"]);
+    mockDice(t, [1, /*reroll*/ 9, /*defesa*/ 1, 1]);
+    const r = resolveAtaque({ attacker, defender: makeCharacter(), tipoAtaque: "magico", totalDiceAtaque: 1, descritoresAtaque: ["magia"], defesaAtributo: "vigor" });
+    assert.equal(r.rolagemAtaque.sortudoAplicado.novo, 9);
+  });
 });
 
 // ---------------------------------------------------------------------------

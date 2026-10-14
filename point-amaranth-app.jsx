@@ -162,6 +162,7 @@ const DESCRITOR_INFO = {
   ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
   veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "Etiqueta — ainda sem efeito no motor (prioridade/rodadas fora do escopo atual)." },
   sortudo: { label: "Sortudo", cor: "#E0A800", descricao: "O primeiro dado que sair 1 ou 2 em cada teste (inclusive de ataque) é re-rolado automaticamente, uma vez." },
+  sortudo_fisico: { label: "Sortudo (físico)", cor: "#E0A800", descricao: "Como o Sortudo, mas só vale em rolagens de ATAQUE FÍSICO (não mágico): o primeiro dado que sair 1 ou 2 é re-rolado automaticamente, uma vez. (Descendentes de Sabato, 14/10.)" },
   magia: { label: "Magia", cor: PURPLE, descricao: "Toda magia tem este descritor — identifica o ataque como mágico." },
   em_area: { label: "Em área", cor: "#5C86B0", descricao: "Atinge todos os alvos da zona; cada um rola a própria defesa; o conjurador rola uma vez; aliados na zona também são atingidos." },
   saturante: { label: "Saturante", cor: "#B0784F", descricao: "Se o defensor usar Destreza como base da defesa, rola 2 dados a menos (mínimo 0)." },
@@ -4675,8 +4676,18 @@ function AbilityCategoryList({ title, items }) {
 // dispara a rolagem quando onClick é passado).
 // Mostra um ataque físico do catálogo/ficha (docs/SISTEMA_MAGIA.md): dados do
 // pool (Atributo + Proficiência + ajuste da arma), feridas e descritores.
-// Ataques mágicos não passam mais por aqui — ver data/magias.js.
+//
+// 14/10 (mais tarde, pedido do Pedro: "quando uma habilidade de disciplina
+// for um ataque ou habilidade, que ela apareça nos ataques"): também aceita
+// uma magia OFENSIVA equipada numa disciplina, marcada com `atk.magiaId` —
+// nesse caso os dados vêm de diceAtaqueMagico (Base mágica + Ofícios
+// Mágicos, a mesma fonte padrão da aba "Magia") em vez de diceAtaqueFisico,
+// e mostra o custo em MP no lugar do Atributo/Proficiência. Esses cards só
+// aparecem no painel "Ataques" pra CONFERÊNCIA/visão geral (sem onClick,
+// igual os físicos ali) — a conjuração de verdade (com escolha de fonte do
+// pool e mana extra) continua acontecendo só na aba "Magia" do painel Teste.
 function AttackCard({ atk, onClick, selected, character }) {
+  const ehMagia = !!atk.magiaId;
   const tipoInfo = TIPOS_ATAQUE[atk.tipo] || TIPOS_ATAQUE.marcial;
   const profInfo = atk.profKey ? PROFICIENCIAS_LIST.find((p) => p.key === atk.profKey) : null;
   const atributoKey = atk.atributoKey || tipoInfo.atributoKey || "destreza";
@@ -4685,9 +4696,11 @@ function AttackCard({ atk, onClick, selected, character }) {
 
   const atributoGrade = character ? getAttrGrade(character, atributoKey) : null;
   const profGrade = character && atk.profKey ? character.proficiencias?.[atk.profKey] : null;
-  const totalDice = character
-    ? diceAtaqueFisico(character, atributoKey, atk.profKey, atk.ajusteDados || 0)
-    : (GRADE_VALUE[atributoGrade] ?? 1) + (GRADE_VALUE[profGrade] ?? 1) + (atk.ajusteDados || 0);
+  const totalDice = ehMagia
+    ? (character ? diceAtaqueMagico(character, atk.custoMp || 0, atk.custoMp || 0, "oficios", atk.ajusteDados || 0) : null)
+    : (character
+        ? diceAtaqueFisico(character, atributoKey, atk.profKey, atk.ajusteDados || 0)
+        : (GRADE_VALUE[atributoGrade] ?? 1) + (GRADE_VALUE[profGrade] ?? 1) + (atk.ajusteDados || 0));
   const descritoresEfetivos = character ? descritoresEfetivosDoAtaque(character, atk) : (atk.descritores || []);
 
   function MiniStat({ label, value, sub }) {
@@ -4711,16 +4724,23 @@ function AttackCard({ atk, onClick, selected, character }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
         <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT }}>{atk.nome || "—"}</span>
-        <span style={{ fontSize: 9.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>{tipoInfo.label}</span>
+        <span style={{ fontSize: 9.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>{ehMagia ? "Mágico (disciplina)" : tipoInfo.label}</span>
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
-        <MiniStat label="DADOS" value={`${totalDice}d10`} sub={character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] ?? 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] ?? 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null} />
+        <MiniStat
+          label="DADOS"
+          value={totalDice != null ? `${totalDice}d10` : "—"}
+          sub={ehMagia ? "Base + Ofícios" : (character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] ?? 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] ?? 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null)}
+        />
         <MiniStat label="FERIDAS" value={atk.feridas ?? 1} />
+        {ehMagia && <MiniStat label="CUSTO" value={`${atk.custoMp ?? 0} MP`} />}
       </div>
 
       <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.4, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${LINE}` }}>
-        {atributoInfo?.label || "Destreza"}{profInfo ? ` + ${profInfo.label}` : ""}, sucesso 6+ (7+ contra Blindado, exceto Perfurante)
+        {ehMagia
+          ? "Base mágica (2d10 + mana extra) + Ofícios Mágicos ou Inteligência (à escolha na aba Magia), sucesso 6+ (7+ contra Blindado, exceto Perfurante)"
+          : `${atributoInfo?.label || "Destreza"}${profInfo ? ` + ${profInfo.label}` : ""}, sucesso 6+ (7+ contra Blindado, exceto Perfurante)`}
       </div>
       {descritoresEfetivos.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
@@ -5050,17 +5070,106 @@ function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onE
   );
 }
 
+// Seletor de Habilidade de Raça — principal OU secundária — clicando direto
+// na ficha, mesmo padrão do DisciplinaSlotPicker (14/10, mais tarde, pedido
+// do Pedro: "escolher a raça habilidade principal e raça habilidade
+// secundaria da mesma forma que as disciplinas, só clicando"). Componente
+// puro (não sabe se é principal ou secundária, nem onde o dado mora — quem
+// chama em CharacterSheet decide e grava). Reaproveita SeletorCards (mesmo
+// componente do CharacterForm) pra lista de opções, e mostra a descrição/
+// efeito da selecionada + o seletor de bônus de grau à escolha (Mana
+// Concentrada, Homúnculo), se a habilidade tiver um.
+function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecionada, corForcada, onEscolher, onEsvaziar, bonusEscolha, valorBonus, onEscolherBonus, onClose }) {
+  const listaBonus = bonusEscolha?.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 10, width: "min(640px, 100%)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 0 40px #00000090" }}
+      >
+        <div style={{ padding: "16px 20px 10px", borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: BRASS_BRIGHT, textTransform: "uppercase" }}>
+              {titulo}
+            </span>
+            <Btn variant="ghost" onClick={onClose}>Fechar</Btn>
+          </div>
+          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 0" }}>{legenda}</p>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 16 }}>
+          <SeletorCards titulo={titulo} opcoes={opcoes} selecionadoId={selecionadoId} onEscolher={onEscolher} corForcada={corForcada} />
+          {selecionada && (
+            <p style={{ fontSize: 11.5, color: MUTED, marginTop: 10, lineHeight: 1.45 }}>
+              {selecionada.descricao} <em>Efeito: {selecionada.efeito}</em>
+            </p>
+          )}
+          {bonusEscolha && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 11, color: MUTED }}>
+                Bônus de +1 grau ({bonusEscolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha):
+              </label>
+              <select style={{ ...inputStyle, width: 200 }} value={valorBonus || ""} onChange={(e) => onEscolherBonus(e.target.value)}>
+                <option value="">— escolher —</option>
+                {bonusEscolha.opcoes.map((chave) => (
+                  <option key={chave} value={chave}>{listaBonus.find((x) => x.key === chave)?.label || chave}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {onEsvaziar && (
+          <div style={{ padding: "10px 20px 16px", borderTop: `1px solid ${LINE}` }}>
+            <Btn variant="danger" onClick={onEsvaziar}><Trash2 size={13} /> Esvaziar este espaço</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Chips empilhados das magias equipadas de uma disciplina — usado abaixo de
 // cada Disciplina (3 normais) e ao lado do encaixe extra da secundária, em
 // vez do texto corrido "· Equipadas: X, Y" de antes (14/10, mesmo dia).
-function ChipsHabilidadesDisciplina({ ids }) {
-  const nomes = (ids || []).map((id) => getMagiaPorId(id)?.nome).filter(Boolean);
-  if (nomes.length === 0) return null;
+//
+// 14/10 (mais tarde, pedido do Pedro): "ao passar o mouse por cima das
+// habilidades das disciplinas, já apareça a descrição dela" — monta um
+// resumo (custo em MP, feridas, área, descritores, ou o `efeito` pronto pra
+// magias sem rolagem) pro atributo `title` nativo do navegador, sem precisar
+// de um tooltip customizado. E "clicar na parte de baixo da disciplina e já
+// aparecer as habilidades... que possa equipar": o bloco de chips aceita o
+// mesmo `onClick` do SlotBox pai (abre o mesmo DisciplinaSlotPicker, que já
+// mostra a lista de magias pra equipar assim que uma disciplina está
+// escolhida — não precisa de uma tela separada).
+function descricaoCurtaMagia(m) {
+  if (!m) return "";
+  if (m.efeito) return m.efeito; // Escudo de Mana/Sensor já têm texto pronto
+  const partes = [];
+  if (m.custoMp != null) partes.push(`${m.custoMp} MP`);
+  if (m.feridas) partes.push(`${m.feridas} ferida${m.feridas > 1 ? "s" : ""}`);
+  if (m.superficial) partes.push("superficial");
+  if (m.emArea) partes.push("em área");
+  const descs = (m.descritores || []).filter((d) => d !== "magia").map((d) => DESCRITOR_INFO[d]?.label || d);
+  if (descs.length) partes.push(descs.join(", "));
+  return partes.join(" · ") || "Magia do catálogo.";
+}
+
+function ChipsHabilidadesDisciplina({ ids, onClick }) {
+  const magias = (ids || []).map((id) => getMagiaPorId(id)).filter(Boolean);
+  if (magias.length === 0) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-      {nomes.map((nome, i) => (
-        <div key={i} style={{ fontSize: 10, color: PARCHMENT, background: `${PURPLE}18`, border: `1px solid ${PURPLE}55`, borderRadius: 5, padding: "3px 7px", lineHeight: 1.3 }}>
-          {nome}
+    <div
+      onClick={onClick}
+      style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, cursor: onClick ? "pointer" : "default" }}
+      title={onClick ? "Clique pra trocar as magias equipadas" : undefined}
+    >
+      {magias.map((m) => (
+        <div key={m.id} title={descricaoCurtaMagia(m)} style={{ fontSize: 10, color: PARCHMENT, background: `${PURPLE}18`, border: `1px solid ${PURPLE}55`, borderRadius: 5, padding: "3px 7px", lineHeight: 1.3 }}>
+          {m.nome}
         </div>
       ))}
     </div>
@@ -5137,6 +5246,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // (fechado) — abre o DisciplinaSlotPicker (distinto de slotAberto, que é
   // das Habilidades Passivas de Combate, abaixo).
   const [disciplinaSlotAberto, setDisciplinaSlotAberto] = useState(null);
+  // "principal" | "secundaria" | null (fechado) — abre o HabilidadeRacaPicker
+  // (14/10, mais tarde, pedido do Pedro: escolher clicando na ficha, mesmo
+  // padrão do disciplinaSlotAberto acima). Só usado quando a secundária NÃO
+  // é a "Vaga de Disciplina" do Humano (nesse caso o clique na caixa da
+  // secundária já abre o disciplinaSlotAberto="extra" de cima).
+  const [habilidadeRacaAberta, setHabilidadeRacaAberta] = useState(null);
   // Índice do espaço de habilidade aberto na tabela de 3 caixas (null = fechado).
   const [slotAberto, setSlotAberto] = useState(null);
   const habilidadesFicha = character.habilidadesFicha || { ativas: [], especial: [], racial: [], passivas: [], extras: [] };
@@ -5144,6 +5259,23 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const attacks = character.attacks || [];
   const attackNames = new Set(attacks.map((a) => (a.nome || "").trim().toLowerCase()));
   const missingDefaultAttacks = defaultAttacksForCharacter().filter((a) => !attackNames.has(a.nome.trim().toLowerCase()));
+  // Magias OFENSIVAS equipadas em alguma disciplina (exclui Escudo de Mana —
+  // semRolagem — e Sensor — placeholder) — 14/10, mais tarde, pedido do
+  // Pedro: "quando uma habilidade de disciplina for um ataque ou habilidade,
+  // que ela apareça nos ataques". Vira uma entrada "pseudo-ataque" (marcada
+  // com `magiaId`) só pro painel "Ataques" listar junto dos físicos — ver
+  // AttackCard acima. Não entra em `character.attacks` (nada é persistido,
+  // recalculado toda renderização a partir das disciplinas equipadas) nem no
+  // seletor da aba "Ataque" do painel Teste — conjurar de verdade (com
+  // escolha de mana extra/fonte do pool) continua só na aba "Magia".
+  const ataquesDasDisciplinas = disciplinaMagica.magiasAtivas
+    .map((id) => getMagiaPorId(id))
+    .filter((m) => m && !m.semRolagem && !m.placeholder)
+    .map((m) => ({
+      nome: m.nome, tipo: "magico", magiaId: m.id,
+      descritores: m.descritores, feridas: m.feridas, superficial: m.superficial, emArea: m.emArea,
+      ajusteDados: m.ajusteDados, custoMp: m.custoMp,
+    }));
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
   const usandoBaseMagicaNoTeste = rollAttr === BASE_MAGICA_KEY;
@@ -5448,12 +5580,13 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         <div>
           <div style={panelStyle}>
             <div style={panelHeadStyle}>Ataques</div>
-            {attacks.length === 0 && missingDefaultAttacks.length === 0 && (
+            {attacks.length === 0 && missingDefaultAttacks.length === 0 && ataquesDasDisciplinas.length === 0 && (
               <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhum ataque cadastrado.</p>
             )}
-            {attacks.length > 0 && (
+            {(attacks.length > 0 || ataquesDasDisciplinas.length > 0) && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {attacks.map((atk, i) => <AttackCard key={i} atk={atk} character={characterEfetivo} />)}
+                {attacks.map((atk, i) => <AttackCard key={`f-${i}`} atk={atk} character={characterEfetivo} />)}
+                {ataquesDasDisciplinas.map((atk, i) => <AttackCard key={`m-${i}`} atk={atk} character={characterEfetivo} />)}
               </div>
             )}
             {missingDefaultAttacks.length > 0 && onRestoreAttacks && (
@@ -5464,7 +5597,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Ataques físicos (Marcial/Arma de fogo): dados = Destreza + Proficiência de Combate (Combate Corpo a Corpo/Armas de Fogo), sucesso 6+ (7+ contra Blindado, exceto Perfurante). Ataques mágicos saíram daqui — ver a aba "Magia" no painel Teste, que usa o catálogo de data/magias.js. Use o Confronto pra resolver contra um alvo.
+              Ataques físicos (Marcial/Arma de fogo): dados = Destreza + Proficiência de Combate (Combate Corpo a Corpo/Armas de Fogo), sucesso 6+ (7+ contra Blindado, exceto Perfurante). Magias ofensivas equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Ofícios Mágicos) — pra conjurar de verdade, com escolha de mana extra e fonte do pool (Ofícios ou Inteligência), use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -5918,6 +6051,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               ? `Ainda não definida${character.race ? ` (raça: ${character.race})` : ""} — a criar.`
               : (character.racialAbility?.description || habPrincipal?.descricao || "Sem descrição.")}
             efeito={!principalVazio ? habPrincipal?.efeito : undefined}
+            onClick={racaInfo && onUpdateCharacter ? () => setHabilidadeRacaAberta("principal") : undefined}
           />
           <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -5932,18 +6066,20 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   ? (extraDef ? extraDef.bonusTexto : "Nenhuma disciplina escolhida ainda — clique pra escolher.")
                   : (secundariaVazia ? "Nenhuma secundária escolhida ainda." : (habSecundaria?.descricao || "Sem descrição."))}
                 efeito={!ehDisciplinaHumano && !secundariaVazia ? habSecundaria?.efeito : undefined}
-                onClick={ehDisciplinaHumano && onUpdateCharacter ? () => setDisciplinaSlotAberto("extra") : undefined}
+                onClick={ehDisciplinaHumano
+                  ? (onUpdateCharacter ? () => setDisciplinaSlotAberto("extra") : undefined)
+                  : (racaInfo && onUpdateCharacter ? () => setHabilidadeRacaAberta("secundaria") : undefined)}
               />
             </div>
             {ehDisciplinaHumano && extraDef?.temMagias && (
               <div style={{ width: 98, flexShrink: 0 }}>
-                <ChipsHabilidadesDisciplina ids={extraSlot?.habilidadesAtivas} />
+                <ChipsHabilidadesDisciplina ids={extraSlot?.habilidadesAtivas} onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto("extra") : undefined} />
               </div>
             )}
           </div>
         </div>
         <div style={{ fontSize: 10.5, color: PURPLE, margin: "2px 0 8px", fontWeight: 600 }}>
-          Disciplinas (até 3 — docs/DISCIPLINAS_MAGIA.md). Clique numa caixa pra escolher, trocar magias ou esvaziar.
+          Disciplinas (até 3 — docs/DISCIPLINAS_MAGIA.md). Clique numa caixa (ou nas magias embaixo) pra escolher, trocar magias ou esvaziar.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
           {[0, 1, 2].map((i) => {
@@ -5962,12 +6098,55 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     : "Vazia — clique pra escolher."}
                   onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto(i) : undefined}
                 />
-                <ChipsHabilidadesDisciplina ids={slot?.habilidadesAtivas} />
+                <ChipsHabilidadesDisciplina ids={slot?.habilidadesAtivas} onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto(i) : undefined} />
               </div>
             );
           })}
         </div>
       </div>
+        );
+      })()}
+
+      {habilidadeRacaAberta && onUpdateCharacter && (() => {
+        const racaInfoPicker = encontrarRaca(character.raca);
+        if (!racaInfoPicker) return null;
+        const ehPrincipal = habilidadeRacaAberta === "principal";
+        const lista = ehPrincipal ? racaInfoPicker.principais : racaInfoPicker.secundarias;
+        const selecionadoId = ehPrincipal ? character.habilidadePrincipal : character.habilidadeSecundaria;
+        const selecionada = ehPrincipal
+          ? encontrarPrincipal(racaInfoPicker, selecionadoId)
+          : encontrarSecundaria(racaInfoPicker, selecionadoId);
+        const bonusEscolha = selecionada ? BONUS_GRAU_ESCOLHA_POR_HABILIDADE[selecionada.id] : null;
+        function escolher(id) {
+          const novaSelecionada = ehPrincipal ? encontrarPrincipal(racaInfoPicker, id) : encontrarSecundaria(racaInfoPicker, id);
+          const outro = ehPrincipal
+            ? encontrarSecundaria(racaInfoPicker, character.habilidadeSecundaria)
+            : encontrarPrincipal(racaInfoPicker, character.habilidadePrincipal);
+          const descritores = ehPrincipal ? descritoresDeSelecao(novaSelecionada, outro) : descritoresDeSelecao(outro, novaSelecionada);
+          onUpdateCharacter(character.id, ehPrincipal ? { habilidadePrincipal: id, descritores } : { habilidadeSecundaria: id, descritores });
+        }
+        function esvaziar() {
+          const outro = ehPrincipal
+            ? encontrarSecundaria(racaInfoPicker, character.habilidadeSecundaria)
+            : encontrarPrincipal(racaInfoPicker, character.habilidadePrincipal);
+          const descritores = ehPrincipal ? descritoresDeSelecao(null, outro) : descritoresDeSelecao(outro, null);
+          onUpdateCharacter(character.id, ehPrincipal ? { habilidadePrincipal: null, descritores } : { habilidadeSecundaria: null, descritores });
+        }
+        return (
+          <HabilidadeRacaPicker
+            titulo={ehPrincipal ? (racaInfoPicker.principalNome || "Habilidade principal") : (racaInfoPicker.secundariaNome || "Habilidade secundária")}
+            legenda={`${character.name} · ${racaInfoPicker.nome}`}
+            opcoes={lista.map((o) => ({ id: o.id, nome: o.nome, icone: o.icone, cor: o.cor }))}
+            selecionadoId={selecionadoId}
+            selecionada={selecionada}
+            corForcada={ehPrincipal ? undefined : MUTED}
+            onEscolher={escolher}
+            onEsvaziar={selecionadoId ? esvaziar : null}
+            bonusEscolha={bonusEscolha}
+            valorBonus={selecionada ? character.bonusGrauEscolha?.[selecionada.id] : null}
+            onEscolherBonus={(chave) => onUpdateCharacter(character.id, { bonusGrauEscolha: { ...(character.bonusGrauEscolha || {}), [selecionada.id]: chave } })}
+            onClose={() => setHabilidadeRacaAberta(null)}
+          />
         );
       })()}
 

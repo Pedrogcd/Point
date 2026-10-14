@@ -120,22 +120,28 @@ export function migrarSelecaoRacaLegado(ch) {
 // específica, não mudam o grau salvo — fora do escopo daqui).
 //
 // Curado à mão, não derivado de `bonus[]`, porque esse array do catálogo é
-// incompleto pra esse fim — ex.: "Descendentes de Sabato" só tem "+1 grau em
-// Força" no `efeito`, nunca em `bonus[]`. Toda entrada aqui foi conferida
-// contra o `efeito` de cada uma das habilidades do catálogo em 13/10 (catálogo
-// "2026-10-11" v3 — Elfo reescrito com vários bônus de grau novos, e
-// Resistência Física/Resistência Mágica entraram como proficiências que
-// também recebem esse bônus, igual qualquer outra): essas 22 habilidades
-// mencionam "+1 grau" ou "+1 na(s) proficiência(s)" — 21 têm uma chave FIXA
-// (tabela abaixo) e 2 (Mana Concentrada, Homúnculo) deixam a escolha pro
-// jogador (ver BONUS_GRAU_ESCOLHA_POR_HABILIDADE); Homúnculo tem as duas
-// coisas ao mesmo tempo (Atletismo é fixo, Força-ou-Destreza é escolha). Se o
-// catálogo mudar nomes de raça/efeito de novo, conferir aqui também
-// (racasCatalogo.test.js tem uma checagem automática: toda habilidade cujo
-// `efeito` contenha essas frases-chave precisa estar numa das duas tabelas, e
-// vice-versa).
+// incompleto pra esse fim. Toda entrada aqui foi conferida contra o `efeito`
+// de cada uma das habilidades do catálogo em 13/10 (catálogo "2026-10-11" v3
+// — Elfo reescrito com vários bônus de grau novos, e Resistência Física/
+// Resistência Mágica entraram como proficiências que também recebem esse
+// bônus, igual qualquer outra): essas habilidades mencionam "+1 grau" ou "+1
+// na(s) proficiência(s)" — a maioria tem uma chave FIXA (tabela abaixo) e 2
+// (Mana Concentrada, Homúnculo) deixam a escolha pro jogador (ver
+// BONUS_GRAU_ESCOLHA_POR_HABILIDADE); Homúnculo tem as duas coisas ao mesmo
+// tempo (Atletismo é fixo, Força-ou-Destreza é escolha). Se o catálogo mudar
+// nomes de raça/efeito de novo, conferir aqui também (racasCatalogo.test.js
+// tem uma checagem automática: toda habilidade cujo `efeito` contenha essas
+// frases-chave precisa estar numa das duas tabelas, e vice-versa).
+//
+// "Descendentes de Sabato" SAIU daqui em 14/10 (mais tarde, pedido do Pedro:
+// "todos os nioshes tenham +1 de força também das habilidades de raça
+// principal") — o +1 grau em Força deixou de ser exclusivo de quem escolhe
+// Sabato como principal e virou um bônus de TODA a raça Niosh, veja
+// BONUS_GRAU_FIXO_POR_RACA logo abaixo. O texto de `efeito` de Sabato no
+// catálogo foi reescrito pra não repetir a frase "+1 grau" (evita a
+// checagem automática pedir essa habilidade de volta nesta tabela) — ele
+// ainda tem o bônus, só que herdado da raça, não mais próprio dele.
 export const BONUS_GRAU_POR_HABILIDADE = {
-  "descendentes-de-sabato": [{ tipo: "atributo", chave: "forca" }],
   goethiano: [{ tipo: "atributo", chave: "vigor", teto: "A" }],
   homunculo: [{ tipo: "proficiencia", chave: "atletismo" }],
   "coelho-bode": [{ tipo: "proficiencia", chave: "sobrevivencia" }],
@@ -207,6 +213,19 @@ export const BONUS_GRAU_ESCOLHA_POR_HABILIDADE = {
 export const BONUS_GRAU_ESCOLHA_POR_RACA = {
   elfo: { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
   humano: { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+};
+
+// Bônus de grau FIXO (chave já definida, sem escolha do jogador) concedido
+// pela RAÇA em si, não por uma habilidade principal/secundária específica —
+// pedido do Pedro (14/10, mais tarde): "todos os nioshes tenham +1 de força
+// também das habilidades de raça principal", ou seja, deixa de depender de
+// escolher especificamente "Descendentes de Sabato" como principal — todo
+// Niosh ganha, não importa qual principal/secundária escolheu. É a versão
+// FIXA de BONUS_GRAU_ESCOLHA_POR_RACA acima (aquela é só pra bônus à escolha
+// do jogador); "Descendentes de Sabato" tinha essa entrada em
+// BONUS_GRAU_POR_HABILIDADE antes de virar bônus de raça — ver nota lá.
+export const BONUS_GRAU_FIXO_POR_RACA = {
+  niosh: [{ tipo: "atributo", chave: "forca" }],
 };
 
 // Habilidades que concedem "ofícios mágicos extras" (docs/MUDANCAS_RACAS_E_
@@ -318,6 +337,18 @@ export function tetoGrauDoPersonagem(character) {
       if (novoIdx > atualIdx) alvo[b.chave] = b.teto;
     }
   }
+  // Teto do bônus FIXO de raça (BONUS_GRAU_FIXO_POR_RACA) — mesmo padrão do
+  // loop acima, só que por raça em vez de por habilidade.
+  const fixoRaca = BONUS_GRAU_FIXO_POR_RACA[character?.raca];
+  if (fixoRaca) {
+    for (const b of fixoRaca) {
+      if (!b.teto) continue;
+      const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+      const atualIdx = GRADE_ORDER.indexOf(alvo[b.chave] || "C");
+      const novoIdx = GRADE_ORDER.indexOf(b.teto);
+      if (novoIdx > atualIdx) alvo[b.chave] = b.teto;
+    }
+  }
   return resultado;
 }
 
@@ -359,6 +390,18 @@ export function bonusGrauDoPersonagem(character) {
     if (chave && escolhaRaca.opcoes.includes(chave)) {
       const alvo = escolhaRaca.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
       alvo[chave] = (alvo[chave] || 0) + 1;
+    }
+  }
+  // Bônus de grau FIXO da RAÇA em si (não de uma habilidade específica, sem
+  // escolha do jogador) — ver BONUS_GRAU_FIXO_POR_RACA (14/10, pedido do
+  // Pedro: "todos os nioshes tenham +1 de força também das habilidades de
+  // raça principal" — vale pra qualquer Niosh, não só quem escolhe
+  // Descendentes de Sabato como principal).
+  const fixoRaca = BONUS_GRAU_FIXO_POR_RACA[character?.raca];
+  if (fixoRaca) {
+    for (const b of fixoRaca) {
+      const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+      alvo[b.chave] = (alvo[b.chave] || 0) + 1;
     }
   }
   // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): ter "Ofício Mágico:

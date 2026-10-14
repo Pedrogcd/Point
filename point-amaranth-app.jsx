@@ -528,6 +528,7 @@ function withFichaDefaults(c) {
     habilidadePrincipal: null,
     habilidadeSecundaria: null,
     disciplinaHumano: null,
+    disciplinaExtraHumano: null,
     descritores: [],
     bonusGrauEscolha: {},
     bonusGrauEscolhaRaca: null,
@@ -4231,6 +4232,7 @@ const emptyCharacter = () => ({
   habilidadePrincipal: null,
   habilidadeSecundaria: null,
   disciplinaHumano: null,
+  disciplinaExtraHumano: null,
   descritores: [],
   bonusGrauEscolha: {},
   bonusGrauEscolhaRaca: null,
@@ -4353,19 +4355,62 @@ function Seal({ grade, size = 34 }) {
   );
 }
 
-// `bonus`: quantos dos segmentos (de 5, E..A) vieram de uma habilidade de raça
+// `bonus`: quantos dos segmentos (de 6, F..A) vieram de uma habilidade de raça
 // (já calculado — ver racasCatalogo.js: bonusAplicado, pós-teto). `grade` já
 // vem como o grau EFETIVO (base + bônus) — a barra desenha a base em cinza/cor
 // normal e só o pedaço do bônus em azul (BONUS_RACIAL_COR), pra mostrar de
 // onde veio o crescimento sem esconder o grau final.
-function AttrBar({ label, grade, highlight, bonus = 0 }) {
+//
+// `onChangeGrade` (14/10, mesmo dia — pedido do Pedro: "ajustar rápido
+// arrastando a barrinha"): clicar ou arrastar na barra ajusta o grau BASE
+// (o que fica salvo na ficha) direto, sem abrir o formulário. A interação
+// mira sempre a barra INTEIRA como se fosse F..A (0 a 5 passos, igual a
+// largura visual de 100%) e DESCONTA o `bonus` do ponto clicado antes de
+// devolver — ou seja, o jogador arrasta pensando no grau TOTAL que quer ver
+// (a barra mostra o total, igual sempre mostrou), e a função já calcula qual
+// BASE produz esse total dado o bônus racial atual (que não muda ao
+// arrastar). Com bonus=0 (o caso comum, sem bônus de raça) isso vira
+// simplesmente "o grau onde cliquei", sem nenhuma sutileza. O <select> do
+// formulário continua existindo do lado — arrasto é só um atalho, não troca
+// a forma de guardar o dado.
+function AttrBar({ label, grade, highlight, bonus = 0, onChangeGrade }) {
   const value = GRADE_VALUE[grade] ?? 1;
   const color = GRADE_COLOR[grade] || BRASS;
   const baseValue = Math.max(0, value - bonus);
+  const trackRef = useRef(null);
+  const editavel = typeof onChangeGrade === "function";
+
+  function aplicarNaPosicao(clientX) {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return;
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const alvoIdx = Math.round(ratio * (GRADE_ORDER.length - 1));
+    const baseIdx = Math.max(0, Math.min(GRADE_ORDER.length - 1, alvoIdx - bonus));
+    onChangeGrade(GRADE_ORDER[baseIdx]);
+  }
+  function handlePointerDown(e) {
+    if (!editavel) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    aplicarNaPosicao(e.clientX);
+  }
+  function handlePointerMove(e) {
+    if (!editavel || e.buttons !== 1) return;
+    aplicarNaPosicao(e.clientX);
+  }
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
-      <span style={{ width: 100, fontSize: 12.5, color: PARCHMENT, letterSpacing: 0.3, fontFamily: "'Spectral', serif" }}>{label}</span>
-      <div style={{ flex: 1, height: 8, background: "#00000015", borderRadius: 4, border: `1px solid ${LINE}`, overflow: "hidden", position: "relative" }}>
+      {label && <span style={{ width: 100, fontSize: 12.5, color: PARCHMENT, letterSpacing: 0.3, fontFamily: "'Spectral', serif" }}>{label}</span>}
+      <div
+        ref={trackRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        title={editavel ? "Clique ou arraste pra ajustar o grau" : undefined}
+        style={{
+          flex: 1, height: 8, background: "#00000015", borderRadius: 4, border: `1px solid ${LINE}`, overflow: "hidden",
+          position: "relative", cursor: editavel ? "ew-resize" : "default", touchAction: editavel ? "none" : undefined,
+        }}
+      >
         <div style={{ width: `${baseValue * 20}%`, height: "100%", background: `linear-gradient(90deg, ${color}99, ${color})`, transition: "width 0.4s ease" }} />
         {bonus > 0 && (
           <div
@@ -4373,6 +4418,7 @@ function AttrBar({ label, grade, highlight, bonus = 0 }) {
             style={{
               position: "absolute", left: `${baseValue * 20}%`, top: 0, bottom: 0, width: `${bonus * 20}%`,
               background: `linear-gradient(90deg, ${BONUS_RACIAL_COR}99, ${BONUS_RACIAL_COR})`, transition: "width 0.4s ease, left 0.4s ease",
+              pointerEvents: "none",
             }}
           />
         )}
@@ -4880,58 +4926,37 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
 // magiasAtivas`); trocar uma equipada por uma da reserva custa 1 MP, ou é de
 // graça (gastando uma ação — o app não modela ações, então só não desconta
 // MP) só pra disciplinas com `trocaGratisComAcao` (hoje: Magias de guerra).
-function DisciplinaSlotPicker({ character, slotIndex, onUpdateCharacter, onClose }) {
-  const disciplinas = character.disciplinas || [];
-  const atual = disciplinas[slotIndex] || null;
+// Generalizado (14/10, mesmo dia) pra servir tanto os 3 slots normais de
+// character.disciplinas quanto o 4º encaixe extra da secundária "Vaga de
+// Disciplina" do Humano (character.disciplinaExtraHumano) — quem chama lê e
+// grava onde for certo (gravarSlotDisciplina em CharacterSheet) e passa só
+// o valor atual + callbacks; este componente não sabe mais onde o dado mora.
+function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose }) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
   const [trocaRemover, setTrocaRemover] = useState("");
   const [trocaAdicionar, setTrocaAdicionar] = useState("");
 
-  function gravarDisciplinas(novoArray, patchExtra = {}) {
-    onUpdateCharacter(character.id, { disciplinas: novoArray, ...patchExtra });
-  }
-  function slotsPreenchidos() {
-    const novo = [...disciplinas];
-    while (novo.length < MAX_DISCIPLINAS) novo.push(null);
-    return novo;
-  }
-  function escolherDisciplina(disciplinaId) {
-    const novo = slotsPreenchidos();
-    novo[slotIndex] = { disciplinaId, habilidadesAtivas: [] };
-    gravarDisciplinas(novo);
-  }
-  function esvaziar() {
-    const novo = slotsPreenchidos();
-    novo[slotIndex] = null;
-    gravarDisciplinas(novo);
-    setTrocaRemover("");
-    setTrocaAdicionar("");
-  }
   function toggleMagia(magiaId) {
     if (!atual) return;
     const max = def?.magiasAtivasMax || 3;
     if (habilidadesAtivas.length >= max && !habilidadesAtivas.includes(magiaId)) return; // trava — precisa usar a Troca
-    const novasHabilidades = habilidadesAtivas.includes(magiaId)
-      ? habilidadesAtivas.filter((m) => m !== magiaId)
-      : [...habilidadesAtivas, magiaId];
-    const novo = slotsPreenchidos();
-    novo[slotIndex] = { ...atual, habilidadesAtivas: novasHabilidades };
-    gravarDisciplinas(novo);
+    onToggleMagia(magiaId);
+  }
+  function esvaziar() {
+    onEsvaziar();
+    setTrocaRemover("");
+    setTrocaAdicionar("");
   }
   function confirmarTroca(gratis) {
     if (!atual || !trocaRemover || !trocaAdicionar) return;
-    if (!gratis && (character.mp?.current || 0) <= 0) return;
-    const novasHabilidades = habilidadesAtivas.filter((m) => m !== trocaRemover).concat(trocaAdicionar);
-    const novo = slotsPreenchidos();
-    novo[slotIndex] = { ...atual, habilidadesAtivas: novasHabilidades };
-    const patchExtra = gratis ? {} : { mp: { ...character.mp, current: character.mp.current - 1 } };
-    gravarDisciplinas(novo, patchExtra);
+    if (!gratis && (mpAtual || 0) <= 0) return;
+    onConfirmarTroca(gratis, trocaRemover, trocaAdicionar);
     setTrocaRemover("");
     setTrocaAdicionar("");
   }
 
-  const disciplinasDisponiveis = DISCIPLINAS.filter((d) => !disciplinas.some((s, i) => i !== slotIndex && s?.disciplinaId === d.id));
+  const disciplinasDisponiveis = DISCIPLINAS.filter((d) => !excluirIds.includes(d.id));
 
   return (
     <div
@@ -4945,11 +4970,11 @@ function DisciplinaSlotPicker({ character, slotIndex, onUpdateCharacter, onClose
         <div style={{ padding: "16px 20px 10px", borderBottom: `1px solid ${LINE}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: BRASS_BRIGHT, textTransform: "uppercase" }}>
-              Disciplina {slotIndex + 1}
+              {titulo}
             </span>
             <Btn variant="ghost" onClick={onClose}>Fechar</Btn>
           </div>
-          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 0" }}>{character.name} · até {MAX_DISCIPLINAS} disciplinas no total.</p>
+          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 0" }}>{legenda}</p>
         </div>
 
         <div style={{ overflowY: "auto", padding: 16 }}>
@@ -4959,7 +4984,7 @@ function DisciplinaSlotPicker({ character, slotIndex, onUpdateCharacter, onClose
               return (
                 <div
                   key={d.id}
-                  onClick={() => escolherDisciplina(d.id)}
+                  onClick={() => onEscolher(d.id)}
                   style={{ padding: 11, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}` }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, marginBottom: 4 }}>{d.nome}</div>
@@ -4996,7 +5021,7 @@ function DisciplinaSlotPicker({ character, slotIndex, onUpdateCharacter, onClose
                     <option value="">Adicionar...</option>
                     {MAGIAS.filter((m) => !m.placeholder && !habilidadesAtivas.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                   </select>
-                  <Btn onClick={() => confirmarTroca(false)} disabled={!trocaRemover || !trocaAdicionar || (character.mp?.current || 0) <= 0}>
+                  <Btn onClick={() => confirmarTroca(false)} disabled={!trocaRemover || !trocaAdicionar || (mpAtual || 0) <= 0}>
                     Trocar (1 MP)
                   </Btn>
                   {def.trocaGratisComAcao && (
@@ -5021,6 +5046,23 @@ function DisciplinaSlotPicker({ character, slotIndex, onUpdateCharacter, onClose
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Chips empilhados das magias equipadas de uma disciplina — usado abaixo de
+// cada Disciplina (3 normais) e ao lado do encaixe extra da secundária, em
+// vez do texto corrido "· Equipadas: X, Y" de antes (14/10, mesmo dia).
+function ChipsHabilidadesDisciplina({ ids }) {
+  const nomes = (ids || []).map((id) => getMagiaPorId(id)?.nome).filter(Boolean);
+  if (nomes.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+      {nomes.map((nome, i) => (
+        <div key={i} style={{ fontSize: 10, color: PARCHMENT, background: `${PURPLE}18`, border: `1px solid ${PURPLE}55`, borderRadius: 5, padding: "3px 7px", lineHeight: 1.3 }}>
+          {nome}
+        </div>
+      ))}
     </div>
   );
 }
@@ -5090,9 +5132,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // jogador escolhe, a cada conjuração, entre a contagem de Ofícios Mágicos
   // ou o grau de Inteligência — ver diceAtaqueMagico(..., fonte, ...).
   const [fonteMagia, setFonteMagia] = useState("oficios");
-  // Índice do espaço de Disciplina aberto (0-2, null = fechado) — abre o
-  // DisciplinaSlotPicker (distinto de slotAberto, que é das Habilidades
-  // Passivas de Combate, abaixo).
+  // Índice do espaço de Disciplina aberto: 0-2 (um dos 3 normais), "extra"
+  // (o 4º encaixe da secundária "Vaga de Disciplina" do Humano) ou null
+  // (fechado) — abre o DisciplinaSlotPicker (distinto de slotAberto, que é
+  // das Habilidades Passivas de Combate, abaixo).
   const [disciplinaSlotAberto, setDisciplinaSlotAberto] = useState(null);
   // Índice do espaço de habilidade aberto na tabela de 3 caixas (null = fechado).
   const [slotAberto, setSlotAberto] = useState(null);
@@ -5225,6 +5268,17 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     novos = novos.filter((id, i) => novos.indexOf(id) === i).slice(0, MAX_PROCS);
     onUpdateCharacter(character.id, { procs: novos });
   }
+
+  // Ajuste rápido de grau arrastando a AttrBar (14/10, pedido do Pedro) —
+  // grava direto no BASE salvo (atributosGerais/proficiencias), sem passar
+  // pelo formulário. undefined quando não há onUpdateCharacter (ex: Confronto
+  // mostrando um personagem só-leitura) pra AttrBar nem tentar ficar editável.
+  const setAtributoGeral = onUpdateCharacter
+    ? (chave, grau) => onUpdateCharacter(character.id, { atributosGerais: { ...character.atributosGerais, [chave]: grau } })
+    : undefined;
+  const setProficiencia = onUpdateCharacter
+    ? (chave, grau) => onUpdateCharacter(character.id, { proficiencias: { ...character.proficiencias, [chave]: grau } })
+    : undefined;
 
   function recomputeRoll(dice) {
     const successes = dice.filter((d) => d === 10 || d > successThreshold).length;
@@ -5817,28 +5871,35 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         </div>
       </div>
 
-      {/* TABELA 1 — Habilidade de Raça (principal + secundária) + as duas
-          Classes. `racialAbility`/`race` continuam texto livre; quando vazios,
-          o cartão principal cai pro nome do catálogo (`habilidadePrincipal`)
-          — dá pra usar só os seletores, sem escrever nada. A secundária nunca
-          tem cor própria: no catálogo, toda habilidade secundária já nasce com
-          `cor: null` — não precisa forçar neutro no código. Quando a
-          secundária ESCOLHIDA tem o flag `disciplina` (hoje só a "Vaga de
-          Disciplina" do Humano), o espaço da secundária mostra a Disciplina
-          escolhida (nome livre + grau E/D/C) em vez da descrição/efeito do
-          catálogo — a checagem é pela habilidade escolhida, não pela raça, já
-          que o Humano agora tem outras secundárias normais também. */}
+      {/* TABELA 1 — Habilidade de Raça (principal + secundária) + Disciplinas.
+          `racialAbility`/`race` continuam texto livre; quando vazios, o
+          cartão principal cai pro nome do catálogo (`habilidadePrincipal`) —
+          dá pra usar só os seletores, sem escrever nada. A secundária nunca
+          tem cor própria: no catálogo, toda habilidade secundária já nasce
+          com `cor: null` — não precisa forçar neutro no código.
+
+          14/10 (mesmo dia): quando a secundária ESCOLHIDA tem o flag
+          `disciplina` (hoje só a "Vaga de Disciplina" do Humano), o espaço da
+          secundária vira um 4º encaixe de Disciplina de verdade —
+          `character.disciplinaExtraHumano`, INDEPENDENTE dos 3 normais (não
+          compete por espaço com eles, pedido do Pedro) — clicável igual os
+          outros 3, abre o mesmo DisciplinaSlotPicker. Substitui o antigo
+          texto livre nome+grau (`character.disciplinaHumano`, dado antigo
+          preservado mas não lido mais aqui). A checagem é pela habilidade
+          ESCOLHIDA, não pela raça, já que o Humano tem outras secundárias
+          normais também. */}
       {(() => {
         const racaInfo = encontrarRaca(character.raca);
         const habPrincipal = encontrarPrincipal(racaInfo, character.habilidadePrincipal);
         const habSecundaria = encontrarSecundaria(racaInfo, character.habilidadeSecundaria);
         const ehDisciplinaHumano = habSecundaria?.disciplina === true;
-        const disciplinaHumano = character.disciplinaHumano;
+        const extraSlot = character.disciplinaExtraHumano || null;
+        const extraDef = extraSlot ? getDisciplinaPorId(extraSlot.disciplinaId) : null;
         const principalVazio = !character.racialAbility?.name && !habPrincipal;
         const corPrincipal = habPrincipal ? habPrincipal.cor : MUTED;
         const iconPrincipal = habPrincipal ? iconePara(habPrincipal.icone) : (racaInfo ? iconePara(racaInfo.icone) : null);
         const IconRaca = racaInfo ? iconePara(racaInfo.icone) : null;
-        const secundariaVazia = ehDisciplinaHumano ? !disciplinaHumano?.nome : !habSecundaria;
+        const secundariaVazia = ehDisciplinaHumano ? !extraDef : !habSecundaria;
         return (
       <div style={panelStyle}>
         <div style={{ ...panelHeadStyle, color: racaInfo?.cor || PURPLE, display: "flex", alignItems: "center", gap: 6 }}>
@@ -5858,18 +5919,28 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               : (character.racialAbility?.description || habPrincipal?.descricao || "Sem descrição.")}
             efeito={!principalVazio ? habPrincipal?.efeito : undefined}
           />
-          <SlotBox
-            etiqueta={ehDisciplinaHumano ? (racaInfo?.secundariaNome || "Vaga de Disciplina") : "Habilidade de Raça — secundária"}
-            cor={MUTED}
-            Icon={IconRaca}
-            vazio={secundariaVazia}
-            titulo={ehDisciplinaHumano ? disciplinaHumano?.nome : habSecundaria?.nome}
-            subtitulo={ehDisciplinaHumano ? (disciplinaHumano?.nome ? `Grau ${disciplinaHumano.grau}` : null) : (racaInfo?.nome || null)}
-            corpo={ehDisciplinaHumano
-              ? (secundariaVazia ? "Nenhuma disciplina escolhida ainda." : "Disciplina — grau livre, definida pelo jogador.")
-              : (secundariaVazia ? "Nenhuma secundária escolhida ainda." : (habSecundaria?.descricao || "Sem descrição."))}
-            efeito={!ehDisciplinaHumano && !secundariaVazia ? habSecundaria?.efeito : undefined}
-          />
+          <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SlotBox
+                etiqueta={ehDisciplinaHumano ? (racaInfo?.secundariaNome || "Vaga de Disciplina") : "Habilidade de Raça — secundária"}
+                cor={MUTED}
+                Icon={IconRaca}
+                vazio={secundariaVazia}
+                titulo={ehDisciplinaHumano ? extraDef?.nome : habSecundaria?.nome}
+                subtitulo={ehDisciplinaHumano ? (extraDef?.temTelaDeMana ? "Tela de mana" : null) : (racaInfo?.nome || null)}
+                corpo={ehDisciplinaHumano
+                  ? (extraDef ? extraDef.bonusTexto : "Nenhuma disciplina escolhida ainda — clique pra escolher.")
+                  : (secundariaVazia ? "Nenhuma secundária escolhida ainda." : (habSecundaria?.descricao || "Sem descrição."))}
+                efeito={!ehDisciplinaHumano && !secundariaVazia ? habSecundaria?.efeito : undefined}
+                onClick={ehDisciplinaHumano && onUpdateCharacter ? () => setDisciplinaSlotAberto("extra") : undefined}
+              />
+            </div>
+            {ehDisciplinaHumano && extraDef?.temMagias && (
+              <div style={{ width: 98, flexShrink: 0 }}>
+                <ChipsHabilidadesDisciplina ids={extraSlot?.habilidadesAtivas} />
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ fontSize: 10.5, color: PURPLE, margin: "2px 0 8px", fontWeight: 600 }}>
           Disciplinas (até 3 — docs/DISCIPLINAS_MAGIA.md). Clique numa caixa pra escolher, trocar magias ou esvaziar.
@@ -5878,20 +5949,21 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           {[0, 1, 2].map((i) => {
             const slot = disciplinasPersonagem[i];
             const def = slot ? getDisciplinaPorId(slot.disciplinaId) : null;
-            const habilidades = (slot?.habilidadesAtivas || []).map((id) => getMagiaPorId(id)?.nome).filter(Boolean);
             return (
-              <SlotBox
-                key={i}
-                etiqueta={`Disciplina ${i + 1}`}
-                cor={PURPLE}
-                vazio={!def}
-                titulo={def?.nome}
-                subtitulo={def?.temTelaDeMana ? "Tela de mana" : null}
-                corpo={def
-                  ? `${def.bonusTexto}${habilidades.length ? ` · Equipadas: ${habilidades.join(", ")}` : (def.temMagias ? " · Nenhuma magia equipada ainda." : "")}`
-                  : "Vazia — clique pra escolher."}
-                onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto(i) : undefined}
-              />
+              <div key={i}>
+                <SlotBox
+                  etiqueta={`Disciplina ${i + 1}`}
+                  cor={PURPLE}
+                  vazio={!def}
+                  titulo={def?.nome}
+                  subtitulo={def?.temTelaDeMana ? "Tela de mana" : null}
+                  corpo={def
+                    ? `${def.bonusTexto}${(slot?.habilidadesAtivas || []).length === 0 && def.temMagias ? " · Nenhuma magia equipada ainda." : ""}`
+                    : "Vazia — clique pra escolher."}
+                  onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto(i) : undefined}
+                />
+                <ChipsHabilidadesDisciplina ids={slot?.habilidadesAtivas} />
+              </div>
             );
           })}
         </div>
@@ -5899,14 +5971,42 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         );
       })()}
 
-      {disciplinaSlotAberto !== null && onUpdateCharacter && (
-        <DisciplinaSlotPicker
-          character={character}
-          slotIndex={disciplinaSlotAberto}
-          onUpdateCharacter={onUpdateCharacter}
-          onClose={() => setDisciplinaSlotAberto(null)}
-        />
-      )}
+      {disciplinaSlotAberto !== null && onUpdateCharacter && (() => {
+        const racaInfoPicker = encontrarRaca(character.raca);
+        const ehExtra = disciplinaSlotAberto === "extra";
+        const atual = ehExtra ? (character.disciplinaExtraHumano || null) : ((character.disciplinas || [])[disciplinaSlotAberto] || null);
+        const idsNormais = (character.disciplinas || []).map((s, idx) => (ehExtra || idx !== disciplinaSlotAberto ? s?.disciplinaId : null)).filter(Boolean);
+        const idExtra = !ehExtra ? character.disciplinaExtraHumano?.disciplinaId : null;
+        const excluirIds = [...idsNormais, idExtra].filter(Boolean);
+        function gravar(novoValor, patchExtra = {}) {
+          if (ehExtra) { onUpdateCharacter(character.id, { disciplinaExtraHumano: novoValor, ...patchExtra }); return; }
+          const novo = [...(character.disciplinas || [])];
+          while (novo.length < MAX_DISCIPLINAS) novo.push(null);
+          novo[disciplinaSlotAberto] = novoValor;
+          onUpdateCharacter(character.id, { disciplinas: novo, ...patchExtra });
+        }
+        return (
+          <DisciplinaSlotPicker
+            titulo={ehExtra ? (racaInfoPicker?.secundariaNome || "Vaga de Disciplina") : `Disciplina ${disciplinaSlotAberto + 1}`}
+            legenda={`${character.name} · ${ehExtra ? "encaixe extra da secundária, independente das outras 3 disciplinas" : `até ${MAX_DISCIPLINAS} disciplinas no total`}.`}
+            atual={atual}
+            excluirIds={excluirIds}
+            mpAtual={character.mp?.current}
+            onEscolher={(id) => gravar({ disciplinaId: id, habilidadesAtivas: [] })}
+            onEsvaziar={() => gravar(null)}
+            onToggleMagia={(magiaId) => {
+              const habilidadesAtivas = atual?.habilidadesAtivas || [];
+              const novas = habilidadesAtivas.includes(magiaId) ? habilidadesAtivas.filter((m) => m !== magiaId) : [...habilidadesAtivas, magiaId];
+              gravar({ ...atual, habilidadesAtivas: novas });
+            }}
+            onConfirmarTroca={(gratis, remover, adicionar) => {
+              const habilidadesAtivas = (atual?.habilidadesAtivas || []).filter((m) => m !== remover).concat(adicionar);
+              gravar({ ...atual, habilidadesAtivas }, gratis ? {} : { mp: { ...character.mp, current: (character.mp?.current || 0) - 1 } });
+            }}
+            onClose={() => setDisciplinaSlotAberto(null)}
+          />
+        );
+      })()}
 
       {/* TABELA 2 — os 3 espaços de Habilidade Passiva de Combate. Clicar numa
           caixa abre o seletor com as habilidades já criadas (PROC_ABILITIES). */}
@@ -5964,19 +6064,19 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           <div>
             <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO.fisica.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Físicos</div>
             {ATRIBUTOS_GERAIS_LIST.filter((a) => a.categoria === "fisica").map((a) => (
-              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} />
+              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} onChangeGrade={setAtributoGeral ? (g) => setAtributoGeral(a.key, g) : undefined} />
             ))}
           </div>
           <div>
             <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO.social.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Sociais</div>
             {ATRIBUTOS_GERAIS_LIST.filter((a) => a.categoria === "social").map((a) => (
-              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} />
+              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} onChangeGrade={setAtributoGeral ? (g) => setAtributoGeral(a.key, g) : undefined} />
             ))}
           </div>
           <div>
             <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO.mental.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Mentais</div>
             {ATRIBUTOS_GERAIS_LIST.filter((a) => a.categoria === "mental").map((a) => (
-              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} />
+              <AttrBar key={a.key} label={a.label} grade={characterEfetivo.atributosGerais?.[a.key] || "E"} highlight={a.key === rollAttr} bonus={bonusAplicado.atributos[a.key] || 0} onChangeGrade={setAtributoGeral ? (g) => setAtributoGeral(a.key, g) : undefined} />
             ))}
           </div>
         </div>
@@ -5987,7 +6087,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             <div key={cat}>
               <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO[cat].color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>{CATEGORIA_GERAL_INFO[cat].label}</div>
               {PROFICIENCIAS_LIST.filter((p) => p.categoria === cat).map((p) => (
-                <AttrBar key={p.key} label={p.label} grade={characterEfetivo.proficiencias?.[p.key] || "E"} bonus={bonusAplicado.proficiencias[p.key] || 0} />
+                <AttrBar key={p.key} label={p.label} grade={characterEfetivo.proficiencias?.[p.key] || "E"} bonus={bonusAplicado.proficiencias[p.key] || 0} onChangeGrade={setProficiencia ? (g) => setProficiencia(p.key, g) : undefined} />
               ))}
             </div>
           ))}
@@ -6101,6 +6201,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       habilidadePrincipal: null,
       habilidadeSecundaria: null,
       disciplinaHumano: null,
+      disciplinaExtraHumano: null,
       descritores: [],
       bonusGrauEscolha: {},
       bonusGrauEscolhaRaca: null,
@@ -6416,21 +6517,12 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                     corForcada={MUTED}
                   />
                   {ehDisciplina ? (
-                    <div style={{ marginTop: 10 }}>
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <input
-                          style={{ ...inputStyle, flex: 1 }} placeholder="Nome da disciplina"
-                          value={c.disciplinaHumano?.nome || ""}
-                          onChange={(e) => set(["disciplinaHumano", "nome"], e.target.value)}
-                        />
-                        <select
-                          style={{ ...inputStyle, width: 90 }} value={c.disciplinaHumano?.grau || "E"}
-                          onChange={(e) => set(["disciplinaHumano", "grau"], e.target.value)}
-                        >
-                          {["E", "D", "C"].map((g) => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                      </div>
-                    </div>
+                    <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45, fontStyle: "italic" }}>
+                      {racaAtual.secundariaNome || "Vaga de Disciplina"} — essa secundária dá um 4º encaixe de Disciplina
+                      independente dos outros 3, escolhido na própria ficha (não aqui): veja o painel "Raça e Disciplinas",
+                      clique na caixa da secundária. (Texto livre antigo saiu em 14/10; o que já estava escrito continua
+                      salvo, mas não aparece mais em lugar nenhum da tela.)
+                    </p>
                   ) : secundariaAtual && (
                     <>
                       <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
@@ -6464,6 +6556,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
           <Field key={p.key} label={p.label}>
+            <AttrBar label="" grade={c.proficiencias?.[p.key] || "E"} onChangeGrade={(g) => set(["proficiencias", p.key], g)} />
             <select style={inputStyle} value={c.proficiencias?.[p.key] || "E"} onChange={(e) => set(["proficiencias", p.key], e.target.value)}>
               {GRADE_ORDER.map((g) => <option key={g} value={g}>{g} — nível {GRADE_VALUE[g]}</option>)}
             </select>
@@ -6478,6 +6571,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 14 }}>
         {ATRIBUTOS_GERAIS_LIST.map((a) => (
           <Field key={a.key} label={`${a.label} (${CATEGORIA_GERAL_INFO[a.categoria].label})`}>
+            <AttrBar label="" grade={c.atributosGerais?.[a.key] || "E"} onChangeGrade={(g) => set(["atributosGerais", a.key], g)} />
             <select style={inputStyle} value={c.atributosGerais?.[a.key] || "E"} onChange={(e) => set(["atributosGerais", a.key], e.target.value)}>
               {GRADE_ORDER.map((g) => <option key={g} value={g}>{g} — nível {GRADE_VALUE[g]}</option>)}
             </select>
@@ -6491,6 +6585,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginTop: 10 }}>
           {PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => (
             <Field key={p.key} label={p.label}>
+              <AttrBar label="" grade={c.proficiencias?.[p.key] || "E"} onChangeGrade={(g) => set(["proficiencias", p.key], g)} />
               <select style={inputStyle} value={c.proficiencias?.[p.key] || "E"} onChange={(e) => set(["proficiencias", p.key], e.target.value)}>
                 {GRADE_ORDER.map((g) => <option key={g} value={g}>{g} — nível {GRADE_VALUE[g]}</option>)}
               </select>

@@ -226,8 +226,29 @@ export const BONUS_OFICIO_EXTRA_POR_HABILIDADE = {
 // solto, 14/10 anterior) — agora esses dois são DERIVADOS daqui, nunca mais
 // guardados direto na ficha (ver comGrausEfetivos). Troca o antigo painel
 // "Classes" (2 caixas de texto livre) na ficha.
+
+// "Vaga de Disciplina" (secundária do Humano com `disciplina: true` no
+// catálogo) virou um 4º encaixe de Disciplina de verdade — pedido do Pedro
+// (14/10, mesmo dia): INDEPENDENTE dos 3 normais, não compete por espaço com
+// eles. Guardado à parte em `character.disciplinaExtraHumano` (mesmo formato
+// de um item de `character.disciplinas`: `{ disciplinaId, habilidadesAtivas }`
+// ou `null`) por não ser posicional como os outros 3. Só conta de verdade
+// enquanto a secundária ESCOLHIDA continuar sendo essa — se o jogador trocar
+// de secundária depois, o dado salvo não é apagado (mesmo padrão não-
+// destrutivo do resto do app), só para de valer até voltar a escolher essa
+// secundária de novo. Substitui por completo o antigo `disciplinaHumano`
+// (texto livre nome+grau E/D/C, sem ligação com o catálogo real) — esse
+// campo antigo fica intocado nos dados existentes, só não é mais lido aqui.
+export function temEncaixeExtraDeDisciplina(character) {
+  const raca = encontrarRaca(character?.raca);
+  const secundaria = encontrarSecundaria(raca, character?.habilidadeSecundaria);
+  return secundaria?.disciplina === true;
+}
+
 export function disciplinasDoPersonagem(character) {
-  return (character?.disciplinas || []).filter(Boolean);
+  const normais = (character?.disciplinas || []).filter(Boolean);
+  const extra = temEncaixeExtraDeDisciplina(character) ? character?.disciplinaExtraHumano : null;
+  return extra ? [...normais, extra] : normais;
 }
 
 // Ids das disciplinas do tipo "oficio-magico" escolhidas (conta 1 cada no

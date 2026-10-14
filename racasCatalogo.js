@@ -406,14 +406,21 @@ export function bonusGrauDoPersonagem(character) {
   }
   // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): ter "Ofício Mágico:
   // Magias de guerra" entre os até 3 slots de disciplina mantém o +1 grau em
-  // Magias Gerais que o antigo "Ofício Mágico" já dava. As outras disciplinas
-  // vazias (Encantamentos, Alquimia, Constructo — ver data/magias.js:
-  // DISCIPLINAS) não dão bônus de grau nenhum, só contam como dado no pool
-  // mágico (ver engine.js:contagemOficiosMagicos). Magia Inata não dá bônus
-  // de grau nenhum — vira +1d10 fixo nas rolagens de magia e +1 MP (ver
-  // engine.js:diceAtaqueMagico/computeMaxMana).
+  // Magias Gerais que o antigo "Ofício Mágico" já dava, e TAMBÉM +1 grau
+  // (teto C) em Acadêmicos e Tecnologia — confirmado pelo Pedro (14/10, mais
+  // tarde ainda) como o valor real, encerrando a pendência 2 do guia ("valor
+  // a confirmar, suposto +1 grau teto C" — ver docs/DISCIPLINAS_MAGIA.md e o
+  // item 2 da seção "Pendências" em CONTEXTO.md). Até então isso era só
+  // `bonusTexto` descritivo em data/magias.js, sem efeito numérico nenhum.
+  // As outras disciplinas vazias (Encantamentos, Alquimia, Constructo — ver
+  // data/magias.js:DISCIPLINAS) não dão bônus de grau nenhum, só contam como
+  // dado no pool mágico (ver engine.js:contagemOficiosMagicos). Magia Inata
+  // não dá bônus de grau nenhum — vira +1d10 fixo nas rolagens de magia e +1
+  // MP (ver engine.js:diceAtaqueMagico/computeMaxMana).
   if (oficiosMagicosDoPersonagem(character).includes("oficio-magias-de-guerra")) {
     resultado.proficiencias.magiasGerais = (resultado.proficiencias.magiasGerais || 0) + 1;
+    resultado.proficiencias.academicos = (resultado.proficiencias.academicos || 0) + 1;
+    resultado.proficiencias.tecnologia = (resultado.proficiencias.tecnologia || 0) + 1;
   }
   return resultado;
 }

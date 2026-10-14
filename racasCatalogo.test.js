@@ -179,9 +179,9 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
   });
 
-  it("Disciplina 'Ofício Mágico: Magias de guerra' dá +1 em Magias Gerais (mantém o bônus do antigo Ofício Mágico)", () => {
+  it("Disciplina 'Ofício Mágico: Magias de guerra' dá +1 em Magias Gerais, Acadêmicos e Tecnologia (pendência 2 de DISCIPLINAS_MAGIA.md, confirmada 14/10)", () => {
     const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }] });
-    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, academicos: 1, tecnologia: 1 }, atributos: {} });
   });
 
   it("Disciplinas que não são Magias de guerra não dão bônus de grau nenhum (só contam no pool mágico)", () => {

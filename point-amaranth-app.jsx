@@ -70,6 +70,7 @@ const SP_COLOR = "#4A7A4E";
 
 
 const GRADE_COLOR = {
+  F: "#7A3B3B",
   E: "#5A6B69",
   D: "#78725A",
   C: "#9C7A3E",
@@ -4358,7 +4359,7 @@ function Seal({ grade, size = 34 }) {
 // normal e só o pedaço do bônus em azul (BONUS_RACIAL_COR), pra mostrar de
 // onde veio o crescimento sem esconder o grau final.
 function AttrBar({ label, grade, highlight, bonus = 0 }) {
-  const value = GRADE_VALUE[grade] || 1;
+  const value = GRADE_VALUE[grade] ?? 1;
   const color = GRADE_COLOR[grade] || BRASS;
   const baseValue = Math.max(0, value - bonus);
   return (
@@ -4640,7 +4641,7 @@ function AttackCard({ atk, onClick, selected, character }) {
   const profGrade = character && atk.profKey ? character.proficiencias?.[atk.profKey] : null;
   const totalDice = character
     ? diceAtaqueFisico(character, atributoKey, atk.profKey, atk.ajusteDados || 0)
-    : (GRADE_VALUE[atributoGrade] || 1) + (GRADE_VALUE[profGrade] || 1) + (atk.ajusteDados || 0);
+    : (GRADE_VALUE[atributoGrade] ?? 1) + (GRADE_VALUE[profGrade] ?? 1) + (atk.ajusteDados || 0);
   const descritoresEfetivos = character ? descritoresEfetivosDoAtaque(character, atk) : (atk.descritores || []);
 
   function MiniStat({ label, value, sub }) {
@@ -4668,7 +4669,7 @@ function AttackCard({ atk, onClick, selected, character }) {
       </div>
 
       <div style={{ display: "flex", gap: 10 }}>
-        <MiniStat label="DADOS" value={`${totalDice}d10`} sub={character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] || 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] || 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null} />
+        <MiniStat label="DADOS" value={`${totalDice}d10`} sub={character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] ?? 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] ?? 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null} />
         <MiniStat label="FERIDAS" value={atk.feridas ?? 1} />
       </div>
 
@@ -5107,8 +5108,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const rollProfGrade = characterEfetivo.proficiencias?.[rollProf] || "E";
   const diceDoAtributoTeste = usandoBaseMagicaNoTeste
     ? diceBaseMagica(manaGastaTeste, custoMagiaTeste)
-    : (GRADE_VALUE[rollAttrGrade] || 1);
-  const totalDice = diceDoAtributoTeste + (GRADE_VALUE[rollProfGrade] || 1) + Math.max(0, ascensaoDiff);
+    : (GRADE_VALUE[rollAttrGrade] ?? 1);
+  const totalDice = diceDoAtributoTeste + (GRADE_VALUE[rollProfGrade] ?? 1) + Math.max(0, ascensaoDiff);
 
   function roll() {
     setRolling(true);
@@ -6751,7 +6752,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
   const [result, setResult] = useState(null);
   const [defesaAtributo, setDefesaAtributo] = useState("vigor");
   const attack = attacksA[attackIdx] || attacksA[0];
-  const vigorGrauB = GRADE_VALUE[getAttrGrade(b, "vigor")] || 1;
+  const vigorGrauB = GRADE_VALUE[getAttrGrade(b, "vigor")] ?? 1;
 
   function chooseAndRoll(i) {
     setAttackIdx(i);
@@ -7026,15 +7027,15 @@ export function CompareView({ characters, onUpdateCharacter }) {
                 {ATRIBUTOS_GERAIS_LIST.filter((attr) => attr.categoria === "fisica").map((attr) => {
                   const outro = (side === 0 ? b : a);
                   const bonus = (side === 0 ? bonusA : bonusB);
-                  const otherVal = GRADE_VALUE[outro.atributosGerais?.[attr.key]] || 1;
-                  const thisVal = GRADE_VALUE[ch.atributosGerais?.[attr.key]] || 1;
+                  const otherVal = GRADE_VALUE[outro.atributosGerais?.[attr.key]] ?? 1;
+                  const thisVal = GRADE_VALUE[ch.atributosGerais?.[attr.key]] ?? 1;
                   return <AttrBar key={attr.key} label={attr.label} grade={ch.atributosGerais?.[attr.key] || "E"} highlight={thisVal > otherVal} bonus={bonus.atributos[attr.key] || 0} />;
                 })}
                 {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => {
                   const outro = (side === 0 ? b : a);
                   const bonus = (side === 0 ? bonusA : bonusB);
-                  const otherVal = GRADE_VALUE[outro.proficiencias?.[p.key]] || 1;
-                  const thisVal = GRADE_VALUE[ch.proficiencias?.[p.key]] || 1;
+                  const otherVal = GRADE_VALUE[outro.proficiencias?.[p.key]] ?? 1;
+                  const thisVal = GRADE_VALUE[ch.proficiencias?.[p.key]] ?? 1;
                   return <AttrBar key={p.key} label={p.label} grade={ch.proficiencias?.[p.key] || "E"} highlight={thisVal > otherVal} bonus={bonus.proficiencias[p.key] || 0} />;
                 })}
                 <div style={{ marginTop: 10 }}>

@@ -414,6 +414,20 @@ Suíte de testes: 605 → **631 testes** (migração de Disciplinas, `npcOverrid
 
 **Migrações do Supabase**: nenhuma migração de schema SQL — `npcsOverrides` é só mais uma chave `point-npcs-overrides` dentro do mecanismo já existente de pares `point_kv` (chave/valor JSON), igual `cidadesOverrides`/`pessoasOverrides`. Nada a rodar no painel do Supabase.
 
+### Grau F: abaixo de E, reduz 1 dado (14/10, mesmo dia, sessão seguinte)
+
+Pedido do Pedro: poder escolher grau F em qualquer Atributo Geral ou Proficiência, e esse grau "reduzir em 1 o dado referente a eles". `GRADE_VALUE` (`engine.js`) ganhou `F: 0` — continua a mesma escada de -1 por grau que já existia entre E(1)..A(5), só que um degrau abaixo: F vale exatamente 1 dado a menos que E nos pools que somam atributo+proficiência direto (ataque físico, defesa, painel de Teste, magia via Inteligência). `GRADE_ORDER` ganhou `"F"` no início (`["F","E","D","C","B","A"]`) — é o array que os `<select>` do formulário (`CharacterForm`) usam pra montar as opções, então F virou selecionável em TODAS as proficiências e atributos gerais de uma vez, sem precisar duplicar nenhum seletor.
+
+**O detalhe que importava de verdade**: como `GRADE_VALUE.F` é `0`, e `0` é falsy em JavaScript, TODO lugar do código que lia `GRADE_VALUE[grau] || 1` (o padrão usado em ~15 pontos de `engine.js` e `point-amaranth-app.jsx` pra "grau desconhecido cai em E") passaria a tratar F como se fosse E — anulando a redução silenciosamente, sem erro nenhum. Troquei cada uma dessas ocorrências por `GRADE_VALUE[grau] ?? 1` (nullish coalescing): grau ausente/`undefined` continua caindo em E (1), igual antes, mas F (0) passa reto. Inclui o `vigorGrauCheio || 1` dentro de `determinarFerimento` — com Vigor em F, `vigorGrauCheio` chega como `0`, e sem o `??` o personagem nunca tomaria ferimento agravante corretamente.
+
+**Não mexido de propósito**: `attrBonus(grau)` (usado em `computeMaxHP`/`computeStat` pras Estatísticas de Combate legadas — Defesa, Resistência Armadura, Geral, hoje sem função real em combate) continua com o piso em `Math.max(0, ...)`, então F se comporta igual E nesses cálculos (sem reduzir HP máximo nem a stat Defesa). O pedido do Pedro foi especificamente sobre "o dado" das rolagens, não sobre HP — mudar `attrBonus` pra deixar F dar bônus negativo (-1) ficaria mais "consistente" matematicamente, mas eu não quis tocar em HP sem o Pedro pedir; fica registrado aqui como possível próximo passo se ele quiser.
+
+`GRADE_ORDER` deslocado (F ganhou o índice 0, E foi pra 1 etc.) não quebrou nada em `racasCatalogo.js` (`grauComBonus`/`tetoGrauDoPersonagem`/`comGrausEfetivos`): todo esse código só compara índices RELATIVOS entre si (`GRADE_ORDER.indexOf(base)` vs `GRADE_ORDER.indexOf(teto)`), nunca um número fixo — confirmado pela suíte inteira (631 testes antigos, nenhum quebrou) e por testes novos.
+
+Cor nova em `GRADE_COLOR.F` (`point-amaranth-app.jsx`) pra a barrinha de atributo/proficiência (`AttrBar`) e os cards de ataque mostrarem F visualmente diferente de E, não só pelo texto.
+
+Verificado via Playwright: `CharacterForm` → Destreza de "Almah Mason" trocada pra F → opção "F — nível 0" aparece certinha no `<select>` → salva → card de ataque "Arma branca" (Destreza + Combate Corpo a Corpo) cai de 2d10 pra 1d10, com o texto de detalhe mostrando "D0 + C1" (confirma que o `0` de Destreza aparece de verdade, não vira "1" escondido). Suíte de testes: 631 → **644 testes** (novo describe "Grau F" em `engine.test.js`: valor/ordem, redução de 1 dado em cada pool, ferimento com Vigor F, piso em 0 quando os dois lados são F).
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

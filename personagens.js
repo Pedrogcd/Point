@@ -251,10 +251,15 @@ export function migrarPersonagem(ch) {
   // você liberar", decisão do Pedro — o GM arrasta cada uma pra seção
   // "Jogadores veem" quando quiser revelar.
   const visivelJogador = ch.visivelJogador ?? false;
+  // 4º encaixe de Disciplina da secundária "Vaga de Disciplina" do Humano
+  // (14/10, mesmo dia): independente de disciplinaHumano (o antigo texto
+  // livre nome+grau, preservado intocado acima via ...ch) — nunca existiu
+  // antes de hoje, então toda ficha ganha `null` por padrão, não-destrutivo.
+  const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
   return {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
     abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
-    raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha,
+    raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, disciplinaExtraHumano, descritores, bonusGrauEscolha,
   };
 }
 

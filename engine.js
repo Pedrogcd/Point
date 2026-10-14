@@ -9,8 +9,19 @@
 // (Teste genérico, recursos, status effects de texto livre). Ver CONTEXTO.md
 // pro "porquê" de cada decisão de design.
 
-export const GRADE_VALUE = { E: 1, D: 2, C: 3, B: 4, A: 5 };
-export const GRADE_ORDER = ["E", "D", "C", "B", "A"];
+// Grau F (14/10): abaixo de E, selecionável em qualquer Atributo Geral ou
+// Proficiência — pedido explícito do Pedro pra representar uma fraqueza
+// grave ("reduzem em 1 o dado referente a eles"). Continua a mesma escada de
+// -1 por grau que já existia entre E..A (1,2,3,4,5): F fica em 0, exatamente
+// 1 dado a menos que E nos pools que somam atributo+proficiência direto
+// (diceAtaqueFisico, resolveRolagemDefesa, diceAtaqueMagico com Inteligência,
+// o painel de Teste). IMPORTANTE: como F vale 0 (falsy em JS), todo lugar
+// que lê `GRADE_VALUE[grau]` precisa usar `?? 1` (nullish coalescing), nunca
+// `|| 1` — `|| 1` trataria F como se fosse E (1), anulando a redução. Grau
+// ausente/inválido (undefined) continua caindo em E (1) com `?? 1`, igual
+// antes.
+export const GRADE_VALUE = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5 };
+export const GRADE_ORDER = ["F", "E", "D", "C", "B", "A"];
 
 // Atributos de Combate — ESVAZIADO de propósito: Magia, Técnica, Sorte, Defesa,
 // Resistência Física e Resistência Mágica saíram de aqui. Magia se dividiu em
@@ -432,8 +443,9 @@ export function descritoresEfetivosDoAtaque(attacker, attack) {
 }
 
 export function attrBonus(grade) {
-  // E=0, D=1, C=2, B=3, A=4
-  return Math.max(0, (GRADE_VALUE[grade] || 1) - 1);
+  // E=0, D=1, C=2, B=3, A=4 (F também cai em 0 — piso em 0, não desconta HP/
+  // stat; a redução de F é só nos pools de dado, ver GRADE_VALUE acima)
+  return Math.max(0, (GRADE_VALUE[grade] ?? 1) - 1);
 }
 
 // Vigor (Atributo Geral físico) determina o máximo de HP: E=2, D=3, C=4, B=5, A=6.
@@ -476,8 +488,8 @@ export function parseFlatBonus(value) {
 export function limiarDaHabilidade(character, p) {
   const attrs = p.atributosLimiar || (p.atributoLimiar ? [p.atributoLimiar] : []);
   const profs = p.proficienciasLimiar || (p.proficienciaLimiar ? [p.proficienciaLimiar] : []);
-  const limiaresAttr = attrs.map((a) => 11 - (GRADE_VALUE[getAttrGrade(character, a)] || 1));
-  const limiaresProf = profs.map((k) => 11 - (GRADE_VALUE[character?.proficiencias?.[k]] || 1));
+  const limiaresAttr = attrs.map((a) => 11 - (GRADE_VALUE[getAttrGrade(character, a)] ?? 1));
+  const limiaresProf = profs.map((k) => 11 - (GRADE_VALUE[character?.proficiencias?.[k]] ?? 1));
   const todos = [...limiaresAttr, ...limiaresProf];
   if (todos.length === 0) return 10;
   return Math.min(...todos); // usa o melhor (mais baixo) limiar entre todas as fontes da habilidade
@@ -515,7 +527,7 @@ export function computeStat(character, statKey) {
   const base = (character.statBase && character.statBase[statKey]) ?? STAT_BASE_DEFAULTS[statKey] ?? 0;
   const temp = (character.statTemp && character.statTemp[statKey]) ?? 0;
   const links = (character.statLinks && character.statLinks[statKey]) ?? DEFAULT_STAT_LINKS[statKey] ?? [];
-  const peso = STAT_USA_GRAU_CHEIO.has(statKey) ? (g) => GRADE_VALUE[g] || 1 : attrBonus;
+  const peso = STAT_USA_GRAU_CHEIO.has(statKey) ? (g) => GRADE_VALUE[g] ?? 1 : attrBonus;
   const fromAttrs = links.reduce((sum, attrKey) => sum + peso(getAttrGrade(character, attrKey)), 0);
   const profKey = STAT_PROF_LINK[statKey];
   const fromProf = profKey ? peso(character.proficiencias?.[profKey]) : 0;
@@ -613,7 +625,7 @@ export function diceBaseMagica(manaGasta, custoMagia) {
 // Proficiência de Combate do ataque + ajuste manual da arma (dados extra ou a
 // menos, mínimo 0 no total).
 export function diceAtaqueFisico(attacker, atributoKey, profKey, ajusteDados = 0) {
-  const base = (GRADE_VALUE[getAttrGrade(attacker, atributoKey)] || 1) + (GRADE_VALUE[attacker?.proficiencias?.[profKey]] || 1);
+  const base = (GRADE_VALUE[getAttrGrade(attacker, atributoKey)] ?? 1) + (GRADE_VALUE[attacker?.proficiencias?.[profKey]] ?? 1);
   return Math.max(0, base + (ajusteDados || 0));
 }
 
@@ -638,7 +650,7 @@ export function contagemOficiosMagicos(character) {
 // Magias Ofensivas (proficiência) saiu — não existe mais no catálogo.
 export function diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte = "oficios", ajusteDados = 0) {
   const contribuicao = fonte === "inteligencia"
-    ? (GRADE_VALUE[getAttrGrade(attacker, "inteligencia")] || 1)
+    ? (GRADE_VALUE[getAttrGrade(attacker, "inteligencia")] ?? 1)
     : contagemOficiosMagicos(attacker);
   const bonusMagiaInata = attacker?.disciplinaMagica?.magiaInata ? 1 : 0;
   const base = diceBaseMagica(manaGasta, custoMagia) + contribuicao + bonusMagiaInata;
@@ -654,7 +666,7 @@ export function diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte = "ofici
 // "magia" — ativa o Resiste a Magia (Descendentes de Arcani, ver abaixo).
 export function resolveRolagemDefesa({ defensor, defesaAtributo, saturante, ehMagia, limiar = LIMIAR_SUCESSO }) {
   const profKey = "resistFisicaProf";
-  let totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] || 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] || 1);
+  let totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] ?? 1);
   if (saturante && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - 2);
   // Resiste a Magia (Descendentes de Arcani, catalogo-racas.json): ao se
   // defender de um ataque com o descritor "magia", rola 1 dado a menos e tem
@@ -676,7 +688,7 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, saturante, ehMa
 export function determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado }) {
   if (sucessosLiquidos <= 0) return null;
   if (superficialForcado) return "superficial";
-  const vigorNecessario = letal ? Math.max(1, (vigorGrauCheio || 1) - 1) : (vigorGrauCheio || 1);
+  const vigorNecessario = letal ? Math.max(1, (vigorGrauCheio ?? 1) - 1) : (vigorGrauCheio ?? 1);
   return sucessosLiquidos >= vigorNecessario ? "agravante" : "superficial";
 }
 
@@ -723,7 +735,7 @@ export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque,
   const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo, saturante, ehMagia });
   const sucessosLiquidos = Math.max(0, rolagemAtaque.successes - rolagemDefesa.successes);
   const letal = descritoresAtaque.includes("letal");
-  const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1;
+  const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] ?? 1;
   const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado: superficial });
   return {
     limiar, rolagemAtaque, rolagemDefesa, sucessosLiquidos, letal,
@@ -752,7 +764,7 @@ export function resolveAtaqueEmArea({ attacker, defenders, tipoAtaque, totalDice
     const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo: atributoDefesa, saturante, ehMagia });
     const sucessosLiquidos = Math.max(0, sucessosAtaque - rolagemDefesa.successes);
     const letal = descritoresAtaque.includes("letal");
-    const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1;
+    const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] ?? 1;
     const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado: superficial });
     return {
       defender, limiar, sucessosAtaque, rolagemDefesa, sucessosLiquidos, letal,

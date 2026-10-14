@@ -8,6 +8,7 @@ import {
   bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
   oficiosExtrasDoPersonagem, tetoGrauDoPersonagem,
   disciplinasDoPersonagem, oficiosMagicosDoPersonagem, temMagiaInataDoPersonagem, magiasAtivasDoPersonagem,
+  temEncaixeExtraDeDisciplina,
 } from "./racasCatalogo.js";
 
 describe("racasCatalogo — lookups", () => {
@@ -322,6 +323,63 @@ describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () 
   it("disciplinasDoPersonagem sem character.disciplinas não quebra, devolve []", () => {
     assert.deepEqual(disciplinasDoPersonagem({}), []);
     assert.deepEqual(disciplinasDoPersonagem(null), []);
+  });
+
+  // 4º encaixe (14/10, mesmo dia): "Vaga de Disciplina" do Humano (secundária
+  // com `disciplina: true` no catálogo, id "vaga-de-disciplina") vira um
+  // encaixe de Disciplina de verdade, INDEPENDENTE dos 3 normais — pedido
+  // explícito do Pedro, ver CONTEXTO.md.
+  describe("4º encaixe extra (Vaga de Disciplina do Humano)", () => {
+    it("temEncaixeExtraDeDisciplina é true só quando a secundária ESCOLHIDA tem o flag disciplina", () => {
+      assert.equal(temEncaixeExtraDeDisciplina({ raca: "humano", habilidadeSecundaria: "vaga-de-disciplina" }), true);
+      assert.equal(temEncaixeExtraDeDisciplina({ raca: "humano", habilidadeSecundaria: "homunculo" }), false);
+      assert.equal(temEncaixeExtraDeDisciplina({ raca: "elfo", habilidadeSecundaria: "resistencia-a-dor" }), false);
+      assert.equal(temEncaixeExtraDeDisciplina({}), false);
+    });
+
+    it("disciplinasDoPersonagem inclui disciplinaExtraHumano quando a secundária é Vaga de Disciplina", () => {
+      const ch = {
+        raca: "humano", habilidadeSecundaria: "vaga-de-disciplina",
+        disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }, null, null],
+        disciplinaExtraHumano: { disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] },
+      };
+      assert.deepEqual(disciplinasDoPersonagem(ch), [
+        { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] },
+        { disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] },
+      ]);
+    });
+
+    it("é de verdade um 4º encaixe: os 3 normais cheios + o extra dão 4 disciplinas efetivas", () => {
+      const ch = {
+        raca: "humano", habilidadeSecundaria: "vaga-de-disciplina",
+        disciplinas: [
+          { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] },
+          { disciplinaId: "oficio-alquimia", habilidadesAtivas: [] },
+          { disciplinaId: "oficio-encantamentos", habilidadesAtivas: [] },
+        ],
+        disciplinaExtraHumano: { disciplinaId: "oficio-constructo", habilidadesAtivas: [] },
+      };
+      assert.equal(disciplinasDoPersonagem(ch).length, 4);
+      assert.deepEqual(oficiosMagicosDoPersonagem(ch), ["oficio-magias-de-guerra", "oficio-alquimia", "oficio-encantamentos", "oficio-constructo"]);
+    });
+
+    it("disciplinaExtraHumano fica ignorado (não lido) quando a secundária NÃO é Vaga de Disciplina, mesmo com dado salvo", () => {
+      // Dado preservado (ex: jogador trocou de secundária depois de escolher
+      // uma disciplina extra) — mas não conta mais, igual o resto do app
+      // nunca apaga dado, só para de usar.
+      const ch = {
+        raca: "humano", habilidadeSecundaria: "homunculo",
+        disciplinas: [null, null, null],
+        disciplinaExtraHumano: { disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] },
+      };
+      assert.deepEqual(disciplinasDoPersonagem(ch), []);
+      assert.equal(temMagiaInataDoPersonagem(ch), false);
+    });
+
+    it("sem disciplinaExtraHumano preenchido (null), mesmo com a secundária certa, não adiciona nada", () => {
+      const ch = { raca: "humano", habilidadeSecundaria: "vaga-de-disciplina", disciplinas: [null, null, null], disciplinaExtraHumano: null };
+      assert.deepEqual(disciplinasDoPersonagem(ch), []);
+    });
   });
 
   it("oficiosMagicosDoPersonagem conta só as disciplinas tipo oficio-magico, não Magia Inata", () => {

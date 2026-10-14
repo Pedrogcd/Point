@@ -150,6 +150,26 @@ describe("migrarPersonagem", () => {
     assert.equal(migrado.visivelJogador, true);
   });
 
+  it("14/10 (mesmo dia): disciplinaExtraHumano nasce null pra ficha sem esse campo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.equal(migrado.disciplinaExtraHumano, null);
+  });
+
+  it("14/10 (mesmo dia): preserva um disciplinaExtraHumano já salvo", () => {
+    const valor = { disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] };
+    const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaExtraHumano: valor });
+    assert.deepEqual(migrado.disciplinaExtraHumano, valor);
+  });
+
+  it("14/10 (mesmo dia): disciplinaHumano antigo (texto livre) continua preservado, intocado", () => {
+    const valor = { nome: "Escola de Magia", grau: "C" };
+    // raca precisa estar presente (mesmo null) pra cair no esquema novo de
+    // migrarSelecaoRacaLegado — sem isso, a ficha é tratada como do esquema
+    // bem antigo (racaId) e disciplinaHumano é zerado ali, não por este campo.
+    const migrado = migrarPersonagem({ id: "x", name: "X", raca: "humano", disciplinaHumano: valor });
+    assert.deepEqual(migrado.disciplinaHumano, valor);
+  });
+
   it("hp.superficiais nasce em 0 pra ficha sem esse campo", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X" });
     assert.equal(migrado.hp.superficiais, 0);

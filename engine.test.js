@@ -8,6 +8,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   PROFICIENCIAS_DEFAULT, PROC_ABILITIES, BASE_ATTACK_TYPES, ACERTOS_POR_TIPO,
+  GRADE_VALUE, GRADE_ORDER,
   attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX,
   limiarDaHabilidade, findTriggeredProc, computeStat, computeAcertoTipo,
   rollSuccessDice, migrateBrigaProfKey, defaultAttacksForCharacter,
@@ -506,6 +507,96 @@ describe("determinarFerimento", () => {
   });
   it("superficialForcado sempre causa superficial, mesmo com sucessos líquidos altos", () => {
     assert.equal(determinarFerimento({ sucessosLiquidos: 10, vigorGrauCheio: 1, superficialForcado: true }), "superficial");
+  });
+  it("Vigor em grau F (0): sem Letal, qualquer sucesso líquido > 0 já é agravante (vigorNecessario=0)", () => {
+    assert.equal(determinarFerimento({ sucessosLiquidos: 1, vigorGrauCheio: 0 }), "agravante");
+  });
+  it("Vigor em grau F (0) com Letal: ainda cai no piso de 1 (igual Vigor E), não fica negativo", () => {
+    assert.equal(determinarFerimento({ sucessosLiquidos: 1, vigorGrauCheio: 0, letal: true }), "agravante");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Grau F (14/10, docs/DISCIPLINAS_MAGIA.md e pedido do Pedro): selecionável
+// abaixo de E em qualquer Atributo Geral/Proficiência, reduz em exatamente 1
+// o dado daquele componente nos pools que somam atributo+proficiência direto
+// (GRADE_VALUE.F = 0, um a menos que E = 1). Ponto crítico testado aqui: como
+// 0 é falsy em JS, todo cálculo precisa usar `?? 1` (nullish coalescing) em
+// vez de `|| 1` — senão F silenciosamente vira E (bug que esses testes
+// pegariam de volta se alguém reintroduzir `|| 1` por engano).
+// ---------------------------------------------------------------------------
+
+describe("Grau F — abaixo de E, reduz 1 dado (14/10)", () => {
+  it("GRADE_VALUE.F é 0, um a menos que GRADE_VALUE.E (1)", () => {
+    assert.equal(GRADE_VALUE.F, 0);
+    assert.equal(GRADE_VALUE.E, 1);
+  });
+  it("GRADE_ORDER começa em F, abaixo de E", () => {
+    assert.deepEqual(GRADE_ORDER, ["F", "E", "D", "C", "B", "A"]);
+  });
+
+  it("diceAtaqueFisico: atributo F reduz exatamente 1 dado comparado a E (resto igual)", () => {
+    const comE = withProfs(withAttrs(makeCharacter(), { destreza: "E" }), { combateCorpoACorpo: "C" });
+    const comF = withProfs(withAttrs(makeCharacter(), { destreza: "F" }), { combateCorpoACorpo: "C" });
+    const poolE = diceAtaqueFisico(comE, "destreza", "combateCorpoACorpo", 0);
+    const poolF = diceAtaqueFisico(comF, "destreza", "combateCorpoACorpo", 0);
+    assert.equal(poolE - poolF, 1);
+    assert.equal(poolF, 3); // destreza F(0) + combateCorpoACorpo C(3)
+  });
+  it("diceAtaqueFisico: proficiência F reduz exatamente 1 dado comparado a E", () => {
+    const comE = withProfs(makeCharacter(), { combateCorpoACorpo: "E" });
+    const comF = withProfs(makeCharacter(), { combateCorpoACorpo: "F" });
+    assert.equal(diceAtaqueFisico(comE, "destreza", "combateCorpoACorpo", 0) - diceAtaqueFisico(comF, "destreza", "combateCorpoACorpo", 0), 1);
+  });
+  it("diceAtaqueFisico: os dois em F nunca fica negativo (piso em 0)", () => {
+    const attacker = withProfs(withAttrs(makeCharacter(), { destreza: "F" }), { combateCorpoACorpo: "F" });
+    assert.equal(diceAtaqueFisico(attacker, "destreza", "combateCorpoACorpo", 0), 0);
+  });
+
+  it("diceAtaqueMagico (fonte inteligencia): Inteligência F reduz exatamente 1 dado comparado a E", (t) => {
+    const comE = withAttrs(makeCharacter(), { inteligencia: "E" });
+    const comF = withAttrs(makeCharacter(), { inteligencia: "F" });
+    assert.equal(
+      diceAtaqueMagico(comE, 1, 1, "inteligencia", 0) - diceAtaqueMagico(comF, 1, 1, "inteligencia", 0),
+      1
+    );
+  });
+
+  it("resolveRolagemDefesa: Resistência Física em E dá 2 dados (vigor E + prof E)", (t) => {
+    const comE = withProfs(makeCharacter(), { resistFisicaProf: "E" });
+    mockDice(t, [1, 1]);
+    const rE = resolveRolagemDefesa({ defensor: comE, defesaAtributo: "vigor" });
+    assert.equal(rE.totalDice, 2);
+  });
+  it("resolveRolagemDefesa: Resistência Física em F dá 1 dado a menos (vigor E + prof F = 1)", (t) => {
+    const comF = withProfs(makeCharacter(), { resistFisicaProf: "F" });
+    mockDice(t, [1]);
+    const rF = resolveRolagemDefesa({ defensor: comF, defesaAtributo: "vigor" });
+    assert.equal(rF.totalDice, 1); // vigor E(1) + resistFisicaProf F(0)
+  });
+
+  it("resolveAtaque: defensor com Vigor F faz qualquer sucesso líquido virar agravante", (t) => {
+    const attacker = withProfs(withAttrs(makeCharacter(), { destreza: "A" }), { combateCorpoACorpo: "A" }); // 5+5=10 dados
+    const defender = withAttrs(makeCharacter(), { vigor: "F" }); // defesa: vigor F(0) + resistFisicaProf E(1) = 1 dado
+    mockDice(t, [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, /*defesa*/ 1]); // ataque: 10 sucessos; defesa: nenhum
+    const totalDiceAtaque = diceAtaqueFisico(attacker, "destreza", "combateCorpoACorpo", 0);
+    const r = resolveAtaque({ attacker, defender, totalDiceAtaque, defesaAtributo: "vigor" });
+    assert.equal(r.tipoFerimento, "agravante");
+  });
+
+  it("attrBonus(F) fica no mesmo piso de attrBonus(E) — 0, não negativo (não mexe em HP/MP/stats derivados)", () => {
+    assert.equal(attrBonus("F"), 0);
+    assert.equal(attrBonus("E"), 0);
+  });
+
+  it("painel de Teste (ficha): grau F de atributo ou perícia reduz 1 dado do pool, igual aos outros componentes do cálculo (mesma fórmula de diceAtaqueFisico)", () => {
+    // Regressão específica do bug `|| 1`: GRADE_VALUE.F é 0 (falsy) — qualquer
+    // ponto do código que ainda usasse `GRADE_VALUE[grau] || 1` trataria F
+    // como E silenciosamente. Cobre a fórmula usada no painel de Teste da
+    // ficha (point-amaranth-app.jsx) replicando o mesmo cálculo aqui.
+    const poolComE = (GRADE_VALUE.E ?? 1) + (GRADE_VALUE.C ?? 1);
+    const poolComF = (GRADE_VALUE.F ?? 1) + (GRADE_VALUE.C ?? 1);
+    assert.equal(poolComE - poolComF, 1);
   });
 });
 

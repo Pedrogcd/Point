@@ -728,10 +728,14 @@ export function aplicarFerimentos(hp, tipo, quantidade = 1) {
 // ferida, não forçado a superficial).
 export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, feridas = 1, superficial = false }) {
   const limiar = limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
-  const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo");
+  const ehMagia = descritoresAtaque.includes("magia");
+  // Sortudo "normal" (personagem ou a própria magia/arma) vale pra qualquer
+  // ataque. "sortudo_fisico" (14/10, Descendentes de Sabato — pedido do
+  // Pedro) é uma versão restrita: só ativa quando o ataque NÃO é mágico.
+  const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo")
+    || (!ehMagia && temDescritor(attacker, "sortudo_fisico"));
   const rolagemAtaque = rolarComSortudo(totalDiceAtaque, limiar, temSortudoAtacante);
   const saturante = descritoresAtaque.includes("saturante");
-  const ehMagia = descritoresAtaque.includes("magia");
   const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo, saturante, ehMagia });
   const sucessosLiquidos = Math.max(0, rolagemAtaque.successes - rolagemDefesa.successes);
   const letal = descritoresAtaque.includes("letal");
@@ -753,14 +757,16 @@ export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque,
 // `defesaAtributoPorDefensor(defender)` escolhe o Atributo Geral de defesa de
 // cada um (default: pede o mesmo pra todos via `defesaAtributo`).
 export function resolveAtaqueEmArea({ attacker, defenders, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, defesaAtributoPorDefensor, feridas = 1, superficial = false }) {
-  const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo");
+  const ehMagia = descritoresAtaque.includes("magia");
+  // Mesma regra de resolveAtaque: sortudo_fisico só ativa fora de magia.
+  const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo")
+    || (!ehMagia && temDescritor(attacker, "sortudo_fisico"));
   const rolagemAtaqueBase = rolarComSortudo(totalDiceAtaque, LIMIAR_SUCESSO, temSortudoAtacante);
   const resultados = (defenders || []).map((defender) => {
     const limiar = limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
     const sucessosAtaque = rolagemAtaqueBase.dice.filter((d) => d === 10 || d > limiar).length;
     const atributoDefesa = defesaAtributoPorDefensor ? defesaAtributoPorDefensor(defender) : defesaAtributo;
     const saturante = descritoresAtaque.includes("saturante");
-    const ehMagia = descritoresAtaque.includes("magia");
     const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo: atributoDefesa, saturante, ehMagia });
     const sucessosLiquidos = Math.max(0, sucessosAtaque - rolagemDefesa.successes);
     const letal = descritoresAtaque.includes("letal");

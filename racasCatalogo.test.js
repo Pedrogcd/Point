@@ -140,9 +140,9 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
     }
   });
 
-  it("cobertura esperada: 22 habilidades distintas (21 com bônus fixo, 2 à escolha, Homúnculo nas duas — catálogo v3, 13/10)", () => {
-    assert.equal(idsMapeados.size, 22);
-    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 21);
+  it("cobertura esperada: 21 habilidades distintas (20 com bônus fixo, 2 à escolha, Homúnculo nas duas — 14/10: Descendentes de Sabato saiu, virou bônus de raça — ver BONUS_GRAU_FIXO_POR_RACA)", () => {
+    assert.equal(idsMapeados.size, 21);
+    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 20);
     assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 2);
   });
 });
@@ -205,13 +205,18 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: { investigacao: 1 }, atributos: {} });
   });
 
-  it("Descendentes de Sharkan (niosh) NÃO dá bônus de grau (perdeu o +1 em Força na atualização de 13/10)", () => {
+  it("Descendentes de Sharkan (niosh) não dá bônus de grau PRÓPRIO, mas todo Niosh já tem +1 em Força de raça (14/10, mais tarde — ver BONUS_GRAU_FIXO_POR_RACA)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sharkan" });
-    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
   });
 
-  it("Descendentes de Sabato (niosh) dá +1 em Força — vem só do efeito, não do bonus[] do catálogo", () => {
+  it("Descendentes de Sabato (niosh) também tem +1 em Força — vem do bônus de raça (14/10, mais tarde: deixou de ser específico dessa habilidade, ver BONUS_GRAU_FIXO_POR_RACA)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sabato" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
+  });
+
+  it("todo Niosh tem +1 em Força de raça mesmo sem principal/secundária escolhida (pedido do Pedro: vale pra qualquer Niosh)", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "niosh" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
   });
 
@@ -263,9 +268,9 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.equal(character.proficiencias.resistFisicaProf, "C"); // teto C, não sobe mais
   });
 
-  it("Pele Grossa (niosh) dá +1 em Resistência Física sem teto C, até A (14/10: Resistência Mágica saiu)", () => {
+  it("Pele Grossa (niosh) dá +1 em Resistência Física sem teto C, até A (14/10: Resistência Mágica saiu) — mais o +1 Força de todo Niosh (14/10, mais tarde)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
-    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1 }, atributos: { forca: 1 } });
     const { character } = comGrausEfetivos({ raca: "niosh", habilidadeSecundaria: "pele-grossa", proficiencias: { resistFisicaProf: "C" } });
     assert.equal(character.proficiencias.resistFisicaProf, "B"); // sem teto C
   });
@@ -476,9 +481,9 @@ describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () 
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
-  it("raças sem bônus-à-escolha racial (ex.: Niosh) ignoram bonusGrauEscolhaRaca", () => {
+  it("raças sem bônus-à-escolha racial (ex.: Niosh) ignoram bonusGrauEscolhaRaca (mas o bônus FIXO de Força do Niosh continua valendo — são tabelas independentes)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", bonusGrauEscolhaRaca: "sobrevivencia" });
-    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
   });
 });
 

@@ -4,7 +4,9 @@ import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria,
   descritoresDeSelecao, migrarSelecaoRacaLegado, temDescritor,
   CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
+  BONUS_GRAU_ESCOLHA_POR_RACA, BONUS_OFICIO_EXTRA_POR_HABILIDADE,
   bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
+  oficiosExtrasDoPersonagem, tetoGrauDoPersonagem,
 } from "./racasCatalogo.js";
 
 describe("racasCatalogo — lookups", () => {
@@ -175,6 +177,21 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
   });
 
+  it("Ofício 'magias-de-guerra' dá +1 em Magias Gerais (mantém o bônus do antigo Ofício Mágico)", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { oficiosMagicos: ["magias-de-guerra"] } });
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1 }, atributos: {} });
+  });
+
+  it("Ofícios que não são 'magias-de-guerra' não dão bônus de grau nenhum (só contam no pool mágico)", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { oficiosMagicos: ["encantamentos", "alquimia", "constructo"] } });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("Magia Inata não dá bônus de grau nenhum (virou só +1d10 fixo e +1 MP, ver engine.js)", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { magiaInata: true } });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
   it("Leonino (ningen) dá +1 em Investigação", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "leonino" });
     assert.deepEqual(bonus, { proficiencias: { investigacao: 1 }, atributos: {} });
@@ -193,6 +210,12 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   it("Goethiano (secundária humana) dá +1 em Vigor", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "goethiano" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { vigor: 1 } });
+  });
+
+  it("Goethiano sobe Vigor até A, sem teto C (14/10)", () => {
+    const { character, bonusAplicado } = comGrausEfetivos({ raca: "humano", habilidadeSecundaria: "goethiano", atributosGerais: { vigor: "C" } });
+    assert.equal(character.atributosGerais.vigor, "B");
+    assert.equal(bonusAplicado.atributos.vigor, 1);
   });
 
   it("Homúnculo dá +1 fixo em Atletismo mesmo sem escolha de Força/Destreza feita", () => {
@@ -225,14 +248,18 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
   });
 
-  it("Mana Estática (humano) dá +1 em Resistência Física e +1 em Resistência Mágica — catálogo v3 trocou o Blindado por isso", () => {
+  it("Mana Estática (humano) dá +1 em Resistência Física, teto C (14/10: Resistência Mágica saiu)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-estatica" });
-    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1, resistMagicaProf: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1 }, atributos: {} });
+    const { character } = comGrausEfetivos({ raca: "humano", habilidadePrincipal: "mana-estatica", proficiencias: { resistFisicaProf: "C" } });
+    assert.equal(character.proficiencias.resistFisicaProf, "C"); // teto C, não sobe mais
   });
 
-  it("Pele Grossa (niosh) dá +1 em Resistência Física e +1 em Resistência Mágica — mesma troca do Blindado", () => {
+  it("Pele Grossa (niosh) dá +1 em Resistência Física sem teto C, até A (14/10: Resistência Mágica saiu)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
-    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1, resistMagicaProf: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1 }, atributos: {} });
+    const { character } = comGrausEfetivos({ raca: "niosh", habilidadeSecundaria: "pele-grossa", proficiencias: { resistFisicaProf: "C" } });
+    assert.equal(character.proficiencias.resistFisicaProf, "B"); // sem teto C
   });
 
   it("Clã Radiante (elfo) dá +1 em Carisma", () => {
@@ -245,19 +272,37 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { manipulacao: 1 } });
   });
 
-  it("Clã Corvus (elfo) dá +1 em Furtividade e +1 em Magias Ofensivas", () => {
+  it("Clã Corvus (elfo) dá +1 em Furtividade (14/10: Magias Ofensivas saiu, virou +1 ofício mágico extra)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-corvus" });
-    assert.deepEqual(bonus, { proficiencias: { furtividade: 1, magiasOfensivas: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-corvus" }), 1);
   });
 
-  it("Clã Seasus (elfo) dá +1 em Magias Ofensivas, Magias Gerais e Resistência Mágica", () => {
+  it("Clã Seasus (elfo) dá +1 em Magias Gerais (14/10: Magias Ofensivas/Resistência Mágica saíram, viram +1 ofício mágico extra)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-seasus" });
-    assert.deepEqual(bonus, { proficiencias: { magiasOfensivas: 1, magiasGerais: 1, resistMagicaProf: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1 }, atributos: {} });
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-seasus" }), 1);
   });
 
-  it("Clã Natrus (elfo) dá +1 em Resistência Mágica e Sobrevivência", () => {
+  it("Clã Natrus (elfo) dá +1 em Sobrevivência (14/10: Resistência Mágica/Blindado Mágico saíram, viram +1 ofício mágico extra)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-natrus" });
-    assert.deepEqual(bonus, { proficiencias: { resistMagicaProf: 1, sobrevivencia: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { sobrevivencia: 1 }, atributos: {} });
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-natrus" }), 1);
+  });
+
+  it("oficiosExtrasDoPersonagem é 0 pra quem não tem Natrus/Corvus/Seasus", () => {
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-radiante" }), 0);
+    assert.equal(oficiosExtrasDoPersonagem({}), 0);
+  });
+
+  it("comGrausEfetivos soma o ofício extra racial em disciplinaMagica.oficiosExtras (base 0 + 1 do Clã Corvus)", () => {
+    const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: {} });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 1);
+  });
+
+  it("comGrausEfetivos soma o ofício extra racial em cima de um oficiosExtras já salvo na ficha", () => {
+    const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: { oficiosExtras: 2 } });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 3);
   });
 
   it("Resistência à Dor (elfo secundária) dá +1 em Resolução — trocou de '+1 dado' pontual pra grau permanente", () => {
@@ -284,6 +329,48 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   it("habilidade sem bônus de grau (ex.: Mana Fluida) não aparece no resultado", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-fluida" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("Elfo com bonusGrauEscolhaRaca válido (não-combate) soma o bônus — 'todo tipo de elfo' (14/10)", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", bonusGrauEscolhaRaca: "sobrevivencia" });
+    assert.deepEqual(bonus, { proficiencias: { sobrevivencia: 1 }, atributos: {} });
+  });
+
+  it("Humano com bonusGrauEscolhaRaca válido soma o bônus — 'todo tipo de humano' (14/10)", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", bonusGrauEscolhaRaca: "academicos" });
+    assert.deepEqual(bonus, { proficiencias: { academicos: 1 }, atributos: {} });
+  });
+
+  it("bonusGrauEscolhaRaca com uma proficiência de Combate é inválido (ignorado) — só não-combate", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo", bonusGrauEscolhaRaca: "resistFisicaProf" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("bonusGrauEscolhaRaca sem escolha feita ainda não dá bônus nenhum", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "elfo" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("raças sem bônus-à-escolha racial (ex.: Niosh) ignoram bonusGrauEscolhaRaca", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "niosh", bonusGrauEscolhaRaca: "sobrevivencia" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+});
+
+describe("racasCatalogo — tetoGrauDoPersonagem", () => {
+  it("habilidade sem teto declarado não aparece no resultado (usa o default C em comGrausEfetivos)", () => {
+    const tetos = tetoGrauDoPersonagem({ raca: "ningen", habilidadePrincipal: "leonino" });
+    assert.deepEqual(tetos, { proficiencias: {}, atributos: {} });
+  });
+
+  it("Goethiano (teto A) aparece no atributos.vigor", () => {
+    const tetos = tetoGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "goethiano" });
+    assert.deepEqual(tetos, { proficiencias: {}, atributos: { vigor: "A" } });
+  });
+
+  it("Pele Grossa (teto A) aparece em proficiencias.resistFisicaProf", () => {
+    const tetos = tetoGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
+    assert.deepEqual(tetos, { proficiencias: { resistFisicaProf: "A" }, atributos: {} });
   });
 });
 

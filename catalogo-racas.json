@@ -1,9 +1,9 @@
 {
-  "versao": "2026-10-11",
+  "versao": "2026-10-14",
   "regras": [
     "Habilidade racial é inteira: efeito fixo, sem grau E/D/C.",
     "Bônus somam dados (+1 dado), nunca +N no valor do dado.",
-    "Blindado: dados de ataque físico contra o personagem precisam de no mínimo 6 em vez de 5. Blindado Mágico: o mesmo para ataque mágico. Cada um cobre só o seu tipo."
+    "Blindado vale contra qualquer ataque, físico ou mágico: dados de ataque contra o personagem precisam de no mínimo 7, em vez de 6 (14/10 — substitui o Blindado/Blindado Mágico separados). Perfurante ignora Blindado."
   ],
   "racas": [
     {
@@ -58,10 +58,9 @@
           "icone": "losango-solido",
           "cor": "#D23B3B",
           "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano.",
-          "efeito": "+1 grau em Resistência Física e +1 grau em Resistência Mágica (até o teto C).",
+          "efeito": "+1 grau em Resistência Física (até o teto C). Todo tipo de humano ganha +1 grau (até o teto C) em uma proficiência à escolha que não seja de Combate.",
           "bonus": [
-            "Resistência Física +1 grau",
-            "Resistência Mágica +1 grau"
+            "Resistência Física +1 grau"
           ],
           "descritores": []
         }
@@ -100,15 +99,13 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Humanos nascidos em Goethia e abençoados pelo sangue dos Primals.",
-          "efeito": "+1 grau em Vigor (até o teto C). Ganha os descritores Blindado (dados de ataque físico contra você precisam de no mínimo 6, em vez de 5) e Blindado Mágico (o mesmo para ataque mágico). Cobre os dois tipos de ataque.",
+          "efeito": "+1 grau em Vigor (sem teto, até A). Ganha o descritor Blindado: dados de ataque contra você (físico ou mágico) precisam de no mínimo 7, em vez de 6, para dar sucesso.",
           "bonus": [
-            "Vigor +1 grau",
-            "Blindado",
-            "Blindado Mágico"
+            "Vigor +1 grau (até A)",
+            "Blindado"
           ],
           "descritores": [
-            "blindado",
-            "blindado_magico"
+            "blindado"
           ]
         }
       ]
@@ -152,13 +149,13 @@
           "icone": "olho-espiral",
           "cor": "#C0309B",
           "descricao": "Poderes psiônicos que simulam magia; obsessivos, acumuladores naturais e avarentos.",
-          "efeito": "Ganha o descritor Blindado Mágico: dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. +1 MP máximo.",
+          "efeito": "Ao se defender de um ataque com o descritor Magia: rola 1 dado a menos e tem 1 sucesso sempre garantido. +1 MP máximo.",
           "bonus": [
-            "Blindado Mágico",
+            "Resiste a Magia",
             "MP +1"
           ],
           "descritores": [
-            "blindado_magico"
+            "resiste_a_magia"
           ]
         },
         {
@@ -211,11 +208,11 @@
           "papel": "secundaria",
           "icone": "neutro",
           "cor": null,
-          "descricao": "Pele grossa de Oni; compensa a proibição de armadura pesada.",
-          "efeito": "+1 grau em Resistência Mágica e +1 grau em Resistência Física (até o teto C).",
+          "descricao": "Pele grossa de Oni; remove a proibição racial de armadura pesada.",
+          "efeito": "+1 grau em Resistência Física (sem teto, até A). Remove a restrição de armadura pesada do Niosh.",
           "bonus": [
-            "Resistência Física +1 grau",
-            "Resistência Mágica +1 grau"
+            "Resistência Física +1 grau (até A)",
+            "Sem restrição de armadura"
           ],
           "descritores": []
         },
@@ -491,10 +488,10 @@
           "icone": "gota-sangue-pena",
           "cor": "#A1122B",
           "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
-          "efeito": "Causa dano não letal em si para usar como MP, na proporção de 1 de dano para 1 MP. +1 grau em Furtividade e +1 grau em Magias Ofensivas.",
+          "efeito": "Causa dano não letal em si para usar como MP, na proporção de 1 de dano para 1 MP. +1 grau em Furtividade. +1 ofício mágico extra. Todo tipo de elfo ganha +1 grau (até o teto C) em uma proficiência à escolha que não seja de Combate.",
           "bonus": [
             "Furtividade +1 grau",
-            "Magias Ofensivas +1 grau"
+            "+1 ofício mágico extra"
           ],
           "descritores": []
         },
@@ -505,11 +502,10 @@
           "icone": "circulo-quatro",
           "cor": "#14A3A8",
           "descricao": "Poder dos conhecimentos dos primordiais e das estações.",
-          "efeito": "+1 grau em Magias Ofensivas, em Magias Gerais e em Resistência Mágica.",
+          "efeito": "+1 grau em Magias Gerais. +1 ofício mágico extra.",
           "bonus": [
-            "Magias Ofensivas +1 grau",
             "Magias Gerais +1 grau",
-            "Resistência Mágica +1 grau"
+            "+1 ofício mágico extra"
           ],
           "descritores": []
         },
@@ -520,15 +516,12 @@
           "icone": "folha",
           "cor": "#3F8F3A",
           "descricao": "Elfos nobres, ligados aos elementos da natureza e do mundo material.",
-          "efeito": "Ganha o descritor Blindado Mágico: dados de ataque mágico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso. +1 grau em Resistência Mágica e +1 grau em Sobrevivência.",
+          "efeito": "+1 ofício mágico extra. +1 grau em Sobrevivência.",
           "bonus": [
-            "Blindado Mágico",
-            "Resistência Mágica +1 grau",
+            "+1 ofício mágico extra",
             "Sobrevivência +1 grau"
           ],
-          "descritores": [
-            "blindado_magico"
-          ]
+          "descritores": []
         }
       ],
       "secundarias": [

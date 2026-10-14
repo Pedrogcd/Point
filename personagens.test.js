@@ -39,10 +39,10 @@ describe("migrarPersonagem", () => {
     assert.ok(!migrado.attacks.some((a) => a.nome === "Chute"));
   });
 
-  it("ficha nova (sem attacks) recebe os 4 ataques padrão", () => {
+  it("ficha nova (sem attacks) recebe os ataques padrão", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X" });
     const nomes = migrado.attacks.map((a) => a.nome);
-    assert.ok(nomes.length >= 4);
+    assert.ok(nomes.length >= 3);
     assert.ok(nomes.includes("Ataque desarmado"));
   });
 
@@ -65,11 +65,69 @@ describe("migrarPersonagem", () => {
     assert.equal(editado.statBase.resistArmadura, 99);
   });
 
-  it("divide resistNatural (campo antigo único) em resistNaturalFisica/resistNaturalMagica", () => {
-    const migrado = migrarPersonagem({ id: "x", name: "X", statBase: { resistNatural: 6 } });
+  it("remove Resistência Natural do statBase (não existe mais no sistema novo)", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      statBase: { resistNatural: 6, resistNaturalFisica: 6, resistNaturalMagica: 6 },
+    });
     assert.equal("resistNatural" in migrado.statBase, false);
-    assert.ok(typeof migrado.statBase.resistNaturalFisica === "number" || typeof migrado.statBase.resistNaturalFisica === "string");
-    assert.equal(migrado.statBase.resistNaturalFisica, migrado.statBase.resistNaturalMagica);
+    assert.equal("resistNaturalFisica" in migrado.statBase, false);
+    assert.equal("resistNaturalMagica" in migrado.statBase, false);
+  });
+
+  it("14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): tecnicaProf/manipulacaoManaProf não existem mais depois da migração", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { tecnicaProf: "B" } });
+    assert.equal("tecnicaProf" in migrado.proficiencias, false);
+    assert.equal("manipulacaoManaProf" in migrado.proficiencias, false);
+  });
+
+  it("14/10: magiasOfensivas/resistMagicaProf também somem da ficha migrada", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      proficiencias: { magiasOfensivas: "B", resistMagicaProf: "A", manipulacaoManaProf: "C" },
+    });
+    assert.equal("magiasOfensivas" in migrado.proficiencias, false);
+    assert.equal("resistMagicaProf" in migrado.proficiencias, false);
+    assert.equal("manipulacaoManaProf" in migrado.proficiencias, false);
+  });
+
+  it("14/10: disciplinaMagica nasce com oficiosMagicos vazio (0 ofícios por ora) pra quem não tinha", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+    assert.equal(migrado.disciplinaMagica.oficiosExtras, 0);
+    assert.equal(migrado.disciplinaMagica.magiaInata, false);
+  });
+
+  it("14/10: disciplinaMagica.tipo 'magia-inata' (13/10) migra 1:1 pro novo magiaInata", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaMagica: { tipo: "magia-inata" } });
+    assert.equal(migrado.disciplinaMagica.magiaInata, true);
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+  });
+
+  it("14/10: disciplinaMagica.tipo 'oficio-magico' (13/10) NÃO migra pra nenhum ofício automático", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaMagica: { tipo: "oficio-magico" } });
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+    assert.equal(migrado.disciplinaMagica.magiaInata, false);
+  });
+
+  it("14/10: disciplinaMagica já no formato novo é preservada (oficiosMagicos/magiaInata/magiasAtivas)", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      disciplinaMagica: { oficiosMagicos: ["alquimia", "constructo"], magiaInata: true, magiasAtivas: ["shin"] },
+    });
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, ["alquimia", "constructo"]);
+    assert.equal(migrado.disciplinaMagica.magiaInata, true);
+    assert.deepEqual(migrado.disciplinaMagica.magiasAtivas, ["shin"]);
+  });
+
+  it("hp.superficiais nasce em 0 pra ficha sem esse campo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.equal(migrado.hp.superficiais, 0);
+  });
+
+  it("preserva hp.superficiais já salvo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", hp: { current: 3, max: 5, superficiais: 2 } });
+    assert.equal(migrado.hp.superficiais, 2);
   });
 
   it("adiciona 'Armadura física' em quem não tem nenhuma armadura cadastrada", () => {
@@ -126,7 +184,7 @@ describe("migrarPersonagem", () => {
   it("preserva hp/mp/sp já salvos, mesmo com HP atual reduzido (não reseta pra o máximo)", () => {
     const ch = { id: "x", name: "X", hp: { current: 1, max: 4 }, mp: { current: 0, max: 3 }, sp: { current: 2, max: 3 } };
     const migrado = migrarPersonagem(ch);
-    assert.deepEqual(migrado.hp, { current: 1, max: 4 });
+    assert.deepEqual(migrado.hp, { current: 1, max: 4, superficiais: 0 });
     assert.deepEqual(migrado.mp, { current: 0, max: 3 });
     assert.deepEqual(migrado.sp, { current: 2, max: 3 });
   });

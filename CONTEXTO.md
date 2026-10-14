@@ -6,7 +6,7 @@ Documento de continuidade. Leia junto com `SISTEMA.md` (regras completas) e `REA
 
 ## O que é este projeto
 
-App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de 3d10. Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura do motor" abaixo).
+App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de pool de d10 (desde 14/10 — ver `docs/SISTEMA_MAGIA.md`, atualizado no mesmo dia por `docs/MUDANCAS_RACAS_E_MAGIA.md`, que vale por cima onde os dois divergirem). Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura do motor" abaixo).
 
 Publicado como site próprio (Vite + PWA, deploy no GitHub Pages) — ver "Arquitetura de publicação" abaixo. **Não depende mais do Lovable.**
 
@@ -337,6 +337,49 @@ Resposta do Pedro às perguntas da seção anterior: a rolagem ativa de Resistê
 
 Suíte de testes: 555 → **560 testes em 82 suítes** (novo describe `resolveResistenciaAtiva (via resolveAttack)` com 4 testes; os demais ajustes foram nos fixtures existentes, sem mudar a contagem líquida). Build de produção confirmado; verificado no Confronto via Playwright (screenshot do bloco "RESISTÊNCIA DO DEFENSOR" mostrando 2d10, 1 sucesso cancelando o único sucesso do Acerto).
 
+### Sistema de Magia e Combate reescrito do zero: pool de dados, sem bônus somado ao dado (14/10)
+
+Pedro mandou um guia novo completo (`docs/SISTEMA_MAGIA.md`, salvo verbatim) e pediu pra implementar exatamente o que ele descreve — substitui o modelo Acerto(3d10)/Confirmação/camadas de Armadura-Escudo de Mana por cima. Resumo das 9 mudanças pedidas e como ficaram:
+
+1. **Sucesso 6+; dano agravante por Vigor (grau cheio) com Letal; "superficial" sempre superficial; todos quebrados → agravante.** Novo `resolveAtaque`: sucessos líquidos = sucessos do ataque − sucessos da defesa (mín. 0); `determinarFerimento` decide agravante/superficial comparando contra o Vigor do defensor em grau cheio (Letal reduz em 1, mín. 1); `aplicarFerimentos` escalona pra agravante quando todos os pontos de HP já estão marcados como superficiais — campo NOVO `hp.superficiais` (persistido; o clique de "rachar" da UI é só visual, não dava pra saber quantos pontos já quebraram entre ataques sem isso).
+2. **Defesa por Resistência Física/Mágica; Resistência Natural removida.** `resolveRolagemDefesa` rola Resistência Física/Mágica + o Atributo Geral que o jogador escolher; `resistNaturalFisica`/`resistNaturalMagica` saíram do `STAT_LIST`/`STAT_BASE_DEFAULTS`/ficha/migração.
+3. **Descritores com `temDescritor(entidade, nome)` genérico.** Função única em `engine.js`, serve pra personagem OU ataque/magia. Blindado/Blindado Mágico agora é 7+ (era 6+ no texto antigo da UI, nunca tinha ido pro motor). Guiável foi removido (não existia no motor mesmo).
+4. **"Base mágica" no seletor Atributo+Perícia.** Opção nova (`BASE_MAGICA_KEY`, sentinela) no painel Teste da ficha: 2d10 + mana gasta acima do custo da magia, sem ler nenhum atributo. Função única de "extra": `extraDeManaMagica(manaGasta, custoMagia)`.
+5. **Técnica → Manipulação de Mana.** Renomeado em todo lugar (ver lista no relatório final da PR) — `personagens.js` migra o grau salvo (`tecnicaProf` → `manipulacaoManaProf`).
+6. **Recuperação de mana na cena.** Ao conjurar: rola Manipulação de Mana (dados) + mana gasta na magia, cada sucesso vira "mana a recuperar" (`character.mp.recuperarPendente`, capado na mana gasta DAQUELE cast); botão "Início de turno" aplica (capado no máximo); "Fim de cena" restaura tudo. Confirmado pelo Pedro: pool é só mana+Manipulação (sem atributo), 1 sucesso = 1 mana, só recupera o que foi gasto naquele cast específico, botão manual (sem round tracker).
+7. **Mana 1-6.** `MANA_MIN`/`MANA_MAX`/`computeMaxMana` em `engine.js`; UI desconta o custo ao conjurar (aba Magia da ficha).
+8. **Disciplinas (Ofício Mágico/Magia Inata).** `character.disciplinaMagica` flui pelo MESMO mecanismo de bônus racial que já existia (`bonusGrauDoPersonagem`/`comGrausEfetivos` em `racasCatalogo.js`) — +1 grau (teto C) nas proficiências certas. Até 3 "magias ativas" na ficha, trocar depois de ter as 3 custa 1 MP (grátis-com-ação não modelado, ações estão fora do escopo). TODO explícito do próprio guia: devia usar "Magias Defensivas", mas essa Proficiência não existe — usa Resistência Mágica por enquanto.
+9. **Catálogo de magias em arquivo editável.** `data/magias.js` — 11 magias + Sensor (placeholder, pool/custo "a definir" no guia). Fora do `engine.js` de propósito.
+
+**O que ficou órfão (decisão NÃO tomada sozinho — falta resposta do Pedro)**: as 11 Habilidades Passivas de Combate (`PROC_ABILITIES`) dependiam de fases (Acerto/Confirmação/Armadura/Escudo de Mana) que não existem mais — os dados continuam na ficha, mas nenhum gatilho dispara automaticamente. Os 6 status effects de texto livre (IMPACTO/DESACELERAÇÃO/etc.) têm o mesmo problema. `Resistência Armadura` não foi removida (só "Resistência Natural" foi pedida), mas ficou sem função mecânica nenhuma. `ACERTOS_POR_TIPO`/`computeAcertoTipo` (painel de resumo) ainda mostram o bônus do modelo antigo, não o nº de dados do pool novo — TODO revisar.
+
+**Decisões minhas, não pedidas explicitamente (flagueadas no relatório final da PR)**: o descritor de personagem `ignora_blindado` (Garras e Presas/Agressividade Oni, já existia em `catalogo-racas.json`) passou a equivaler a Perfurante; `desarmado_letal` (idem) passou a tornar ataques desarmados letais via `descritoresEfetivosDoAtaque`; `BASE_ATTACK_TYPES` perdeu as 4 entradas mágicas antigas (Shin/Tiro Mágico/Torrente Mágica/Bombardeio de Mana — agora só em `data/magias.js`) e trocou `acerto`/`dano` (bônus flat) por `ajusteDados` (ajuste no pool); Morteiro Pesado perdeu o mecanismo de carga (1 turno) — depende de rodadas, fora do escopo; `DuelRoller` (Confronto) perdeu a re-rolagem de dado individual via MP/SP (dependia do modelo de duas fases) — simplificado pra só mostrar o resultado de `resolveAtaque`, igual as abas Ataque/Magia da ficha.
+
+Suíte de testes: 580 → **584 testes** (novos describes em `engine.test.js` pra todo o motor novo, `data/magias.test.js`, ajustes em `personagens.test.js`/`suthStats.test.js`/`hetalionStats.test.js`/`rollPanel.test.js`/`racasCatalogo.test.js`). Build de produção confirmado; verificado no Confronto, na aba Ataque e na aba Magia via Playwright (screenshots: pool de ataque/defesa rolando, Escudo de Mana descontando mana e gerando recuperação).
+
+### Mudanças de raças e magia (14/10, mesmo dia): Ofícios Mágicos, Blindado unificado, defesa só Resistência Física
+
+Pedro mandou `docs/MUDANCAS_RACAS_E_MAGIA.md` (fonte de verdade) horas depois do reescrever acima, com mudanças de regra em cima do que tinha acabado de entrar. Pedido: implementar as seções "Regras"/"Raças"/"Catálogo de magias", NÃO implementar "Pendências" (registrar cada item), dados de raça/magia sempre em arquivo editável.
+
+1. **Proficiências extintas**: Magias Ofensivas, Resistência Mágica e Manipulação de Mana (ex-Técnica, criada horas antes no mesmo dia) saem do `PROFICIENCIAS_LIST` — não sobra nenhuma proficiência fixa pro pool mágico. Nat. Mágica (atributo) e o descritor Blindado Mágico também somem.
+2. **Defesa sempre por Resistência Física**, físico ou mágico — `resolveRolagemDefesa` não branca mais por tipo de ataque; `limiarDaHabilidade`/`findTriggeredProc` (já órfãos) continuam recebendo o profKey antigo sem quebrar (`GRADE_VALUE[undefined] || 1`).
+3. **Blindado unificado**: um descritor só (`blindado`), 7+ contra qualquer ataque, Perfurante ignora. `limiarAtaque` perde o parâmetro `tipoAtaque`.
+4. **Pool de ataque mágico muda de base**: Base mágica + (contagem de Ofícios Mágicos **ou** grau de Inteligência, à escolha do jogador a cada conjuração) + ajuste da magia. `diceAtaqueMagico` ganha o parâmetro `fonte` ("oficios"/"inteligencia").
+5. **Ofícios Mágicos (nova disciplina multi-escolha)**: até 3 disciplinas (`magias-de-guerra` — ex-Ofício Mágico/Evocação, mantém +1 Magias Gerais; `encantamentos`; `alquimia`; `constructo` — catálogo em `data/magias.js:OFICIOS_MAGICOS`), cada uma conhecida conta 1 dado (`engine.contagemOficiosMagicos`). Substitui o `disciplinaMagica.tipo` único de 13/10.
+6. **Magia Inata simplificada**: vira flag independente (`disciplinaMagica.magiaInata`, +1 dado fixo, não conta como ofício, +1 MP) — pode coexistir com qualquer nº de ofícios. Resolve o TODO da seção 11 abaixo ("Magias Defensivas não existe") ao remover a dependência de qualquer Proficiência.
+7. **Recuperação de mana**: fórmula muda de "Manipulação de Mana + mana gasta" pra "contagem de Ofícios Mágicos + mana gasta" (mesma mecânica de 1 sucesso = 1 mana).
+8. **Resiste a Magia** (descritor novo, habilidade nova de Descendentes de Arcani): ao defender de ataque com descritor Magia, rola 1 dado a menos e tem 1 sucesso garantido — implementado como `ehMagia`/`resiste_a_magia` em `resolveRolagemDefesa`.
+9. **Teto de grau por habilidade**: até agora todo bônus racial de grau tinha teto C fixo (`grauComBonus`). Duas habilidades da tabela (Goethiano/Vigor, Pele Grossa/Resistência Física) ganham teto A — novo parâmetro opcional em `grauComBonus` + helper `tetoGrauDoPersonagem` em `racasCatalogo.js` (função separada da já testada `bonusGrauDoPersonagem`, pra não mudar o formato de retorno dela).
+10. **Bônus de grau racial, não por habilidade**: "todo tipo de elfo"/"todo tipo de humano ganha +1 grau à escolha" (Clã Corvus/Mana Estática) — interpretado como bônus da RAÇA inteira (minha leitura do texto, não da habilidade específica), novo mecanismo `BONUS_GRAU_ESCOLHA_POR_RACA` + campo `character.bonusGrauEscolhaRaca` (um valor só, não por habilidade).
+11. **+1 ofício mágico extra** (Clã Natrus/Corvus/Seasus): `BONUS_OFICIO_EXTRA_POR_HABILIDADE` + `oficiosExtrasDoPersonagem`, mesclado em `disciplinaMagica.oficiosExtras` por `comGrausEfetivos` (soma ao que já estiver salvo, não sobrescreve).
+12. **Catálogo de raças** (`catalogo-racas.json`, versão 14/10): as 7 linhas da tabela do guia (Goethiano, Descendentes de Arcani, Clã Natrus, Clã Corvus, Clã Seasus, Mana Estática, Pele Grossa) + a regra de Blindado no topo do arquivo.
+
+**Pendências do guia, explicitamente NÃO implementadas (pedido do Pedro)**: revisão das habilidades passivas que usavam Técnica/Magias Ofensivas (Golpe Preciso, Borrão, Giro Defensivo, Potencial Mágico Ofensivo, Magias Energéticas — já órfãs desde a reescrita de horas antes, continuam órfãs, agora apontando pra proficiências que nem existem mais em `PROFICIENCIAS_LIST`, só em `PROC_ABILITIES`); como o jogador adquire magias alem das iniciais (reserva); novo limite de disciplinas marciais (a Técnica saiu); Prioridade -1/atrasada 1/Veloz continuam só etiquetas, sem efeito no motor.
+
+**Decisões minhas, flagueadas pro Pedro revisar**: "todo tipo de elfo/humano" como bônus de raça (item 10 acima) em vez de habilidade específica — é a leitura mais literal do texto, mas pode não ser a intenção; "dá Acadêmicos e Tecnologia" (parte do texto de Magias de guerra) ficou só *flavor*, sem nenhum "+1" explícito no guia pra implementar; a ficha migrada zera `oficiosMagicos` mesmo pra quem tinha `disciplinaMagica.tipo === "oficio-magico"` (13/10) — "Fichas existentes: 0 ofícios por ora" no guia, não migrei pra `magias-de-guerra` automaticamente apesar da linha "Evocação vira o Ofício Mágico: Magias de guerra" sugerir equivalência direta.
+
+Suíte de testes: 584 → **605 testes**. Build de produção confirmado.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 
@@ -366,21 +409,31 @@ Troquei por um fluxo em duas etapas, só pra `point-characters` (a chave que imp
 
 Desde a auditoria de teste (ver "Estado atual" abaixo), o motor foi **extraído para `engine.js`** — um módulo Node puro, sem React/JSX/ícones, importado de volta por `point-amaranth-app.jsx`. Isso existe pra garantir que os testes automatizados rodem contra o mesmo código que o app usa (fonte única), não uma cópia que pode divergir.
 
-Funções-chave em `engine.js`:
+**Reescrito em 14/10** (ver seção própria "Sistema de Magia e Combate reescrito (14/10)" abaixo) — `resolveAttack`/`resolveConfirmationPhase` (Acerto 3d10 → Confirmação por camada de Armadura/Escudo de Mana) **não existem mais**. Substituídos por `resolveAtaque`/`resolveAtaqueEmArea` (ataque vs defesa, pool de dados, sem bônus somado ao dado). Fonte de verdade das regras: `docs/SISTEMA_MAGIA.md`.
+
+Funções-chave em `engine.js` (pós-reescrita):
 
 | Função | O que faz |
 |---|---|
-| `resolveAttack({attacker, defender, attack})` | Ponto de entrada. Rola Acerto e chama a fase de Confirmação |
-| `resolveConfirmationPhase({...})` | Extraída para poder ser re-executada quando um dado de Acerto muda (gasto de MP/SP) |
-| `computeStat(character, statKey)` | Base + atributos/proficiência vinculados (peso muda por `STAT_USA_GRAU_CHEIO`) + ajuste temporário |
-| `computeAcertoTipo(character, entrada)` | Acerto real por tipo de ataque (`ACERTOS_POR_TIPO`) — não lê a estatística "acerto" (removida do `STAT_LIST`, era decorativa) |
+| `resolveAtaque({attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque, defesaAtributo, feridas, superficial})` | Ponto de entrada do combate novo. Rola ataque e defesa, aplica sucessos líquidos e determina o ferimento |
+| `resolveAtaqueEmArea({attacker, defenders, ...})` | Mesma coisa pro descritor "Em área": rola o ataque uma vez só, cada defensor rola a própria defesa (e tem o próprio limiar, por causa de Blindado individual) |
+| `limiarAtaque({atacante, defensor, tipoAtaque, descritoresAtaque})` | 6+ padrão, 7+ se o defensor tiver Blindado/Blindado Mágico (exceto Perfurante, que sempre ignora) |
+| `resolveRolagemDefesa({defensor, tipoAtaque, defesaAtributo, saturante})` | Pool de defesa: Resistência Física/Mágica + o Atributo Geral escolhido; Saturante tira 2 dados se a base for Destreza |
+| `determinarFerimento({sucessosLiquidos, vigorGrauCheio, letal, superficialForcado})` | Agravante se sucessos líquidos ≥ Vigor (grau cheio, Letal -1); senão superficial |
+| `aplicarFerimentos(hp, tipo, quantidade)` | Aplica num `{current, max, superficiais}` — com todos os pontos superficiais marcados, o próximo vira agravante |
+| `rolarComSortudo(totalDice, limiar, temSortudo)` | Sortudo: re-rola o primeiro dado 1 ou 2 da rolagem, uma vez |
+| `temDescritor(entidade, nome)` | Checa `entidade.descritores` — função única pedida pro Pedro, serve pra personagem OU ataque/magia |
+| `diceAtaqueFisico` / `diceAtaqueMagico` / `diceBaseMagica` / `extraDeManaMagica` | Pools de dados: físico (Atributo+Proficiência+ajuste), mágico (Base mágica+Magias Ofensivas+ajuste), Base mágica (2d10+extra), extra (mana gasta acima do custo) |
+| `computeMaxMana(character)` | MP máximo, 1 a 6, +1 com Magia Inata |
+| `descritoresEfetivosDoAtaque(attacker, attack)` | `desarmado_letal` (descritor de personagem) torna um ataque desarmado letal |
+| `computeStat(character, statKey)` | Base + atributos/proficiência vinculados + ajuste temporário — hoje só Defesa tem vínculo de proficiência; Resistência Armadura/Geral são vestigiais (sem função no `resolveAtaque`) |
+| `computeAcertoTipo(character, entrada)` | Resumo de "força de ataque" por tipo (`ACERTOS_POR_TIPO`) — **defasado**: mostra o bônus do modelo antigo (E=0..A=+4), não o nº de dados do pool novo; TODO revisar o painel |
 | `getAttrGrade(character, key)` | Busca grau em `attributes` OU `atributosGerais` (compatibilidade da migração) |
-| `limiarDaHabilidade(character, p)` | 11 − grau; aceita atributo e/ou proficiência, usa o melhor |
-| `findTriggeredProc(...)` | Acha qual habilidade dispara num dado; exclui `furia_crescente` (tratada à parte) |
+| `limiarDaHabilidade(character, p)` / `findTriggeredProc(...)` | Mantidas só pra exibição — `PROC_ABILITIES` (11 Habilidades Passivas de Combate) ficou **órfã**: `resolveAtaque` não chama `findTriggeredProc` em lugar nenhum (os gatilhos dependiam de fases que não existem mais) |
 | `computeMaxHP` / `computeMaxSP` | Vigor e bônus de Persistente |
 | `migrateBrigaProfKey(attacks)` | Migração idempotente: `profKey: "briga"` → `"combateCorpoACorpo"` (proficiência eliminada 23/09) |
 
-**Constantes importantes**: `STAT_PROF_LINK` mapeia estatística → proficiência que soma nela; `STAT_USA_GRAU_CHEIO` (Set) marca quais estatísticas pesam o grau cheio (E=1..A=5) em vez do bônus (E=0..A=+4) — hoje só as duas Resistências Naturais; `MAX_PROCS` (3) é o número de espaços de Habilidade Passiva de Combate por ficha.
+**Constantes importantes**: `STAT_PROF_LINK` mapeia estatística → proficiência que soma nela (hoje só Defesa); `STAT_USA_GRAU_CHEIO` é um Set **vazio** desde 14/10 (as Resistências Naturais que usavam grau cheio saíram do `STAT_LIST`); `MAX_PROCS` (3) é o número de espaços de Habilidade Passiva de Combate por ficha (órfã, ver acima); `LIMIAR_SUCESSO` (5, ou seja "dado > 5" = 6+) e `LIMIAR_BLINDADO` (6, ou seja 7+) são os dois limiares de sucesso do combate; `MANA_MIN`/`MANA_MAX` (1/6).
 
 **`sidepoint.js`** (novo, 23/09): módulo pequeno e puro, mesmo espírito do `engine.js` (sem React, testável com `node --test`) mas pra dados de conteúdo, não combate — `grupoDoPersonagem(c)` (classifica Grupo C vs Grupo Aurora vs Grupo Suth) e `reporSidepoint(existentes, sementes, removidos)` (reposição idempotente de sementes por personagem — reusada tanto pro Aurora quanto pro Suth, já era genérica por id). Ver `sidepoint.test.js`.
 
@@ -510,6 +563,16 @@ Era bug, confirmado pelo Pedro. Corrigido em `engine.js` — ver "Estado atual" 
 
 ### 10. ~~Motor sem rede de segurança~~ (resolvida em 17/09)
 Existia um risco real de qualquer edição no motor quebrar regras silenciosamente, já que os 161 testes antigos não sobreviveram no repositório. Resolvido: motor extraído para `engine.js` e nova suíte de testes (55 testes) commitada no repo (ver "Estado atual" acima).
+
+### 11. Decisões em aberto da reescrita de Magia/Combate (14/10)
+Ver "Sistema de Magia e Combate reescrito do zero" nas Decisões de design acima pro detalhe completo. Resumo do que precisa de resposta do Pedro:
+- **As 11 Habilidades Passivas de Combate** (`PROC_ABILITIES`) ficaram órfãs — nenhum gatilho dispara mais automaticamente (dependiam do modelo antigo). Redesenhar pro modelo novo, ou aposentar a feature?
+- **Os 6 status effects de texto livre** (IMPACTO/DESACELERAÇÃO/ENRAIZAMENTO/ACELERAÇÃO/CHAMAS/ENVENENAMENTO) têm o mesmo problema — mesma pergunta.
+- **`Resistência Armadura`** não foi removida (só "Resistência Natural" foi pedida), mas não tem mais função mecânica nenhuma no `resolveAtaque`. Remover também, ou dar uma função nova a ela?
+- ~~**Magias Defensivas**: o guia pede essa Proficiência pra Magia Inata...~~ **resolvida em 14/10 (mesmo dia, ver "Mudanças de raças e magia" abaixo)**: Magia Inata virou flag independente (`disciplinaMagica.magiaInata`), sem usar proficiência nenhuma — Resistência Mágica (que era o substituto temporário) foi extinta no mesmo pacote de mudanças.
+- **Sensor** (magia 12 do catálogo) é placeholder — pool e custo ainda "a definir" no próprio guia (continua assim em 14/10).
+- ~~**`ACERTOS_POR_TIPO`/`computeAcertoTipo`** mostra o bônus do modelo antigo...~~ **mudou de natureza em 14/10**: a entrada "Mágico" foi removida de vez (não há mais proficiência fixa pro pool mágico pra mostrar) — `ACERTOS_POR_TIPO` agora só tem Corpo a corpo/Arma de fogo.
+- **`DuelRoller`/aba Ataque/aba Magia** perderam a re-rolagem de dado individual via MP/SP que existia no modelo antigo (dependia das duas fases Acerto/Confirmação) — hoje só mostra o resultado de `resolveAtaque`, sem interação de re-rolagem no resultado. Se isso fizer falta na mesa, dá pra reimplementar em cima do pool novo (reler um índice do array `dice`, recomputar sucessos).
 
 ---
 

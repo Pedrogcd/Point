@@ -14,7 +14,6 @@ import { migrarSelecaoRacaLegado } from "./racasCatalogo.js";
 const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
 const REMOVED_NAMES = new Set(["chute"]);
 const OLD_DEFAULT_DEFESA = new Set([0, 5, undefined]);
-const OLD_DEFAULT_RESIST_NATURAL = new Set([1, 2, 6, undefined]);
 const OLD_DEFAULT_RESIST_ARMADURA = new Set([7, undefined]);
 
 function migrateAttributes(attrs) {
@@ -55,6 +54,23 @@ function migrateAttributes(attrs) {
 // 10) "Resumo de Poder" legado: fichas salvas antes do campo `abilities` existir
 //     não têm essa lista — sem isso, o CharacterForm quebrava com tela branca
 //     ao tentar .map() em undefined.
+// 11) Sistema de magia/combate (13/10, docs/SISTEMA_MAGIA.md): a proficiência
+//     "Técnica" (tecnicaProf) virou "Manipulação de Mana" (manipulacaoManaProf);
+//     Resistência Natural (Física/Mágica) saiu do statBase — a defesa agora é
+//     a rolagem ativa de Resistência Física/Mágica, sem base numérica fixa.
+//     hp.superficiais (contador de pontos de HP com ferimento superficial
+//     ainda não quebrado) nasce em 0 pra quem não tiver.
+// 12) Mudanças de 14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): as proficiências
+//     Magias Ofensivas, Resistência Mágica e Manipulação de Mana (ex-Técnica,
+//     item 11 acima) deixaram de existir — grau salvo nelas é descartado (não
+//     há mais pra onde migrar, a defesa virou só Resistência Física e o pool
+//     mágico passou a usar Ofícios Mágicos/Inteligência). O antigo
+//     disciplinaMagica.tipo ("oficio-magico"/"magia-inata", único, 13/10) virou
+//     oficiosMagicos (array, até 3 disciplinas) + magiaInata (flag
+//     independente) — Magia Inata migra 1:1 (mesmo conceito, só que
+//     desacoplado); ofícios NÃO migram automaticamente de "oficio-magico"
+//     ("Fichas existentes: 0 ofícios por ora", conforme o guia) — fica pro
+//     jogador escolher as disciplinas na ficha.
 export function migrarPersonagem(ch) {
   const isAlmah = ch.id === "almah" || (ch.name || "").trim().toLowerCase() === "almah mason";
   const withoutRemoved = (ch.attacks || []).filter((atk) => {
@@ -90,22 +106,43 @@ export function migrarPersonagem(ch) {
   const statBase = { ...(ch.statBase || {}) };
   if (OLD_DEFAULT_DEFESA.has(statBase.defesa)) statBase.defesa = STAT_BASE_DEFAULTS.defesa;
   if (OLD_DEFAULT_RESIST_ARMADURA.has(statBase.resistArmadura)) statBase.resistArmadura = STAT_BASE_DEFAULTS.resistArmadura;
-  if (statBase.resistNatural !== undefined && statBase.resistNaturalFisica === undefined) {
-    // campo antigo unico -> divide nos dois novos, aplicando a mesma logica de "valor padrao antigo"
-    const val = OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNatural) ? STAT_BASE_DEFAULTS.resistNaturalFisica : statBase.resistNatural;
-    statBase.resistNaturalFisica = val;
-    statBase.resistNaturalMagica = val;
-    delete statBase.resistNatural;
-  }
-  if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalFisica)) statBase.resistNaturalFisica = STAT_BASE_DEFAULTS.resistNaturalFisica;
-  if (OLD_DEFAULT_RESIST_NATURAL.has(statBase.resistNaturalMagica)) statBase.resistNaturalMagica = STAT_BASE_DEFAULTS.resistNaturalMagica;
+  // Resistência Natural não existe mais (docs/SISTEMA_MAGIA.md): defesa agora é
+  // só a rolagem ativa de Resistência Física/Mágica, sem base numérica.
+  delete statBase.resistNatural;
+  delete statBase.resistNaturalFisica;
+  delete statBase.resistNaturalMagica;
   const itensArmadura = (ch.itens?.armadura || []);
   const itens = (itensArmadura.length > 0 || ch.fichaFechada) ? ch.itens : { ...(ch.itens || { usaveis: [], principais: [] }), armadura: ["Armadura física"] };
   const attributes = migrateAttributes(ch.attributes);
   const procs = Array.isArray(ch.procs) ? ch.procs.slice(0, MAX_PROCS) : [];
   const atributosGerais = { ...ATRIBUTOS_GERAIS_DEFAULT, ...(ch.atributosGerais || {}) };
-  const proficiencias = { ...PROFICIENCIAS_DEFAULT, ...(ch.proficiencias || {}) };
+  // "Técnica" (tecnicaProf) virou "Manipulação de Mana" (manipulacaoManaProf),
+  // mantendo o grau já salvo — ver docs/SISTEMA_MAGIA.md. Precisa checar o
+  // objeto original (ch.proficiencias), antes do merge com PROFICIENCIAS_DEFAULT
+  // preencher manipulacaoManaProf com o grau-padrão "E" e mascarar o "ausente".
+  const proficienciasSalvas = { ...(ch.proficiencias || {}) };
+  if (proficienciasSalvas.tecnicaProf !== undefined && proficienciasSalvas.manipulacaoManaProf === undefined) {
+    proficienciasSalvas.manipulacaoManaProf = proficienciasSalvas.tecnicaProf;
+  }
+  delete proficienciasSalvas.tecnicaProf;
+  const proficiencias = { ...PROFICIENCIAS_DEFAULT, ...proficienciasSalvas };
   delete proficiencias.briga; // proficiencia eliminada do sistema
+  // 14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): Magias Ofensivas, Resistência
+  // Mágica e Manipulação de Mana saíram do sistema — grau salvo é descartado.
+  delete proficiencias.magiasOfensivas;
+  delete proficiencias.resistMagicaProf;
+  delete proficiencias.manipulacaoManaProf;
+  // disciplinaMagica: "tipo" único (oficio-magico/magia-inata, 13/10) virou
+  // oficiosMagicos (array) + magiaInata (flag independente), 14/10. Ofícios
+  // não migram do antigo "oficio-magico" (0 por ora, ver item 12 acima);
+  // Magia Inata migra 1:1.
+  const disciplinaMagicaSalva = ch.disciplinaMagica || {};
+  const disciplinaMagica = {
+    oficiosMagicos: Array.isArray(disciplinaMagicaSalva.oficiosMagicos) ? disciplinaMagicaSalva.oficiosMagicos : [],
+    oficiosExtras: 0,
+    magiaInata: disciplinaMagicaSalva.magiaInata ?? (disciplinaMagicaSalva.tipo === "magia-inata"),
+    magiasAtivas: Array.isArray(disciplinaMagicaSalva.magiasAtivas) ? disciplinaMagicaSalva.magiasAtivas : [],
+  };
   const grupo = ch.grupo || grupoDoPersonagem(ch);
   const racialAbility = ch.racialAbility || { name: "", description: "" };
   const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
@@ -122,7 +159,8 @@ export function migrarPersonagem(ch) {
   // 'max')") ao tentar ler hp.max. Máximo calculado igual a uma ficha nova
   // (computeMaxHP/computeMaxSP, que já dependem de atributosGerais/procs
   // migrados acima); MP é sempre fixo em 3, igual toda ficha semente.
-  const hp = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs }); return { current: max, max }; })();
+  const hpBase = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs }); return { current: max, max }; })();
+  const hp = { ...hpBase, superficiais: hpBase.superficiais ?? 0 };
   const mp = (ch.mp && typeof ch.mp.max === "number") ? ch.mp : { current: 3, max: 3 };
   const sp = (ch.sp && typeof ch.sp.max === "number") ? ch.sp : (() => { const max = computeMaxSP({ sp: ch.sp, procs }); return { current: max, max }; })();
   // Enquadramento do retrato (y/zoom): fichas salvas antes desse campo existir
@@ -131,7 +169,7 @@ export function migrarPersonagem(ch) {
   const imagemPos = { y: 50, zoom: 1, ...(ch.imagemPos || {}) };
   return {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
-    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos,
+    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinaMagica,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha,
   };
 }

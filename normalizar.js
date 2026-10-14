@@ -38,6 +38,17 @@ function normalizarPessoasOverrides(valor) {
   return normalizado;
 }
 
+// npcsOverrides: { [npcId]: { campo: valor } } — mesma forma/blindagem,
+// pros NPCs de mundo editáveis pelo GM (ver npcOverrides.js, 14/10).
+function normalizarNpcsOverrides(valor) {
+  if (!isPlainObject(valor)) return {};
+  const normalizado = {};
+  for (const [npcId, campos] of Object.entries(valor)) {
+    if (isPlainObject(campos)) normalizado[npcId] = campos;
+  }
+  return normalizado;
+}
+
 export function normalizarEstado(state) {
   const characters = migrarPersonagens(state?.characters);
   const kingdoms = (Array.isArray(state?.kingdoms) ? state.kingdoms : []).map((rk) => ({
@@ -48,5 +59,6 @@ export function normalizarEstado(state) {
   const objectives = Array.isArray(state?.objectives) ? state.objectives : [];
   const cidadesOverrides = normalizarCidadesOverrides(state?.cidadesOverrides);
   const pessoasOverrides = normalizarPessoasOverrides(state?.pessoasOverrides);
-  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides };
+  const npcsOverrides = normalizarNpcsOverrides(state?.npcsOverrides);
+  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides };
 }

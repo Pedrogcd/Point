@@ -614,4 +614,110 @@ describe("CidadeView — dossiê completo (Frontier) e confidencialidade mestre/
       assert.ok(html.includes("Epígrafe"));
     });
   });
+
+  // GM editar NPC + colocar imagem (14/10) — mesmo padrão não-destrutivo de
+  // cidadesOverrides/pessoasOverrides, aplicado aos NPCs de mundo (ver
+  // npcOverrides.js). onEditarCampoNpc/onRestaurarCampoNpc são opcionais:
+  // sem eles (como no renderNpc acima, usado nos testes de confidencialidade)
+  // o NPC só aparece em modo leitura, mesmo no modo mestre.
+  describe("NpcDetalhe — edição do GM com npcsOverrides (nome/papel/texto/retrato/segredo/ganchos)", () => {
+    function renderNpcComEdicao(npcId, gm, npcsOverrides, extra) {
+      return renderToStaticMarkup(
+        React.createElement(NpcDetalhe, {
+          npcId, gm, onAcao: () => {}, npcsOverrides: npcsOverrides || {},
+          onEditarCampoNpc: () => {}, onRestaurarCampoNpc: () => {},
+          ...extra,
+        })
+      );
+    }
+
+    it("sem onEditarCampoNpc/onRestaurarCampoNpc (ex: popups antigos), nenhum controle de edição aparece mesmo no modo mestre", () => {
+      const html = renderNpc(NPCS[0].id, true); // renderNpc do describe pai não passa essas props
+      for (const rotulo of ["Editar", "Salvar", "Cancelar", "Restaurar original", "Enviar imagem"]) {
+        assert.ok(!html.includes(rotulo), `controle "${rotulo}" apareceu sem callback de edição`);
+      }
+    });
+
+    it("modo Jogador não mostra NENHUM controle de edição, mesmo com onEditarCampoNpc passado", () => {
+      const html = renderNpcComEdicao(NPCS[0].id, false);
+      for (const rotulo of ["Editar", "Salvar", "Cancelar", "Restaurar original", "Enviar imagem"]) {
+        assert.ok(!html.includes(rotulo), `controle "${rotulo}" apareceu pro jogador`);
+      }
+    });
+
+    it("modo Mestre com callbacks mostra Editar (nome/papel/texto/segredo-ganchos) e o botão de enviar imagem", () => {
+      const html = renderNpcComEdicao(NPCS[0].id, true);
+      assert.ok(html.includes("Editar"));
+      assert.ok(html.includes("Enviar imagem"));
+    });
+
+    it("override de nome muda o que aparece, pros dois modos (nome nunca tem versão gm-only separada)", () => {
+      const npc = NPCS[0];
+      const npcsOverrides = { [npc.id]: { nome: "Nome editado pelo GM" } };
+      for (const gm of [false, true]) {
+        const html = renderNpcComEdicao(npc.id, gm, npcsOverrides);
+        assert.ok(html.includes("Nome editado pelo GM"), `(gm=${gm}) nome editado não aparece`);
+        assert.ok(!html.includes(npc.nome), `(gm=${gm}) nome original ainda aparece apesar do override`);
+      }
+    });
+
+    it("override de papel/texto muda o que o JOGADOR vê (editor edita sempre a versão pública)", () => {
+      const npc = NPCS[0];
+      const npcsOverrides = { [npc.id]: { papel: "Papel editado pelo GM", texto: "Texto editado pelo GM." } };
+      const html = renderNpcComEdicao(npc.id, false, npcsOverrides);
+      assert.ok(html.includes("Papel editado pelo GM"));
+      assert.ok(html.includes("Texto editado pelo GM."));
+    });
+
+    // Limitação conhecida (registrada no relatório final): alguns NPCs têm,
+    // na própria semente (mundoDados.js), um texto/papel SÓ PRO MESTRE
+    // (npc.gm.texto/papel, diferente do pub) — o editor novo só edita a
+    // versão pública (npc.texto/papel), então pra esses NPCs o modo Mestre
+    // continua mostrando o texto/papel da semente até esse texto também
+    // virar editável (ou até esvaziar; aí passa a mostrar o editado).
+    it("quando a semente tem gm.texto próprio, editar o texto (público) não muda o que o MESTRE vê — limitação conhecida", () => {
+      const npc = NPCS.find((n) => n.gm?.texto && n.gm.texto !== n.texto);
+      assert.ok(npc, "fixture: nenhum NPC de teste tem gm.texto distinto do pub — teste não cobre nada");
+      const html = renderNpcComEdicao(npc.id, true, { [npc.id]: { texto: "Texto editado pelo GM, só devia valer pro pub." } });
+      assert.ok(html.includes(npc.gm.texto), "modo mestre devia continuar mostrando o gm.texto da semente");
+      assert.ok(!html.includes("Texto editado pelo GM, só devia valer pro pub."));
+    });
+
+    it("override de img troca o retrato exibido (src aponta pro novo caminho)", () => {
+      const npc = NPCS[0];
+      const html = renderNpcComEdicao(npc.id, true, { [npc.id]: { img: "mundo/npcs/teste-override.jpg" } });
+      assert.ok(html.includes("teste-override.jpg"));
+    });
+
+    it("override de gm (segredo/ganchos novos) aparece só pro mestre, nunca pro jogador", () => {
+      const npc = NPCS[0];
+      const npcsOverrides = { [npc.id]: { gm: { segredo: "Segredo novo criado pelo GM", ganchos: ["Gancho novo criado pelo GM"] } } };
+      const htmlGm = renderNpcComEdicao(npc.id, true, npcsOverrides);
+      const htmlJogador = renderNpcComEdicao(npc.id, false, npcsOverrides);
+      assert.ok(htmlGm.includes("Segredo novo criado pelo GM"));
+      assert.ok(htmlGm.includes("Gancho novo criado pelo GM"));
+      assert.ok(!htmlJogador.includes("Segredo novo criado pelo GM"));
+      assert.ok(!htmlJogador.includes("Gancho novo criado pelo GM"));
+    });
+
+    it("sem override nenhum, Restaurar original não aparece; com override, aparece por campo editado", () => {
+      const npc = NPCS[0];
+      assert.ok(!renderNpcComEdicao(npc.id, true).includes("Restaurar original"));
+      const html = renderNpcComEdicao(npc.id, true, { [npc.id]: { nome: "X" } });
+      assert.ok(html.includes("Restaurar original"));
+    });
+
+    it("MundoPopup (tipo npc) repassa npcsOverrides/onEditarCampoNpc/onRestaurarCampoNpc pro NpcDetalhe por dentro", () => {
+      const npc = NPCS[0];
+      const html = renderToStaticMarkup(
+        React.createElement(MundoPopup, {
+          acao: { tipo: "npc", id: npc.id }, gm: true, onClose: () => {}, onAcao: () => {},
+          npcsOverrides: { [npc.id]: { nome: "Nome via popup" } },
+          onEditarCampoNpc: () => {}, onRestaurarCampoNpc: () => {},
+        })
+      );
+      assert.ok(html.includes("Nome via popup"));
+      assert.ok(html.includes("Restaurar original"));
+    });
+  });
 });

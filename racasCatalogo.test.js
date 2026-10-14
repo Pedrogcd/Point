@@ -7,6 +7,7 @@ import {
   BONUS_GRAU_ESCOLHA_POR_RACA, BONUS_OFICIO_EXTRA_POR_HABILIDADE,
   bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
   oficiosExtrasDoPersonagem, tetoGrauDoPersonagem,
+  disciplinasDoPersonagem, oficiosMagicosDoPersonagem, temMagiaInataDoPersonagem, magiasAtivasDoPersonagem,
 } from "./racasCatalogo.js";
 
 describe("racasCatalogo — lookups", () => {
@@ -177,18 +178,24 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
   });
 
-  it("Ofício 'magias-de-guerra' dá +1 em Magias Gerais (mantém o bônus do antigo Ofício Mágico)", () => {
-    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { oficiosMagicos: ["magias-de-guerra"] } });
+  it("Disciplina 'Ofício Mágico: Magias de guerra' dá +1 em Magias Gerais (mantém o bônus do antigo Ofício Mágico)", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }] });
     assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1 }, atributos: {} });
   });
 
-  it("Ofícios que não são 'magias-de-guerra' não dão bônus de grau nenhum (só contam no pool mágico)", () => {
-    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { oficiosMagicos: ["encantamentos", "alquimia", "constructo"] } });
+  it("Disciplinas que não são Magias de guerra não dão bônus de grau nenhum (só contam no pool mágico)", () => {
+    const bonus = bonusGrauDoPersonagem({
+      disciplinas: [
+        { disciplinaId: "oficio-encantamentos", habilidadesAtivas: [] },
+        { disciplinaId: "oficio-alquimia", habilidadesAtivas: [] },
+        { disciplinaId: "oficio-constructo", habilidadesAtivas: [] },
+      ],
+    });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
   it("Magia Inata não dá bônus de grau nenhum (virou só +1d10 fixo e +1 MP, ver engine.js)", () => {
-    const bonus = bonusGrauDoPersonagem({ disciplinaMagica: { magiaInata: true } });
+    const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: [] }] });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
@@ -304,6 +311,66 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: { oficiosExtras: 2 } });
     assert.equal(character.disciplinaMagica.oficiosExtras, 3);
   });
+});
+
+describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () => {
+  it("disciplinasDoPersonagem filtra slots vazios (null)", () => {
+    const ch = { disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] }, null, null] };
+    assert.deepEqual(disciplinasDoPersonagem(ch), [{ disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] }]);
+  });
+
+  it("disciplinasDoPersonagem sem character.disciplinas não quebra, devolve []", () => {
+    assert.deepEqual(disciplinasDoPersonagem({}), []);
+    assert.deepEqual(disciplinasDoPersonagem(null), []);
+  });
+
+  it("oficiosMagicosDoPersonagem conta só as disciplinas tipo oficio-magico, não Magia Inata", () => {
+    const ch = {
+      disciplinas: [
+        { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] },
+        { disciplinaId: "magia-inata", habilidadesAtivas: [] },
+        { disciplinaId: "oficio-alquimia", habilidadesAtivas: [] },
+      ],
+    };
+    assert.deepEqual(oficiosMagicosDoPersonagem(ch), ["oficio-magias-de-guerra", "oficio-alquimia"]);
+  });
+
+  it("oficiosMagicosDoPersonagem ignora um disciplinaId desconhecido (não quebra)", () => {
+    assert.deepEqual(oficiosMagicosDoPersonagem({ disciplinas: [{ disciplinaId: "sei-la-o-que", habilidadesAtivas: [] }] }), []);
+  });
+
+  it("temMagiaInataDoPersonagem é true só quando Magia Inata está num dos slots", () => {
+    assert.equal(temMagiaInataDoPersonagem({ disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: [] }] }), true);
+    assert.equal(temMagiaInataDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }] }), false);
+    assert.equal(temMagiaInataDoPersonagem({}), false);
+  });
+
+  it("magiasAtivasDoPersonagem junta as magias equipadas de TODAS as disciplinas, sem duplicar", () => {
+    const ch = {
+      disciplinas: [
+        { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: ["shin", "tiro_magico"] },
+        { disciplinaId: "magia-inata", habilidadesAtivas: ["tiro_magico", "shin_kay"] },
+      ],
+    };
+    assert.deepEqual(magiasAtivasDoPersonagem(ch), ["shin", "tiro_magico", "shin_kay"]);
+  });
+
+  it("comGrausEfetivos deriva disciplinaMagica inteiro a partir de character.disciplinas", () => {
+    const ch = {
+      raca: "elfo", habilidadePrincipal: "cla-corvus",
+      disciplinas: [
+        { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: ["shin"] },
+        { disciplinaId: "magia-inata", habilidadesAtivas: ["tiro_magico"] },
+      ],
+    };
+    const { character } = comGrausEfetivos(ch);
+    assert.deepEqual(character.disciplinaMagica, {
+      oficiosMagicos: ["oficio-magias-de-guerra"],
+      oficiosExtras: 1, // Clã Corvus
+      magiaInata: true,
+      magiasAtivas: ["shin", "tiro_magico"],
+    });
+  });
 
   it("Resistência à Dor (elfo secundária) dá +1 em Resolução — trocou de '+1 dado' pontual pra grau permanente", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadeSecundaria: "resistencia-a-dor" });
@@ -375,10 +442,12 @@ describe("racasCatalogo — tetoGrauDoPersonagem", () => {
 });
 
 describe("racasCatalogo — comGrausEfetivos", () => {
-  it("sem bônus nenhum, devolve o mesmo personagem por referência", () => {
+  it("sem bônus de grau nenhum, não clona proficiencias/atributosGerais (mas disciplinaMagica é sempre recalculado)", () => {
     const ch = { proficiencias: { investigacao: "E" }, atributosGerais: { forca: "E" } };
     const { character, bonusAplicado } = comGrausEfetivos(ch);
-    assert.equal(character, ch); // mesma referência, não clonou à toa
+    assert.equal(character.proficiencias, ch.proficiencias); // não clonou à toa
+    assert.equal(character.atributosGerais, ch.atributosGerais); // não clonou à toa
+    assert.deepEqual(character.disciplinaMagica, { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] });
     assert.deepEqual(bonusAplicado, { proficiencias: {}, atributos: {} });
   });
 

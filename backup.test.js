@@ -16,6 +16,7 @@ function sampleState() {
     objectives: [{ id: "obj_1", title: "Derrotar o Pendragon" }],
     cidadesOverrides: {},
     pessoasOverrides: {},
+    npcsOverrides: {},
   };
 }
 
@@ -86,7 +87,7 @@ describe("ciclo exportar → importar", () => {
   });
 
   it("funciona com listas vazias (campanha nova, sem nada salvo ainda)", () => {
-    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {} };
+    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {} };
     const serializado = JSON.stringify(buildBackup(original));
     const restaurado = parseBackup(serializado);
     assert.deepEqual(restaurado, original);
@@ -100,7 +101,7 @@ describe("ciclo exportar → importar", () => {
         classes: [{ name: "Duelista de Estoc", description: "..." }, { name: "Mercador", description: "..." }],
         hp: { current: 3, max: 3 },
       }],
-      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {},
+      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {},
     };
     const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
     assert.deepEqual(restaurado, original);
@@ -159,6 +160,34 @@ describe("pessoasOverrides no backup — edições do GM na aba Pessoas do reino
     for (const invalido of [[], "x", 42, null]) {
       const restaurado = parseBackup(JSON.stringify({ characters: [], pessoasOverrides: invalido }));
       assert.deepEqual(restaurado.pessoasOverrides, {});
+    }
+  });
+});
+
+describe("npcsOverrides no backup — edições do GM nos NPCs de mundo (14/10)", () => {
+  it("buildBackup inclui npcsOverrides; ausente no estado vira {}", () => {
+    assert.deepEqual(buildBackup({ characters: [] }).npcsOverrides, {});
+  });
+
+  it("ciclo exportar → importar preserva as edições de override", () => {
+    const original = {
+      ...sampleState(),
+      npcsOverrides: { frontier_veyla: { nome: "Irmã Veyla (editado)", img: "mundo/npcs/veyla.jpg" } },
+    };
+    const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
+    assert.deepEqual(restaurado.npcsOverrides, original.npcsOverrides);
+  });
+
+  it("backup ANTIGO, sem a chave npcsOverrides, carrega normal (vira {})", () => {
+    const backupAntigo = { characters: [{ id: "almah" }], kingdoms: [], gods: [], sagas: [], objectives: [] };
+    const restaurado = parseBackup(JSON.stringify(backupAntigo));
+    assert.deepEqual(restaurado.npcsOverrides, {});
+  });
+
+  it("npcsOverrides com formato inválido (array, string, número) vira {}, não quebra", () => {
+    for (const invalido of [[], "x", 42, null]) {
+      const restaurado = parseBackup(JSON.stringify({ characters: [], npcsOverrides: invalido }));
+      assert.deepEqual(restaurado.npcsOverrides, {});
     }
   });
 });

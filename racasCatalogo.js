@@ -3,6 +3,7 @@
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
+import { DISCIPLINAS, getDisciplinaPorId } from "./data/magias.js";
 
 export const CATALOGO_RACAS = catalogo;
 
@@ -218,6 +219,49 @@ export const BONUS_OFICIO_EXTRA_POR_HABILIDADE = {
   "cla-seasus": 1,
 };
 
+// Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): até 3 slots por personagem
+// (character.disciplinas, array de até 3 `{ disciplinaId, habilidadesAtivas }`
+// ou `null` pra slot vazio — mesmo padrão posicional de `character.procs`).
+// Substitui o antigo `disciplinaMagica.oficiosMagicos`/`magiaInata` (checkbox
+// solto, 14/10 anterior) — agora esses dois são DERIVADOS daqui, nunca mais
+// guardados direto na ficha (ver comGrausEfetivos). Troca o antigo painel
+// "Classes" (2 caixas de texto livre) na ficha.
+export function disciplinasDoPersonagem(character) {
+  return (character?.disciplinas || []).filter(Boolean);
+}
+
+// Ids das disciplinas do tipo "oficio-magico" escolhidas (conta 1 cada no
+// pool de ataque mágico/recuperação de mana — engine.js:contagemOficiosMagicos).
+// Magia Inata (tipo "magia-inata") nunca entra aqui.
+export function oficiosMagicosDoPersonagem(character) {
+  return disciplinasDoPersonagem(character)
+    .map((d) => getDisciplinaPorId(d.disciplinaId))
+    .filter((def) => def?.tipo === "oficio-magico")
+    .map((def) => def.id);
+}
+
+export function temMagiaInataDoPersonagem(character) {
+  return disciplinasDoPersonagem(character).some((d) => d.disciplinaId === "magia-inata");
+}
+
+// União das magias equipadas em TODAS as disciplinas do personagem (cada
+// disciplina tem seu próprio limite de 3 — ver DISCIPLINAS em
+// data/magias.js — mas o seletor de conjuração do painel Magia mostra o
+// total disponível, sem precisar saber de qual disciplina veio cada uma).
+export function magiasAtivasDoPersonagem(character) {
+  const vistas = new Set();
+  const resultado = [];
+  for (const d of disciplinasDoPersonagem(character)) {
+    for (const magiaId of d.habilidadesAtivas || []) {
+      if (!vistas.has(magiaId)) {
+        vistas.add(magiaId);
+        resultado.push(magiaId);
+      }
+    }
+  }
+  return resultado;
+}
+
 // Soma os "ofícios extras" das habilidades ATIVAS do personagem (mesmo
 // critério de bonusGrauDoPersonagem: principal + secundária).
 export function oficiosExtrasDoPersonagem(character) {
@@ -296,15 +340,15 @@ export function bonusGrauDoPersonagem(character) {
       alvo[chave] = (alvo[chave] || 0) + 1;
     }
   }
-  // Ofícios Mágicos (14/10, docs/MUDANCAS_RACAS_E_MAGIA.md): escolher
-  // "magias-de-guerra" (o antigo Ofício Mágico único) entre os até 3 ofícios
-  // mantém o +1 grau em Magias Gerais que ele já dava. Os outros 3 ofícios
-  // (Encantamentos, Alquimia, Constructo — ver data/magias.js:OFICIOS_MAGICOS)
-  // não dão bônus de grau nenhum, só contam como dado no pool mágico (ver
-  // engine.js:contagemOficiosMagicos). Magia Inata não dá mais bônus de grau
-  // nenhum — virou só +1d10 fixo nas rolagens de magia e +1 MP (ver
+  // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): ter "Ofício Mágico:
+  // Magias de guerra" entre os até 3 slots de disciplina mantém o +1 grau em
+  // Magias Gerais que o antigo "Ofício Mágico" já dava. As outras disciplinas
+  // vazias (Encantamentos, Alquimia, Constructo — ver data/magias.js:
+  // DISCIPLINAS) não dão bônus de grau nenhum, só contam como dado no pool
+  // mágico (ver engine.js:contagemOficiosMagicos). Magia Inata não dá bônus
+  // de grau nenhum — vira +1d10 fixo nas rolagens de magia e +1 MP (ver
   // engine.js:diceAtaqueMagico/computeMaxMana).
-  if ((character?.disciplinaMagica?.oficiosMagicos || []).includes("magias-de-guerra")) {
+  if (oficiosMagicosDoPersonagem(character).includes("oficio-magias-de-guerra")) {
     resultado.proficiencias.magiasGerais = (resultado.proficiencias.magiasGerais || 0) + 1;
   }
   return resultado;
@@ -327,24 +371,36 @@ export function grauComBonus(grauBase, passos, teto = "C") {
 
 // Devolve `{ character, bonusAplicado }`: uma cópia do personagem com
 // proficiencias/atributosGerais já no grau EFETIVO (base + bônus racial, com
-// teto — ver tetoGrauDoPersonagem) e `disciplinaMagica.oficiosExtras` já
-// somado com os ofícios extras de raça (ver oficiosExtrasDoPersonagem) — é
-// isso que deve ir pra qualquer cálculo de dado (ataques, testes, barras da
-// ficha, pool mágico), nunca o personagem cru. `bonusAplicado` dá, por chave,
-// o número de passos REALMENTE aplicados (já descontado o teto — ex.: uma
-// habilidade que daria +1 num grau já no teto não aplica nada) — é o que a UI
-// usa pra saber quantos segmentos pintar de azul na barrinha.
-// Sem nenhum bônus de grau/ofício, devolve o mesmo `character` por referência
-// (sem clonar), pra não forçar re-render à toa em componentes que comparam
-// por referência.
+// teto — ver tetoGrauDoPersonagem) e `disciplinaMagica` já montado a partir
+// de `character.disciplinas` (oficiosMagicos/magiaInata/magiasAtivas — ver
+// oficiosMagicosDoPersonagem/temMagiaInataDoPersonagem/magiasAtivasDoPersonagem
+// — mais oficiosExtras, base salva + bônus racial de oficiosExtrasDoPersonagem)
+// — é isso que deve ir pra qualquer cálculo de dado (ataques, testes, barras
+// da ficha, pool mágico), nunca o personagem cru. `bonusAplicado` dá, por
+// chave, o número de passos REALMENTE aplicados (já descontado o teto — ex.:
+// uma habilidade que daria +1 num grau já no teto não aplica nada) — é o que
+// a UI usa pra saber quantos segmentos pintar de azul na barrinha.
+// `disciplinaMagica` é sempre recalculado (nunca devolve o mesmo objeto
+// salvo na ficha) porque é inteiramente derivado de `character.disciplinas`,
+// nunca mais lido direto — por isso, diferente de antes, esta função não
+// devolve mais o mesmo `character` por referência quando não há bônus de
+// grau/ofício extra (só proficiencias/atributosGerais continuam sem clonar
+// nesse caso).
 export function comGrausEfetivos(character) {
   if (!character) return { character, bonusAplicado: { proficiencias: {}, atributos: {} } };
   const bonus = bonusGrauDoPersonagem(character);
   const oficiosExtrasRaciais = oficiosExtrasDoPersonagem(character);
+  const disciplinaMagica = {
+    ...(character.disciplinaMagica || {}),
+    oficiosMagicos: oficiosMagicosDoPersonagem(character),
+    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais,
+    magiaInata: temMagiaInataDoPersonagem(character),
+    magiasAtivas: magiasAtivasDoPersonagem(character),
+  };
   const bonusAplicado = { proficiencias: {}, atributos: {} };
-  const semNada = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0 && oficiosExtrasRaciais === 0;
-  if (semNada) {
-    return { character, bonusAplicado };
+  const semBonusDeGrau = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0;
+  if (semBonusDeGrau) {
+    return { character: { ...character, disciplinaMagica }, bonusAplicado };
   }
   const tetos = tetoGrauDoPersonagem(character);
   const proficiencias = { ...character.proficiencias };
@@ -361,8 +417,5 @@ export function comGrausEfetivos(character) {
     atributosGerais[chave] = novoGrau;
     bonusAplicado.atributos[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
   }
-  const disciplinaMagica = oficiosExtrasRaciais > 0
-    ? { ...(character.disciplinaMagica || {}), oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais }
-    : character.disciplinaMagica;
   return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica }, bonusAplicado };
 }

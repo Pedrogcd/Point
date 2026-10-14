@@ -10,11 +10,97 @@ import {
 } from "./engine.js";
 import { grupoDoPersonagem } from "./sidepoint.js";
 import { migrarSelecaoRacaLegado } from "./racasCatalogo.js";
+import { DISCIPLINAS, MAX_DISCIPLINAS } from "./data/magias.js";
 
 const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
 const REMOVED_NAMES = new Set(["chute"]);
 const OLD_DEFAULT_DEFESA = new Set([0, 5, undefined]);
 const OLD_DEFAULT_RESIST_ARMADURA = new Set([7, undefined]);
+
+// Ids antigos (13/10-14/10, checkbox solto disciplinaMagica.oficiosMagicos)
+// -> ids novos do catálogo DISCIPLINAS (data/magias.js, 14/10 — docs/
+// DISCIPLINAS_MAGIA.md).
+const OFICIO_ID_LEGADO_PARA_NOVO = {
+  "magias-de-guerra": "oficio-magias-de-guerra",
+  "encantamentos": "oficio-encantamentos",
+  "alquimia": "oficio-alquimia",
+  "constructo": "oficio-constructo",
+};
+
+// Tenta casar o nome de uma Classe antiga (texto livre, ex.: "Duelista de
+// Estoc") com uma disciplina do catálogo atual — comparação por nome exato,
+// sem acento/maiúscula, ou pelo nome sem o prefixo "Ofício Mágico: ". Hoje o
+// catálogo só tem disciplinas mágicas (Magias de guerra/Encantamentos/
+// Alquimia/Constructo/Magia Inata), então a grande maioria das Classes
+// (nomes de ofício/narrativa comuns, ex. "Duelista de Estoc") não bate com
+// nada — fica sem disciplina correspondente, mesmo não sendo apagada de
+// `character.classes` (ver migrarPersonagem).
+function normalizarNomeClasse(s) {
+  return (s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+function casarClasseComDisciplina(nomeClasse) {
+  const alvo = normalizarNomeClasse(nomeClasse);
+  if (!alvo) return null;
+  return DISCIPLINAS.find((d) => {
+    const nomeCompleto = normalizarNomeClasse(d.nome);
+    const nomeSemPrefixo = normalizarNomeClasse(d.nome.replace(/^Ofício Mágico:\s*/i, ""));
+    return alvo === nomeCompleto || alvo === nomeSemPrefixo;
+  }) || null;
+}
+
+// Migra pro novo modelo de Disciplinas (até MAX_DISCIPLINAS slots — docs/
+// DISCIPLINAS_MAGIA.md, 14/10): já no formato novo (`ch.disciplinas`), só
+// normaliza o tamanho do array (preenche/corta pra exatamente 3 slots,
+// descarta disciplinaId desconhecido). Senão, monta a partir de fontes
+// antigas, nesta ordem de prioridade (quando ultrapassa os 3 slots, o que
+// não couber fica de fora — sem indicação de qual era "principal" nos dados
+// antigos, essa ordem é minha escolha, reportada no relatório final):
+// 1) disciplinaMagica.oficiosMagicos (13/10-14/10) — ids remapeados;
+// 2) disciplinaMagica.magiaInata (flag) — vira o slot "magia-inata";
+// 3) Classes (texto livre, ch.classes) cujo nome bate com uma disciplina do
+//    catálogo atual (ver casarClasseComDisciplina) — hoje praticamente
+//    nunca bate, já que o catálogo só tem disciplinas mágicas.
+// As magias equipadas salvas em disciplinaMagica.magiasAtivas (lista única,
+// compartilhada entre todos os ofícios no modelo antigo) são atribuídas ao
+// primeiro slot que `temMagias` (preferindo magias-de-guerra, depois magia
+// inata) — o modelo novo é por disciplina, então não há como saber de qual
+// ofício cada magia salva "era" no formato antigo.
+function migrarDisciplinas(ch) {
+  if (Array.isArray(ch.disciplinas)) {
+    const normalizado = [0, 1, 2].map((i) => {
+      const slot = ch.disciplinas[i];
+      if (!slot || !slot.disciplinaId) return null;
+      const def = DISCIPLINAS.find((d) => d.id === slot.disciplinaId);
+      if (!def) return null; // disciplinaId desconhecido (catálogo mudou) — descarta o slot
+      return { disciplinaId: slot.disciplinaId, habilidadesAtivas: Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas.slice(0, def.magiasAtivasMax || 3) : [] };
+    });
+    return normalizado;
+  }
+  const slots = [];
+  const disciplinaMagicaSalva = ch.disciplinaMagica || {};
+  const magiasAtivasSalvas = Array.isArray(disciplinaMagicaSalva.magiasAtivas) ? disciplinaMagicaSalva.magiasAtivas : [];
+  for (const oficioIdLegado of (disciplinaMagicaSalva.oficiosMagicos || [])) {
+    const novoId = OFICIO_ID_LEGADO_PARA_NOVO[oficioIdLegado];
+    if (novoId && !slots.some((s) => s.disciplinaId === novoId) && slots.length < MAX_DISCIPLINAS) {
+      slots.push({ disciplinaId: novoId, habilidadesAtivas: [] });
+    }
+  }
+  if ((disciplinaMagicaSalva.magiaInata ?? disciplinaMagicaSalva.tipo === "magia-inata") && !slots.some((s) => s.disciplinaId === "magia-inata") && slots.length < MAX_DISCIPLINAS) {
+    slots.push({ disciplinaId: "magia-inata", habilidadesAtivas: [] });
+  }
+  for (const classe of (Array.isArray(ch.classes) ? ch.classes : [])) {
+    if (slots.length >= MAX_DISCIPLINAS) break;
+    const def = casarClasseComDisciplina(classe?.name);
+    if (def && !slots.some((s) => s.disciplinaId === def.id)) slots.push({ disciplinaId: def.id, habilidadesAtivas: [] });
+  }
+  const slotComMagias = slots.find((s) => s.disciplinaId === "oficio-magias-de-guerra") || slots.find((s) => DISCIPLINAS.find((d) => d.id === s.disciplinaId)?.temMagias);
+  if (slotComMagias && magiasAtivasSalvas.length > 0) {
+    const def = DISCIPLINAS.find((d) => d.id === slotComMagias.disciplinaId);
+    slotComMagias.habilidadesAtivas = magiasAtivasSalvas.slice(0, def?.magiasAtivasMax || 3);
+  }
+  while (slots.length < MAX_DISCIPLINAS) slots.push(null);
+  return slots;
+}
 
 function migrateAttributes(attrs) {
   if (!attrs || !attrs.percepcao) return attrs; // já está no formato novo (ou vazio)
@@ -64,13 +150,15 @@ function migrateAttributes(attrs) {
 //     Magias Ofensivas, Resistência Mágica e Manipulação de Mana (ex-Técnica,
 //     item 11 acima) deixaram de existir — grau salvo nelas é descartado (não
 //     há mais pra onde migrar, a defesa virou só Resistência Física e o pool
-//     mágico passou a usar Ofícios Mágicos/Inteligência). O antigo
-//     disciplinaMagica.tipo ("oficio-magico"/"magia-inata", único, 13/10) virou
-//     oficiosMagicos (array, até 3 disciplinas) + magiaInata (flag
-//     independente) — Magia Inata migra 1:1 (mesmo conceito, só que
-//     desacoplado); ofícios NÃO migram automaticamente de "oficio-magico"
-//     ("Fichas existentes: 0 ofícios por ora", conforme o guia) — fica pro
-//     jogador escolher as disciplinas na ficha.
+//     mágico passou a usar Ofícios Mágicos/Inteligência).
+// 13) Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10, mesmo dia): o antigo
+//     checkbox solto disciplinaMagica.oficiosMagicos/magiaInata/magiasAtivas
+//     (13/10-14/10) e o antigo painel "Classes" (texto livre, antes disso)
+//     viram `character.disciplinas` — até 3 slots escolhidos do catálogo
+//     DISCIPLINAS (ver migrarDisciplinas acima pra prioridade/limites).
+//     `character.disciplinaMagica` não é mais um campo salvo — vira sempre
+//     DERIVADO de `character.disciplinas` por racasCatalogo.js:
+//     comGrausEfetivos, nunca lido direto daqui em diante.
 export function migrarPersonagem(ch) {
   const isAlmah = ch.id === "almah" || (ch.name || "").trim().toLowerCase() === "almah mason";
   const withoutRemoved = (ch.attacks || []).filter((atk) => {
@@ -132,17 +220,8 @@ export function migrarPersonagem(ch) {
   delete proficiencias.magiasOfensivas;
   delete proficiencias.resistMagicaProf;
   delete proficiencias.manipulacaoManaProf;
-  // disciplinaMagica: "tipo" único (oficio-magico/magia-inata, 13/10) virou
-  // oficiosMagicos (array) + magiaInata (flag independente), 14/10. Ofícios
-  // não migram do antigo "oficio-magico" (0 por ora, ver item 12 acima);
-  // Magia Inata migra 1:1.
-  const disciplinaMagicaSalva = ch.disciplinaMagica || {};
-  const disciplinaMagica = {
-    oficiosMagicos: Array.isArray(disciplinaMagicaSalva.oficiosMagicos) ? disciplinaMagicaSalva.oficiosMagicos : [],
-    oficiosExtras: 0,
-    magiaInata: disciplinaMagicaSalva.magiaInata ?? (disciplinaMagicaSalva.tipo === "magia-inata"),
-    magiasAtivas: Array.isArray(disciplinaMagicaSalva.magiasAtivas) ? disciplinaMagicaSalva.magiasAtivas : [],
-  };
+  // Disciplinas (item 13 acima) — ver migrarDisciplinas.
+  const disciplinas = migrarDisciplinas(ch);
   const grupo = ch.grupo || grupoDoPersonagem(ch);
   const racialAbility = ch.racialAbility || { name: "", description: "" };
   const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
@@ -167,9 +246,14 @@ export function migrarPersonagem(ch) {
   // (ou um backup de formato antigo) ganham o padrão centralizado/sem zoom —
   // sem sobrescrever quem já tiver um valor customizado.
   const imagemPos = { y: 50, zoom: 1, ...(ch.imagemPos || {}) };
+  // Visibilidade pro jogador (aba Personagens, 14/10): fichas sem esse campo
+  // (toda ficha existente antes de hoje) nascem `false` — "todas só-GM até
+  // você liberar", decisão do Pedro — o GM arrasta cada uma pra seção
+  // "Jogadores veem" quando quiser revelar.
+  const visivelJogador = ch.visivelJogador ?? false;
   return {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
-    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinaMagica,
+    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha,
   };
 }

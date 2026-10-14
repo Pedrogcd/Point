@@ -91,33 +91,63 @@ describe("migrarPersonagem", () => {
     assert.equal("manipulacaoManaProf" in migrado.proficiencias, false);
   });
 
-  it("14/10: disciplinaMagica nasce com oficiosMagicos vazio (0 ofícios por ora) pra quem não tinha", () => {
+  it("14/10 (docs/DISCIPLINAS_MAGIA.md): disciplinas nasce [null,null,null] pra quem não tinha nada", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X" });
-    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
-    assert.equal(migrado.disciplinaMagica.oficiosExtras, 0);
-    assert.equal(migrado.disciplinaMagica.magiaInata, false);
+    assert.deepEqual(migrado.disciplinas, [null, null, null]);
   });
 
-  it("14/10: disciplinaMagica.tipo 'magia-inata' (13/10) migra 1:1 pro novo magiaInata", () => {
+  it("disciplinaMagica.tipo 'magia-inata' (13/10, legado) migra pro slot magia-inata", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaMagica: { tipo: "magia-inata" } });
-    assert.equal(migrado.disciplinaMagica.magiaInata, true);
-    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+    assert.deepEqual(migrado.disciplinas, [{ disciplinaId: "magia-inata", habilidadesAtivas: [] }, null, null]);
   });
 
-  it("14/10: disciplinaMagica.tipo 'oficio-magico' (13/10) NÃO migra pra nenhum ofício automático", () => {
-    const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaMagica: { tipo: "oficio-magico" } });
-    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
-    assert.equal(migrado.disciplinaMagica.magiaInata, false);
-  });
-
-  it("14/10: disciplinaMagica já no formato novo é preservada (oficiosMagicos/magiaInata/magiasAtivas)", () => {
+  it("disciplinaMagica.oficiosMagicos (14/10 anterior, legado) migra os ids remapeados pro catálogo novo", () => {
     const migrado = migrarPersonagem({
       id: "x", name: "X",
-      disciplinaMagica: { oficiosMagicos: ["alquimia", "constructo"], magiaInata: true, magiasAtivas: ["shin"] },
+      disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "alquimia"], magiasAtivas: ["shin", "tiro_magico"] },
     });
-    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, ["alquimia", "constructo"]);
-    assert.equal(migrado.disciplinaMagica.magiaInata, true);
-    assert.deepEqual(migrado.disciplinaMagica.magiasAtivas, ["shin"]);
+    assert.deepEqual(migrado.disciplinas, [
+      { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: ["shin", "tiro_magico"] }, // magiasAtivas vai pro ofício com magias
+      { disciplinaId: "oficio-alquimia", habilidadesAtivas: [] },
+      null,
+    ]);
+  });
+
+  it("oficiosMagicos + magiaInata (legado) juntos: ofícios primeiro, magia inata depois, até 3 slots", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "encantamentos", "alquimia"], magiaInata: true },
+    });
+    assert.equal(migrado.disciplinas.length, 3);
+    assert.deepEqual(migrado.disciplinas.map((d) => d?.disciplinaId), ["oficio-magias-de-guerra", "oficio-encantamentos", "oficio-alquimia"]);
+    // magia-inata não coube nos 3 slots (3 ofícios já ocuparam tudo) — fica de fora, registrado no relatório.
+  });
+
+  it("Classes (texto livre antigo) cujo nome bate com uma disciplina do catálogo migra automaticamente", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      classes: [{ name: "Ofício Mágico: Magias de guerra", description: "" }, { name: "Duelista de Estoc", description: "" }],
+    });
+    // "Duelista de Estoc" não bate com nada do catálogo atual (só disciplinas mágicas) — fica de fora.
+    assert.deepEqual(migrado.disciplinas, [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }, null, null]);
+  });
+
+  it("character.disciplinas já no formato novo é normalizado (preenchido/cortado pra 3, disciplinaId desconhecido descartado)", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] }, { disciplinaId: "sei-la-o-que", habilidadesAtivas: [] }],
+    });
+    assert.deepEqual(migrado.disciplinas, [{ disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] }, null, null]);
+  });
+
+  it("14/10: visivelJogador nasce false (só-GM) pra ficha sem esse campo", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.equal(migrado.visivelJogador, false);
+  });
+
+  it("14/10: preserva visivelJogador=true já salvo (não reseta quem o GM já liberou)", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", visivelJogador: true });
+    assert.equal(migrado.visivelJogador, true);
   });
 
   it("hp.superficiais nasce em 0 pra ficha sem esse campo", () => {

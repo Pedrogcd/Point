@@ -20,7 +20,7 @@ import {
   contagemOficiosMagicos,
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
-import { MAGIAS, getMagiaPorId, OFICIOS_MAGICOS } from "./data/magias.js";
+import { MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS } from "./data/magias.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
@@ -43,6 +43,7 @@ import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
 import { mesclarCidadeComOverride, normalizarItemLista, paraItemLista } from "./cidadeOverrides.js";
+import { mesclarNpcComOverride } from "./npcOverrides.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 
 /* ---------------------------------------------------------------
@@ -529,7 +530,8 @@ function withFichaDefaults(c) {
     descritores: [],
     bonusGrauEscolha: {},
     bonusGrauEscolhaRaca: null,
-    disciplinaMagica: { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] },
+    disciplinas: [null, null, null],
+    visivelJogador: false,
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
@@ -4231,7 +4233,8 @@ const emptyCharacter = () => ({
   descritores: [],
   bonusGrauEscolha: {},
   bonusGrauEscolhaRaca: null,
-  disciplinaMagica: { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] },
+  disciplinas: [null, null, null],
+  visivelJogador: false,
   racialAbility: { name: "", description: "" },
   classes: [{ name: "", description: "" }, { name: "", description: "" }],
   grupo: "c",
@@ -4867,6 +4870,160 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
   );
 }
 
+// Seletor do espaço de Disciplina (docs/DISCIPLINAS_MAGIA.md, 14/10) — troca
+// o antigo painel "Classes" (texto livre) por até MAX_DISCIPLINAS slots
+// escolhidos do catálogo (DISCIPLINAS, data/magias.js). Cada disciplina do
+// tipo "oficio-magico"/"magia-inata" que `temMagias` deixa equipar até
+// `magiasAtivasMax` magias PRÓPRIAS (não é mais um pool só compartilhado
+// entre todas as disciplinas, como era o antigo `disciplinaMagica.
+// magiasAtivas`); trocar uma equipada por uma da reserva custa 1 MP, ou é de
+// graça (gastando uma ação — o app não modela ações, então só não desconta
+// MP) só pra disciplinas com `trocaGratisComAcao` (hoje: Magias de guerra).
+function DisciplinaSlotPicker({ character, slotIndex, onUpdateCharacter, onClose }) {
+  const disciplinas = character.disciplinas || [];
+  const atual = disciplinas[slotIndex] || null;
+  const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
+  const habilidadesAtivas = atual?.habilidadesAtivas || [];
+  const [trocaRemover, setTrocaRemover] = useState("");
+  const [trocaAdicionar, setTrocaAdicionar] = useState("");
+
+  function gravarDisciplinas(novoArray, patchExtra = {}) {
+    onUpdateCharacter(character.id, { disciplinas: novoArray, ...patchExtra });
+  }
+  function slotsPreenchidos() {
+    const novo = [...disciplinas];
+    while (novo.length < MAX_DISCIPLINAS) novo.push(null);
+    return novo;
+  }
+  function escolherDisciplina(disciplinaId) {
+    const novo = slotsPreenchidos();
+    novo[slotIndex] = { disciplinaId, habilidadesAtivas: [] };
+    gravarDisciplinas(novo);
+  }
+  function esvaziar() {
+    const novo = slotsPreenchidos();
+    novo[slotIndex] = null;
+    gravarDisciplinas(novo);
+    setTrocaRemover("");
+    setTrocaAdicionar("");
+  }
+  function toggleMagia(magiaId) {
+    if (!atual) return;
+    const max = def?.magiasAtivasMax || 3;
+    if (habilidadesAtivas.length >= max && !habilidadesAtivas.includes(magiaId)) return; // trava — precisa usar a Troca
+    const novasHabilidades = habilidadesAtivas.includes(magiaId)
+      ? habilidadesAtivas.filter((m) => m !== magiaId)
+      : [...habilidadesAtivas, magiaId];
+    const novo = slotsPreenchidos();
+    novo[slotIndex] = { ...atual, habilidadesAtivas: novasHabilidades };
+    gravarDisciplinas(novo);
+  }
+  function confirmarTroca(gratis) {
+    if (!atual || !trocaRemover || !trocaAdicionar) return;
+    if (!gratis && (character.mp?.current || 0) <= 0) return;
+    const novasHabilidades = habilidadesAtivas.filter((m) => m !== trocaRemover).concat(trocaAdicionar);
+    const novo = slotsPreenchidos();
+    novo[slotIndex] = { ...atual, habilidadesAtivas: novasHabilidades };
+    const patchExtra = gratis ? {} : { mp: { ...character.mp, current: character.mp.current - 1 } };
+    gravarDisciplinas(novo, patchExtra);
+    setTrocaRemover("");
+    setTrocaAdicionar("");
+  }
+
+  const disciplinasDisponiveis = DISCIPLINAS.filter((d) => !disciplinas.some((s, i) => i !== slotIndex && s?.disciplinaId === d.id));
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 10, width: "min(720px, 100%)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 0 40px #00000090" }}
+      >
+        <div style={{ padding: "16px 20px 10px", borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: BRASS_BRIGHT, textTransform: "uppercase" }}>
+              Disciplina {slotIndex + 1}
+            </span>
+            <Btn variant="ghost" onClick={onClose}>Fechar</Btn>
+          </div>
+          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 0" }}>{character.name} · até {MAX_DISCIPLINAS} disciplinas no total.</p>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {disciplinasDisponiveis.map((d) => {
+              const selecionada = atual?.disciplinaId === d.id;
+              return (
+                <div
+                  key={d.id}
+                  onClick={() => escolherDisciplina(d.id)}
+                  style={{ padding: 11, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}` }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, marginBottom: 4 }}>{d.nome}</div>
+                  <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4, marginBottom: 4 }}>{d.descricao}</div>
+                  <div style={{ fontSize: 10.5, color: PURPLE }}>{d.bonusTexto}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {atual && def?.temMagias && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
+                Magias equipadas (até {def.magiasAtivasMax} — o resto fica na reserva)
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {MAGIAS.filter((m) => !m.placeholder).map((m) => {
+                  const ativa = habilidadesAtivas.includes(m.id);
+                  const travada = !ativa && habilidadesAtivas.length >= def.magiasAtivasMax;
+                  return (
+                    <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1 }}>
+                      <input type="checkbox" checked={ativa} disabled={travada} onChange={() => toggleMagia(m.id)} /> {m.nome}
+                    </label>
+                  );
+                })}
+              </div>
+              {habilidadesAtivas.length >= def.magiasAtivasMax && (
+                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                  <select value={trocaRemover} onChange={(e) => setTrocaRemover(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                    <option value="">Remover...</option>
+                    {habilidadesAtivas.map((id) => <option key={id} value={id}>{getMagiaPorId(id)?.nome}</option>)}
+                  </select>
+                  <select value={trocaAdicionar} onChange={(e) => setTrocaAdicionar(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                    <option value="">Adicionar...</option>
+                    {MAGIAS.filter((m) => !m.placeholder && !habilidadesAtivas.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                  </select>
+                  <Btn onClick={() => confirmarTroca(false)} disabled={!trocaRemover || !trocaAdicionar || (character.mp?.current || 0) <= 0}>
+                    Trocar (1 MP)
+                  </Btn>
+                  {def.trocaGratisComAcao && (
+                    <Btn onClick={() => confirmarTroca(true)} disabled={!trocaRemover || !trocaAdicionar} title="Gastando uma ação (o app não modela ações/turnos — só não desconta MP).">
+                      Trocar grátis (ação)
+                    </Btn>
+                  )}
+                </div>
+              )}
+              {def.temTelaDeMana && (
+                <div style={{ fontSize: 10, color: MUTED, marginTop: 8, fontStyle: "italic" }}>
+                  Tela de mana: acesso extra que permite analisar magias (docs/DISCIPLINAS_MAGIA.md — sem mecânica numérica definida no guia ainda).
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {atual && (
+          <div style={{ padding: "10px 20px 16px", borderTop: `1px solid ${LINE}` }}>
+            <Btn variant="danger" onClick={esvaziar}><Trash2 size={13} /> Esvaziar este espaço</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Exportado (além do default App) só pra teste de render — ver
 // characterForm.render.test.js. `initialTestPanelMode` também é um seam de
 // teste: a prop nunca é passada pelo App de verdade.
@@ -4916,54 +5073,26 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const [manaGastaMagia, setManaGastaMagia] = useState(MAGIAS[0]?.custoMp ?? 1);
   const [magiaResult, setMagiaResult] = useState(null);
   const [magiaHistory, setMagiaHistory] = useState([]);
-  // Ofícios Mágicos (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10): até 3
-  // disciplinas de ofício conhecidas (magias-de-guerra, encantamentos,
-  // alquimia, constructo) + Magia Inata independente (flag, +1 dado fixo,
-  // não conta como ofício). Substitui o antigo "tipo" único
-  // (oficio-magico/magia-inata) de 13/10. "oficiosExtras" é só o bônus
-  // racial computado por racasCatalogo.js:oficiosExtrasDoPersonagem — nunca
-  // escolhido manualmente aqui, ver comGrausEfetivos.
-  // Até 3 "magias ativas" (o resto do catálogo fica de reserva); trocar
-  // depois de ter as 3 escolhidas custa 1 MP ("ou grátis gastando uma ação"
-  // — fora do escopo atual, que não modela ações). As duas trocas pendentes
-  // abaixo (de/para) só valem quando já há 3 ativas; com menos de 3,
-  // marcar/desmarcar é livre.
-  const disciplinaMagica = character.disciplinaMagica || { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] };
-  const oficiosMagicos = disciplinaMagica.oficiosMagicos || [];
-  const magiasAtivas = disciplinaMagica.magiasAtivas || [];
-  const temDisciplina = oficiosMagicos.length > 0 || !!disciplinaMagica.magiaInata;
-  const magiasDisponiveis = (temDisciplina && magiasAtivas.length > 0) ? MAGIAS.filter((m) => magiasAtivas.includes(m.id)) : MAGIAS;
-  const [trocaRemover, setTrocaRemover] = useState("");
-  const [trocaAdicionar, setTrocaAdicionar] = useState("");
+  // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): até 3 slots na ficha
+  // (character.disciplinas — substitui o painel "Classes" e o antigo
+  // checkbox solto "Ofícios Mágicos"/"Magia Inata" de 14/10 anterior), cada
+  // um com até 3 magias próprias equipadas (ver DisciplinaSlotPicker, aberto
+  // pelo clique na SlotBox "Disciplina N" no painel Raça e Disciplinas).
+  // `disciplinaMagica` (oficiosMagicos/oficiosExtras/magiaInata/magiasAtivas)
+  // é DERIVADO de character.disciplinas por racasCatalogo.js:comGrausEfetivos
+  // — só leitura aqui, nunca editado direto.
+  const disciplinasPersonagem = character.disciplinas || [];
+  const disciplinaMagica = characterEfetivo.disciplinaMagica || { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] };
+  const temDisciplina = disciplinaMagica.oficiosMagicos.length > 0 || !!disciplinaMagica.magiaInata;
+  const magiasDisponiveis = (temDisciplina && disciplinaMagica.magiasAtivas.length > 0) ? MAGIAS.filter((m) => disciplinaMagica.magiasAtivas.includes(m.id)) : MAGIAS;
   // Fonte do pool de ataque mágico (docs/MUDANCAS_RACAS_E_MAGIA.md): o
   // jogador escolhe, a cada conjuração, entre a contagem de Ofícios Mágicos
   // ou o grau de Inteligência — ver diceAtaqueMagico(..., fonte, ...).
   const [fonteMagia, setFonteMagia] = useState("oficios");
-
-  function setDisciplinaMagica(patch) {
-    if (!onUpdateCharacter) return;
-    onUpdateCharacter(character.id, { disciplinaMagica: { ...disciplinaMagica, ...patch } });
-  }
-  function toggleOficioMagico(id) {
-    if (oficiosMagicos.length >= 3 && !oficiosMagicos.includes(id)) return; // máximo 3 ofícios
-    const novos = oficiosMagicos.includes(id) ? oficiosMagicos.filter((o) => o !== id) : [...oficiosMagicos, id];
-    setDisciplinaMagica({ oficiosMagicos: novos });
-  }
-  function toggleMagiaAtiva(id) {
-    if (magiasAtivas.length >= 3 && !magiasAtivas.includes(id)) return; // trava — precisa usar a Troca
-    const novas = magiasAtivas.includes(id) ? magiasAtivas.filter((m) => m !== id) : [...magiasAtivas, id];
-    setDisciplinaMagica({ magiasAtivas: novas });
-  }
-  function confirmarTroca() {
-    if (!onUpdateCharacter || !trocaRemover || !trocaAdicionar || (character.mp?.current || 0) <= 0) return;
-    const novas = magiasAtivas.filter((m) => m !== trocaRemover).concat(trocaAdicionar);
-    onUpdateCharacter(character.id, {
-      disciplinaMagica: { ...disciplinaMagica, magiasAtivas: novas },
-      mp: { ...character.mp, current: character.mp.current - 1 },
-    });
-    setTrocaRemover("");
-    setTrocaAdicionar("");
-  }
+  // Índice do espaço de Disciplina aberto (0-2, null = fechado) — abre o
+  // DisciplinaSlotPicker (distinto de slotAberto, que é das Habilidades
+  // Passivas de Combate, abaixo).
+  const [disciplinaSlotAberto, setDisciplinaSlotAberto] = useState(null);
   // Índice do espaço de habilidade aberto na tabela de 3 caixas (null = fechado).
   const [slotAberto, setSlotAberto] = useState(null);
   const habilidadesFicha = character.habilidadesFicha || { ativas: [], especial: [], racial: [], passivas: [], extras: [] };
@@ -5578,57 +5707,25 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             {rollPanelMode === "magia" && (
               <>
                 <div style={{ background: "#00000012", border: `1px solid ${LINE}`, borderRadius: 6, padding: 10, marginBottom: 12 }}>
-                  <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 4px", fontWeight: 600 }}>Ofícios Mágicos (até 3 — cada um conta 1 dado no pool de ataque mágico)</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                    {OFICIOS_MAGICOS.map((o) => {
-                      const conhecido = oficiosMagicos.includes(o.id);
-                      const travado = !conhecido && oficiosMagicos.length >= 3;
-                      return (
-                        <label key={o.id} title={o.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: travado ? MUTED : PARCHMENT, opacity: travado ? 0.5 : 1 }}>
-                          <input type="checkbox" checked={conhecido} disabled={travado} onChange={() => toggleOficioMagico(o.id)} /> {o.nome}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {(disciplinaMagica.oficiosExtras || 0) > 0 && (
-                    <div style={{ fontSize: 10, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
-                      +{disciplinaMagica.oficiosExtras} ofício(s) extra(s) de raça/habilidade (já somado ao pool).
+                  <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 4px", fontWeight: 600 }}>Disciplinas (editar no painel "Raça e Disciplinas", acima)</div>
+                  {disciplinasPersonagem.filter(Boolean).length === 0 ? (
+                    <div style={{ fontSize: 11, color: MUTED, fontStyle: "italic" }}>Nenhuma disciplina escolhida ainda.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                      {disciplinasPersonagem.filter(Boolean).map((d, i) => {
+                        const def = getDisciplinaPorId(d.disciplinaId);
+                        if (!def) return null;
+                        return (
+                          <span key={i} style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, border: `1px solid ${PURPLE}`, color: PURPLE }}>
+                            {def.nome}{def.temTelaDeMana ? " · Tela de mana" : ""}
+                          </span>
+                        );
+                      })}
                     </div>
                   )}
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT, marginBottom: 8 }}>
-                    <input type="checkbox" checked={!!disciplinaMagica.magiaInata} onChange={(e) => setDisciplinaMagica({ magiaInata: e.target.checked })} /> Magia Inata (+1 dado fixo nas rolagens de magia, não conta como ofício; +1 MP máx.)
-                  </label>
-                  {temDisciplina && (
-                    <>
-                      <div style={{ fontSize: 10.5, color: PURPLE, margin: "8px 0 4px", fontWeight: 600 }}>Magias ativas (até 3 — o resto fica na reserva)</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-                        {MAGIAS.filter((m) => !m.placeholder).map((m) => {
-                          const ativa = magiasAtivas.includes(m.id);
-                          const travada = !ativa && magiasAtivas.length >= 3;
-                          return (
-                            <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1 }}>
-                              <input type="checkbox" checked={ativa} disabled={travada} onChange={() => toggleMagiaAtiva(m.id)} /> {m.nome}
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {magiasAtivas.length >= 3 && (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                          <select value={trocaRemover} onChange={(e) => setTrocaRemover(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-                            <option value="">Remover...</option>
-                            {magiasAtivas.map((id) => <option key={id} value={id}>{getMagiaPorId(id)?.nome}</option>)}
-                          </select>
-                          <select value={trocaAdicionar} onChange={(e) => setTrocaAdicionar(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
-                            <option value="">Adicionar...</option>
-                            {MAGIAS.filter((m) => !m.placeholder && !magiasAtivas.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                          </select>
-                          <Btn onClick={confirmarTroca} disabled={!trocaRemover || !trocaAdicionar || (character.mp?.current || 0) <= 0}>
-                            Trocar (1 MP)
-                          </Btn>
-                        </div>
-                      )}
-                    </>
-                  )}
+                  <div style={{ fontSize: 10, color: MUTED }}>
+                    Ofícios Mágicos: {disciplinaMagica.oficiosMagicos.length}{(disciplinaMagica.oficiosExtras || 0) > 0 ? ` + ${disciplinaMagica.oficiosExtras} extra(s) de raça/habilidade` : ""}. Magia Inata: {disciplinaMagica.magiaInata ? "sim (+1d10 fixo, +1 MP)" : "não"}.
+                  </div>
                 </div>
                 <Field label="Magia">
                   <select
@@ -5734,20 +5831,20 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         const racaInfo = encontrarRaca(character.raca);
         const habPrincipal = encontrarPrincipal(racaInfo, character.habilidadePrincipal);
         const habSecundaria = encontrarSecundaria(racaInfo, character.habilidadeSecundaria);
-        const ehDisciplina = habSecundaria?.disciplina === true;
-        const disciplina = character.disciplinaHumano;
+        const ehDisciplinaHumano = habSecundaria?.disciplina === true;
+        const disciplinaHumano = character.disciplinaHumano;
         const principalVazio = !character.racialAbility?.name && !habPrincipal;
         const corPrincipal = habPrincipal ? habPrincipal.cor : MUTED;
         const iconPrincipal = habPrincipal ? iconePara(habPrincipal.icone) : (racaInfo ? iconePara(racaInfo.icone) : null);
         const IconRaca = racaInfo ? iconePara(racaInfo.icone) : null;
-        const secundariaVazia = ehDisciplina ? !disciplina?.nome : !habSecundaria;
+        const secundariaVazia = ehDisciplinaHumano ? !disciplinaHumano?.nome : !habSecundaria;
         return (
       <div style={panelStyle}>
         <div style={{ ...panelHeadStyle, color: racaInfo?.cor || PURPLE, display: "flex", alignItems: "center", gap: 6 }}>
           {IconRaca && <IconRaca width={13} height={13} />}
-          Raça e Classes
+          Raça e Disciplinas
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 10 }}>
           <SlotBox
             etiqueta="Habilidade de Raça — principal"
             cor={corPrincipal}
@@ -5761,33 +5858,54 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             efeito={!principalVazio ? habPrincipal?.efeito : undefined}
           />
           <SlotBox
-            etiqueta={ehDisciplina ? (racaInfo?.secundariaNome || "Vaga de Disciplina") : "Habilidade de Raça — secundária"}
+            etiqueta={ehDisciplinaHumano ? (racaInfo?.secundariaNome || "Vaga de Disciplina") : "Habilidade de Raça — secundária"}
             cor={MUTED}
             Icon={IconRaca}
             vazio={secundariaVazia}
-            titulo={ehDisciplina ? disciplina?.nome : habSecundaria?.nome}
-            subtitulo={ehDisciplina ? (disciplina?.nome ? `Grau ${disciplina.grau}` : null) : (racaInfo?.nome || null)}
-            corpo={ehDisciplina
+            titulo={ehDisciplinaHumano ? disciplinaHumano?.nome : habSecundaria?.nome}
+            subtitulo={ehDisciplinaHumano ? (disciplinaHumano?.nome ? `Grau ${disciplinaHumano.grau}` : null) : (racaInfo?.nome || null)}
+            corpo={ehDisciplinaHumano
               ? (secundariaVazia ? "Nenhuma disciplina escolhida ainda." : "Disciplina — grau livre, definida pelo jogador.")
               : (secundariaVazia ? "Nenhuma secundária escolhida ainda." : (habSecundaria?.descricao || "Sem descrição."))}
-            efeito={!ehDisciplina && !secundariaVazia ? habSecundaria?.efeito : undefined}
+            efeito={!ehDisciplinaHumano && !secundariaVazia ? habSecundaria?.efeito : undefined}
           />
-          {[0, 1].map((i) => (
-            <SlotBox
-              key={i}
-              etiqueta={`Classe ${i + 1}`}
-              cor={PURPLE}
-              vazio={!character.classes?.[i]?.name}
-              titulo={character.classes?.[i]?.name}
-              corpo={character.classes?.[i]?.name
-                ? (character.classes[i].description || "Sem descrição.")
-                : "Ainda não definida — a criar."}
-            />
-          ))}
+        </div>
+        <div style={{ fontSize: 10.5, color: PURPLE, margin: "2px 0 8px", fontWeight: 600 }}>
+          Disciplinas (até 3 — docs/DISCIPLINAS_MAGIA.md). Clique numa caixa pra escolher, trocar magias ou esvaziar.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {[0, 1, 2].map((i) => {
+            const slot = disciplinasPersonagem[i];
+            const def = slot ? getDisciplinaPorId(slot.disciplinaId) : null;
+            const habilidades = (slot?.habilidadesAtivas || []).map((id) => getMagiaPorId(id)?.nome).filter(Boolean);
+            return (
+              <SlotBox
+                key={i}
+                etiqueta={`Disciplina ${i + 1}`}
+                cor={PURPLE}
+                vazio={!def}
+                titulo={def?.nome}
+                subtitulo={def?.temTelaDeMana ? "Tela de mana" : null}
+                corpo={def
+                  ? `${def.bonusTexto}${habilidades.length ? ` · Equipadas: ${habilidades.join(", ")}` : (def.temMagias ? " · Nenhuma magia equipada ainda." : "")}`
+                  : "Vazia — clique pra escolher."}
+                onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto(i) : undefined}
+              />
+            );
+          })}
         </div>
       </div>
         );
       })()}
+
+      {disciplinaSlotAberto !== null && onUpdateCharacter && (
+        <DisciplinaSlotPicker
+          character={character}
+          slotIndex={disciplinaSlotAberto}
+          onUpdateCharacter={onUpdateCharacter}
+          onClose={() => setDisciplinaSlotAberto(null)}
+        />
+      )}
 
       {/* TABELA 2 — os 3 espaços de Habilidade Passiva de Combate. Clicar numa
           caixa abre o seletor com as habilidades já criadas (PROC_ABILITIES). */}
@@ -6243,7 +6361,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
         <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={c.singularity.description} onChange={(e) => set(["singularity", "description"], e.target.value)} />
       </Field>
 
-      <SectionTitle icon={ShieldHalf}>Raça e Classes</SectionTitle>
+      <SectionTitle icon={ShieldHalf}>Raça</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
         Escolha a raça e as habilidades (ou a Disciplina, no caso do Humano) a partir do catálogo abaixo. O campo "Raça" (texto livre, acima) não é alterado por essa escolha — fica só como legado de exibição pra fichas antigas.
       </p>
@@ -6326,26 +6444,17 @@ export function CharacterForm({ initial, onSave, onCancel }) {
           </div>
         );
       })()}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-        <div>
-          <Field label="Habilidade de Raça — nome (texto livre, opcional)">
-            <input style={inputStyle} value={c.racialAbility?.name || ""} onChange={(e) => set(["racialAbility", "name"], e.target.value)} />
-          </Field>
-          <Field label="Descrição">
-            <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.racialAbility?.description || ""} onChange={(e) => set(["racialAbility", "description"], e.target.value)} />
-          </Field>
-        </div>
-        {[0, 1].map((i) => (
-          <div key={i}>
-            <Field label={`Classe ${i + 1} — nome`}>
-              <input style={inputStyle} value={c.classes?.[i]?.name || ""} onChange={(e) => set(["classes", i, "name"], e.target.value)} />
-            </Field>
-            <Field label="Descrição">
-              <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.classes?.[i]?.description || ""} onChange={(e) => set(["classes", i, "description"], e.target.value)} />
-            </Field>
-          </div>
-        ))}
+      <div style={{ marginBottom: 20 }}>
+        <Field label="Habilidade de Raça — nome (texto livre, opcional)">
+          <input style={inputStyle} value={c.racialAbility?.name || ""} onChange={(e) => set(["racialAbility", "name"], e.target.value)} />
+        </Field>
+        <Field label="Descrição">
+          <textarea style={{ ...inputStyle, minHeight: 56, resize: "vertical" }} value={c.racialAbility?.description || ""} onChange={(e) => set(["racialAbility", "description"], e.target.value)} />
+        </Field>
       </div>
+      <p style={{ fontSize: 11, color: MUTED, marginTop: -14, marginBottom: 20, fontStyle: "italic" }}>
+        As Disciplinas (até 3, docs/DISCIPLINAS_MAGIA.md — Ofício Mágico: Magias de guerra/Encantamentos/Alquimia/Constructo, Magia Inata) são escolhidas na própria ficha, não aqui — veja o painel "Raça e Disciplinas", clique numa caixa de Disciplina. O antigo painel de "Classes" (texto livre) saiu da ficha em 14/10; o que já estava escrito continua salvo, mas não aparece mais em lugar nenhum da tela.
+      </p>
 
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
@@ -7073,19 +7182,100 @@ function NpcCard({ npc, gm, onOpen }) {
 }
 
 // Exportado só pra teste de render — ver mapaMundo.test.js.
-export function NpcDetalhe({ npcId, gm, onAcao }) {
-  const npc = NPCS.find((n) => n.id === npcId);
-  if (!npc) return <p style={{ color: MUTED }}>Personagem não encontrado.</p>;
+// Edição do GM (nome/papel/texto/retrato/segredo/ganchos) mescla com
+// npcsOverrides antes de exibir (nunca reescreve mundoDados.js — ver
+// npcOverrides.js), no mesmo padrão não-destrutivo de BlocoEditavel usado em
+// CidadeView. onEditarCampoNpc/onRestaurarCampoNpc são opcionais: sem eles
+// (ex: algum teste antigo que não os passa), o NPC só aparece em modo leitura.
+export function NpcDetalhe({ npcId, gm, onAcao, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const fileInputRef = useRef(null);
+  const npcOriginal = NPCS.find((n) => n.id === npcId);
+  if (!npcOriginal) return <p style={{ color: MUTED }}>Personagem não encontrado.</p>;
+  const overrideAtivo = npcsOverrides?.[npcOriginal.id] || {};
+  const npc = mesclarNpcComOverride(npcOriginal, overrideAtivo);
   const v = npcVisivel(npc, gm);
   const cidade = CIDADE_INFO[v.cidade];
+  const podeEditar = gm && typeof onEditarCampoNpc === "function";
+
+  async function handlePickImage(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const url = await uploadPortrait(file, npc.id);
+      onEditarCampoNpc(npc.id, "img", url);
+    } catch (err) {
+      setUploadError(err.message || "Falha ao enviar a imagem.");
+    } finally {
+      setUploading(false);
+    }
+  }
+  function handleRemoveImage() {
+    removePortrait(npc.img); // best-effort, não bloqueia a UI
+    onEditarCampoNpc(npc.id, "img", "");
+  }
+  // Segredo/ganchos vivem dentro do sub-objeto npc.gm, substituído inteiro
+  // pelo override (ver CAMPOS_MESCLAVEIS_NPC) — por isso preserva aqui o
+  // papel/kv/texto que esse sub-objeto já tivesse (seed ou edição anterior),
+  // só trocando segredo/ganchos.
+  function salvarSegredoGanchos(draft) {
+    const gmAtual = npc.gm || {};
+    onEditarCampoNpc(npc.id, "gm", {
+      ...gmAtual, segredo: draft.segredo,
+      ganchos: draft.ganchos.split("\n").map((s) => s.trim()).filter(Boolean),
+    });
+  }
+
   return (
     <div>
-      {v.img && <img src={assetUrl(v.img)} alt={`Retrato de ${v.nome}`} style={{ float: "right", width: "min(40%, 180px)", margin: "0 0 10px 14px", borderRadius: 6, border: `1px solid ${LINE}` }} />}
-      <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
-        {(cidade?.nome || v.cidade)} · {textoVisivel(NPC_GRUPOS[v.grupo], gm)}
+      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {(v.img || podeEditar) && (
+          <div style={{ flexShrink: 0 }}>
+            {v.img ? (
+              <img src={assetUrl(v.img)} alt={`Retrato de ${v.nome}`} style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 6, border: `1px solid ${LINE}` }} />
+            ) : (
+              <div style={{ width: 120, height: 120, borderRadius: 6, background: "#00000018", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Users size={28} color={MUTED} />
+              </div>
+            )}
+            {podeEditar && (
+              <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePickImage} />
+                <Btn onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ fontSize: 10.5, padding: "3px 8px" }}>
+                  <Upload size={10} /> {uploading ? "Enviando..." : "Enviar imagem"}
+                </Btn>
+                {npc.img && <Btn variant="ghost" onClick={handleRemoveImage} style={{ fontSize: 10.5, padding: "3px 8px" }}><X size={10} /> Remover</Btn>}
+                {uploadError && <p style={{ color: EMBER, fontSize: 10, margin: 0 }}>{uploadError}</p>}
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+            {(cidade?.nome || v.cidade)} · {textoVisivel(NPC_GRUPOS[v.grupo], gm)}
+          </div>
+          <BlocoEditavel
+            gm={podeEditar} temOverride={"nome" in overrideAtivo} valorInicial={npc.nome || ""}
+            onSalvar={(val) => onEditarCampoNpc(npc.id, "nome", val)} onRestaurar={() => onRestaurarCampoNpc(npc.id, "nome")}
+            renderLeitura={() => <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 20, margin: "4px 0 2px", color: PARCHMENT }}>{v.nome}</h2>}
+            renderEdicao={(draft, setDraft) => (
+              <input style={{ ...inputStyle, fontFamily: "'Cinzel', serif", fontSize: 16, marginBottom: 6 }} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Nome" />
+            )}
+          />
+          <BlocoEditavel
+            gm={podeEditar} temOverride={"papel" in overrideAtivo} valorInicial={npc.papel || ""}
+            onSalvar={(val) => onEditarCampoNpc(npc.id, "papel", val)} onRestaurar={() => onRestaurarCampoNpc(npc.id, "papel")}
+            renderLeitura={() => <div style={{ fontSize: 12.5, color: BRASS, fontStyle: "italic", marginBottom: 12 }}>{v.papel}</div>}
+            renderEdicao={(draft, setDraft) => (
+              <input style={{ ...inputStyle, fontStyle: "italic", marginBottom: 6 }} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Papel" />
+            )}
+          />
+        </div>
       </div>
-      <h2 style={{ fontFamily: "'Cinzel', serif", fontSize: 20, margin: "4px 0 2px", color: PARCHMENT }}>{v.nome}</h2>
-      <div style={{ fontSize: 12.5, color: BRASS, fontStyle: "italic", marginBottom: 12 }}>{v.papel}</div>
       {Object.keys(v.kv).length > 0 && (
         <dl style={{ display: "grid", gridTemplateColumns: "auto minmax(0,1fr)", gap: "4px 12px", fontSize: 13, margin: "0 0 12px" }}>
           {Object.entries(v.kv).map(([k, val]) => (
@@ -7096,7 +7286,14 @@ export function NpcDetalhe({ npcId, gm, onAcao }) {
           ))}
         </dl>
       )}
-      <RichText html={`<p>${v.texto}</p>`} onAcao={onAcao} />
+      <BlocoEditavel
+        gm={podeEditar} temOverride={"texto" in overrideAtivo} valorInicial={npc.texto || ""}
+        onSalvar={(val) => onEditarCampoNpc(npc.id, "texto", val)} onRestaurar={() => onRestaurarCampoNpc(npc.id, "texto")}
+        renderLeitura={() => <RichText html={`<p>${v.texto}</p>`} onAcao={onAcao} />}
+        renderEdicao={(draft, setDraft) => (
+          <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical" }} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Texto (aceita HTML simples, igual o original)" />
+        )}
+      />
       {gm && v.segredo && (
         <div style={{ clear: "both", border: `1px dashed ${EMBER}`, background: "#F0D5CC", borderRadius: 6, padding: "10px 12px", marginTop: 10 }}>
           <div style={{ marginBottom: 4 }}><GmBadge /> <span style={{ fontFamily: "'Cinzel', serif", fontSize: 12, color: EMBER }}>Segredo do mestre</span></div>
@@ -7109,6 +7306,28 @@ export function NpcDetalhe({ npcId, gm, onAcao }) {
           <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, lineHeight: 1.5 }}>{v.ganchos.map((h, i) => <li key={i}>{h}</li>)}</ul>
         </div>
       )}
+      {podeEditar && (
+        <div style={{ marginTop: 10 }}>
+          <BlocoEditavel
+            gm temOverride={"gm" in overrideAtivo}
+            valorInicial={{ segredo: v.segredo || "", ganchos: v.ganchos.length ? v.ganchos.join("\n") : "" }}
+            onSalvar={salvarSegredoGanchos} onRestaurar={() => onRestaurarCampoNpc(npc.id, "gm")}
+            renderLeitura={() => (!v.segredo && v.ganchos.length === 0 ? (
+              <p style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: 0 }}>Sem segredo ou ganchos ainda.</p>
+            ) : null)}
+            renderEdicao={(draft, setDraft) => (
+              <div>
+                <Field label="Segredo do mestre">
+                  <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={draft.segredo} onChange={(e) => setDraft({ ...draft, segredo: e.target.value })} />
+                </Field>
+                <Field label="Ganchos (um por linha)">
+                  <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={draft.ganchos} onChange={(e) => setDraft({ ...draft, ganchos: e.target.value })} />
+                </Field>
+              </div>
+            )}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -7117,9 +7336,16 @@ export function NpcDetalhe({ npcId, gm, onAcao }) {
 // Exportado só pra teste de render — ver mapaMundo.test.js (é por aqui que o
 // texto de distrito/termo de Frontier chega a aparecer — CidadeView só mostra
 // o título do distrito, o corpo pub/gm vem deste popup).
-export function MundoPopup({ acao, gm, onClose, onAcao }) {
+export function MundoPopup({ acao, gm, onClose, onAcao, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc }) {
   let corpo = null;
-  if (acao.tipo === "npc") corpo = <NpcDetalhe npcId={acao.id} gm={gm} onAcao={onAcao} />;
+  if (acao.tipo === "npc") {
+    corpo = (
+      <NpcDetalhe
+        npcId={acao.id} gm={gm} onAcao={onAcao}
+        npcsOverrides={npcsOverrides} onEditarCampoNpc={onEditarCampoNpc} onRestaurarCampoNpc={onRestaurarCampoNpc}
+      />
+    );
+  }
   else if (acao.tipo === "termo" || acao.tipo === "distrito") {
     const fonte = acao.tipo === "termo" ? FRONTIER.termos : FRONTIER.distritos;
     const t = fonte[acao.id];
@@ -7268,14 +7494,17 @@ function EditorDeItensLista({ itens, setItens, comRotulo, placeholderRotulo }) {
 // Exportado só pra teste de render — ver mapaMundo.test.js.
 export function CidadeView({
   cidade, gm, onVoltar, onVoltarMundo, nomeReino, abaInicial, onAcao,
-  overrideAtivo, onEditarCampo, onRestaurarCampo, kingdoms, setKingdoms, reinoId, cidadeId,
+  overrideAtivo, onEditarCampo, onRestaurarCampo, kingdoms, setKingdoms, reinoId, cidadeId, npcsOverrides,
 }) {
   const [aba, setAba] = useState(abaInicial || "geral");
   const [boato, setBoato] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
-  const npcs = NPCS.filter((n) => n.cidade === cidade.id);
+  // Mescla com as edições do GM (npcsOverrides) antes de exibir nos cartões —
+  // mesmo padrão não-destrutivo de cidadesOverrides (ver npcOverrides.js). O
+  // detalhe completo (NpcDetalhe, aberto via onAcao) faz a própria mesclagem.
+  const npcs = NPCS.filter((n) => n.cidade === cidade.id).map((n) => mesclarNpcComOverride(n, npcsOverrides?.[n.id]));
   const overrideSeguro = overrideAtivo || {};
 
   // Geografia da cidade (kingdom.cities[]: x/y, resumo curto, imagem) —
@@ -8192,7 +8421,7 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
   );
 }
 
-export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, onAbrirFicha }) {
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc, onAbrirFicha }) {
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
@@ -8335,7 +8564,12 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
 
   return (
     <div>
-      {popup && <MundoPopup acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup} />}
+      {popup && (
+        <MundoPopup
+          acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup}
+          npcsOverrides={npcsOverrides} onEditarCampoNpc={onEditarCampoNpc} onRestaurarCampoNpc={onRestaurarCampoNpc}
+        />
+      )}
       {cidadeMapaAberta && (() => {
         const reinoModal = kingdoms.find((k) => k.id === cidadeMapaAberta.reinoId);
         const cidadeModal = reinoModal ? (reinoModal.cities || []).find((c) => c.id === cidadeMapaAberta.cidadeId) : null;
@@ -8406,7 +8640,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
         <CidadeView
           cidade={cidadeMesclada} overrideAtivo={overrideDaCidade} onEditarCampo={editarCampoDossie} onRestaurarCampo={restaurarCampoDossie}
           kingdoms={kingdoms} setKingdoms={setKingdoms} reinoId={reino.id} cidadeId={cidadeId}
-          gm={gm} nomeReino={reino.name} abaInicial={abaCidadeInicial}
+          gm={gm} nomeReino={reino.name} abaInicial={abaCidadeInicial} npcsOverrides={npcsOverrides}
           onVoltar={voltarAoReinoDoDossie} onVoltarMundo={voltarAoMundoDoDossie} onAcao={setPopup}
         />
       )}
@@ -9118,14 +9352,20 @@ function EditorGenealogiasPessoas({ genealogias, setGenealogias, characters }) {
 }
 
 /* --- Aba Personagens: NPCs por reino e cidade --- */
-function NpcsMundoView({ gm, factionFilter }) {
+function NpcsMundoView({ gm, factionFilter, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc }) {
   const [popup, setPopup] = useState(null);
-  const grupos = npcsPorReinoECidade(NPCS);
+  const npcsMesclados = NPCS.map((n) => mesclarNpcComOverride(n, npcsOverrides?.[n.id]));
+  const grupos = npcsPorReinoECidade(npcsMesclados);
   const nomeReino = (id) => (id === "katalao" ? "Katalão" : id);
   const visiveis = grupos.filter((r) => factionFilter === "Todos" || nomeReino(r.reino) === factionFilter);
   return (
     <div>
-      {popup && <MundoPopup acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup} />}
+      {popup && (
+        <MundoPopup
+          acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup}
+          npcsOverrides={npcsOverrides} onEditarCampoNpc={onEditarCampoNpc} onRestaurarCampoNpc={onRestaurarCampoNpc}
+        />
+      )}
       {visiveis.length === 0 && <p style={{ color: MUTED, fontSize: 13 }}>Nenhum NPC cadastrado para esse filtro.</p>}
       {visiveis.map((r) => (
         <div key={r.reino} style={{ marginBottom: 18 }}>
@@ -9143,6 +9383,97 @@ function NpcsMundoView({ gm, factionFilter }) {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Cartão de personagem da grade de Personagens — extraído pra reusar no modo
+// Jogador (grade única) e no modo GM (PersonagensSplitGM, arrastável).
+function CharacterCard({ c, onClick, draggable, onDragStart, dimmed }) {
+  return (
+    <button
+      onClick={onClick}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      style={{
+        textAlign: "left", background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14,
+        cursor: draggable ? "grab" : "pointer", color: "inherit", opacity: dimmed ? 0.6 : 1,
+      }}
+    >
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <Retrato character={c} size={40} borderRadius={8} iconSize={20} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
+          <div style={{ fontSize: 11, color: BRASS, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.epithet}</div>
+        </div>
+      </div>
+      <div style={{ marginTop: 10, fontSize: 10.5, color: FACTION_SEAL[c.faction] || BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{c.faction}</div>
+    </button>
+  );
+}
+
+// Aba Personagens no modo GM: duas seções — "Jogadores veem" (character.
+// visivelJogador true) e "Só GM" (false/ausente, o padrão pra ficha nova ou
+// migrada — ver personagens.js) — arrastar um cartão de uma pra outra chama
+// onSetVisivel pra virar visível/invisível pros jogadores (modo Jogador só
+// mostra a seção "Jogadores veem", sem arrastar — ver o uso mais abaixo).
+// Arrastar-e-soltar nativo (HTML5 draggable/dataTransfer), sem lib externa.
+function PersonagensSplitGM({ characters, onOpen, onSetVisivel }) {
+  const [arrastandoSobre, setArrastandoSobre] = useState(null); // "visivel" | "gm" | null — só pra destacar a seção
+  const visiveis = characters.filter((c) => c.visivelJogador);
+  const soGm = characters.filter((c) => !c.visivelJogador);
+
+  function onDrop(e, destino) {
+    e.preventDefault();
+    setArrastandoSobre(null);
+    const id = e.dataTransfer.getData("text/plain");
+    if (!id) return;
+    onSetVisivel(id, destino === "visivel");
+  }
+
+  function Secao({ titulo, lista, destino, icon: Icon, cor }) {
+    const emDrag = arrastandoSobre === destino;
+    return (
+      <div
+        onDragOver={(e) => { e.preventDefault(); setArrastandoSobre(destino); }}
+        onDragLeave={() => setArrastandoSobre((v) => (v === destino ? null : v))}
+        onDrop={(e) => onDrop(e, destino)}
+        style={{ border: `1px dashed ${emDrag ? cor : "transparent"}`, borderRadius: 10, padding: emDrag ? 6 : 0, transition: "padding 0.1s" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          <Icon size={14} color={cor} />
+          <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: cor }}>{titulo}</span>
+          <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>({lista.length})</span>
+        </div>
+        {lista.length === 0 ? (
+          <div style={{ border: `1px dashed ${LINE}`, borderRadius: 8, padding: 18, textAlign: "center", color: MUTED, fontSize: 12 }}>
+            Arraste um cartão pra cá.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+            {lista.map((c) => (
+              <CharacterCard
+                key={c.id}
+                c={c}
+                onClick={() => onOpen(c.id)}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData("text/plain", c.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: 11, color: MUTED, margin: "-6px 0 16px", fontStyle: "italic" }}>
+        Arraste um cartão entre as duas seções pra controlar o que os jogadores veem na aba Personagens.
+      </p>
+      <Secao titulo="Jogadores veem" lista={visiveis} destino="visivel" icon={Eye} cor="#4A9A6E" />
+      <div style={{ height: 22 }} />
+      <Secao titulo="Só GM" lista={soGm} destino="gm" icon={EyeOff} cor={EMBER} />
     </div>
   );
 }
@@ -9805,6 +10136,11 @@ export default function App() {
   // num objeto separado { [reinoId]: { campo: valor } }, mesclado na hora de
   // exibir (ver pessoasReino.js e a aba "Pessoas" em WorldView).
   const [pessoasOverrides, setPessoasOverrides] = useState({});
+  // Edições do GM sobre NPCs de mundo (nome/papel/texto/segredo/ganchos/retrato)
+  // — mesmo padrão: nunca reescreve mundoDados.js, fica num objeto separado
+  // { [npcId]: { campo: valor } }, mesclado na hora de exibir (ver
+  // npcOverrides.js e NpcDetalhe em WorldView).
+  const [npcsOverrides, setNpcsOverrides] = useState({});
   const [gods, setGods] = useState(SEED_GODS);
   const [sagas, setSagas] = useState(SEED_SAGAS);
   const [objectives, setObjectives] = useState(SEED_OBJECTIVES);
@@ -9971,6 +10307,10 @@ export default function App() {
         if (pov?.value) setPessoasOverrides(normalizarEstado({ pessoasOverrides: JSON.parse(pov.value) }).pessoasOverrides);
       } catch (e) {}
       try {
+        const nov = await storage.get("point-npcs-overrides");
+        if (nov?.value) setNpcsOverrides(normalizarEstado({ npcsOverrides: JSON.parse(nov.value) }).npcsOverrides);
+      } catch (e) {}
+      try {
         const g = await storage.get("point-gods");
         if (g?.value) setGods(JSON.parse(g.value));
       } catch (e) {}
@@ -9990,6 +10330,7 @@ export default function App() {
   useEffect(() => { if (loaded) storage.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
   useEffect(() => { if (loaded) storage.set("point-cidades-overrides", JSON.stringify(cidadesOverrides)).catch(() => {}); }, [cidadesOverrides, loaded]);
   useEffect(() => { if (loaded) storage.set("point-pessoas-overrides", JSON.stringify(pessoasOverrides)).catch(() => {}); }, [pessoasOverrides, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-npcs-overrides", JSON.stringify(npcsOverrides)).catch(() => {}); }, [npcsOverrides, loaded]);
   useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
   useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
   useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
@@ -10088,6 +10429,23 @@ export default function App() {
   function updateCharacterFields(characterId, patch) {
     setCharacters((prev) => prev.map((p) => (p.id === characterId ? { ...p, ...patch } : p)));
   }
+  // Edição do GM num NPC de mundo (nome/papel/texto/retrato/segredo/ganchos) —
+  // mesmo padrão não-destrutivo de editarCampoDossie/editarCampoPessoas (ver
+  // npcOverrides.js). Fica aqui (não dentro de WorldView) porque NpcsMundoView
+  // é chamada tanto de dentro de WorldView quanto direto da aba Personagens.
+  function editarCampoNpc(npcId, campo, valor) {
+    setNpcsOverrides((prev) => ({ ...prev, [npcId]: { ...(prev[npcId] || {}), [campo]: valor } }));
+  }
+  function restaurarCampoNpc(npcId, campo) {
+    setNpcsOverrides((prev) => {
+      if (!prev[npcId]) return prev;
+      const restante = { ...prev[npcId] };
+      delete restante[campo];
+      const novo = { ...prev };
+      if (Object.keys(restante).length === 0) delete novo[npcId]; else novo[npcId] = restante;
+      return novo;
+    });
+  }
   function requestDeleteCharacter(c) {
     askConfirm(`Excluir a ficha de "${c.name}"? Essa ação não pode ser desfeita.`, () => handleDelete(c.id));
   }
@@ -10096,7 +10454,7 @@ export default function App() {
   // login, isso é a rede de segurança — baixa um .json com tudo (personagens +
   // reinos/deuses/sagas/objetivos) pra poder restaurar se algo for apagado.
   function handleExportBackup() {
-    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides });
+    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -10133,6 +10491,7 @@ export default function App() {
         setObjectives(normalizado.objectives);
         setCidadesOverrides(normalizado.cidadesOverrides);
         setPessoasOverrides(normalizado.pessoasOverrides);
+        setNpcsOverrides(normalizado.npcsOverrides);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );
@@ -10291,39 +10650,46 @@ export default function App() {
               )}
             </div>
 
-            {grupoFilter === "npcs" && <NpcsMundoView gm={gm} factionFilter={factionFilter} />}
+            {grupoFilter === "npcs" && (
+              <NpcsMundoView
+                gm={gm} factionFilter={factionFilter} npcsOverrides={npcsOverrides}
+                onEditarCampoNpc={editarCampoNpc} onRestaurarCampoNpc={restaurarCampoNpc}
+              />
+            )}
 
-            {grupoFilter !== "npcs" && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
-              {filtered.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => { setSelectedId(c.id); setSubView("detail"); }}
-                  style={{
-                    textAlign: "left", background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 14,
-                    cursor: "pointer", color: "inherit",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <Retrato character={c} size={40} borderRadius={8} iconSize={20} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
-                      <div style={{ fontSize: 11, color: BRASS, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.epithet}</div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 10.5, color: FACTION_SEAL[c.faction] || BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{c.faction}</div>
-                </button>
-              ))}
-            </div>}
+            {/* Modo GM: duas seções (Jogadores veem / Só GM) com arrastar-e-soltar
+                — ver PersonagensSplitGM. Modo Jogador: só os visíveis, grade única
+                (ficha nova ou migrada nasce visivelJogador=false — "só-GM até
+                liberar", ver personagens.js). */}
+            {grupoFilter !== "npcs" && (gm ? (
+              <PersonagensSplitGM
+                characters={filtered}
+                onOpen={(id) => { setSelectedId(id); setSubView("detail"); }}
+                onSetVisivel={(id, visivel) => updateCharacterFields(id, { visivelJogador: visivel })}
+              />
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+                {filtered.filter((c) => c.visivelJogador).map((c) => (
+                  <CharacterCard key={c.id} c={c} onClick={() => { setSelectedId(c.id); setSubView("detail"); }} />
+                ))}
+              </div>
+            ))}
 
             {/* Vindo de um reino (capa ou filtro): mostra também os NPCs daquele reino, por cidade */}
             {grupoFilter === "todos" && factionFilter !== "Todos" && NPCS.some((n) => n.reino === REINO_ID_POR_NOME[factionFilter]) && (
               <div style={{ marginTop: 22 }}>
                 <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: MUTED, marginBottom: 10 }}>NPCs de {factionFilter}</div>
-                <NpcsMundoView gm={gm} factionFilter={factionFilter} />
+                <NpcsMundoView
+                  gm={gm} factionFilter={factionFilter} npcsOverrides={npcsOverrides}
+                  onEditarCampoNpc={editarCampoNpc} onRestaurarCampoNpc={restaurarCampoNpc}
+                />
               </div>
             )}
             {grupoFilter !== "npcs" && filtered.length === 0 && (
               <p style={{ color: MUTED, fontSize: 13, fontStyle: "italic" }}>Nenhuma ficha de personagem neste filtro.</p>
+            )}
+            {grupoFilter !== "npcs" && !gm && filtered.length > 0 && filtered.every((c) => !c.visivelJogador) && (
+              <p style={{ color: MUTED, fontSize: 13, fontStyle: "italic" }}>Nenhuma ficha liberada pros jogadores neste filtro ainda.</p>
             )}
           </div>
         )}
@@ -10358,6 +10724,7 @@ export default function App() {
             characters={characters}
             cidadesOverrides={cidadesOverrides} setCidadesOverrides={setCidadesOverrides}
             pessoasOverrides={pessoasOverrides} setPessoasOverrides={setPessoasOverrides}
+            npcsOverrides={npcsOverrides} onEditarCampoNpc={editarCampoNpc} onRestaurarCampoNpc={restaurarCampoNpc}
             onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
           />
         )}

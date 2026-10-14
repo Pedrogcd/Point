@@ -27,23 +27,76 @@
 // - semRolagem / efeito: magias especiais sem pool de ataque (Escudo de Mana).
 // - placeholder: magia ainda sem regra fechada no guia (Sensor).
 
-// Ofícios Mágicos — disciplinas de ofício (docs/MUDANCAS_RACAS_E_MAGIA.md,
-// 14/10): cada uma conhecida conta como 1 dado no pool de ataque mágico
-// (engine.contagemOficiosMagicos). Até 3 por personagem (character.
-// disciplinaMagica.oficiosMagicos, array de ids). "magias-de-guerra" é o
-// antigo "Ofício Mágico" único (ex-Evocação) — mantém o bônus de +1 Magias
-// Gerais (ver racasCatalogo.js:bonusGrauDoPersonagem); os outros três não dão
-// bônus de grau, só contam pro pool.
-export const OFICIOS_MAGICOS = [
-  { id: "magias-de-guerra", nome: "Magias de guerra", descricao: "Ex-Ofício Mágico/Evocação. Mantém +1 Magias Gerais; dá Acadêmicos e Tecnologia (flavor, sem mecânica numérica)." },
-  { id: "encantamentos", nome: "Encantamentos", descricao: "Disciplina de ofício mágico." },
-  { id: "alquimia", nome: "Alquimia", descricao: "Disciplina de ofício mágico." },
-  { id: "constructo", nome: "Constructo", descricao: "Disciplina de ofício mágico." },
+// Disciplinas — dados editáveis, fonte de verdade: docs/DISCIPLINAS_MAGIA.md
+// (14/10, complementa docs/MUDANCAS_RACAS_E_MAGIA.md). Substitui o antigo
+// OFICIOS_MAGICOS (checkbox solto, 13/10-14/10): agora uma disciplina é um
+// dos até 3 "slots" da ficha (ver point-amaranth-app.jsx:DisciplinaSlotPicker
+// — troca o antigo painel "Classes"), e só as de tipo "oficio-magico" ou
+// "magia-inata" oferecem magias equipáveis (até 3 cada, próprias da
+// disciplina — não é mais um pool só compartilhado entre todas as
+// disciplinas do personagem).
+//
+// Campos:
+// - id: chave estável (character.disciplinas[i].disciplinaId).
+// - nome: nome de exibição.
+// - tipo: "oficio-magico" (conta 1 no pool de ataque mágico/recuperação de
+//   mana — ver engine.contagemOficiosMagicos) ou "magia-inata" (NÃO conta
+//   como ofício, dá bônus próprio).
+// - vazia: true = ainda sem bônus nem magias definidos no guia (Encantamentos/
+//   Alquimia/Constructo — "Cadastre-os como disciplinas vazias", pendência 4
+//   de docs/DISCIPLINAS_MAGIA.md). Só ocupa 1 dos 3 slots e conta como ofício
+//   (se for do tipo oficio-magico); sem acesso a magias.
+// - temMagias: true = a disciplina oferece o catálogo de MAGIAS pra equipar
+//   (até magiasAtivasMax, mesmo catálogo pras duas: Magias de guerra e Magia
+//   Inata).
+// - magiasIniciais: nº de magias escolhidas de graça ao adquirir a disciplina
+//   (como o jogador chega além disso — a "reserva" — é pendência 3 do guia,
+//   não implementada; a UI deixa equipar livremente até magiasAtivasMax).
+// - magiasAtivasMax: nº máximo de magias equipadas ao mesmo tempo (3).
+// - temTelaDeMana: só Magias de guerra — acesso extra "que permite analisar
+//   magias" (sem mecânica numérica definida no guia; ver UI).
+// - trocaGratisComAcao: só Magias de guerra — trocar uma magia equipada por
+//   uma da reserva é de graça gastando uma ação (o app não modela ações/
+//   turnos, então o botão correspondente só não desconta MP).
+// - bonusTexto: texto do bônus base pra exibir na ficha.
+export const DISCIPLINAS = [
+  {
+    id: "oficio-magias-de-guerra",
+    nome: "Ofício Mágico: Magias de guerra",
+    tipo: "oficio-magico",
+    temMagias: true,
+    magiasIniciais: 2,
+    magiasAtivasMax: 3,
+    temTelaDeMana: true,
+    trocaGratisComAcao: true,
+    bonusTexto: "Magias Gerais +1 grau (teto C). Dá também as proficiências Acadêmicos e Tecnologia (flavor, valor numérico ainda a confirmar — ver pendências).",
+    descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
+  },
+  {
+    id: "magia-inata",
+    nome: "Magia Inata",
+    tipo: "magia-inata",
+    temMagias: true,
+    magiasIniciais: 2,
+    magiasAtivasMax: 3,
+    temTelaDeMana: false,
+    trocaGratisComAcao: false,
+    bonusTexto: "+1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico).",
+    descricao: "Magia que vem de dentro, sem estudo formal.",
+  },
+  { id: "oficio-encantamentos", nome: "Ofício Mágico: Encantamentos", tipo: "oficio-magico", vazia: true, bonusTexto: "Disciplina vazia — bônus e habilidades ainda não definidos.", descricao: "Disciplina de ofício mágico." },
+  { id: "oficio-alquimia", nome: "Ofício Mágico: Alquimia", tipo: "oficio-magico", vazia: true, bonusTexto: "Disciplina vazia — bônus e habilidades ainda não definidos.", descricao: "Disciplina de ofício mágico." },
+  { id: "oficio-constructo", nome: "Ofício Mágico: Constructo", tipo: "oficio-magico", vazia: true, bonusTexto: "Disciplina vazia — bônus e habilidades ainda não definidos.", descricao: "Disciplina de ofício mágico." },
 ];
 
-export function getOficioMagicoPorId(id) {
-  return OFICIOS_MAGICOS.find((o) => o.id === id) || null;
+export function getDisciplinaPorId(id) {
+  return DISCIPLINAS.find((d) => d.id === id) || null;
 }
+
+// Máximo de disciplinas por personagem (docs/DISCIPLINAS_MAGIA.md: "Cada
+// personagem escolhe até 3 disciplinas no total" — Magia Inata ocupa um dos
+// 3 slots também, mesmo não contando como ofício mágico).
+export const MAX_DISCIPLINAS = 3;
 
 export const MAGIAS = [
   {

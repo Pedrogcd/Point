@@ -9,7 +9,7 @@ const BACKUP_KEYS = ["characters", "kingdoms", "gods", "sagas", "objectives"];
 // são tratados à parte, com default `{}`. Backup antigo sem uma dessas chaves
 // carrega normal: vira `{}`, ou seja, nenhuma edição de GM aplicada
 // (comportamento idêntico a hoje, antes de cada chave existir).
-const CHAVES_OVERRIDES = ["cidadesOverrides", "pessoasOverrides"];
+const CHAVES_OVERRIDES = ["cidadesOverrides", "pessoasOverrides", "npcsOverrides"];
 
 function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);

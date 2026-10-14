@@ -485,6 +485,29 @@ describe("resolveRolagemDefesa", () => {
     const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", ehMagia: true });
     assert.equal(r.successes, 1);
   });
+  // totalDiceManual (14/10, painel Teste — abas Ataque/Magia, pedido do
+  // Pedro: "em vez de perguntar o vigor e atributo de defesa do alvo,
+  // apenas dê a opção de quantos dados o jogador defensor rola") — pula o
+  // cálculo por atributo+proficiência quando informado.
+  it("totalDiceManual ignora atributo/proficiência/saturante e usa o número direto", (t) => {
+    const defensor = withAttrs(makeCharacter(), { vigor: "A", destreza: "A" }); // ignorado
+    mockDice(t, [1, 1, 1]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", saturante: true, totalDiceManual: 3 });
+    assert.equal(r.totalDice, 3);
+  });
+  it("totalDiceManual negativo clampa em 0 (rollSuccessDice ainda rola 1 dado)", (t) => {
+    const defensor = makeCharacter();
+    mockDice(t, [1]);
+    const r = resolveRolagemDefesa({ defensor, totalDiceManual: -5 });
+    assert.equal(r.totalDice, 0);
+  });
+  it("totalDiceManual ainda aplica Resiste a Magia por cima (-1 dado)", (t) => {
+    const defensor = withDescritores(makeCharacter(), ["resiste_a_magia"]);
+    mockDice(t, [1, 1]);
+    const r = resolveRolagemDefesa({ defensor, totalDiceManual: 3, ehMagia: true });
+    assert.equal(r.totalDice, 2);
+    assert.equal(r.resisteAMagia, true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -721,6 +744,24 @@ describe("resolveAtaque", () => {
     mockDice(t, [1, /*reroll*/ 9, /*defesa*/ 1, 1]);
     const r = resolveAtaque({ attacker, defender: makeCharacter(), tipoAtaque: "magico", totalDiceAtaque: 1, descritoresAtaque: ["magia"], defesaAtributo: "vigor" });
     assert.equal(r.rolagemAtaque.sortudoAplicado.novo, 9);
+  });
+  // limiarOverride / totalDiceDefesaManual (14/10, painel Teste — abas
+  // Ataque/Magia, pedido do Pedro): a aba Magia ganhou um "Limiar de
+  // sucesso" manual (pula limiarAtaque) e as abas Ataque/Magia passaram a
+  // pedir "quantos dados o defensor rola" direto em vez de atributo de
+  // defesa (ver resolveRolagemDefesa:totalDiceManual).
+  it("limiarOverride ignora o cálculo automático de Blindado/Perfurante", (t) => {
+    const defender = withDescritores(makeCharacter(), ["blindado"]); // normalmente forçaria limiar 6 (7+)
+    mockDice(t, [6, /*defesa*/ 1, 1]);
+    const r = resolveAtaque({ attacker: makeCharacter(), defender, totalDiceAtaque: 1, defesaAtributo: "vigor", limiarOverride: 5 });
+    assert.equal(r.limiar, 5);
+    assert.equal(r.rolagemAtaque.successes, 1); // 6 > 5, sucesso (não precisaria de 7+)
+  });
+  it("totalDiceDefesaManual repassa pra resolveRolagemDefesa (bypassa atributo/proficiência do alvo)", (t) => {
+    const defender = withAttrs(makeCharacter(), { vigor: "A" }); // ignorado
+    mockDice(t, [7, /*defesa*/ 1]);
+    const r = resolveAtaque({ attacker: makeCharacter(), defender, totalDiceAtaque: 1, defesaAtributo: "vigor", totalDiceDefesaManual: 1 });
+    assert.equal(r.rolagemDefesa.totalDice, 1);
   });
 });
 

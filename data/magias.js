@@ -69,7 +69,7 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: true,
     trocaGratisComAcao: true,
-    bonusTexto: "Magias Gerais +1 grau (teto C). Dá também as proficiências Acadêmicos e Tecnologia (flavor, valor numérico ainda a confirmar — ver pendências).",
+    bonusTexto: "Magias Gerais +1 grau (teto C). Dá também +1 grau (teto C) em Acadêmicos e Tecnologia (confirmado 14/10).",
     descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
   },
   {

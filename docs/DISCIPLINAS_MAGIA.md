@@ -12,7 +12,7 @@ Atualizado em 14/10/2026. Complementa docs/MUDANCAS_RACAS_E_MAGIA.md; onde diver
 É o antigo "Ofício Mágico", renomeado. A Evocação vira esta disciplina.
 - Ideia: o usuário é um mago que entende código de magia.
 - Conta como 1 ofício mágico.
-- Bônus base: Magias Gerais +1 grau (teto C); dá também as proficiências Acadêmicos e Tecnologia (valor a confirmar, ver pendências).
+- Bônus base: Magias Gerais +1 grau (teto C); dá também +1 grau (teto C) em Acadêmicos e Tecnologia (confirmado 14/10, mais tarde — era pendência 2, resolvida).
 - Acesso extra: tela de mana, que permite analisar magias.
 - Magias iniciais: o jogador escolhe 2 das magias da disciplina.
 - Troca: gastar 1 MP troca uma magia equipada por uma da reserva. Gastando uma ação, a troca é de graça.
@@ -58,7 +58,7 @@ As duas disciplinas oferecem as mesmas opções do catálogo. Pool de todas as m
 
 ## Pendências (não implementar; registrar)
 1. As duas disciplinas oferecem a mesma lista de magias, ou algumas são exclusivas (por exemplo, as três Magias de guerra)? Por ora, uma lista só.
-2. Valor de Acadêmicos e Tecnologia no Ofício Mágico: Magias de guerra (suposto +1 grau, teto C).
+2. ~~Valor de Acadêmicos e Tecnologia no Ofício Mágico: Magias de guerra (suposto +1 grau, teto C).~~ Confirmado pelo Pedro em 14/10 (mais tarde ainda): é mesmo +1 grau, teto C, nas duas — implementado em `racasCatalogo.js:bonusGrauDoPersonagem`.
 3. Como o jogador adquire magias além das 2 iniciais (a reserva).
 4. Bônus e habilidades de Encantamentos, Alquimia e Constructo.
 5. Sensor: pool, custo e duração.

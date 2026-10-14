@@ -17,9 +17,10 @@ import {
   limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
+  contagemOficiosMagicos,
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
-import { MAGIAS, getMagiaPorId } from "./data/magias.js";
+import { MAGIAS, getMagiaPorId, OFICIOS_MAGICOS } from "./data/magias.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
@@ -36,7 +37,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_RACA,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -138,19 +139,23 @@ const HABILIDADE_CATEGORIA_INFO = {
 // catalogo-racas.json usa hoje. O catálogo só guarda o id (ex.: "blindado"),
 // sem rótulo/descrição pronta pra mostrar; esse mapa existe só pra isso, não
 // pra regra nenhuma (a regra mora em engine.js — temDescritor/limiarAtaque).
-// Limiares de Blindado/Blindado Mágico atualizados pra 7+ em 14/10
-// (docs/SISTEMA_MAGIA.md — LIMIAR_BLINDADO). Entradas de descritor de
-// ATAQUE/magia (magia, em_area, saturante, perfurante, letal) adicionadas na
-// mesma data, pra exibição nas fichas de ataque/magia — ver data/magias.js e
-// BASE_ATTACK_TYPES (engine.js).
+// Limiar de Blindado atualizado pra 7+ em 13/10 (docs/SISTEMA_MAGIA.md —
+// LIMIAR_BLINDADO) e unificado em 14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md):
+// Blindado Mágico deixou de existir separado — Blindado agora vale contra
+// qualquer ataque, físico ou mágico. Entradas de descritor de ATAQUE/magia
+// (magia, em_area, saturante, perfurante, letal) adicionadas em 13/10, pra
+// exibição nas fichas de ataque/magia — ver data/magias.js e
+// BASE_ATTACK_TYPES (engine.js). "resiste_a_magia" (14/10) é a nova
+// habilidade de Descendentes de Arcani: ao defender de ataque com descritor
+// Magia, rola 1 dado a menos e tem 1 sucesso sempre garantido.
 // Valor sentinela da opção "Base mágica" no seletor de Atributo Geral do
 // Teste (docs/SISTEMA_MAGIA.md item 4) — nunca colide com uma key real de
 // ATRIBUTOS_GERAIS_LIST (todas vêm de engine.js, sem "__" no nome).
 const BASE_MAGICA_KEY = "__base_magica__";
 
 const DESCRITOR_INFO = {
-  blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque físico contra você precisam de no mínimo 7, em vez de 6, para dar sucesso." },
-  blindado_magico: { label: "Blindado Mágico", cor: PURPLE, descricao: "Dados de ataque mágico contra você precisam de no mínimo 7, em vez de 6, para dar sucesso." },
+  blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque contra você, físico ou mágico, precisam de no mínimo 7, em vez de 6, para dar sucesso. Perfurante ignora." },
+  resiste_a_magia: { label: "Resiste a Magia", cor: PURPLE, descricao: "Ao se defender de um ataque com o descritor Magia: rola 1 dado a menos e tem 1 sucesso sempre garantido." },
   desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
   ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
   veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "Etiqueta — ainda sem efeito no motor (prioridade/rodadas fora do escopo atual)." },
@@ -158,7 +163,7 @@ const DESCRITOR_INFO = {
   magia: { label: "Magia", cor: PURPLE, descricao: "Toda magia tem este descritor — identifica o ataque como mágico." },
   em_area: { label: "Em área", cor: "#5C86B0", descricao: "Atinge todos os alvos da zona; cada um rola a própria defesa; o conjurador rola uma vez; aliados na zona também são atingidos." },
   saturante: { label: "Saturante", cor: "#B0784F", descricao: "Se o defensor usar Destreza como base da defesa, rola 2 dados a menos (mínimo 0)." },
-  perfurante: { label: "Perfurante", cor: BRASS_BRIGHT, descricao: "Ignora Blindado e Blindado Mágico do alvo." },
+  perfurante: { label: "Perfurante", cor: BRASS_BRIGHT, descricao: "Ignora o Blindado do alvo." },
   letal: { label: "Letal", cor: EMBER, descricao: "Reduz em 1 (mínimo 1) o Vigor necessário para o ferimento virar agravante." },
   atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
 };
@@ -523,6 +528,8 @@ function withFichaDefaults(c) {
     disciplinaHumano: null,
     descritores: [],
     bonusGrauEscolha: {},
+    bonusGrauEscolhaRaca: null,
+    disciplinaMagica: { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] },
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
     statBase: { ...STAT_BASE_DEFAULTS },
@@ -4223,6 +4230,8 @@ const emptyCharacter = () => ({
   disciplinaHumano: null,
   descritores: [],
   bonusGrauEscolha: {},
+  bonusGrauEscolhaRaca: null,
+  disciplinaMagica: { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] },
   racialAbility: { name: "", description: "" },
   classes: [{ name: "", description: "" }, { name: "", description: "" }],
   grupo: "c",
@@ -4897,9 +4906,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const [ataqueDefesaAtributo, setAtaqueDefesaAtributo] = useState("vigor");
   const [ataqueDefesaAtributoGrau, setAtaqueDefesaAtributoGrau] = useState("E");
   const [ataqueResistFisicaGrau, setAtaqueResistFisicaGrau] = useState("E");
-  const [ataqueResistMagicaGrau, setAtaqueResistMagicaGrau] = useState("E");
   const [ataqueBlindado, setAtaqueBlindado] = useState(false);
-  const [ataqueBlindadoMagico, setAtaqueBlindadoMagico] = useState(false);
+  const [ataqueResisteAMagia, setAtaqueResisteAMagia] = useState(false);
   const [ataqueResult, setAtaqueResult] = useState(null);
   const [ataqueHistory, setAtaqueHistory] = useState([]);
   // Modo Magia (docs/SISTEMA_MAGIA.md itens 4/6/7/9): conjura uma magia do
@@ -4908,21 +4916,38 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const [manaGastaMagia, setManaGastaMagia] = useState(MAGIAS[0]?.custoMp ?? 1);
   const [magiaResult, setMagiaResult] = useState(null);
   const [magiaHistory, setMagiaHistory] = useState([]);
-  // Disciplinas mágicas (docs/SISTEMA_MAGIA.md item 8): até 3 "magias ativas"
-  // (o resto do catálogo fica de reserva); trocar depois de ter as 3
-  // escolhidas custa 1 MP ("ou grátis gastando uma ação" — fora do escopo
-  // atual, que não modela ações). As duas trocas pendentes abaixo (de/para)
-  // só valem quando já há 3 ativas; com menos de 3, marcar/desmarcar é livre.
-  const disciplinaMagica = character.disciplinaMagica || { tipo: null, escolhaMagiaInata: null, magiasAtivas: [] };
+  // Ofícios Mágicos (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10): até 3
+  // disciplinas de ofício conhecidas (magias-de-guerra, encantamentos,
+  // alquimia, constructo) + Magia Inata independente (flag, +1 dado fixo,
+  // não conta como ofício). Substitui o antigo "tipo" único
+  // (oficio-magico/magia-inata) de 13/10. "oficiosExtras" é só o bônus
+  // racial computado por racasCatalogo.js:oficiosExtrasDoPersonagem — nunca
+  // escolhido manualmente aqui, ver comGrausEfetivos.
+  // Até 3 "magias ativas" (o resto do catálogo fica de reserva); trocar
+  // depois de ter as 3 escolhidas custa 1 MP ("ou grátis gastando uma ação"
+  // — fora do escopo atual, que não modela ações). As duas trocas pendentes
+  // abaixo (de/para) só valem quando já há 3 ativas; com menos de 3,
+  // marcar/desmarcar é livre.
+  const disciplinaMagica = character.disciplinaMagica || { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] };
+  const oficiosMagicos = disciplinaMagica.oficiosMagicos || [];
   const magiasAtivas = disciplinaMagica.magiasAtivas || [];
-  const temDisciplina = !!disciplinaMagica.tipo;
+  const temDisciplina = oficiosMagicos.length > 0 || !!disciplinaMagica.magiaInata;
   const magiasDisponiveis = (temDisciplina && magiasAtivas.length > 0) ? MAGIAS.filter((m) => magiasAtivas.includes(m.id)) : MAGIAS;
   const [trocaRemover, setTrocaRemover] = useState("");
   const [trocaAdicionar, setTrocaAdicionar] = useState("");
+  // Fonte do pool de ataque mágico (docs/MUDANCAS_RACAS_E_MAGIA.md): o
+  // jogador escolhe, a cada conjuração, entre a contagem de Ofícios Mágicos
+  // ou o grau de Inteligência — ver diceAtaqueMagico(..., fonte, ...).
+  const [fonteMagia, setFonteMagia] = useState("oficios");
 
   function setDisciplinaMagica(patch) {
     if (!onUpdateCharacter) return;
     onUpdateCharacter(character.id, { disciplinaMagica: { ...disciplinaMagica, ...patch } });
+  }
+  function toggleOficioMagico(id) {
+    if (oficiosMagicos.length >= 3 && !oficiosMagicos.includes(id)) return; // máximo 3 ofícios
+    const novos = oficiosMagicos.includes(id) ? oficiosMagicos.filter((o) => o !== id) : [...oficiosMagicos, id];
+    setDisciplinaMagica({ oficiosMagicos: novos });
   }
   function toggleMagiaAtiva(id) {
     if (magiasAtivas.length >= 3 && !magiasAtivas.includes(id)) return; // trava — precisa usar a Troca
@@ -4968,10 +4993,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
   // Modo Ataque do mesmo painel: ataques físicos do próprio personagem (com
   // fallback genérico, igual o Confronto) contra um alvo SINTÉTICO (sem ficha
-  // de verdade) definido na mão — Vigor, Resistência Física/Mágica e
-  // Blindado/Blindado Mágico. Ataques mágicos saíram daqui (ver aba "Magia",
-  // abaixo) — não há mais "arma mágica" em BASE_ATTACK_TYPES (data/magias.js
-  // é a fonte única pra isso, ver engine.js).
+  // de verdade) definido na mão — Vigor, Resistência Física e Blindado
+  // (14/10: vale contra qualquer ataque, Blindado Mágico não existe mais
+  // separado) + Resiste a Magia (defesa contra o descritor Magia). Ataques
+  // mágicos saíram daqui (ver aba "Magia", abaixo) — não há mais "arma
+  // mágica" em BASE_ATTACK_TYPES (data/magias.js é a fonte única pra isso,
+  // ver engine.js).
   const ataqueOptions = character.attacks && character.attacks.length > 0
     ? character.attacks
     : [{ nome: "(ataque genérico)", tipo: "marcial", atributoKey: "destreza", profKey: "combateCorpoACorpo", ajusteDados: 0, feridas: 1, descritores: [] }];
@@ -4982,16 +5009,16 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // vem de BASE_ATTACK_TYPES/resolveFichaAtaque).
   const ataqueAlvoSintetico = {
     atributosGerais: { vigor: ataqueVigorGrau, [ataqueDefesaAtributo]: ataqueDefesaAtributo === "vigor" ? ataqueVigorGrau : ataqueDefesaAtributoGrau },
-    proficiencias: { resistFisicaProf: ataqueResistFisicaGrau, resistMagicaProf: ataqueResistMagicaGrau },
-    descritores: [...(ataqueBlindado ? ["blindado"] : []), ...(ataqueBlindadoMagico ? ["blindado_magico"] : [])],
+    proficiencias: { resistFisicaProf: ataqueResistFisicaGrau },
+    descritores: [...(ataqueBlindado ? ["blindado"] : []), ...(ataqueResisteAMagia ? ["resiste_a_magia"] : [])],
   };
 
   function rollAtaque() {
     const r = resolveFichaAtaque({
       character: characterEfetivo, attack: ataqueSelecionado,
       targetVigorGrau: ataqueVigorGrau, targetDefesaAtributo: ataqueDefesaAtributo, targetDefesaAtributoGrau: ataqueDefesaAtributoGrau,
-      targetResistFisicaGrau: ataqueResistFisicaGrau, targetResistMagicaGrau: ataqueResistMagicaGrau,
-      targetBlindado: ataqueBlindado, targetBlindadoMagico: ataqueBlindadoMagico,
+      targetResistFisicaGrau: ataqueResistFisicaGrau,
+      targetBlindado: ataqueBlindado, targetResisteAMagia: ataqueResisteAMagia,
     });
     setAtaqueResult(r);
     setAtaqueHistory((h) => [{ ...r, atkNome: ataqueSelecionado.nome, id: Date.now() }, ...h].slice(0, 6));
@@ -5000,9 +5027,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // Modo Magia: conjura uma magia do catálogo (data/magias.js) contra o MESMO
   // alvo sintético do modo Ataque — desconta o custo da mana da ficha (item
   // 7) e, se a magia não for "sem rolagem" (Escudo de Mana), rola Base mágica
-  // + Magias Ofensivas via resolveAtaque. Depois de conjurar, rola a
-  // recuperação de mana na cena (item 6) e guarda em mp.recuperarPendente —
-  // ver botões "Início de turno"/"Fim de cena" no painel de Recursos.
+  // + (Ofícios Mágicos ou Inteligência, à escolha — fonteMagia) via
+  // resolveAtaque. Depois de conjurar, rola a recuperação de mana na cena
+  // (item 6, fórmula atualizada em 14/10: Ofícios + mana gasta) e guarda em
+  // mp.recuperarPendente — ver botões "Início de turno"/"Fim de cena" no
+  // painel de Recursos.
   const magiaSelecionada = getMagiaPorId(magiaId) || MAGIAS[0];
   const manaAtual = character.mp?.current ?? 0;
   const manaInsuficiente = manaGastaMagia > manaAtual;
@@ -5012,15 +5041,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     const manaGasta = manaGastaMagia;
     let resultadoAtaque = null;
     if (!magiaSelecionada.semRolagem) {
-      const totalDiceAtaque = diceAtaqueMagico(characterEfetivo, manaGasta, magiaSelecionada.custoMp || 0, magiaSelecionada.ajusteDados || 0);
+      const totalDiceAtaque = diceAtaqueMagico(characterEfetivo, manaGasta, magiaSelecionada.custoMp || 0, fonteMagia, magiaSelecionada.ajusteDados || 0);
       resultadoAtaque = resolveAtaque({
-        attacker: characterEfetivo, defender: ataqueAlvoSintetico, tipoAtaque: "magico",
+        attacker: characterEfetivo, defender: ataqueAlvoSintetico,
         totalDiceAtaque, descritoresAtaque: magiaSelecionada.descritores, defesaAtributo: ataqueDefesaAtributo,
         feridas: magiaSelecionada.feridas || 1, superficial: !!magiaSelecionada.superficial,
       });
     }
-    const manipulacaoManaGrau = GRADE_VALUE[characterEfetivo.proficiencias?.manipulacaoManaProf] || 1;
-    const rolagemRecuperacao = rollSuccessDice(manipulacaoManaGrau + manaGasta, LIMIAR_SUCESSO);
+    const rolagemRecuperacao = rollSuccessDice(contagemOficiosMagicos(characterEfetivo) + manaGasta, LIMIAR_SUCESSO);
     const manaRecuperada = Math.min(rolagemRecuperacao.successes, manaGasta);
     const r = { magia: magiaSelecionada, manaGasta, resultadoAtaque, rolagemRecuperacao, manaRecuperada };
     setMagiaResult(r);
@@ -5252,7 +5280,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Acerto usa o atributo do Tipo (Destreza p/ Marcial e Arma de fogo, só o valor da magia p/ Mágico) + a Proficiência de Combate do ataque (Combate Corpo a Corpo/Armas de Fogo/Magias Ofensivas). Dano usa Força (Marcial), Magia (Mágico) ou só o valor da arma (Arma de fogo) + a mesma Proficiência. Ferida escala com confirmações no Marcial; é fixa nos outros. Use o Confronto pra resolver contra um alvo.
+              Ataques físicos (Marcial/Arma de fogo): dados = Destreza + Proficiência de Combate (Combate Corpo a Corpo/Armas de Fogo), sucesso 6+ (7+ contra Blindado, exceto Perfurante). Ataques mágicos saíram daqui — ver a aba "Magia" no painel Teste, que usa o catálogo de data/magias.js. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -5508,24 +5536,17 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     </select>
                   </Field>
                 )}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label="Resistência Física (grau)">
-                    <select value={ataqueResistFisicaGrau} onChange={(e) => setAtaqueResistFisicaGrau(e.target.value)} style={inputStyle}>
-                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Resistência Mágica (grau)">
-                    <select value={ataqueResistMagicaGrau} onChange={(e) => setAtaqueResistMagicaGrau(e.target.value)} style={inputStyle}>
-                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </Field>
-                </div>
+                <Field label="Resistência Física (grau) — 14/10: defesa é sempre Resistência Física, físico ou mágico">
+                  <select value={ataqueResistFisicaGrau} onChange={(e) => setAtaqueResistFisicaGrau(e.target.value)} style={inputStyle}>
+                    {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </Field>
                 <div style={{ display: "flex", gap: 14, margin: "2px 0 10px" }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
-                    <input type="checkbox" checked={ataqueBlindado} onChange={(e) => setAtaqueBlindado(e.target.checked)} /> Blindado
+                    <input type="checkbox" checked={ataqueBlindado} onChange={(e) => setAtaqueBlindado(e.target.checked)} /> Blindado (vale contra físico e mágico)
                   </label>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
-                    <input type="checkbox" checked={ataqueBlindadoMagico} onChange={(e) => setAtaqueBlindadoMagico(e.target.checked)} /> Blindado Mágico
+                    <input type="checkbox" checked={ataqueResisteAMagia} onChange={(e) => setAtaqueResisteAMagia(e.target.checked)} /> Resiste a Magia
                   </label>
                 </div>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
@@ -5557,26 +5578,26 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             {rollPanelMode === "magia" && (
               <>
                 <div style={{ background: "#00000012", border: `1px solid ${LINE}`, borderRadius: 6, padding: 10, marginBottom: 12 }}>
-                  <Field label="Disciplina mágica">
-                    <select
-                      value={disciplinaMagica.tipo || ""}
-                      onChange={(e) => setDisciplinaMagica({ tipo: e.target.value || null, escolhaMagiaInata: null })}
-                      style={inputStyle}
-                    >
-                      <option value="">Nenhuma</option>
-                      <option value="oficio-magico">Ofício Mágico (+1 Magias Gerais/Ofensivas/Resist. Mágica)</option>
-                      <option value="magia-inata">Magia Inata (+1 MP máx. e +1 Ofensiva ou Resist. Mágica)</option>
-                    </select>
-                  </Field>
-                  {disciplinaMagica.tipo === "magia-inata" && (
-                    <Field label="Escolha da Magia Inata (TODO: deveria ser Magias Defensivas — ver docs/SISTEMA_MAGIA.md)">
-                      <select value={disciplinaMagica.escolhaMagiaInata || ""} onChange={(e) => setDisciplinaMagica({ escolhaMagiaInata: e.target.value || null })} style={inputStyle}>
-                        <option value="">Escolher...</option>
-                        <option value="ofensiva">+1 Magias Ofensivas</option>
-                        <option value="defensiva">+1 Resistência Mágica</option>
-                      </select>
-                    </Field>
+                  <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 4px", fontWeight: 600 }}>Ofícios Mágicos (até 3 — cada um conta 1 dado no pool de ataque mágico)</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {OFICIOS_MAGICOS.map((o) => {
+                      const conhecido = oficiosMagicos.includes(o.id);
+                      const travado = !conhecido && oficiosMagicos.length >= 3;
+                      return (
+                        <label key={o.id} title={o.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: travado ? MUTED : PARCHMENT, opacity: travado ? 0.5 : 1 }}>
+                          <input type="checkbox" checked={conhecido} disabled={travado} onChange={() => toggleOficioMagico(o.id)} /> {o.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {(disciplinaMagica.oficiosExtras || 0) > 0 && (
+                    <div style={{ fontSize: 10, color: MUTED, marginBottom: 8, fontStyle: "italic" }}>
+                      +{disciplinaMagica.oficiosExtras} ofício(s) extra(s) de raça/habilidade (já somado ao pool).
+                    </div>
                   )}
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT, marginBottom: 8 }}>
+                    <input type="checkbox" checked={!!disciplinaMagica.magiaInata} onChange={(e) => setDisciplinaMagica({ magiaInata: e.target.checked })} /> Magia Inata (+1 dado fixo nas rolagens de magia, não conta como ofício; +1 MP máx.)
+                  </label>
                   {temDisciplina && (
                     <>
                       <div style={{ fontSize: 10.5, color: PURPLE, margin: "8px 0 4px", fontWeight: 600 }}>Magias ativas (até 3 — o resto fica na reserva)</div>
@@ -5633,6 +5654,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 ) : magiaSelecionada?.semRolagem ? (
                   <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>{magiaSelecionada.efeito}</div>
                 ) : null}
+                {!magiaSelecionada?.semRolagem && !magiaSelecionada?.placeholder && (
+                  <Field label={`Pool: Base mágica + Ofícios (${contagemOficiosMagicos(characterEfetivo)}) ou Inteligência — escolha`}>
+                    <select value={fonteMagia} onChange={(e) => setFonteMagia(e.target.value)} style={inputStyle}>
+                      <option value="oficios">Ofícios Mágicos ({contagemOficiosMagicos(characterEfetivo)} dado(s))</option>
+                      <option value="inteligencia">Inteligência (grau {characterEfetivo.atributosGerais?.inteligencia || "E"})</option>
+                    </select>
+                  </Field>
+                )}
                 <Field label={`Mana gasta (custo da magia: ${magiaSelecionada?.custoMp ?? "—"})`}>
                   <input type="number" min={0} style={inputStyle} value={manaGastaMagia} onChange={(e) => setManaGastaMagia(Math.max(0, Number(e.target.value)))} />
                 </Field>
@@ -5955,6 +5984,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       disciplinaHumano: null,
       descritores: [],
       bonusGrauEscolha: {},
+      bonusGrauEscolhaRaca: null,
     }));
   }
   function escolherPrincipal(principalId) {
@@ -6004,6 +6034,34 @@ export function CharacterForm({ initial, onSave, onCancel }) {
           <option value="">— escolher —</option>
           {escolha.opcoes.map((chave) => (
             <option key={chave} value={chave}>{lista.find((x) => x.key === chave)?.label || chave}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+  // Bônus de grau à escolha RACIAL (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10:
+  // "todo tipo de elfo"/"todo tipo de humano ganha +1 grau à escolha numa
+  // proficiência não-combate") — diferente de escolherBonusGrau/
+  // renderEscolhaBonusGrau acima, que são por HABILIDADE; este é um único
+  // campo por PERSONAGEM (character.bonusGrauEscolhaRaca), já que vale pra
+  // raça inteira, não pra uma habilidade específica. Ver
+  // BONUS_GRAU_ESCOLHA_POR_RACA em racasCatalogo.js.
+  function renderEscolhaBonusGrauRaca(racaId) {
+    const escolha = BONUS_GRAU_ESCOLHA_POR_RACA[racaId];
+    if (!escolha) return null;
+    return (
+      <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <label style={{ fontSize: 11, color: MUTED }}>
+          Bônus racial de +1 grau (proficiência não-combate à escolha, até o teto C):
+        </label>
+        <select
+          style={{ ...inputStyle, width: 200 }}
+          value={c.bonusGrauEscolhaRaca || ""}
+          onChange={(e) => set(["bonusGrauEscolhaRaca"], e.target.value || null)}
+        >
+          <option value="">— escolher —</option>
+          {escolha.opcoes.map((chave) => (
+            <option key={chave} value={chave}>{PROFICIENCIAS_LIST.find((x) => x.key === chave)?.label || chave}</option>
           ))}
         </select>
       </div>
@@ -6204,6 +6262,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
               selecionadoId={c.raca}
               onEscolher={escolherRaca}
             />
+            {renderEscolhaBonusGrauRaca(c.raca)}
             {racaAtual && (() => {
               const principalAtual = encontrarPrincipal(racaAtual, c.habilidadePrincipal);
               return (
@@ -6290,7 +6349,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo/Magias Ofensivas por tipo de ataque, e Defesa/Resistência Física/Resistência Mágica/Técnica reforçando a stat equivalente.
+        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo por tipo de ataque físico, e Defesa/Resistência Física reforçando a stat equivalente. Ataques mágicos usam Ofícios Mágicos ou Inteligência, não uma proficiência fixa (ver docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
@@ -6347,7 +6406,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Target}>Ataques</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Cada ataque tem um Tipo, que já define o que entra na conta: Marcial (Acerto: Destreza + Proficiência, Dano: Força + Proficiência, ferida escala), Arma de fogo (Acerto: Destreza + Proficiência, Dano: só Proficiência + valor da arma, ferida fixa), Mágico (Acerto e Dano: só a Proficiência de Magias Ofensivas + valor da magia, ferida fixa).
+        Cada ataque tem um Tipo, que já define o que entra na conta: Marcial (Acerto: Destreza + Proficiência, Dano: Força + Proficiência, ferida escala), Arma de fogo (Acerto: Destreza + Proficiência, Dano: só Proficiência + valor da arma, ferida fixa). Ataques mágicos não entram mais aqui — ver a aba "Magia" no painel Teste (catálogo em data/magias.js, pool por Ofícios Mágicos ou Inteligência).
       </p>
       {attacks.map((atk, i) => (
         <div key={i} style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 0.5fr 0.7fr 0.5fr 1.3fr auto", gap: 6, marginBottom: 8 }}>
@@ -6569,11 +6628,12 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
   );
 }
 
-// Rolagem de Confronto 1v1 (docs/SISTEMA_MAGIA.md, 14/10): ataca com um dos
-// ataques físicos de `a`, `b` defende com Resistência Física/Mágica + o
-// Atributo Geral escolhido abaixo. Substitui o antigo modelo Acerto/
-// Confirmação em duas fases (e a re-rolagem de dado a dado via MP/SP, que
-// dependia dele) — ver nota "simplificação" no relatório final da PR.
+// Rolagem de Confronto 1v1 (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10): ataca com
+// um dos ataques físicos de `a`, `b` defende sempre com Resistência Física +
+// o Atributo Geral escolhido abaixo (Resistência Mágica não existe mais
+// separada). Substitui o antigo modelo Acerto/Confirmação em duas fases (e a
+// re-rolagem de dado a dado via MP/SP, que dependia dele) — ver nota
+// "simplificação" no relatório final da PR.
 function DuelRoller({ a, b, onUpdateCharacter }) {
   const attacksA = a.attacks && a.attacks.length > 0
     ? a.attacks
@@ -6587,11 +6647,10 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
   function chooseAndRoll(i) {
     setAttackIdx(i);
     const atk = attacksA[i];
-    const tipoAtaque = atk.tipo || "marcial";
     const descritoresAtaque = descritoresEfetivosDoAtaque(a, atk);
     const totalDiceAtaque = diceAtaqueFisico(a, atk.atributoKey || "destreza", atk.profKey, atk.ajusteDados || 0);
     const r = resolveAtaque({
-      attacker: a, defender: b, tipoAtaque, totalDiceAtaque, descritoresAtaque,
+      attacker: a, defender: b, totalDiceAtaque, descritoresAtaque,
       defesaAtributo, feridas: atk.feridas || 1, superficial: !!atk.superficial,
     });
     setResult(r);
@@ -6601,7 +6660,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     <div style={{ marginTop: 24 }}>
       <SectionTitle icon={Dices}>Rolagem de Confronto — Ataque × Defesa</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado/Blindado Mágico, exceto ataque Perfurante). Defesa: Resistência Física/Mágica de {b.name} + o Atributo Geral escolhido abaixo, mesmo limiar — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1) = ferimento agravante; senão, superficial.
+        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado, exceto ataque Perfurante). Defesa: Resistência Física de {b.name} + o Atributo Geral escolhido abaixo, mesmo limiar — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1) = ferimento agravante; senão, superficial.
       </p>
 
       <div style={{ maxWidth: 260, marginBottom: 14 }}>
@@ -6657,35 +6716,36 @@ function makeEditableOpponent(stats) {
     attacks: [],
     abilities: [],
     procs: stats.procs || [],
-    // Blindado/Blindado Mágico (docs/SISTEMA_MAGIA.md) são descritores de
-    // PERSONAGEM — Resistência Armadura/Natural não têm mais função mecânica
-    // no resolveAtaque novo, então saíram deste oponente sintético.
-    descritores: [...(stats.blindado ? ["blindado"] : []), ...(stats.blindadoMagico ? ["blindado_magico"] : [])],
+    // Blindado (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10: unificado, vale contra
+    // físico e mágico) e Resiste a Magia são descritores de PERSONAGEM —
+    // Resistência Armadura/Natural não têm mais função mecânica no
+    // resolveAtaque novo, então saíram deste oponente sintético.
+    descritores: [...(stats.blindado ? ["blindado"] : []), ...(stats.resisteAMagia ? ["resiste_a_magia"] : [])],
   };
 }
 
 // Monta o defensor sintético do modo Ataque/Magia do painel "Teste" da ficha
 // (mesma peça que o Confronto usa pro oponente Editável — ver
 // makeEditableOpponent) e resolve o ataque contra ele via resolveAtaque
-// (docs/SISTEMA_MAGIA.md, 14/10). Extraído como função pura (exportada só
-// pra teste) pra poder verificar, sem precisar de interação de UI, que os
-// valores escolhidos viram exatamente o defensor que o motor recebe.
+// (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10). Extraído como função pura
+// (exportada só pra teste) pra poder verificar, sem precisar de interação de
+// UI, que os valores escolhidos viram exatamente o defensor que o motor
+// recebe.
 export function resolveFichaAtaque({
   character, attack,
   targetVigorGrau = "E", targetDefesaAtributo = "vigor", targetDefesaAtributoGrau = "E",
-  targetResistFisicaGrau = "E", targetResistMagicaGrau = "E",
-  targetBlindado = false, targetBlindadoMagico = false,
+  targetResistFisicaGrau = "E",
+  targetBlindado = false, targetResisteAMagia = false,
 }) {
   const defender = {
     atributosGerais: { vigor: targetVigorGrau, [targetDefesaAtributo]: targetDefesaAtributo === "vigor" ? targetVigorGrau : targetDefesaAtributoGrau },
-    proficiencias: { resistFisicaProf: targetResistFisicaGrau, resistMagicaProf: targetResistMagicaGrau },
-    descritores: [...(targetBlindado ? ["blindado"] : []), ...(targetBlindadoMagico ? ["blindado_magico"] : [])],
+    proficiencias: { resistFisicaProf: targetResistFisicaGrau },
+    descritores: [...(targetBlindado ? ["blindado"] : []), ...(targetResisteAMagia ? ["resiste_a_magia"] : [])],
   };
-  const tipoAtaque = attack.tipo || "marcial";
   const descritoresAtaque = descritoresEfetivosDoAtaque(character, attack);
   const totalDiceAtaque = diceAtaqueFisico(character, attack.atributoKey || "destreza", attack.profKey, attack.ajusteDados || 0);
   return resolveAtaque({
-    attacker: character, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque,
+    attacker: character, defender, totalDiceAtaque, descritoresAtaque,
     defesaAtributo: targetDefesaAtributo, feridas: attack.feridas || 1, superficial: !!attack.superficial,
   });
 }
@@ -6694,7 +6754,7 @@ export function CompareView({ characters, onUpdateCharacter }) {
   const [aId, setAId] = useState(characters[0]?.id || "");
   const [bId, setBId] = useState(EDITABLE_OPPONENT_ID);
   const [editableStats, setEditableStats] = useState({
-    blindado: false, blindadoMagico: false,
+    blindado: false, resisteAMagia: false,
     attributes: { ...EDITABLE_ATTR_DEFAULTS },
     atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT },
     proficiencias: { ...PROFICIENCIAS_DEFAULT },
@@ -6761,14 +6821,14 @@ export function CompareView({ characters, onUpdateCharacter }) {
             Valores do oponente Editável
           </div>
           <div style={{ fontSize: 10, color: MUTED, margin: "0 0 8px", fontStyle: "italic" }}>
-            Vigor e Resistência Física/Mágica já são editáveis abaixo, nos Atributos Gerais e Proficiências de Combate — a defesa contra ataque é a rolagem ativa dessas duas (ver docs/SISTEMA_MAGIA.md).
+            Vigor e Resistência Física já são editáveis abaixo, nos Atributos Gerais e Proficiências de Combate — a defesa contra qualquer ataque (físico ou mágico) é sempre a rolagem ativa de Resistência Física (ver docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
           </div>
           <div style={{ display: "flex", gap: 14 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
-              <input type="checkbox" checked={editableStats.blindado} onChange={(e) => setEditableStats((prev) => ({ ...prev, blindado: e.target.checked }))} /> Blindado
+              <input type="checkbox" checked={editableStats.blindado} onChange={(e) => setEditableStats((prev) => ({ ...prev, blindado: e.target.checked }))} /> Blindado (vale contra físico e mágico)
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
-              <input type="checkbox" checked={editableStats.blindadoMagico} onChange={(e) => setEditableStats((prev) => ({ ...prev, blindadoMagico: e.target.checked }))} /> Blindado Mágico
+              <input type="checkbox" checked={editableStats.resisteAMagia} onChange={(e) => setEditableStats((prev) => ({ ...prev, resisteAMagia: e.target.checked }))} /> Resiste a Magia
             </label>
           </div>
 

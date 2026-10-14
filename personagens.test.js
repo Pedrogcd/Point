@@ -75,18 +75,49 @@ describe("migrarPersonagem", () => {
     assert.equal("resistNaturalMagica" in migrado.statBase, false);
   });
 
-  it("renomeia proficiência tecnicaProf -> manipulacaoManaProf preservando o grau", () => {
+  it("14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): tecnicaProf/manipulacaoManaProf não existem mais depois da migração", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { tecnicaProf: "B" } });
     assert.equal("tecnicaProf" in migrado.proficiencias, false);
-    assert.equal(migrado.proficiencias.manipulacaoManaProf, "B");
+    assert.equal("manipulacaoManaProf" in migrado.proficiencias, false);
   });
 
-  it("não sobrescreve manipulacaoManaProf já migrado", () => {
+  it("14/10: magiasOfensivas/resistMagicaProf também somem da ficha migrada", () => {
     const migrado = migrarPersonagem({
       id: "x", name: "X",
-      proficiencias: { tecnicaProf: "B", manipulacaoManaProf: "A" },
+      proficiencias: { magiasOfensivas: "B", resistMagicaProf: "A", manipulacaoManaProf: "C" },
     });
-    assert.equal(migrado.proficiencias.manipulacaoManaProf, "A");
+    assert.equal("magiasOfensivas" in migrado.proficiencias, false);
+    assert.equal("resistMagicaProf" in migrado.proficiencias, false);
+    assert.equal("manipulacaoManaProf" in migrado.proficiencias, false);
+  });
+
+  it("14/10: disciplinaMagica nasce com oficiosMagicos vazio (0 ofícios por ora) pra quem não tinha", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X" });
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+    assert.equal(migrado.disciplinaMagica.oficiosExtras, 0);
+    assert.equal(migrado.disciplinaMagica.magiaInata, false);
+  });
+
+  it("14/10: disciplinaMagica.tipo 'magia-inata' (13/10) migra 1:1 pro novo magiaInata", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaMagica: { tipo: "magia-inata" } });
+    assert.equal(migrado.disciplinaMagica.magiaInata, true);
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+  });
+
+  it("14/10: disciplinaMagica.tipo 'oficio-magico' (13/10) NÃO migra pra nenhum ofício automático", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", disciplinaMagica: { tipo: "oficio-magico" } });
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, []);
+    assert.equal(migrado.disciplinaMagica.magiaInata, false);
+  });
+
+  it("14/10: disciplinaMagica já no formato novo é preservada (oficiosMagicos/magiaInata/magiasAtivas)", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      disciplinaMagica: { oficiosMagicos: ["alquimia", "constructo"], magiaInata: true, magiasAtivas: ["shin"] },
+    });
+    assert.deepEqual(migrado.disciplinaMagica.oficiosMagicos, ["alquimia", "constructo"]);
+    assert.equal(migrado.disciplinaMagica.magiaInata, true);
+    assert.deepEqual(migrado.disciplinaMagica.magiasAtivas, ["shin"]);
   });
 
   it("hp.superficiais nasce em 0 pra ficha sem esse campo", () => {

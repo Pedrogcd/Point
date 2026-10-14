@@ -25,7 +25,7 @@ describe("MAGIAS", () => {
     assert.equal(sensor.placeholder, true);
     assert.equal(sensor.custoMp, null);
   });
-  it("Mísseis Mágicos tem ajusteDados +1 (Base mágica + 1 + Magias Ofensivas)", () => {
+  it("Mísseis Mágicos tem ajusteDados +1 (Base mágica + 1 + Ofícios/Inteligência)", () => {
     assert.equal(getMagiaPorId("misseis_magicos").ajusteDados, 1);
   });
   it("magias marcadas 'superficial' no guia têm o campo superficial=true", () => {

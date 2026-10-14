@@ -3,7 +3,9 @@
 // 1. Lógica pura — resolveFichaAtaque() (ponte entre o painel e o motor,
 //    exportada de point-amaranth-app.jsx só pra isso) monta o defensor
 //    sintético certo e repassa pro mesmo resolveAtaque() do Confronto
-//    (docs/SISTEMA_MAGIA.md, 14/10 — substitui o antigo resolveAttack()).
+//    (docs/SISTEMA_MAGIA.md, 13/10 — substitui o antigo resolveAttack();
+//    docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10 — Blindado Mágico/Resistência
+//    Mágica saíram, Resiste a Magia entrou).
 // 2. Render — o painel Ataque monta sem quebrar com um ataque mágico ou
 //    físico selecionado.
 // Roda com `node --test` (Node >=20, nativo) ou `npm test`.
@@ -95,10 +97,10 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtaq
     assert.equal(r.rolagemAtaque.successes, 0);
   });
 
-  it("Blindado Mágico não afeta ataque marcial (Blindado físico só conta pra ataque físico)", (t) => {
-    mockDice(t, [6, 1, 1, /*defesa*/ 1, 1]);
-    const r = resolveFichaAtaque({ character: makeAttacker(), attack: SOCO, targetBlindadoMagico: true });
-    assert.equal(r.rolagemAtaque.successes, 1); // 6 bate o limiar padrão 6+
+  it("14/10: Resiste a Magia não afeta ataque marcial (só reduz dados/garante sucesso contra ataque com descritor Magia)", (t) => {
+    mockDice(t, [7, 1, 1, /*defesa: vigor E(1)+resistFisicaProf E(1)=2, sem redução*/ 1, 1]);
+    const r = resolveFichaAtaque({ character: makeAttacker(), attack: SOCO, targetResisteAMagia: true });
+    assert.equal(r.rolagemDefesa.dice.length, 2);
   });
 
   it("ferimento agravante quando sucessos líquidos >= Vigor do alvo (grau cheio)", (t) => {

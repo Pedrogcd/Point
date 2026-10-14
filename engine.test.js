@@ -13,6 +13,7 @@ import {
   rollSuccessDice, migrateBrigaProfKey, defaultAttacksForCharacter,
   temDescritor, limiarAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, rolarComSortudo,
   extraDeManaMagica, diceBaseMagica, diceAtaqueFisico, diceAtaqueMagico,
+  contagemOficiosMagicos,
   resolveRolagemDefesa, determinarFerimento, aplicarFerimentos, resolveAtaque,
   resolveAtaqueEmArea, descritoresEfetivosDoAtaque,
 } from "./engine.js";
@@ -109,12 +110,12 @@ describe("computeMaxMana", () => {
   it("sem mp salvo, usa 3 como base", () => {
     assert.equal(computeMaxMana({}), 3);
   });
-  it("Magia Inata (disciplinaMagica.tipo) soma +1 MP máximo", () => {
-    const c = { mp: { max: 3 }, disciplinaMagica: { tipo: "magia-inata" } };
+  it("Magia Inata (disciplinaMagica.magiaInata) soma +1 MP máximo", () => {
+    const c = { mp: { max: 3 }, disciplinaMagica: { magiaInata: true } };
     assert.equal(computeMaxMana(c), 4);
   });
   it("Magia Inata não ultrapassa MANA_MAX", () => {
-    const c = { mp: { max: 6 }, disciplinaMagica: { tipo: "magia-inata" } };
+    const c = { mp: { max: 6 }, disciplinaMagica: { magiaInata: true } };
     assert.equal(computeMaxMana(c), MANA_MAX);
   });
 });
@@ -149,8 +150,11 @@ describe("computeStat", () => {
 describe("computeAcertoTipo", () => {
   const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
   const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
-  const magico = ACERTOS_POR_TIPO.find((e) => e.key === "magico");
 
+  it("não tem mais entrada 'Mágico' (14/10: sem Proficiência fixa pro pool mágico)", () => {
+    assert.equal(ACERTOS_POR_TIPO.find((e) => e.key === "magico"), undefined);
+    assert.equal(ACERTOS_POR_TIPO.length, 2);
+  });
   it("Corpo a corpo = Destreza + Combate Corpo a Corpo (bônus E=0..A=+4)", () => {
     const c = withProfs(withAttrs(makeCharacter(), { destreza: "C" }), { combateCorpoACorpo: "B" });
     const r = computeAcertoTipo(c, corpoACorpo);
@@ -165,14 +169,7 @@ describe("computeAcertoTipo", () => {
     assert.equal(r.daProficiencia, 1); // Armas de Fogo D
     assert.equal(r.total, 5);
   });
-  it("Mágico = só a Proficiência de Magias Ofensivas, sem atributo", () => {
-    const c = withProfs(makeCharacter(), { magiasOfensivas: "A" });
-    const r = computeAcertoTipo(c, magico);
-    assert.equal(r.doAtributo, 0); // magico.attr é null
-    assert.equal(r.daProficiencia, 4);
-    assert.equal(r.total, 4);
-  });
-  it("tudo em grau E dá Acerto 0 nos três tipos", () => {
+  it("tudo em grau E dá Acerto 0 nos dois tipos", () => {
     const c = makeCharacter();
     for (const entrada of ACERTOS_POR_TIPO) {
       assert.equal(computeAcertoTipo(c, entrada).total, 0, entrada.key);
@@ -313,33 +310,30 @@ describe("temDescritor", () => {
 
 describe("limiarAtaque", () => {
   it("padrão 6+ (LIMIAR_SUCESSO) sem Blindado", () => {
-    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor: makeCharacter(), tipoAtaque: "marcial", descritoresAtaque: [] });
+    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor: makeCharacter(), descritoresAtaque: [] });
     assert.equal(limiar, LIMIAR_SUCESSO);
   });
   it("7+ (LIMIAR_BLINDADO) contra defensor com Blindado, ataque físico", () => {
     const defensor = withDescritores(makeCharacter(), ["blindado"]);
-    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor, tipoAtaque: "marcial", descritoresAtaque: [] });
+    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor, descritoresAtaque: [] });
     assert.equal(limiar, LIMIAR_BLINDADO);
   });
-  it("Blindado físico não afeta ataque mágico (precisa de Blindado Mágico)", () => {
+  it("Blindado vale pra qualquer ataque, físico ou mágico (14/10: Blindado Mágico não existe mais separado)", () => {
     const defensor = withDescritores(makeCharacter(), ["blindado"]);
-    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor, tipoAtaque: "magico", descritoresAtaque: [] });
-    assert.equal(limiar, LIMIAR_SUCESSO);
+    const limiarFisico = limiarAtaque({ atacante: makeCharacter(), defensor, descritoresAtaque: [] });
+    assert.equal(limiarFisico, LIMIAR_BLINDADO);
+    const limiarMagico = limiarAtaque({ atacante: makeCharacter(), defensor, descritoresAtaque: ["magia"] });
+    assert.equal(limiarMagico, LIMIAR_BLINDADO);
   });
-  it("Blindado Mágico eleva o limiar de ataques mágicos", () => {
-    const defensor = withDescritores(makeCharacter(), ["blindado_magico"]);
-    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor, tipoAtaque: "magico", descritoresAtaque: [] });
-    assert.equal(limiar, LIMIAR_BLINDADO);
-  });
-  it("Perfurante ignora Blindado/Blindado Mágico (negação vence)", () => {
+  it("Perfurante ignora Blindado (negação vence)", () => {
     const defensor = withDescritores(makeCharacter(), ["blindado"]);
-    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor, tipoAtaque: "marcial", descritoresAtaque: ["perfurante"] });
+    const limiar = limiarAtaque({ atacante: makeCharacter(), defensor, descritoresAtaque: ["perfurante"] });
     assert.equal(limiar, LIMIAR_SUCESSO);
   });
   it("descritor de personagem ignora_blindado (retrocompatibilidade) também ignora Blindado", () => {
     const atacante = withDescritores(makeCharacter(), ["ignora_blindado"]);
     const defensor = withDescritores(makeCharacter(), ["blindado"]);
-    const limiar = limiarAtaque({ atacante, defensor, tipoAtaque: "marcial", descritoresAtaque: [] });
+    const limiar = limiarAtaque({ atacante, defensor, descritoresAtaque: [] });
     assert.equal(limiar, LIMIAR_SUCESSO);
   });
 });
@@ -393,16 +387,36 @@ describe("diceAtaqueFisico", () => {
   });
 });
 
-describe("diceAtaqueMagico", () => {
-  it("pool = Base mágica (2d10+extra) + grau de Magias Ofensivas + ajuste da magia", () => {
-    const attacker = withProfs(makeCharacter(), { magiasOfensivas: "B" }); // grau 4
-    // manaGasta=2, custoMagia=1 -> extra=1 -> base=3; +magiasOfensivas(4) = 7
-    assert.equal(diceAtaqueMagico(attacker, 2, 1, 0), 7);
+describe("contagemOficiosMagicos", () => {
+  it("soma a quantidade de ofícios conhecidos + ofícios extras", () => {
+    const c = { disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "alquimia"], oficiosExtras: 1 } };
+    assert.equal(contagemOficiosMagicos(c), 3);
   });
-  it("Mísseis Mágicos (ajusteDados +1): Base mágica + 1 + Magias Ofensivas", () => {
-    const attacker = makeCharacter(); // magiasOfensivas E = 1
-    // manaGasta=1, custoMagia=1 -> extra=0 -> base=2; +1(magiasOfensivas) +1(ajuste) = 4
-    assert.equal(diceAtaqueMagico(attacker, 1, 1, 1), 4);
+  it("sem disciplinaMagica, retorna 0", () => {
+    assert.equal(contagemOficiosMagicos({}), 0);
+  });
+});
+
+describe("diceAtaqueMagico", () => {
+  it("pool (fonte 'oficios', padrão) = Base mágica (2d10+extra) + contagem de Ofícios + ajuste da magia", () => {
+    const attacker = { disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "alquimia", "constructo"] } }; // 3 ofícios
+    // manaGasta=2, custoMagia=1 -> extra=1 -> base=3; +3(ofícios) = 6
+    assert.equal(diceAtaqueMagico(attacker, 2, 1, "oficios", 0), 6);
+  });
+  it("pool (fonte 'inteligencia') = Base mágica + grau de Inteligência + ajuste da magia", () => {
+    const attacker = withAttrs(makeCharacter(), { inteligencia: "B" }); // grau 4
+    // manaGasta=2, custoMagia=1 -> extra=1 -> base=3; +4(inteligência) = 7
+    assert.equal(diceAtaqueMagico(attacker, 2, 1, "inteligencia", 0), 7);
+  });
+  it("Mísseis Mágicos (ajusteDados +1): Base mágica + 1 + Ofícios/Inteligência", () => {
+    const attacker = makeCharacter(); // sem ofícios, sem disciplinaMagica
+    // manaGasta=1, custoMagia=1 -> extra=0 -> base=2; +0(ofícios) +1(ajuste) = 3
+    assert.equal(diceAtaqueMagico(attacker, 1, 1, "oficios", 1), 3);
+  });
+  it("Magia Inata soma +1 dado fixo, não conta como ofício", () => {
+    const attacker = { disciplinaMagica: { magiaInata: true } };
+    // manaGasta=1, custoMagia=1 -> extra=0 -> base=2; +0(ofícios) +1(magia inata) = 3
+    assert.equal(diceAtaqueMagico(attacker, 1, 1, "oficios", 0), 3);
   });
 });
 
@@ -414,41 +428,61 @@ describe("resolveRolagemDefesa", () => {
   it("Resistência Física + Atributo Geral escolhido, contra ataque físico", (t) => {
     const defensor = withProfs(withAttrs(makeCharacter(), { vigor: "C" }), { resistFisicaProf: "B" }); // 3+4=7 dados
     mockDice(t, [1, 1, 1, 1, 1, 1, 1]);
-    const r = resolveRolagemDefesa({ defensor, tipoAtaque: "marcial", defesaAtributo: "vigor" });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor" });
     assert.equal(r.totalDice, 7);
     assert.equal(r.profKey, "resistFisicaProf");
   });
-  it("Resistência Mágica (não a Física), contra ataque mágico", (t) => {
-    const defensor = withProfs(makeCharacter(), { resistMagicaProf: "A", resistFisicaProf: "A" });
-    mockDice(t, [1, 1, 1, 1, 1, 1]); // vigor E(1) + resistMagicaProf A(5) = 6
-    const r = resolveRolagemDefesa({ defensor, tipoAtaque: "magico", defesaAtributo: "vigor" });
-    assert.equal(r.profKey, "resistMagicaProf");
+  it("14/10: contra ataque mágico também é só Resistência Física (Resistência Mágica não existe mais)", (t) => {
+    const defensor = withProfs(makeCharacter(), { resistFisicaProf: "A" });
+    mockDice(t, [1, 1, 1, 1, 1, 1]); // vigor E(1) + resistFisicaProf A(5) = 6
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", ehMagia: true });
+    assert.equal(r.profKey, "resistFisicaProf");
     assert.equal(r.totalDice, 6);
   });
   it("Saturante: -2 dados (mín. 0) só quando a defesa usa Destreza como base", (t) => {
     const defensor = withAttrs(makeCharacter(), { destreza: "D" }); // destreza D(2) + resistFisicaProf E(1) = 3
     mockDice(t, [1]); // 3-2=1 dado
-    const r = resolveRolagemDefesa({ defensor, tipoAtaque: "marcial", defesaAtributo: "destreza", saturante: true });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", saturante: true });
     assert.equal(r.totalDice, 1);
   });
   it("Saturante não reduz nada se a defesa não usar Destreza", (t) => {
     const defensor = withAttrs(makeCharacter(), { vigor: "D" });
     mockDice(t, [1, 1, 1]);
-    const r = resolveRolagemDefesa({ defensor, tipoAtaque: "marcial", defesaAtributo: "vigor", saturante: true });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", saturante: true });
     assert.equal(r.totalDice, 3); // vigor D(2) + resistFisicaProf E(1), sem redução
   });
   it("Saturante nunca deixa o pool negativo", (t) => {
     const defensor = makeCharacter(); // destreza E(1) + resistFisicaProf E(1) = 2
     mockDice(t, [1]); // rollSuccessDice sempre rola ao menos 1 dado, mesmo com totalDice=0
-    const r = resolveRolagemDefesa({ defensor, tipoAtaque: "marcial", defesaAtributo: "destreza", saturante: true });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", saturante: true });
     assert.equal(r.totalDice, 0);
   });
   it("defensor Sortudo aplica o re-roll na própria rolagem de defesa", (t) => {
     const defensor = withDescritores(withAttrs(makeCharacter(), { vigor: "C" }), ["sortudo"]); // 3+1=4 dados
     mockDice(t, [7, 1, 8, 9, /*reroll do 1*/ 10]);
-    const r = resolveRolagemDefesa({ defensor, tipoAtaque: "marcial", defesaAtributo: "vigor" });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor" });
     assert.equal(r.sortudoAplicado.original, 1);
     assert.equal(r.sortudoAplicado.novo, 10);
+  });
+  it("14/10: Resiste a Magia rola 1 dado a menos contra ataque com descritor Magia", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { vigor: "C" }), ["resiste_a_magia"]); // 3+1=4 dados, -1 = 3
+    mockDice(t, [1, 1, 1]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", ehMagia: true });
+    assert.equal(r.totalDice, 3);
+    assert.equal(r.resisteAMagia, true);
+  });
+  it("14/10: Resiste a Magia não reduz dados contra ataque sem o descritor Magia", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { vigor: "C" }), ["resiste_a_magia"]); // 3+1=4 dados, sem redução
+    mockDice(t, [1, 1, 1, 1]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor" });
+    assert.equal(r.totalDice, 4);
+    assert.equal(r.resisteAMagia, false);
+  });
+  it("14/10: Resiste a Magia garante ao menos 1 sucesso mesmo sem nenhum dado acertar", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { vigor: "C" }), ["resiste_a_magia"]); // 3+1-1=3 dados
+    mockDice(t, [1, 1, 1]); // nenhum sucesso natural
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", ehMagia: true });
+    assert.equal(r.successes, 1);
   });
 });
 
@@ -644,50 +678,49 @@ describe("defaultAttacksForCharacter", () => {
 describe("fichas do Grupo Aurora (Sidepoint)", () => {
   const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
   const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
-  const magico = ACERTOS_POR_TIPO.find((e) => e.key === "magico");
 
   const AURORA = [
     {
       nome: "Leon Winters",
       atributosGerais: { destreza: "C", vigor: "E" },
-      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", defesaProf: "D" },
       procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
-      esperado: { defesa: 9, acerto: [4, 2, 0], hp: 3, sp: 4 },
+      esperado: { defesa: 9, acerto: [4, 2], hp: 3, sp: 4 },
     },
     {
       nome: "Merkel Winters",
       atributosGerais: { destreza: "D", vigor: "D" },
-      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", defesaProf: "D" },
       procs: ["persistente", "instinto_selvagem", "furia_crescente"],
-      esperado: { defesa: 9, acerto: [3, 1, 0], hp: 4, sp: 4 },
+      esperado: { defesa: 9, acerto: [3, 1], hp: 4, sp: 4 },
     },
     {
       nome: "Raiko",
       atributosGerais: { destreza: "E", vigor: "D" },
-      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E" },
+      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", defesaProf: "E" },
       procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
-      esperado: { defesa: 8, acerto: [1, 0, 1], hp: 3, sp: 3 },
+      esperado: { defesa: 8, acerto: [1, 0], hp: 3, sp: 3 },
     },
     {
       nome: "Akira Cagliostro",
       atributosGerais: { destreza: "C", vigor: "E" },
-      proficiencias: { combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "E", armasDeFogo: "E", defesaProf: "D" },
       procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
-      esperado: { defesa: 9, acerto: [2, 2, 0], hp: 3, sp: 4 },
+      esperado: { defesa: 9, acerto: [2, 2], hp: 3, sp: 4 },
     },
     {
       nome: "K (Kanny)",
       atributosGerais: { destreza: "C", vigor: "E" },
-      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E" },
+      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "D", defesaProf: "E" },
       procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
-      esperado: { defesa: 8, acerto: [3, 3, 0], hp: 2, sp: 3 },
+      esperado: { defesa: 8, acerto: [3, 3], hp: 2, sp: 3 },
     },
     {
       nome: "Mevil Ishran",
       atributosGerais: { destreza: "E", vigor: "D" },
-      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", defesaProf: "D" },
       procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
-      esperado: { defesa: 9, acerto: [1, 0, 0], hp: 4, sp: 4 },
+      esperado: { defesa: 9, acerto: [1, 0], hp: 4, sp: 4 },
     },
   ];
 
@@ -702,7 +735,6 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       assert.equal(computeStat(c, "defesa"), ficha.esperado.defesa, "Defesa");
       assert.equal(computeAcertoTipo(c, corpoACorpo).total, ficha.esperado.acerto[0], "Acerto corpo a corpo");
       assert.equal(computeAcertoTipo(c, armaDeFogo).total, ficha.esperado.acerto[1], "Acerto arma de fogo");
-      assert.equal(computeAcertoTipo(c, magico).total, ficha.esperado.acerto[2], "Acerto mágico");
       assert.equal(computeMaxHP(c), ficha.esperado.hp, "HP máximo");
       assert.equal(computeMaxSP(c), ficha.esperado.sp, "SP máximo");
     });

@@ -54,12 +54,23 @@ function migrateAttributes(attrs) {
 // 10) "Resumo de Poder" legado: fichas salvas antes do campo `abilities` existir
 //     não têm essa lista — sem isso, o CharacterForm quebrava com tela branca
 //     ao tentar .map() em undefined.
-// 11) Sistema de magia/combate (14/10, docs/SISTEMA_MAGIA.md): a proficiência
+// 11) Sistema de magia/combate (13/10, docs/SISTEMA_MAGIA.md): a proficiência
 //     "Técnica" (tecnicaProf) virou "Manipulação de Mana" (manipulacaoManaProf);
 //     Resistência Natural (Física/Mágica) saiu do statBase — a defesa agora é
 //     a rolagem ativa de Resistência Física/Mágica, sem base numérica fixa.
 //     hp.superficiais (contador de pontos de HP com ferimento superficial
 //     ainda não quebrado) nasce em 0 pra quem não tiver.
+// 12) Mudanças de 14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): as proficiências
+//     Magias Ofensivas, Resistência Mágica e Manipulação de Mana (ex-Técnica,
+//     item 11 acima) deixaram de existir — grau salvo nelas é descartado (não
+//     há mais pra onde migrar, a defesa virou só Resistência Física e o pool
+//     mágico passou a usar Ofícios Mágicos/Inteligência). O antigo
+//     disciplinaMagica.tipo ("oficio-magico"/"magia-inata", único, 13/10) virou
+//     oficiosMagicos (array, até 3 disciplinas) + magiaInata (flag
+//     independente) — Magia Inata migra 1:1 (mesmo conceito, só que
+//     desacoplado); ofícios NÃO migram automaticamente de "oficio-magico"
+//     ("Fichas existentes: 0 ofícios por ora", conforme o guia) — fica pro
+//     jogador escolher as disciplinas na ficha.
 export function migrarPersonagem(ch) {
   const isAlmah = ch.id === "almah" || (ch.name || "").trim().toLowerCase() === "almah mason";
   const withoutRemoved = (ch.attacks || []).filter((atk) => {
@@ -116,6 +127,22 @@ export function migrarPersonagem(ch) {
   delete proficienciasSalvas.tecnicaProf;
   const proficiencias = { ...PROFICIENCIAS_DEFAULT, ...proficienciasSalvas };
   delete proficiencias.briga; // proficiencia eliminada do sistema
+  // 14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): Magias Ofensivas, Resistência
+  // Mágica e Manipulação de Mana saíram do sistema — grau salvo é descartado.
+  delete proficiencias.magiasOfensivas;
+  delete proficiencias.resistMagicaProf;
+  delete proficiencias.manipulacaoManaProf;
+  // disciplinaMagica: "tipo" único (oficio-magico/magia-inata, 13/10) virou
+  // oficiosMagicos (array) + magiaInata (flag independente), 14/10. Ofícios
+  // não migram do antigo "oficio-magico" (0 por ora, ver item 12 acima);
+  // Magia Inata migra 1:1.
+  const disciplinaMagicaSalva = ch.disciplinaMagica || {};
+  const disciplinaMagica = {
+    oficiosMagicos: Array.isArray(disciplinaMagicaSalva.oficiosMagicos) ? disciplinaMagicaSalva.oficiosMagicos : [],
+    oficiosExtras: 0,
+    magiaInata: disciplinaMagicaSalva.magiaInata ?? (disciplinaMagicaSalva.tipo === "magia-inata"),
+    magiasAtivas: Array.isArray(disciplinaMagicaSalva.magiasAtivas) ? disciplinaMagicaSalva.magiasAtivas : [],
+  };
   const grupo = ch.grupo || grupoDoPersonagem(ch);
   const racialAbility = ch.racialAbility || { name: "", description: "" };
   const classesSalvas = Array.isArray(ch.classes) ? ch.classes : [];
@@ -142,7 +169,7 @@ export function migrarPersonagem(ch) {
   const imagemPos = { y: 50, zoom: 1, ...(ch.imagemPos || {}) };
   return {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
-    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos,
+    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinaMagica,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha,
   };
 }

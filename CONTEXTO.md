@@ -6,7 +6,7 @@ Documento de continuidade. Leia junto com `SISTEMA.md` (regras completas) e `REA
 
 ## O que é este projeto
 
-App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de pool de d10 (desde 14/10 — ver `docs/SISTEMA_MAGIA.md`). Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura do motor" abaixo).
+App de gerenciamento para a campanha de RPG de mesa **Point** (universo Amaranth), em português brasileiro. Sistema próprio de pool de d10 (desde 14/10 — ver `docs/SISTEMA_MAGIA.md`, atualizado no mesmo dia por `docs/MUDANCAS_RACAS_E_MAGIA.md`, que vale por cima onde os dois divergirem). Arquivo principal: `point-amaranth-app.jsx` (componente React, ~300KB) + `engine.js` (motor de combate, extraído dele — ver "Arquitetura do motor" abaixo).
 
 Publicado como site próprio (Vite + PWA, deploy no GitHub Pages) — ver "Arquitetura de publicação" abaixo. **Não depende mais do Lovable.**
 
@@ -357,6 +357,29 @@ Pedro mandou um guia novo completo (`docs/SISTEMA_MAGIA.md`, salvo verbatim) e p
 
 Suíte de testes: 580 → **584 testes** (novos describes em `engine.test.js` pra todo o motor novo, `data/magias.test.js`, ajustes em `personagens.test.js`/`suthStats.test.js`/`hetalionStats.test.js`/`rollPanel.test.js`/`racasCatalogo.test.js`). Build de produção confirmado; verificado no Confronto, na aba Ataque e na aba Magia via Playwright (screenshots: pool de ataque/defesa rolando, Escudo de Mana descontando mana e gerando recuperação).
 
+### Mudanças de raças e magia (14/10, mesmo dia): Ofícios Mágicos, Blindado unificado, defesa só Resistência Física
+
+Pedro mandou `docs/MUDANCAS_RACAS_E_MAGIA.md` (fonte de verdade) horas depois do reescrever acima, com mudanças de regra em cima do que tinha acabado de entrar. Pedido: implementar as seções "Regras"/"Raças"/"Catálogo de magias", NÃO implementar "Pendências" (registrar cada item), dados de raça/magia sempre em arquivo editável.
+
+1. **Proficiências extintas**: Magias Ofensivas, Resistência Mágica e Manipulação de Mana (ex-Técnica, criada horas antes no mesmo dia) saem do `PROFICIENCIAS_LIST` — não sobra nenhuma proficiência fixa pro pool mágico. Nat. Mágica (atributo) e o descritor Blindado Mágico também somem.
+2. **Defesa sempre por Resistência Física**, físico ou mágico — `resolveRolagemDefesa` não branca mais por tipo de ataque; `limiarDaHabilidade`/`findTriggeredProc` (já órfãos) continuam recebendo o profKey antigo sem quebrar (`GRADE_VALUE[undefined] || 1`).
+3. **Blindado unificado**: um descritor só (`blindado`), 7+ contra qualquer ataque, Perfurante ignora. `limiarAtaque` perde o parâmetro `tipoAtaque`.
+4. **Pool de ataque mágico muda de base**: Base mágica + (contagem de Ofícios Mágicos **ou** grau de Inteligência, à escolha do jogador a cada conjuração) + ajuste da magia. `diceAtaqueMagico` ganha o parâmetro `fonte` ("oficios"/"inteligencia").
+5. **Ofícios Mágicos (nova disciplina multi-escolha)**: até 3 disciplinas (`magias-de-guerra` — ex-Ofício Mágico/Evocação, mantém +1 Magias Gerais; `encantamentos`; `alquimia`; `constructo` — catálogo em `data/magias.js:OFICIOS_MAGICOS`), cada uma conhecida conta 1 dado (`engine.contagemOficiosMagicos`). Substitui o `disciplinaMagica.tipo` único de 13/10.
+6. **Magia Inata simplificada**: vira flag independente (`disciplinaMagica.magiaInata`, +1 dado fixo, não conta como ofício, +1 MP) — pode coexistir com qualquer nº de ofícios. Resolve o TODO da seção 11 abaixo ("Magias Defensivas não existe") ao remover a dependência de qualquer Proficiência.
+7. **Recuperação de mana**: fórmula muda de "Manipulação de Mana + mana gasta" pra "contagem de Ofícios Mágicos + mana gasta" (mesma mecânica de 1 sucesso = 1 mana).
+8. **Resiste a Magia** (descritor novo, habilidade nova de Descendentes de Arcani): ao defender de ataque com descritor Magia, rola 1 dado a menos e tem 1 sucesso garantido — implementado como `ehMagia`/`resiste_a_magia` em `resolveRolagemDefesa`.
+9. **Teto de grau por habilidade**: até agora todo bônus racial de grau tinha teto C fixo (`grauComBonus`). Duas habilidades da tabela (Goethiano/Vigor, Pele Grossa/Resistência Física) ganham teto A — novo parâmetro opcional em `grauComBonus` + helper `tetoGrauDoPersonagem` em `racasCatalogo.js` (função separada da já testada `bonusGrauDoPersonagem`, pra não mudar o formato de retorno dela).
+10. **Bônus de grau racial, não por habilidade**: "todo tipo de elfo"/"todo tipo de humano ganha +1 grau à escolha" (Clã Corvus/Mana Estática) — interpretado como bônus da RAÇA inteira (minha leitura do texto, não da habilidade específica), novo mecanismo `BONUS_GRAU_ESCOLHA_POR_RACA` + campo `character.bonusGrauEscolhaRaca` (um valor só, não por habilidade).
+11. **+1 ofício mágico extra** (Clã Natrus/Corvus/Seasus): `BONUS_OFICIO_EXTRA_POR_HABILIDADE` + `oficiosExtrasDoPersonagem`, mesclado em `disciplinaMagica.oficiosExtras` por `comGrausEfetivos` (soma ao que já estiver salvo, não sobrescreve).
+12. **Catálogo de raças** (`catalogo-racas.json`, versão 14/10): as 7 linhas da tabela do guia (Goethiano, Descendentes de Arcani, Clã Natrus, Clã Corvus, Clã Seasus, Mana Estática, Pele Grossa) + a regra de Blindado no topo do arquivo.
+
+**Pendências do guia, explicitamente NÃO implementadas (pedido do Pedro)**: revisão das habilidades passivas que usavam Técnica/Magias Ofensivas (Golpe Preciso, Borrão, Giro Defensivo, Potencial Mágico Ofensivo, Magias Energéticas — já órfãs desde a reescrita de horas antes, continuam órfãs, agora apontando pra proficiências que nem existem mais em `PROFICIENCIAS_LIST`, só em `PROC_ABILITIES`); como o jogador adquire magias alem das iniciais (reserva); novo limite de disciplinas marciais (a Técnica saiu); Prioridade -1/atrasada 1/Veloz continuam só etiquetas, sem efeito no motor.
+
+**Decisões minhas, flagueadas pro Pedro revisar**: "todo tipo de elfo/humano" como bônus de raça (item 10 acima) em vez de habilidade específica — é a leitura mais literal do texto, mas pode não ser a intenção; "dá Acadêmicos e Tecnologia" (parte do texto de Magias de guerra) ficou só *flavor*, sem nenhum "+1" explícito no guia pra implementar; a ficha migrada zera `oficiosMagicos` mesmo pra quem tinha `disciplinaMagica.tipo === "oficio-magico"` (13/10) — "Fichas existentes: 0 ofícios por ora" no guia, não migrei pra `magias-de-guerra` automaticamente apesar da linha "Evocação vira o Ofício Mágico: Magias de guerra" sugerir equivalência direta.
+
+Suíte de testes: 584 → **605 testes**. Build de produção confirmado.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 
@@ -546,9 +569,9 @@ Ver "Sistema de Magia e Combate reescrito do zero" nas Decisões de design acima
 - **As 11 Habilidades Passivas de Combate** (`PROC_ABILITIES`) ficaram órfãs — nenhum gatilho dispara mais automaticamente (dependiam do modelo antigo). Redesenhar pro modelo novo, ou aposentar a feature?
 - **Os 6 status effects de texto livre** (IMPACTO/DESACELERAÇÃO/ENRAIZAMENTO/ACELERAÇÃO/CHAMAS/ENVENENAMENTO) têm o mesmo problema — mesma pergunta.
 - **`Resistência Armadura`** não foi removida (só "Resistência Natural" foi pedida), mas não tem mais função mecânica nenhuma no `resolveAtaque`. Remover também, ou dar uma função nova a ela?
-- **Magias Defensivas**: o guia pede essa Proficiência pra Magia Inata, mas ela não existe na ficha — hoje usa Resistência Mágica no lugar (TODO no código, `racasCatalogo.js:bonusGrauDoPersonagem`). Criar a Proficiência de verdade, ou manter assim?
-- **Sensor** (magia 12 do catálogo) é placeholder — pool e custo ainda "a definir" no próprio guia.
-- **`ACERTOS_POR_TIPO`/`computeAcertoTipo`** (painel de resumo "Acerto" na ficha) mostra o bônus do modelo antigo (E=0..A=+4), não o nº de dados do pool novo — cosmético, mas desatualizado.
+- ~~**Magias Defensivas**: o guia pede essa Proficiência pra Magia Inata...~~ **resolvida em 14/10 (mesmo dia, ver "Mudanças de raças e magia" abaixo)**: Magia Inata virou flag independente (`disciplinaMagica.magiaInata`), sem usar proficiência nenhuma — Resistência Mágica (que era o substituto temporário) foi extinta no mesmo pacote de mudanças.
+- **Sensor** (magia 12 do catálogo) é placeholder — pool e custo ainda "a definir" no próprio guia (continua assim em 14/10).
+- ~~**`ACERTOS_POR_TIPO`/`computeAcertoTipo`** mostra o bônus do modelo antigo...~~ **mudou de natureza em 14/10**: a entrada "Mágico" foi removida de vez (não há mais proficiência fixa pro pool mágico pra mostrar) — `ACERTOS_POR_TIPO` agora só tem Corpo a corpo/Arma de fogo.
 - **`DuelRoller`/aba Ataque/aba Magia** perderam a re-rolagem de dado individual via MP/SP que existia no modelo antigo (dependia das duas fases Acerto/Confirmação) — hoje só mostra o resultado de `resolveAtaque`, sem interação de re-rolagem no resultado. Se isso fizer falta na mesa, dá pra reimplementar em cima do pool novo (reler um índice do array `dice`, recomputar sucessos).
 
 ---

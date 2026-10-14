@@ -23,8 +23,8 @@ before(async () => {
 // resolveResistenciaAtiva em engine.js), por isso os dois números agora
 // sempre coincidem (nenhum dos dois soma proficiência).
 const TABELA_ESPERADA = {
-  hetalion_valefor: { defesa: 9, resNatFis: 4, resNatMag: 4, acerto: [2, 2, 4], hp: 3, mp: 3 },
-  hetalion_yurity: { defesa: 10, resNatFis: 5, resNatMag: 5, acerto: [4, 6, 4], hp: 4, mp: 3 },
+  hetalion_valefor: { defesa: 9, resNatFis: 4, resNatMag: 4, acerto: [2, 2], hp: 3, mp: 3 },
+  hetalion_yurity: { defesa: 10, resNatFis: 5, resNatMag: 5, acerto: [4, 6], hp: 4, mp: 3 },
 };
 
 describe("Tabela de estatísticas do Valefor/Yurity (engine.js x dossiê enviado)", () => {

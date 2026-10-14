@@ -56,27 +56,34 @@ export function getAttrGrade(character, key) {
 // grau E–A dos atributos.
 //
 // "tecnicaProf"/"Técnica" virou "manipulacaoManaProf"/"Manipulação de Mana"
-// (14/10, docs/SISTEMA_MAGIA.md item 5 — pedido explícito do Pedro). O grau
-// salvo em cada ficha é preservado pela migração (ver personagens.js,
-// migrarTecnicaParaManipulacaoMana). Referências à chave antiga antes do
-// rename (listadas no relatório final da PR): PROFICIENCIAS_LIST (este
-// arquivo), PROC_ABILITIES (golpe_certeiro/fortaleza_viva/reflexo_agil usavam
-// "tecnicaProf" como proficienciaLimiar; golpe_penetrante lia
-// attacker.proficiencias.tecnicaProf direto pro bônus de Confirmação — ambos
-// os mecanismos saíram do resolveAtaque novo, ver nota em PROC_ABILITIES),
-// point-amaranth-app.jsx (proficiencias de todo personagem semente, texto da
-// aba Habilidades/Proficiências), engine.test.js.
+// (14/10, docs/SISTEMA_MAGIA.md item 5), e depois — mesmo dia, documento
+// seguinte docs/MUDANCAS_RACAS_E_MAGIA.md — "Manipulação de Mana" junto com
+// "Magias Ofensivas" e "Resistência Mágica" saíram de vez do catálogo: a
+// recuperação de mana na cena passou a usar a contagem de Ofícios Mágicos
+// (ver contagemOficiosMagicos) em vez de uma proficiência, o pool de ataque
+// mágico passou a usar Ofícios OU Inteligência (escolha do jogador, ver
+// diceAtaqueMagico), e a defesa contra QUALQUER ataque (físico ou mágico)
+// passa a ser sempre Resistência Física (ver resolveRolagemDefesa). Grau
+// salvo nessas 3 chaves em fichas antigas é descartado na migração (ver
+// personagens.js) — não há pra onde migrar esse grau, o conceito não existe
+// mais. Referências à essas 3 chaves antes da remoção (listadas no relatório
+// final da PR): PROFICIENCIAS_LIST (este arquivo), ACERTOS_POR_TIPO (entrada
+// "magico" removida — não tinha mais proficiência fixa pra mostrar),
+// PROC_ABILITIES (golpe_certeiro/fortaleza_viva/reflexo_agil usavam
+// manipulacaoManaProf, surto_arcano/toque_flamejante usavam magiasOfensivas,
+// como proficienciaLimiar — já eram órfãs desde 14/10, ver nota ali; ficaram
+// com chave morta de propósito, não as redesenhei, é a revisão de
+// habilidades passivas que o Pedro pediu pra NÃO fazer agora),
+// racasCatalogo.js (BONUS_GRAU_POR_HABILIDADE de várias raças), catalogo-
+// racas.json, point-amaranth-app.jsx, engine.test.js/racasCatalogo.test.js.
 export const PROFICIENCIAS_LIST = [
   // Combate — perícias usadas nos cálculos de combate (somam com o atributo correspondente).
   // "Briga" foi eliminada (21/09) — Ataque desarmado passou a usar Combate Corpo a Corpo,
   // igual toda arma branca. Fichas salvas com profKey "briga" migram automaticamente.
   { key: "armasDeFogo", label: "Armas de Fogo", categoria: "combate" },
   { key: "combateCorpoACorpo", label: "Combate Corpo a Corpo", categoria: "combate" },
-  { key: "magiasOfensivas", label: "Magias Ofensivas", categoria: "combate" },
   { key: "defesaProf", label: "Defesa", categoria: "combate" },
   { key: "resistFisicaProf", label: "Resistência Física", categoria: "combate" },
-  { key: "resistMagicaProf", label: "Resistência Mágica", categoria: "combate" },
-  { key: "manipulacaoManaProf", label: "Manipulação de Mana", categoria: "combate" },
   // Física (não-combate)
   { key: "atletismo", label: "Atletismo", categoria: "fisica" },
   { key: "oficio", label: "Ofício", categoria: "fisica" },
@@ -150,17 +157,21 @@ export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, ger
 // quebrar quem ainda importa STAT_USA_GRAU_CHEIO.
 export const STAT_USA_GRAU_CHEIO = new Set();
 
-// Os Acertos reais do personagem, um por tipo de ataque — usado só como
-// RESUMO/exibição na ficha (não alimenta resolveAtaque, que já lê o grau do
-// atributo/proficiência direto). Esses números de bônus (E=0..A=+4) são do
-// modelo antigo "dado + bônus vs limiar"; o modelo novo é pool de dados
-// (sem bônus somado ao dado), então esse resumo mostra uma ideia aproximada
-// de "força de ataque" mas não corresponde 1:1 à fórmula nova. TODO: revisar
-// esse painel pra mostrar o número de dados do pool em vez do bônus antigo.
+// Os Acertos reais do personagem, um por tipo de ataque físico — usado só
+// como RESUMO/exibição na ficha (não alimenta resolveAtaque, que já lê o
+// grau do atributo/proficiência direto). Esses números de bônus (E=0..A=+4)
+// são do modelo antigo "dado + bônus vs limiar"; o modelo novo é pool de
+// dados (sem bônus somado ao dado), então esse resumo mostra uma ideia
+// aproximada de "força de ataque" mas não corresponde 1:1 à fórmula nova.
+// TODO: revisar esse painel pra mostrar o número de dados do pool em vez do
+// bônus antigo. A entrada "Mágico" saiu em 14/10 (docs/MUDANCAS_RACAS_E_
+// MAGIA.md): o pool mágico não tem mais uma Proficiência fixa (é Base
+// mágica + Ofícios OU Inteligência, escolha do jogador a cada conjuração) —
+// não dava pra resumir num par atributo/proficiência fixo como os outros
+// dois tipos.
 export const ACERTOS_POR_TIPO = [
   { key: "corpoACorpo", label: "Corpo a corpo", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
   { key: "armaDeFogo", label: "Arma de fogo", attr: "destreza", prof: "armasDeFogo", tipo: "arma_de_fogo" },
-  { key: "magico", label: "Mágico", attr: null, prof: "magiasOfensivas", tipo: "magico" },
 ];
 
 export function computeAcertoTipo(character, entrada) {
@@ -442,11 +453,15 @@ export function computeMaxSP(character) {
 }
 
 // MP (mana) máximo: 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Magia Inata (+1 MP
-// máximo) soma aqui, igual Persistente soma em HP/SP.
+// máximo) soma aqui, igual Persistente soma em HP/SP. Magia Inata virou um
+// flag independente (`disciplinaMagica.magiaInata`, 14/10 docs/MUDANCAS_
+// RACAS_E_MAGIA.md) — não é mais um "tipo" de disciplina exclusivo com
+// Ofício Mágico: um personagem pode ter Ofícios Mágicos E Magia Inata ao
+// mesmo tempo.
 export const MANA_MIN = 1;
 export const MANA_MAX = 6;
 export function computeMaxMana(character) {
-  const bonusMagiaInata = (character?.disciplinaMagica?.tipo === "magia-inata") ? 1 : 0;
+  const bonusMagiaInata = character?.disciplinaMagica?.magiaInata ? 1 : 0;
   const base = character?.mp?.max ?? 3;
   return Math.max(MANA_MIN, Math.min(MANA_MAX, base + bonusMagiaInata));
 }
@@ -554,13 +569,18 @@ export function temDescritor(entidade, nome) {
 }
 
 export const LIMIAR_SUCESSO = 5; // dado > 5 => 6+ é sucesso
-export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado/Blindado Mágico
+export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado
 
 // Limiar efetivo do dado de ATAQUE contra um defensor: 7+ se o defensor tiver
-// Blindado (ataque físico) ou Blindado Mágico (ataque mágico), exceto se o
-// ataque for Perfurante (ignora Blindado/Blindado Mágico) — "quando duas
-// habilidades se contradizem, a negação vence" (docs/SISTEMA_MAGIA.md),
+// Blindado, exceto se o ataque for Perfurante (ignora Blindado) — "quando
+// duas habilidades se contradizem, a negação vence" (docs/SISTEMA_MAGIA.md),
 // então Perfurante sempre vence Blindado, sem exceção adicional.
+//
+// 14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): Blindado Mágico deixou de existir
+// como descritor separado — Blindado agora "vale contra qualquer ataque
+// (físico ou mágico)", um só descritor pros dois tipos. `tipoAtaque`
+// continua no parâmetro (outras partes do motor/chamadores ainda o usam pra
+// montar o pool de ataque), mas não entra mais nesta checagem.
 //
 // Retrocompatibilidade (decisão minha, não pedida explicitamente — listada no
 // relatório final): o descritor de PERSONAGEM "ignora_blindado" (concedido
@@ -568,12 +588,11 @@ export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado/B
 // desta mudança) também ignora Blindado, do mesmo jeito que Perfurante —
 // preserva o que essas habilidades já faziam, já que o guia novo não fala
 // delas.
-export function limiarAtaque({ atacante, defensor, tipoAtaque, descritoresAtaque }) {
+export function limiarAtaque({ atacante, defensor, descritoresAtaque }) {
   const ds = descritoresAtaque || [];
   const perfurante = ds.includes("perfurante") || temDescritor(atacante, "ignora_blindado");
   if (perfurante) return LIMIAR_SUCESSO;
-  const descritorBlindado = tipoAtaque === "magico" ? "blindado_magico" : "blindado";
-  return temDescritor(defensor, descritorBlindado) ? LIMIAR_BLINDADO : LIMIAR_SUCESSO;
+  return temDescritor(defensor, "blindado") ? LIMIAR_BLINDADO : LIMIAR_SUCESSO;
 }
 
 // "Extra" de dados da Base Mágica: mana gasta ACIMA do custo da magia (mínimo
@@ -598,25 +617,54 @@ export function diceAtaqueFisico(attacker, atributoKey, profKey, ajusteDados = 0
   return Math.max(0, base + (ajusteDados || 0));
 }
 
+// Contagem de Ofícios Mágicos (docs/MUDANCAS_RACAS_E_MAGIA.md): cada
+// disciplina conhecida (até 3, ver `character.disciplinaMagica.oficiosMagicos`)
+// conta como 1, "como grau de proficiência" — mais os "ofícios extras"
+// concedidos por raça/habilidade (ver racasCatalogo.js:oficiosExtrasDoPersonagem,
+// já somado em `disciplinaMagica.oficiosExtras` pelo comGrausEfetivos antes de
+// chegar aqui — engine.js não conhece raças, só soma o que já veio pronto).
+export function contagemOficiosMagicos(character) {
+  const oficios = character?.disciplinaMagica?.oficiosMagicos || [];
+  const extras = character?.disciplinaMagica?.oficiosExtras || 0;
+  return oficios.length + extras;
+}
+
 // Pool de dados de um ataque MÁGICO: Base Mágica (2d10 + extra de mana) +
-// grau de Magias Ofensivas + ajuste da magia (ex.: Mísseis Mágicos é "Base
-// mágica + 1 + Magias Ofensivas", ajusteDados=1).
-export function diceAtaqueMagico(attacker, manaGasta, custoMagia, ajusteDados = 0) {
-  const base = diceBaseMagica(manaGasta, custoMagia) + (GRADE_VALUE[attacker?.proficiencias?.magiasOfensivas] || 1);
+// (Ofícios Mágicos OU Inteligência, à escolha do jogador a cada conjuração —
+// `fonte`: "oficios" default, ou "inteligencia") + ajuste da magia (ex.:
+// Mísseis Mágicos é "Base mágica + 1 + Ofícios/Inteligência", ajusteDados=1)
+// + 1 dado fixo se o personagem tiver Magia Inata (docs/MUDANCAS_RACAS_E_
+// MAGIA.md: "+1d10 extra nas rolagens de magia, não conta como ofício").
+// Magias Ofensivas (proficiência) saiu — não existe mais no catálogo.
+export function diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte = "oficios", ajusteDados = 0) {
+  const contribuicao = fonte === "inteligencia"
+    ? (GRADE_VALUE[getAttrGrade(attacker, "inteligencia")] || 1)
+    : contagemOficiosMagicos(attacker);
+  const bonusMagiaInata = attacker?.disciplinaMagica?.magiaInata ? 1 : 0;
+  const base = diceBaseMagica(manaGasta, custoMagia) + contribuicao + bonusMagiaInata;
   return Math.max(0, base + (ajusteDados || 0));
 }
 
-// Rolagem de DEFESA do personagem atacado: Resistência Física (ataque físico)
-// ou Resistência Mágica (ataque mágico) + o Atributo Geral que o jogador
-// escolher como base da defesa (docs/SISTEMA_MAGIA.md — "Contra ataque
-// físico: Resistência Física. Contra ataque mágico: Resistência Mágica").
-// Saturante: se `defesaAtributo` for "destreza", rola 2 dados a menos (mín. 0).
-export function resolveRolagemDefesa({ defensor, tipoAtaque, defesaAtributo, saturante, limiar = LIMIAR_SUCESSO }) {
-  const profKey = tipoAtaque === "magico" ? "resistMagicaProf" : "resistFisicaProf";
+// Rolagem de DEFESA do personagem atacado: SEMPRE Resistência Física, contra
+// qualquer tipo de ataque (14/10, docs/MUDANCAS_RACAS_E_MAGIA.md — "Contra
+// qualquer ataque o defensor rola apenas Resistência Física"; Resistência
+// Mágica saiu do catálogo) + o Atributo Geral que o jogador escolher como
+// base da defesa. Saturante: se `defesaAtributo` for "destreza", rola 2
+// dados a menos (mín. 0). `ehMagia`: true quando o ataque tem o descritor
+// "magia" — ativa o Resiste a Magia (Descendentes de Arcani, ver abaixo).
+export function resolveRolagemDefesa({ defensor, defesaAtributo, saturante, ehMagia, limiar = LIMIAR_SUCESSO }) {
+  const profKey = "resistFisicaProf";
   let totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] || 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] || 1);
   if (saturante && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - 2);
+  // Resiste a Magia (Descendentes de Arcani, catalogo-racas.json): ao se
+  // defender de um ataque com o descritor "magia", rola 1 dado a menos e tem
+  // 1 sucesso sempre garantido — substitui o antigo Blindado Mágico dessa raça.
+  const resisteAMagia = !!ehMagia && temDescritor(defensor, "resiste_a_magia");
+  if (resisteAMagia) totalDice = Math.max(0, totalDice - 1);
   const temSortudo = temDescritor(defensor, "sortudo");
-  return { ...rolarComSortudo(totalDice, limiar, temSortudo), totalDice, profKey };
+  const rolagem = rolarComSortudo(totalDice, limiar, temSortudo);
+  if (resisteAMagia && rolagem.successes < 1) rolagem.successes = 1; // 1 sucesso sempre garantido
+  return { ...rolagem, totalDice, profKey, resisteAMagia };
 }
 
 // Determina o tipo de ferimento causado pelos sucessos líquidos de um ataque
@@ -667,11 +715,12 @@ export function aplicarFerimentos(hp, tipo, quantidade = 1) {
 // jogador, ver UI). `feridas`/`superficial` vêm da arma/magia (padrão 1
 // ferida, não forçado a superficial).
 export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, feridas = 1, superficial = false }) {
-  const limiar = limiarAtaque({ atacante: attacker, defensor: defender, tipoAtaque, descritoresAtaque });
+  const limiar = limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
   const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo");
   const rolagemAtaque = rolarComSortudo(totalDiceAtaque, limiar, temSortudoAtacante);
   const saturante = descritoresAtaque.includes("saturante");
-  const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, tipoAtaque, defesaAtributo, saturante });
+  const ehMagia = descritoresAtaque.includes("magia");
+  const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo, saturante, ehMagia });
   const sucessosLiquidos = Math.max(0, rolagemAtaque.successes - rolagemDefesa.successes);
   const letal = descritoresAtaque.includes("letal");
   const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1;
@@ -695,11 +744,12 @@ export function resolveAtaqueEmArea({ attacker, defenders, tipoAtaque, totalDice
   const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo");
   const rolagemAtaqueBase = rolarComSortudo(totalDiceAtaque, LIMIAR_SUCESSO, temSortudoAtacante);
   const resultados = (defenders || []).map((defender) => {
-    const limiar = limiarAtaque({ atacante: attacker, defensor: defender, tipoAtaque, descritoresAtaque });
+    const limiar = limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
     const sucessosAtaque = rolagemAtaqueBase.dice.filter((d) => d === 10 || d > limiar).length;
     const atributoDefesa = defesaAtributoPorDefensor ? defesaAtributoPorDefensor(defender) : defesaAtributo;
     const saturante = descritoresAtaque.includes("saturante");
-    const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, tipoAtaque, defesaAtributo: atributoDefesa, saturante });
+    const ehMagia = descritoresAtaque.includes("magia");
+    const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo: atributoDefesa, saturante, ehMagia });
     const sucessosLiquidos = Math.max(0, sucessosAtaque - rolagemDefesa.successes);
     const letal = descritoresAtaque.includes("letal");
     const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] || 1;

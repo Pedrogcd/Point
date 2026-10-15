@@ -255,6 +255,71 @@ export const BONUS_OFICIO_EXTRA_POR_HABILIDADE = {
   "cla-seasus": 1,
 };
 
+// Bônus de HP/MP/SP máximo por habilidade — implementado em 15/10 (decisão
+// do Pedro: "implemente os bônus de HP, MP e SP das raças que hoje são só
+// texto"). Até então o texto de `efeito` no catálogo prometia esses bônus
+// (ex.: "+1 HP máximo"), mas `computeMaxHP`/`computeMaxSP`/`computeMaxMana`
+// (engine.js) nunca liam nada de raça — ver docs/revisao/00-resumo.md item 1
+// (achado da revisão de 15/10, corrigido aqui). Curado à mão contra o
+// `efeito` de cada habilidade do catálogo, mesmo processo de
+// BONUS_GRAU_POR_HABILIDADE (não é derivado de `bonus[]`, que é só pra
+// exibição). Cada entrada é `{ hp, mp, sp }`, com as três opcionais (só a(s)
+// que a habilidade realmente concede).
+export const BONUS_RECURSO_POR_HABILIDADE = {
+  "mana-concentrada": { sp: 1 },
+  "mana-fluida": { mp: 1 },
+  homunculo: { hp: 1 },
+  "descendentes-de-arcani": { mp: 1 },
+  "descendentes-de-sabato": { hp: 1 },
+  "coelho-bode": { sp: 1 },
+  leonino: { sp: 1 },
+  reptiliano: { hp: 1 },
+  "lobo-canino": { sp: 1 },
+  "raposa-kitsune": { sp: 1 },
+  "reservatorio-de-mana": { mp: 1 },
+  haxos: { hp: 1 },
+};
+
+// Bônus de HP/MP/SP FIXO concedido pela RAÇA em si (mesmo padrão de
+// BONUS_GRAU_FIXO_POR_RACA, mas pra recursos) — Niosh: `catalogo-racas.json`
+// já dizia "+1 HP máximo para toda a raça (hoje sem campo no motor)" desde
+// 14/10; o campo existe agora. Tengou: `catalogo-racas.json` descreve a
+// Singularidade de todo Tengou dando "+2 MP" — como não há (ainda) um campo
+// de "quantas Singularidades" na ficha pra diferenciar a primeira (narrativa)
+// de uma segunda, o bônus foi implementado como fixo pra raça inteira (a
+// leitura mais simples e fiel ao texto disponível; ver relatório da sessão
+// se o Pedro quiser revisar esse ponto específico).
+export const BONUS_RECURSO_FIXO_POR_RACA = {
+  niosh: { hp: 1 },
+  tengou: { mp: 2 },
+};
+
+// Soma os bônus de HP/MP/SP das habilidades ATIVAS (principal + secundária,
+// mesmo critério de bonusGrauDoPersonagem) mais o bônus fixo de raça. Não
+// tem teto (HP/MP/SP não seguem a escada de grau E-A) — os limites ficam a
+// cargo de quem consome o resultado (MANA_MIN/MANA_MAX em computeMaxMana).
+export function bonusRecursosDoPersonagem(character) {
+  const raca = encontrarRaca(character?.raca);
+  const principal = encontrarPrincipal(raca, character?.habilidadePrincipal);
+  const secundaria = encontrarSecundaria(raca, character?.habilidadeSecundaria);
+  const resultado = { hp: 0, mp: 0, sp: 0 };
+  for (const hab of [principal, secundaria]) {
+    const bonus = hab && BONUS_RECURSO_POR_HABILIDADE[hab.id];
+    if (bonus) {
+      resultado.hp += bonus.hp || 0;
+      resultado.mp += bonus.mp || 0;
+      resultado.sp += bonus.sp || 0;
+    }
+  }
+  const fixoRaca = BONUS_RECURSO_FIXO_POR_RACA[character?.raca];
+  if (fixoRaca) {
+    resultado.hp += fixoRaca.hp || 0;
+    resultado.mp += fixoRaca.mp || 0;
+    resultado.sp += fixoRaca.sp || 0;
+  }
+  return resultado;
+}
+
 // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): até 3 slots por personagem
 // (character.disciplinas, array de até 3 `{ disciplinaId, habilidadesAtivas }`
 // ou `null` pra slot vazio — mesmo padrão posicional de `character.procs`).
@@ -485,10 +550,14 @@ export function comGrausEfetivos(character) {
     magiaInata: temMagiaInataDoPersonagem(character),
     magiasAtivas: magiasAtivasDoPersonagem(character),
   };
+  // `bonusRecursos` (15/10): HP/MP/SP de raça/habilidade, lido por
+  // engine.js:computeMaxHP/computeMaxSP/computeMaxMana — mesmo padrão de
+  // disciplinaMagica acima, sempre recalculado, nunca lido direto da ficha.
+  const bonusRecursos = bonusRecursosDoPersonagem(character);
   const bonusAplicado = { proficiencias: {}, atributos: {} };
   const semBonusDeGrau = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0;
   if (semBonusDeGrau) {
-    return { character: { ...character, disciplinaMagica }, bonusAplicado };
+    return { character: { ...character, disciplinaMagica, bonusRecursos }, bonusAplicado };
   }
   const tetos = tetoGrauDoPersonagem(character);
   const proficiencias = { ...character.proficiencias };
@@ -505,5 +574,5 @@ export function comGrausEfetivos(character) {
     atributosGerais[chave] = novoGrau;
     bonusAplicado.atributos[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
   }
-  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica }, bonusAplicado };
+  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, bonusRecursos }, bonusAplicado };
 }

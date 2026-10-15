@@ -56,23 +56,13 @@ describe("migrarPersonagem", () => {
     assert.ok(!migrado.attacks.some((a) => a.nome === "Ataque desarmado"));
   });
 
-  it("corrige Defesa/Resistência Armadura no valor padrão antigo, não mexe em valor editado", () => {
-    const padraoAntigo = migrarPersonagem({ id: "x", name: "X", statBase: { defesa: 0, resistArmadura: 7 } });
-    assert.notEqual(padraoAntigo.statBase.defesa, 0);
-    assert.notEqual(padraoAntigo.statBase.resistArmadura, 7);
-    const editado = migrarPersonagem({ id: "x", name: "X", statBase: { defesa: 99, resistArmadura: 99 } });
-    assert.equal(editado.statBase.defesa, 99);
-    assert.equal(editado.statBase.resistArmadura, 99);
-  });
-
-  it("remove Resistência Natural do statBase (não existe mais no sistema novo)", () => {
-    const migrado = migrarPersonagem({
-      id: "x", name: "X",
-      statBase: { resistNatural: 6, resistNaturalFisica: 6, resistNaturalMagica: 6 },
-    });
-    assert.equal("resistNatural" in migrado.statBase, false);
-    assert.equal("resistNaturalFisica" in migrado.statBase, false);
-    assert.equal("resistNaturalMagica" in migrado.statBase, false);
+  // A migração de statBase (Defesa/Resistência Armadura padrão antigo,
+  // remoção de Resistência Natural) saiu em 15/10 junto com o painel
+  // "Estatísticas de Combate"/STAT_LIST (ver engine.js) — fichas antigas
+  // mantêm o que já estava salvo em `ch.statBase`, só não é mais migrado.
+  it("preserva statBase de fichas antigas sem migrar (campo não lido por nada hoje)", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", statBase: { defesa: 0, resistArmadura: 7, resistNatural: 6 } });
+    assert.deepEqual(migrado.statBase, { defesa: 0, resistArmadura: 7, resistNatural: 6 });
   });
 
   it("14/10 (docs/MUDANCAS_RACAS_E_MAGIA.md): tecnicaProf/manipulacaoManaProf não existem mais depois da migração", () => {

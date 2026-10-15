@@ -63,6 +63,6 @@ Descritores ativos no motor hoje: `blindado`, `resiste_a_magia`, `desarmado_leta
   - Nenhuma fórmula em `engine.js` usa um número fixo de 3 dados — o pool sempre varia por grau/ajuste.
 - **Proficiência "Defesa" (`defesaProf`)**: ver doc 01 — não é lida em `resolveAtaque`/`resolveRolagemDefesa`; só aparece no painel decorativo `STAT_LIST`/`STAT_PROF_LINK` (`engine.js:530, 538-540`, renderizado em `point-amaranth-app.jsx:4646, 6878`).
 
-## Não verificado
+## Decisões do Pedro (15/10)
 
-Não encontrei um "10 natural = crítico" com efeito mecânico implementado — `rollSuccessDice` conta 10 natural como sucesso automático, mas o guia marca "o 10 natural fica como crítico (a confirmar)" (`docs/SISTEMA_MAGIA.md` linha 6) e não encontrei nenhuma lógica extra de crítico no motor novo (o conceito de crítico com +1 bônus é só do texto histórico `CORE_RULES`). Não dá pra confirmar se isso é intencional (crítico "virou" apenas contar como sucesso garantido) ou uma pendência esquecida — fica para o Pedro decidir.
+- **Crítico (10 natural)**: Pedro decidiu em 15/10 que o 10 natural fica como está por ora — conta só como sucesso automático em `rollSuccessDice`, sem efeito mecânico extra (sem o +1 bônus do texto histórico `CORE_RULES`). Pode ganhar efeito próprio no futuro, mas isso não foi implementado nesta rodada. Deixa de ser uma pendência "a confirmar" e passa a ser um "por ora não" — não é mais algo esquecido, é decisão tomada.

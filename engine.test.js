@@ -7,10 +7,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
-  PROFICIENCIAS_DEFAULT, PROC_ABILITIES, BASE_ATTACK_TYPES, ACERTOS_POR_TIPO,
+  PROFICIENCIAS_DEFAULT, PROC_ABILITIES, BASE_ATTACK_TYPES,
   GRADE_VALUE, GRADE_ORDER,
   attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX,
-  limiarDaHabilidade, findTriggeredProc, computeStat, computeAcertoTipo,
+  limiarDaHabilidade, findTriggeredProc,
   rollSuccessDice, migrateBrigaProfKey, defaultAttacksForCharacter,
   temDescritor, limiarAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, rolarComSortudo,
   extraDeManaMagica, diceBaseMagica, diceAtaqueFisico, diceAtaqueMagico,
@@ -100,6 +100,23 @@ describe("computeMaxHP / computeMaxSP", () => {
     assert.equal(computeMaxHP(comPersistente), computeMaxHP(semPersistente) + 1);
     assert.equal(computeMaxSP(comPersistente), computeMaxSP(semPersistente) + 1);
   });
+  // `bonusRecursos` (15/10): HP/MP/SP de raça/habilidade, calculado por
+  // racasCatalogo.js:bonusRecursosDoPersonagem e anexado pelo
+  // comGrausEfetivos — engine.js só soma o que já vem pronto (não conhece
+  // raças). Um character cru (sem bonusRecursos) continua funcionando igual
+  // antes, por isso o `|| 0`.
+  it("bonusRecursos.hp soma no HP máximo", () => {
+    const c = { ...makeCharacter(), bonusRecursos: { hp: 2 } };
+    assert.equal(computeMaxHP(c), computeMaxHP(makeCharacter()) + 2);
+  });
+  it("bonusRecursos.sp soma no SP máximo, junto com Persistente", () => {
+    const c = { ...makeCharacter(), procs: ["persistente"], bonusRecursos: { sp: 1 } };
+    assert.equal(computeMaxSP(c), computeMaxSP(makeCharacter()) + 2); // +1 Persistente +1 raça
+  });
+  it("character sem bonusRecursos (cru) computa igual antes de 15/10", () => {
+    assert.equal(computeMaxHP(makeCharacter()), 2);
+    assert.equal(computeMaxSP(makeCharacter()), 3);
+  });
 });
 
 describe("computeMaxMana", () => {
@@ -119,64 +136,19 @@ describe("computeMaxMana", () => {
     const c = { mp: { max: 6 }, disciplinaMagica: { magiaInata: true } };
     assert.equal(computeMaxMana(c), MANA_MAX);
   });
-});
-
-// ---------------------------------------------------------------------------
-// computeStat
-// ---------------------------------------------------------------------------
-
-describe("computeStat", () => {
-  it("Defesa = 8 + bônus (E=0..A=+4) da Proficiência de Defesa", () => {
-    const c = makeCharacter();
-    assert.equal(computeStat(c, "defesa"), 8); // defesaProf E = +0
-    assert.equal(computeStat(withProfs(c, { defesaProf: "C" }), "defesa"), 10); // +2
-    assert.equal(computeStat(withProfs(c, { defesaProf: "A" }), "defesa"), 12); // +4
+  it("bonusRecursos.mp (15/10, raça/habilidade) soma no MP máximo, junto com Magia Inata", () => {
+    const c = { mp: { max: 3 }, disciplinaMagica: { magiaInata: true }, bonusRecursos: { mp: 2 } };
+    assert.equal(computeMaxMana(c), 6); // 3 + 1 (Magia Inata) + 2 (raça) = 6
   });
-  it("Resistência Armadura = 8, sem proficiência vinculada (vestígio — sem função mecânica no resolveAtaque novo)", () => {
-    const c = makeCharacter();
-    assert.equal(computeStat(c, "resistArmadura"), 8);
-    assert.equal(computeStat(withProfs(c, { defesaProf: "A", resistFisicaProf: "A" }), "resistArmadura"), 8);
-  });
-  it("respeita statBase customizado e statTemp", () => {
-    const c = { ...makeCharacter(), statBase: { defesa: 10 }, statTemp: { defesa: -2 } };
-    assert.equal(computeStat(c, "defesa"), 8); // 10 - 2 + 0(prof)
-  });
-  it("Resistência Natural não existe mais como estatística (docs/SISTEMA_MAGIA.md item 2)", () => {
-    const c = makeCharacter();
-    assert.equal(computeStat(c, "resistNaturalFisica"), 0); // chave desconhecida -> 0, sem quebrar
-    assert.equal(computeStat(c, "resistNaturalMagica"), 0);
+  it("bonusRecursos.mp também não ultrapassa MANA_MAX", () => {
+    const c = { mp: { max: 6 }, bonusRecursos: { mp: 5 } };
+    assert.equal(computeMaxMana(c), MANA_MAX);
   });
 });
 
-describe("computeAcertoTipo", () => {
-  const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
-  const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
-
-  it("não tem mais entrada 'Mágico' (14/10: sem Proficiência fixa pro pool mágico)", () => {
-    assert.equal(ACERTOS_POR_TIPO.find((e) => e.key === "magico"), undefined);
-    assert.equal(ACERTOS_POR_TIPO.length, 2);
-  });
-  it("Corpo a corpo = Destreza + Combate Corpo a Corpo (bônus E=0..A=+4)", () => {
-    const c = withProfs(withAttrs(makeCharacter(), { destreza: "C" }), { combateCorpoACorpo: "B" });
-    const r = computeAcertoTipo(c, corpoACorpo);
-    assert.equal(r.doAtributo, 2); // Destreza C
-    assert.equal(r.daProficiencia, 3); // Combate Corpo a Corpo B
-    assert.equal(r.total, 5);
-  });
-  it("Arma de fogo = Destreza + Armas de Fogo", () => {
-    const c = withProfs(withAttrs(makeCharacter(), { destreza: "A" }), { armasDeFogo: "D" });
-    const r = computeAcertoTipo(c, armaDeFogo);
-    assert.equal(r.doAtributo, 4); // Destreza A
-    assert.equal(r.daProficiencia, 1); // Armas de Fogo D
-    assert.equal(r.total, 5);
-  });
-  it("tudo em grau E dá Acerto 0 nos dois tipos", () => {
-    const c = makeCharacter();
-    for (const entrada of ACERTOS_POR_TIPO) {
-      assert.equal(computeAcertoTipo(c, entrada).total, 0, entrada.key);
-    }
-  });
-});
+// computeStat/computeAcertoTipo (e seus testes aqui) saíram em 15/10 — eram
+// os painéis decorativos antigos (ver nota em engine.js, perto de
+// PROFICIENCIAS_DEFAULT), sem função mecânica desde 14/10.
 
 // ---------------------------------------------------------------------------
 // migrateBrigaProfKey — migração da proficiência "Briga" eliminada
@@ -825,70 +797,65 @@ describe("defaultAttacksForCharacter", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Fichas do Grupo Aurora (Sidepoint) — confere Defesa/Acerto/HP/SP (Resistência
-// Natural saiu da ficha em 14/10, não é mais testada aqui).
+// Fichas do Grupo Aurora (Sidepoint) — confere HP/SP (Defesa/Acerto por tipo
+// saíram em 15/10 junto com computeStat/computeAcertoTipo; Resistência
+// Natural já tinha saído da ficha em 14/10, não é mais testada aqui).
 // ---------------------------------------------------------------------------
 
 describe("fichas do Grupo Aurora (Sidepoint)", () => {
-  const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
-  const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
-
   const AURORA = [
     {
       nome: "Leon Winters",
       atributosGerais: { destreza: "C", vigor: "E" },
-      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E" },
       procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
-      esperado: { defesa: 9, acerto: [4, 2], hp: 3, sp: 4 },
+      esperado: { hp: 3, sp: 4 },
     },
     {
       nome: "Merkel Winters",
       atributosGerais: { destreza: "D", vigor: "D" },
-      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E" },
       procs: ["persistente", "instinto_selvagem", "furia_crescente"],
-      esperado: { defesa: 9, acerto: [3, 1], hp: 4, sp: 4 },
+      esperado: { hp: 4, sp: 4 },
     },
     {
       nome: "Raiko",
       atributosGerais: { destreza: "E", vigor: "D" },
-      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", defesaProf: "E" },
+      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E" },
       procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
-      esperado: { defesa: 8, acerto: [1, 0], hp: 3, sp: 3 },
+      esperado: { hp: 3, sp: 3 },
     },
     {
       nome: "Akira Cagliostro",
       atributosGerais: { destreza: "C", vigor: "E" },
-      proficiencias: { combateCorpoACorpo: "E", armasDeFogo: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "E", armasDeFogo: "E" },
       procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
-      esperado: { defesa: 9, acerto: [2, 2], hp: 3, sp: 4 },
+      esperado: { hp: 3, sp: 4 },
     },
     {
       nome: "K (Kanny)",
       atributosGerais: { destreza: "C", vigor: "E" },
-      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "D", defesaProf: "E" },
+      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "D" },
       procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
-      esperado: { defesa: 8, acerto: [3, 3], hp: 2, sp: 3 },
+      esperado: { hp: 2, sp: 3 },
     },
     {
       nome: "Mevil Ishran",
       atributosGerais: { destreza: "E", vigor: "D" },
-      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", defesaProf: "D" },
+      proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E" },
       procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
-      esperado: { defesa: 9, acerto: [1, 0], hp: 4, sp: 4 },
+      esperado: { hp: 4, sp: 4 },
     },
   ];
 
   for (const ficha of AURORA) {
-    it(`${ficha.nome}: Defesa, Acerto por tipo e HP/SP batem com a ficha`, () => {
+    it(`${ficha.nome}: HP/SP batem com a ficha`, () => {
       const c = makeCharacter({
         atributosGerais: { ...makeCharacter().atributosGerais, ...ficha.atributosGerais },
         proficiencias: { ...PROFICIENCIAS_DEFAULT, ...ficha.proficiencias },
         procs: ficha.procs,
         sp: { max: 3 }, // no arquivo de sementes, sp.max salvo é sempre 3 — computeMaxSP soma o +1 do Persistente
       });
-      assert.equal(computeStat(c, "defesa"), ficha.esperado.defesa, "Defesa");
-      assert.equal(computeAcertoTipo(c, corpoACorpo).total, ficha.esperado.acerto[0], "Acerto corpo a corpo");
-      assert.equal(computeAcertoTipo(c, armaDeFogo).total, ficha.esperado.acerto[1], "Acerto arma de fogo");
       assert.equal(computeMaxHP(c), ficha.esperado.hp, "HP máximo");
       assert.equal(computeMaxSP(c), ficha.esperado.sp, "SP máximo");
     });

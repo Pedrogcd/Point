@@ -5,7 +5,7 @@
 // esta lógica em nenhum dos dois lugares — chame migrarPersonagens.
 
 import {
-  BASE_ATTACK_TYPES, STAT_BASE_DEFAULTS, ATRIBUTOS_GERAIS_DEFAULT, PROFICIENCIAS_DEFAULT,
+  BASE_ATTACK_TYPES, ATRIBUTOS_GERAIS_DEFAULT, PROFICIENCIAS_DEFAULT,
   migrateBrigaProfKey, defaultAttacksForCharacter, MAX_PROCS, computeMaxHP, computeMaxSP,
 } from "./engine.js";
 import { grupoDoPersonagem } from "./sidepoint.js";
@@ -14,8 +14,6 @@ import { DISCIPLINAS, MAX_DISCIPLINAS } from "./data/magias.js";
 
 const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
 const REMOVED_NAMES = new Set(["chute"]);
-const OLD_DEFAULT_DEFESA = new Set([0, 5, undefined]);
-const OLD_DEFAULT_RESIST_ARMADURA = new Set([7, undefined]);
 
 // Ids antigos (13/10-14/10, checkbox solto disciplinaMagica.oficiosMagicos)
 // -> ids novos do catálogo DISCIPLINAS (data/magias.js, 14/10 — docs/
@@ -191,14 +189,10 @@ export function migrarPersonagem(ch) {
     if (isAlmah && nomeLower === "ataque desarmado") return false; // não repor pra Almah
     return true;
   });
-  const statBase = { ...(ch.statBase || {}) };
-  if (OLD_DEFAULT_DEFESA.has(statBase.defesa)) statBase.defesa = STAT_BASE_DEFAULTS.defesa;
-  if (OLD_DEFAULT_RESIST_ARMADURA.has(statBase.resistArmadura)) statBase.resistArmadura = STAT_BASE_DEFAULTS.resistArmadura;
-  // Resistência Natural não existe mais (docs/SISTEMA_MAGIA.md): defesa agora é
-  // só a rolagem ativa de Resistência Física/Mágica, sem base numérica.
-  delete statBase.resistNatural;
-  delete statBase.resistNaturalFisica;
-  delete statBase.resistNaturalMagica;
+  // statBase/statTemp/statLinks (painel antigo "Estatísticas de Combate")
+  // saíram em 15/10 — fichas antigas mantêm o que já estava salvo em
+  // `ch.statBase` (via o `...ch` do retorno abaixo), só não é mais migrado
+  // nem lido por nada (mesma regra de toda remoção de campo deste arquivo).
   const itensArmadura = (ch.itens?.armadura || []);
   const itens = (itensArmadura.length > 0 || ch.fichaFechada) ? ch.itens : { ...(ch.itens || { usaveis: [], principais: [] }), armadura: ["Armadura física"] };
   const attributes = migrateAttributes(ch.attributes);
@@ -257,7 +251,7 @@ export function migrarPersonagem(ch) {
   // antes de hoje, então toda ficha ganha `null` por padrão, não-destrutivo.
   const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
   return {
-    ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
+    ...ch, attacks: [...fixedAttacks, ...missing], itens, attributes, procs, grupo, racialAbility, classes,
     abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, disciplinaExtraHumano, descritores, bonusGrauEscolha,
   };

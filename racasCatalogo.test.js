@@ -5,6 +5,7 @@ import {
   descritoresDeSelecao, migrarSelecaoRacaLegado, temDescritor,
   CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
   BONUS_GRAU_ESCOLHA_POR_RACA, BONUS_OFICIO_EXTRA_POR_HABILIDADE,
+  BONUS_RECURSO_POR_HABILIDADE, BONUS_RECURSO_FIXO_POR_RACA, bonusRecursosDoPersonagem,
   bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
   oficiosExtrasDoPersonagem, tetoGrauDoPersonagem,
   disciplinasDoPersonagem, oficiosMagicosDoPersonagem, temMagiaInataDoPersonagem, magiasAtivasDoPersonagem,
@@ -336,6 +337,73 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   });
 });
 
+// Bônus de HP/MP/SP de raça/habilidade (15/10, decisão do Pedro: implementar
+// os bônus que até então eram só texto no catálogo — ver docs/revisao/
+// 00-resumo.md item 1, achado da revisão de 15/10, corrigido aqui).
+describe("racasCatalogo — bonusRecursosDoPersonagem", () => {
+  it("sem raça, devolve tudo zerado", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({}), { hp: 0, mp: 0, sp: 0 });
+    assert.deepEqual(bonusRecursosDoPersonagem(null), { hp: 0, mp: 0, sp: 0 });
+  });
+
+  it("Mana Fluida (humano) dá +1 MP", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-fluida" }), { hp: 0, mp: 1, sp: 0 });
+  });
+
+  it("Homúnculo (humano, secundária) dá +1 HP", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo" }), { hp: 1, mp: 0, sp: 0 });
+  });
+
+  it("Reservatório de Mana (elfo, secundária) dá +1 MP", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "elfo", habilidadeSecundaria: "reservatorio-de-mana" }), { hp: 0, mp: 1, sp: 0 });
+  });
+
+  it("Niosh (fixo de raça) dá +1 HP pra qualquer Niosh, independente da principal/secundária", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sharkan" }), { hp: 1, mp: 0, sp: 0 });
+  });
+
+  it("Niosh + Descendentes de Sabato: soma o fixo de raça (+1 HP) com o da habilidade (+1 HP) = +2", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-sabato" }), { hp: 2, mp: 0, sp: 0 });
+  });
+
+  it("Tengou (fixo de raça) dá +2 MP", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "tengou" }), { hp: 0, mp: 2, sp: 0 });
+  });
+
+  it("Coelho/Bode, Leonino, Lobo/Canino e Raposa/Kitsune (ningen, principal) dão +1 SP cada", () => {
+    for (const id of ["coelho-bode", "leonino", "lobo-canino", "raposa-kitsune"]) {
+      assert.deepEqual(bonusRecursosDoPersonagem({ raca: "ningen", habilidadePrincipal: id }), { hp: 0, mp: 0, sp: 1 }, id);
+    }
+  });
+
+  it("Reptiliano (ningen, principal) dá +1 HP", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "ningen", habilidadePrincipal: "reptiliano" }), { hp: 1, mp: 0, sp: 0 });
+  });
+
+  it("Descendentes de Arcani (niosh, principal) dá +1 MP — soma com o +1 HP fixo da raça Niosh", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "niosh", habilidadePrincipal: "descendentes-de-arcani" }), { hp: 1, mp: 1, sp: 0 });
+  });
+
+  it("Haxos (dragonato, principal) dá +1 HP", () => {
+    assert.deepEqual(bonusRecursosDoPersonagem({ raca: "dragonato", habilidadePrincipal: "haxos" }), { hp: 1, mp: 0, sp: 0 });
+  });
+
+  it("todo id mapeado em BONUS_RECURSO_POR_HABILIDADE existe de verdade no catálogo", () => {
+    const todasHabilidades = CATALOGO_RACAS.racas.flatMap((r) => [...r.principais, ...r.secundarias]);
+    const idsCatalogo = new Set(todasHabilidades.map((h) => h.id));
+    for (const id of Object.keys(BONUS_RECURSO_POR_HABILIDADE)) {
+      assert.ok(idsCatalogo.has(id), `id mapeado "${id}" não existe mais no catálogo`);
+    }
+  });
+
+  it("toda raça mapeada em BONUS_RECURSO_FIXO_POR_RACA existe de verdade no catálogo", () => {
+    const idsRacas = new Set(CATALOGO_RACAS.racas.map((r) => r.id));
+    for (const id of Object.keys(BONUS_RECURSO_FIXO_POR_RACA)) {
+      assert.ok(idsRacas.has(id), `raça mapeada "${id}" não existe mais no catálogo`);
+    }
+  });
+});
+
 describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () => {
   it("disciplinasDoPersonagem filtra slots vazios (null)", () => {
     const ch = { disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] }, null, null] };
@@ -529,6 +597,21 @@ describe("racasCatalogo — comGrausEfetivos", () => {
     assert.equal(character.atributosGerais, ch.atributosGerais); // não clonou à toa
     assert.deepEqual(character.disciplinaMagica, { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] });
     assert.deepEqual(bonusAplicado, { proficiencias: {}, atributos: {} });
+  });
+
+  // `bonusRecursos` (15/10): HP/MP/SP de raça/habilidade — sempre recalculado
+  // e anexado ao character efetivo, nos dois caminhos de comGrausEfetivos
+  // (com e sem bônus de grau), igual disciplinaMagica.
+  it("sem raça/habilidade, bonusRecursos sai zerado", () => {
+    const ch = { proficiencias: { investigacao: "E" }, atributosGerais: { forca: "E" } };
+    const { character } = comGrausEfetivos(ch);
+    assert.deepEqual(character.bonusRecursos, { hp: 0, mp: 0, sp: 0 });
+  });
+
+  it("Niosh + Descendentes de Sabato: bonusRecursos.hp = 2 (1 fixo de raça + 1 da habilidade)", () => {
+    const ch = { raca: "niosh", habilidadePrincipal: "descendentes-de-sabato", proficiencias: { investigacao: "C" }, atributosGerais: {} };
+    const { character } = comGrausEfetivos(ch);
+    assert.deepEqual(character.bonusRecursos, { hp: 2, mp: 0, sp: 0 });
   });
 
   it("Leonino com Investigação em E: ficha efetiva mostra D, bonusAplicado=1", () => {

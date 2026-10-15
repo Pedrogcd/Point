@@ -9,12 +9,10 @@ import {
   GRADE_VALUE, GRADE_ORDER,
   ATTR_LIST, ATRIBUTOS_GERAIS_LIST, ATRIBUTOS_GERAIS_DEFAULT, ATRIBUTOS_GERAIS_KEYS, getAttrGrade,
   PROFICIENCIAS_LIST, PROFICIENCIAS_DEFAULT,
-  STAT_LIST, DEFAULT_STAT_LINKS, STAT_BASE_DEFAULTS, STAT_PROF_LINK, STAT_USA_GRAU_CHEIO,
-  ACERTOS_POR_TIPO, computeAcertoTipo,
   PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS, MAX_PROCS,
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
   attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, parseFlatBonus,
-  limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
+  limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
   contagemOficiosMagicos,
@@ -237,13 +235,10 @@ const EQUIPMENT_REFERENCE = {
     { nome: "Granada", perfil: "Área · Zona 2 · Acerto 2S · Dano 1+S · Ferida 1" },
     { nome: "Escudo", perfil: "+1 na defesa, -1 no acerto (patch: -1 em um dado do ataque inimigo; gasta slot de equipamento)" },
   ],
-  armaduras: [
-    { nome: "Armadura leve", perfil: "7 de resistência" },
-    { nome: "Armadura média", perfil: "8 de resistência, -1 nos dois maiores dados de defesa" },
-    { nome: "Armadura pesada", perfil: "9 de resistência (patch: fixa em 9), -2 no maior dado de defesa, -1 prioridade, desvantagem em ataques de oportunidade" },
-    { nome: "Power armor", perfil: "8 de resistência, +1 confirmação de dano, -1 MP (sem MP: 8 de resistência, -1 em defesa)" },
-    { nome: "Armadura mágica", perfil: "5 de resistência + 1hp extra; recupera o HP da armadura gastando 3 de MP" },
-  ],
+  // "armaduras" (resistência por tipo de armadura) saiu em 15/10 (decisão do
+  // Pedro) — a Resistência Armadura não tem função mecânica no resolveAtaque
+  // novo (ver engine.js) desde 14/10; este bloco listava valores de
+  // resistência que não correspondem a nada calculado hoje.
   patchNotes: [
     "Armaduras agora defendem apenas a primeira confirmação de dano da rodada e não têm vida própria — exceto a armadura mágica.",
     "Armaduras físicas normalmente possuem +1 de resistência natural.",
@@ -545,9 +540,6 @@ function withFichaDefaults(c) {
     visivelJogador: false,
     imageUrl: "",
     imagemPos: { y: 50, zoom: 1 },
-    statBase: { ...STAT_BASE_DEFAULTS },
-    statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, geral: 0 },
-    statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
     attacks: defaultAttacksForCharacter(),
     itens: { usaveis: [], principais: [], armadura: ["Armadura física"] },
     habilidadesFicha: { ativas: [], especial: [], racial: [], passivas: [], extras: [] },
@@ -4229,9 +4221,6 @@ const emptyCharacter = () => ({
   affiliation: "", height: "", deity: "", weapon: "", traits: "", xp: 0, imageUrl: "", imagemPos: { y: 50, zoom: 1 },
   singularity: { name: "", level: "E", description: "" },
   attributes: {},
-  statBase: { ...STAT_BASE_DEFAULTS },
-  statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, geral: 0 },
-  statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
   attacks: defaultAttacksForCharacter(),
   itens: { usaveis: [], principais: [], armadura: ["Armadura física"] },
   abilities: [],
@@ -4609,58 +4598,9 @@ const inputStyle = {
 /* ---------------------------------------------------------------
    FICHA — visualização completa + rolador de dados
 ----------------------------------------------------------------*/
-function StatBlock({ character }) {
-  const caixa = { background: "#00000030", border: `1px solid ${LINE}`, borderRadius: 6, padding: "8px 10px", textAlign: "center" };
-  const rotulo = { fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" };
-  const numero = { fontFamily: "'Cinzel', serif", fontSize: 20, color: BRASS_BRIGHT, fontWeight: 700 };
-  const detalhe = { fontSize: 9, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" };
-  const sinal = (n) => (n >= 0 ? `+${n}` : `${n}`);
-
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Acerto (por tipo de ataque)</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 12 }}>
-        {ACERTOS_POR_TIPO.map((e) => {
-          const { total, doAtributo, daProficiencia } = computeAcertoTipo(character, e);
-          const grauAttr = e.attr ? getAttrGrade(character, e.attr) || "E" : null;
-          const grauProf = character?.proficiencias?.[e.prof] || "E";
-          const nomeProf = PROFICIENCIAS_LIST.find((p) => p.key === e.prof)?.label || e.prof;
-          return (
-            <div key={e.key} style={caixa}>
-              <div style={rotulo}>{e.label}</div>
-              <div style={numero}>{sinal(total)}</div>
-              <div style={detalhe}>
-                {e.attr
-                  ? `Destreza ${grauAttr} ${sinal(doAtributo)} · ${nomeProf} ${grauProf} ${sinal(daProficiencia)}`
-                  : `${nomeProf} ${grauProf} ${sinal(daProficiencia)} · sem atributo`}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Defesa e Resistências</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {STAT_LIST.map((st) => {
-          const usaGrau = STAT_USA_GRAU_CHEIO.has(st.key);
-          const profKey = STAT_PROF_LINK[st.key];
-          const nomeProf = profKey ? PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label : null;
-          return (
-            <div key={st.key} style={caixa}>
-              <div style={rotulo}>{st.label}</div>
-              <div style={numero}>{computeStat(character, st.key)}</div>
-              {usaGrau && (
-                <div style={detalhe}>
-                  2 + Vigor {character?.atributosGerais?.vigor || "E"} + {nomeProf} {character?.proficiencias?.[profKey] || "E"}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// StatBlock (Acerto por tipo + Defesa e Resistências) saiu em 15/10 (decisão
+// do Pedro) — eram os painéis decorativos ACERTOS_POR_TIPO/STAT_LIST,
+// removidos de engine.js (sem função mecânica desde 14/10, ver nota lá).
 
 function AbilityCategoryList({ title, items }) {
   if (!items || items.length === 0) return null;
@@ -5190,10 +5130,14 @@ function ChipsHabilidadesDisciplina({ ids, onClick }) {
 export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onRestoreAttacks, onPrev, onNext, onUpdateCharacter, initialTestPanelMode = "teste" }) {
   // Grau EFETIVO (base salvo na ficha + bônus de habilidade de raça, com teto
   // C) — usado em TODO lugar que mostra ou rola um atributo/proficiência
-  // (barras, Acerto/Dano/Defesa, Teste, Ataque). `character` cru só continua
-  // sendo usado pros campos que o bônus não toca (nome, imagem, hp/mp/sp,
-  // raça texto livre etc.) e pra abrir o formulário de edição — editar sempre
-  // mexe no grau BASE, nunca no efetivo. Ver racasCatalogo.js:comGrausEfetivos.
+  // (barras, Acerto/Dano/Defesa, Teste, Ataque). Também carrega
+  // `bonusRecursos` (15/10: HP/MP/SP de raça/habilidade) — por isso
+  // computeMaxHP/computeMaxSP/computeMaxMana aqui na ficha sempre recebem
+  // `characterEfetivo`, nunca `character` cru (senão o bônus de raça não
+  // apareceria). `character` cru continua sendo usado pros campos que o
+  // bônus de GRAU não toca (nome, imagem, raça texto livre etc. — mas não
+  // mais hp/mp/sp) e pra abrir o formulário de edição — editar sempre mexe
+  // no grau BASE, nunca no efetivo. Ver racasCatalogo.js:comGrausEfetivos.
   const { character: characterEfetivo, bonusAplicado } = useMemo(() => comGrausEfetivos(character), [character]);
   const [rollAttr, setRollAttr] = useState(ATRIBUTOS_GERAIS_LIST[0].key);
   const [rollProf, setRollProf] = useState(PROFICIENCIAS_LIST[0].key);
@@ -5420,7 +5364,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   function inicioDeTurno() {
     if (!onUpdateCharacter) return;
     const mpAtual = character.mp || { current: 0, max: 3 };
-    const max = computeMaxMana(character);
+    const max = computeMaxMana(characterEfetivo);
     onUpdateCharacter(character.id, {
       mp: { ...mpAtual, current: Math.min(max, mpAtual.current + (mpAtual.recuperarPendente || 0)), recuperarPendente: 0 },
     });
@@ -5429,7 +5373,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   function fimDeCena() {
     if (!onUpdateCharacter) return;
     const mpAtual = character.mp || { current: 0, max: 3 };
-    const max = computeMaxMana(character);
+    const max = computeMaxMana(characterEfetivo);
     onUpdateCharacter(character.id, { mp: { ...mpAtual, current: max, recuperarPendente: 0 } });
   }
 
@@ -5560,23 +5504,23 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             <div style={panelHeadStyle}>Recursos</div>
             <ResourceDots
               key={`hp-${character.id}`} label="HP" rachavel
-              resource={{ current: Math.min(character.hp?.current ?? computeMaxHP(character), computeMaxHP(character)), max: computeMaxHP(character) }}
+              resource={{ current: Math.min(character.hp?.current ?? computeMaxHP(characterEfetivo), computeMaxHP(characterEfetivo)), max: computeMaxHP(characterEfetivo) }}
               color={EMBER} icon={Droplet}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { hp: { ...character.hp, current: novo } }) : undefined}
             />
             <ResourceDots
               key={`mp-${character.id}`} label="MP (Mana Points)"
-              resource={{ current: Math.min(character.mp?.current ?? computeMaxMana(character), computeMaxMana(character)), max: computeMaxMana(character) }}
+              resource={{ current: Math.min(character.mp?.current ?? computeMaxMana(characterEfetivo), computeMaxMana(characterEfetivo)), max: computeMaxMana(characterEfetivo) }}
               color={MP_COLOR} icon={Sparkles}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { mp: { ...character.mp, current: novo } }) : undefined}
             />
             <ResourceDots
               key={`sp-${character.id}`} label="SP (Soul Points)" verboEsvaziar="evaporar"
-              resource={{ current: Math.min(character.sp?.current ?? computeMaxSP(character), computeMaxSP(character)), max: computeMaxSP(character) }}
+              resource={{ current: Math.min(character.sp?.current ?? computeMaxSP(characterEfetivo), computeMaxSP(characterEfetivo)), max: computeMaxSP(characterEfetivo) }}
               color={SP_COLOR} icon={Flame}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { sp: { ...character.sp, current: novo } }) : undefined}
             />
-            <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6){(character.procs || []).includes("persistente") ? " + 1 (Persistente)" : ""}. SP máximo{(character.procs || []).includes("persistente") ? " inclui +1 (Persistente)" : ""}. MP de {MANA_MIN} a {MANA_MAX} (docs/SISTEMA_MAGIA.md).</div>
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6){(character.procs || []).includes("persistente") ? " + 1 (Persistente)" : ""}{(characterEfetivo.bonusRecursos?.hp || 0) > 0 ? ` + ${characterEfetivo.bonusRecursos.hp} (raça/habilidade)` : ""}. SP máximo{(character.procs || []).includes("persistente") ? " inclui +1 (Persistente)" : ""}{(characterEfetivo.bonusRecursos?.sp || 0) > 0 ? ` + ${characterEfetivo.bonusRecursos.sp} (raça/habilidade)` : ""}. MP de {MANA_MIN} a {MANA_MAX} (docs/SISTEMA_MAGIA.md){(characterEfetivo.bonusRecursos?.mp || 0) > 0 ? `, +${characterEfetivo.bonusRecursos.mp} de raça/habilidade no máximo` : ""}.</div>
             {(character.mp?.recuperarPendente || 0) > 0 && (
               <div style={{ fontSize: 10.5, color: MP_COLOR, marginTop: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
                 +{character.mp.recuperarPendente} mana a recuperar (aplica no "Início de turno")
@@ -5586,8 +5530,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               <>
                 <Btn
                   onClick={() => onUpdateCharacter(character.id, {
-                    mp: { ...character.mp, current: computeMaxMana(character), recuperarPendente: 0 },
-                    sp: { ...character.sp, current: computeMaxSP(character) },
+                    mp: { ...character.mp, current: computeMaxMana(characterEfetivo), recuperarPendente: 0 },
+                    sp: { ...character.sp, current: computeMaxSP(characterEfetivo) },
                   })}
                   style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
                 >
@@ -5604,7 +5548,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </>
             )}
             {onUpdateCharacter && character.habilidadePrincipal === "cla-corvus" && (() => {
-              const hpAtual = character.hp?.current ?? computeMaxHP(character);
+              const hpAtual = character.hp?.current ?? computeMaxHP(characterEfetivo);
               const mpAtual = character.mp?.current ?? 0;
               const mpMax = character.mp?.max ?? 3;
               const podeConverter = hpAtual > 0 && mpAtual < mpMax;
@@ -6044,7 +5988,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   </Field>
                 </div>
                 <div style={{ fontSize: 10, color: manaInsuficiente ? EMBER : MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
-                  Mana atual: {manaAtual}/{computeMaxMana(character)}{manaInsuficiente ? " — mana insuficiente pra conjurar" : ""}. Usa o mesmo alvo sintético da aba Ataque.
+                  Mana atual: {manaAtual}/{computeMaxMana(characterEfetivo)}{manaInsuficiente ? " — mana insuficiente pra conjurar" : ""}. Usa o mesmo alvo sintético da aba Ataque.
                 </div>
 
                 <Btn variant="primary" onClick={castMagia} disabled={manaInsuficiente || magiaSelecionada?.placeholder} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
@@ -6330,7 +6274,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       <div style={panelStyle}>
         <div style={panelHeadStyle}>Atributos Gerais e Proficiências (estilo Vampiro: A Máscara)</div>
         <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 12 }}>
-          Força e Destreza migraram pra cá (saíram dos Atributos de Combate). Vigor determina o HP máximo (2 + bônus de Vigor). Os demais — Carisma, Manipulação, Compostura, Inteligência, Perspicácia, Resolução — não têm função de combate: servem pra testes interpretativos fora de combate. As Proficiências de Combate já entram nos cálculos de Acerto/Dano/Defesa/Resistência; as outras 22 são só de referência.
+          Força e Destreza migraram pra cá (saíram dos Atributos de Combate). Vigor determina o HP máximo (2 + bônus de Vigor). Os demais — Carisma, Manipulação, Compostura, Inteligência, Perspicácia, Resolução — não têm função de combate: servem pra testes interpretativos fora de combate. As Proficiências de Combate já entram nos cálculos de Acerto e Resistência (defesa); as outras 22 são só de referência.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div>
@@ -6424,6 +6368,13 @@ export function CharacterForm({ initial, onSave, onCancel }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
+
+  // `cEfetivo` (15/10): só pro preview do máximo de HP/MP/SP em Recursos (ver
+  // abaixo) — precisa do bonusRecursos de raça/habilidade, calculado por
+  // racasCatalogo.js:comGrausEfetivos a partir de raca/habilidadePrincipal/
+  // habilidadeSecundaria, que já estão em `c` (grau BASE, sem editar nada
+  // aqui). O resto do formulário continua editando `c` cru, como sempre.
+  const cEfetivo = useMemo(() => comGrausEfetivos(c).character, [c]);
 
   async function handlePickImage(e) {
     const file = e.target.files?.[0];
@@ -6628,17 +6579,6 @@ export function CharacterForm({ initial, onSave, onCancel }) {
     setC((prev) => ({ ...prev, itens: { ...(prev.itens || { usaveis: [], principais: [], armadura: [] }), [slotKey]: list } }));
   }
 
-  const statBase = c.statBase || { ...STAT_BASE_DEFAULTS };
-  const statLinks = c.statLinks || JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS));
-  function toggleStatLink(statKey, attrKey) {
-    setC((prev) => {
-      const links = { ...(prev.statLinks || JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS))) };
-      const cur = links[statKey] || [];
-      links[statKey] = cur.includes(attrKey) ? cur.filter((k) => k !== attrKey) : [...cur, attrKey];
-      return { ...prev, statLinks: links };
-    });
-  }
-
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -6823,7 +6763,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo por tipo de ataque físico, e Defesa/Resistência Física reforçando a stat equivalente. Ataques mágicos usam Ofícios Mágicos ou Inteligência, não uma proficiência fixa (ver docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
+        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo por tipo de ataque físico, e Resistência Física na defesa contra qualquer ataque. Ataques mágicos usam Ofícios Mágicos ou Inteligência, não uma proficiência fixa (ver docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
@@ -6865,21 +6805,6 @@ export function CharacterForm({ initial, onSave, onCancel }) {
           ))}
         </div>
       </details>
-
-      <SectionTitle icon={ShieldHalf}>Estatísticas de Combate</SectionTitle>
-      <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Defesa = base + bônus da Proficiência de Defesa. Resistências Naturais = base 2 + Vigor + Resistência (Física/Mágica), contando o grau cheio (E=1 … A=5): com tudo em E dá 4. Resistência Armadura é manual (não tem proficiência ligada a ela). A estatística Acerto foi removida — o Acerto real é por tipo de ataque e aparece na ficha.
-      </p>
-      {STAT_LIST.map((s) => (
-        <div key={s.key} style={{ display: "grid", gridTemplateColumns: "180px 90px 1fr 70px", gap: 10, alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontSize: 12.5, color: PARCHMENT }}>{s.label}</span>
-          <input type="number" style={inputStyle} value={statBase[s.key] ?? 0} onChange={(e) => set(["statBase", s.key], Number(e.target.value))} />
-          <span style={{ fontSize: 10.5, color: MUTED, fontStyle: "italic" }}>
-            {STAT_PROF_LINK[s.key] ? `+ Proficiência de ${PROFICIENCIAS_LIST.find((p) => p.key === STAT_PROF_LINK[s.key])?.label}` : "—"}
-          </span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: BRASS_BRIGHT, textAlign: "right" }}>= {computeStat(c, s.key)}</span>
-        </div>
-      ))}
 
       <SectionTitle icon={Target}>Ataques</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
@@ -6998,21 +6923,23 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       <SectionTitle>Recursos</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         {["hp", "mp", "sp"].map((res) => {
-          const maxHP = res === "hp" ? computeMaxHP(c) : null;
+          const maxHP = res === "hp" ? computeMaxHP(cEfetivo) : null;
           const temPersistente = (c.procs || []).includes("persistente");
+          const bonusRaca = cEfetivo.bonusRecursos?.[res] || 0;
           return (
             <div key={res}>
               <span style={{ display: "block", fontSize: 11, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>{res.toUpperCase()} (atual / máximo)</span>
               <div style={{ display: "flex", gap: 6 }}>
                 <input type="number" style={inputStyle} value={c[res].current} onChange={(e) => set([res, "current"], Number(e.target.value))} />
                 {res === "hp" ? (
-                  <input type="number" style={{ ...inputStyle, opacity: 0.6 }} value={maxHP} disabled title="Calculado pelo Vigor (+1 se tiver Persistente) — ajuste o Vigor nos Atributos Gerais" />
+                  <input type="number" style={{ ...inputStyle, opacity: 0.6 }} value={maxHP} disabled title="Calculado pelo Vigor (+1 se tiver Persistente, +bônus de raça/habilidade) — ajuste o Vigor nos Atributos Gerais" />
                 ) : (
                   <input type="number" style={inputStyle} value={c[res].max} onChange={(e) => set([res, "max"], Number(e.target.value))} />
                 )}
               </div>
-              {res === "hp" && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>Máximo = 2 + bônus de Vigor{temPersistente ? " + 1 (Persistente)" : ""} (ajuste o Vigor lá embaixo, em Atributos Gerais)</div>}
-              {res === "sp" && temPersistente && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>Persistente soma +1 ao máximo mostrado na ficha (total: {computeMaxSP(c)})</div>}
+              {res === "hp" && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>Máximo = 2 + bônus de Vigor{temPersistente ? " + 1 (Persistente)" : ""}{bonusRaca > 0 ? ` + ${bonusRaca} (raça/habilidade)` : ""} (ajuste o Vigor lá embaixo, em Atributos Gerais)</div>}
+              {res === "sp" && (temPersistente || bonusRaca > 0) && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>{[temPersistente && "+1 (Persistente)", bonusRaca > 0 && `+${bonusRaca} (raça/habilidade)`].filter(Boolean).join(" ")} somam ao máximo mostrado na ficha (total: {computeMaxSP(cEfetivo)})</div>}
+              {res === "mp" && bonusRaca > 0 && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>+{bonusRaca} de raça/habilidade somam ao máximo mostrado na ficha (total: {computeMaxMana(cEfetivo)}, entre {MANA_MIN} e {MANA_MAX})</div>}
             </div>
           );
         })}
@@ -7186,9 +7113,6 @@ function makeEditableOpponent(stats) {
     attributes: { ...EDITABLE_ATTR_DEFAULTS, ...stats.attributes },
     atributosGerais: { ...ATRIBUTOS_GERAIS_DEFAULT, ...stats.atributosGerais },
     proficiencias: { ...PROFICIENCIAS_DEFAULT, ...stats.proficiencias },
-    statBase: { ...STAT_BASE_DEFAULTS },
-    statTemp: { acerto: 0, defesa: 0, resistArmadura: 0, geral: 0 },
-    statLinks: JSON.parse(JSON.stringify(DEFAULT_STAT_LINKS)),
     itens: { usaveis: [], principais: [], armadura: [] },
     attacks: [],
     abilities: [],
@@ -7405,9 +7329,6 @@ export function CompareView({ characters, onUpdateCharacter }) {
                   const thisVal = GRADE_VALUE[ch.proficiencias?.[p.key]] ?? 1;
                   return <AttrBar key={p.key} label={p.label} grade={ch.proficiencias?.[p.key] || "E"} highlight={thisVal > otherVal} bonus={bonus.proficiencias[p.key] || 0} />;
                 })}
-                <div style={{ marginTop: 10 }}>
-                  <StatBlock character={ch} />
-                </div>
                 <div style={{ marginTop: 10, fontSize: 11, color: MUTED }}>
                   {(ch.abilities || []).slice(0, 4).map((ab, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
@@ -10458,25 +10379,14 @@ function RulesView() {
       ))}
 
       <SectionTitle icon={ShieldHalf}>Equipamentos</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
-        <div>
-          <div style={{ fontSize: 11, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Armas</div>
-          {EQUIPMENT_REFERENCE.armas.map((w) => (
-            <div key={w.nome} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 12.5, color: PARCHMENT, fontWeight: 600 }}>{w.nome}</div>
-              <div style={{ fontSize: 11.5, color: MUTED }}>{w.perfil}</div>
-            </div>
-          ))}
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Armaduras</div>
-          {EQUIPMENT_REFERENCE.armaduras.map((w) => (
-            <div key={w.nome} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 12.5, color: PARCHMENT, fontWeight: 600 }}>{w.nome}</div>
-              <div style={{ fontSize: 11.5, color: MUTED }}>{w.perfil}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" }}>Armas</div>
+        {EQUIPMENT_REFERENCE.armas.map((w) => (
+          <div key={w.nome} style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 12.5, color: PARCHMENT, fontWeight: 600 }}>{w.nome}</div>
+            <div style={{ fontSize: 11.5, color: MUTED }}>{w.perfil}</div>
+          </div>
+        ))}
       </div>
       <ul style={{ margin: "0 0 10px", paddingLeft: 18 }}>
         {EQUIPMENT_REFERENCE.patchNotes.map((p, i) => <li key={i} style={{ fontSize: 12, color: MUTED, marginBottom: 4 }}>{p}</li>)}

@@ -7,7 +7,7 @@
 
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
-import { computeStat, computeAcertoTipo, computeMaxHP, ACERTOS_POR_TIPO, MAX_PROCS } from "./engine.js";
+import { computeMaxHP, MAX_PROCS } from "./engine.js";
 import { loadAppModule } from "./renderTestUtils.js";
 
 let SEED_CHARACTERS;
@@ -17,29 +17,19 @@ before(async () => {
   SEED_CHARACTERS = mod.SEED_CHARACTERS;
 });
 
-// Defesa / ResNatFís / ResNatMág / Acerto CaC,Fogo,Mág / HP / MP
-// resNatFis/resNatMag = 2 + Vigor (grau cheio) — a Resistência Física/Mágica
-// saiu de alimentar isso passivamente em 13/10 (virou defesa ativa, ver
-// resolveResistenciaAtiva em engine.js), por isso os dois números agora
-// sempre coincidem (nenhum dos dois soma proficiência).
+// HP / MP — Defesa, Resistências e Acerto por tipo saíram em 15/10 junto com
+// computeStat/ACERTOS_POR_TIPO/computeAcertoTipo (painéis decorativos
+// antigos sem função mecânica desde 14/10, ver engine.js).
 const TABELA_ESPERADA = {
-  hetalion_valefor: { defesa: 9, resNatFis: 4, resNatMag: 4, acerto: [2, 2], hp: 3, mp: 3 },
-  hetalion_yurity: { defesa: 10, resNatFis: 5, resNatMag: 5, acerto: [4, 6], hp: 4, mp: 3 },
+  hetalion_valefor: { hp: 3, mp: 3 },
+  hetalion_yurity: { hp: 4, mp: 3 },
 };
 
 describe("Tabela de estatísticas do Valefor/Yurity (engine.js x dossiê enviado)", () => {
   for (const [id, esperado] of Object.entries(TABELA_ESPERADA)) {
-    it(`${id}: Defesa, Resistências, Acerto, HP e MP batem com a tabela do dossiê`, () => {
+    it(`${id}: HP e MP batem com a tabela do dossiê`, () => {
       const character = SEED_CHARACTERS.find((c) => c.id === id);
       assert.ok(character, `personagem "${id}" não encontrado em SEED_CHARACTERS`);
-
-      assert.equal(computeStat(character, "defesa"), esperado.defesa, "Defesa");
-      // Resistência Natural saiu do statBase em 14/10 (docs/SISTEMA_MAGIA.md
-      // item 2) — a defesa agora é a rolagem ativa de Resistência Física/Mágica,
-      // sem estatística passiva pra comparar aqui.
-
-      const acertos = ACERTOS_POR_TIPO.map((entrada) => computeAcertoTipo(character, entrada).total);
-      assert.deepEqual(acertos, esperado.acerto, "Acerto Corpo a corpo/Arma de fogo/Mágico");
 
       assert.equal(computeMaxHP(character), esperado.hp, "HP máximo");
       assert.equal(character.mp?.max, esperado.mp, "MP máximo");

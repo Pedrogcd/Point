@@ -99,7 +99,6 @@ export const PROFICIENCIAS_LIST = [
   // igual toda arma branca. Fichas salvas com profKey "briga" migram automaticamente.
   { key: "armasDeFogo", label: "Armas de Fogo", categoria: "combate" },
   { key: "combateCorpoACorpo", label: "Combate Corpo a Corpo", categoria: "combate" },
-  { key: "defesaProf", label: "Defesa", categoria: "combate" },
   { key: "resistFisicaProf", label: "Resistência Física", categoria: "combate" },
   // Física (não-combate)
   { key: "atletismo", label: "Atletismo", categoria: "fisica" },
@@ -136,66 +135,24 @@ export const PROFICIENCIAS_LIST = [
 // pedido do Pedro) — mesma regra: fichas com grau salvo em "ocultismo"
 // mantêm o dado, só não aparece/edita mais; "religiao" entra em "E" por
 // padrão pra todo mundo (nenhuma ficha semente tinha essa chave ainda).
-
+//
+// "defesaProf"/"Defesa" saiu em 15/10 (decisão do Pedro): não era lida em
+// lugar nenhum de resolveAtaque/resolveRolagemDefesa — só alimentava o
+// painel decorativo antigo (STAT_LIST/computeStat, removidos abaixo, ver
+// nota). Mesma regra das remoções acima: fichas com grau salvo em
+// "defesaProf" mantêm o dado, só não aparece/edita mais na ficha.
 export const PROFICIENCIAS_DEFAULT = PROFICIENCIAS_LIST.reduce((acc, p) => ({ ...acc, [p.key]: "E" }), {});
 
-// "acerto" saiu daqui: era uma estatística decorativa (o motor nunca a lia).
-// "Resistência Natural Física/Mágica" saíram em 14/10 (docs/SISTEMA_MAGIA.md
-// item 2, "Resistência Natural não existe mais") — a defesa contra ataque
-// agora é a rolagem ativa de Resistência Física/Mágica (ver
-// resolveRolagemDefesa), não mais uma estatística passiva somada na
-// Confirmação (esse conceito de "Confirmação" também não existe mais).
-// "Resistência Armadura" fica — o guia não manda removê-la, mas o novo
-// resolveAtaque não a consulta em lugar nenhum (o modelo novo não tem camada
-// de armadura: é só ataque vs defesa, sucessos líquidos, ferimento por
-// Vigor). Ela continua existindo como estatística configurável na ficha, só
-// sem função mecânica até o Pedro decidir o que fazer com ela.
-export const STAT_LIST = [
-  { key: "defesa", label: "Defesa" },
-  { key: "resistArmadura", label: "Resistência Armadura" },
-  { key: "geral", label: "Geral" },
-];
-
-// Vínculo padrão sugerido entre atributo e estatística de combate — o grau do
-// atributo soma automaticamente na estatística vinculada (bônus E=0..A=+4).
-// Isso é uma SUGESTÃO ajustável por ficha (não uma regra confirmada no material
-// original) — dá pra reatribuir por personagem em "Vínculos de atributo".
-export const DEFAULT_STAT_LINKS = {
-  acerto: ["destreza"],
-  defesa: [],
-  resistArmadura: [],
-  geral: [],
-};
-
-export const STAT_BASE_DEFAULTS = { acerto: 0, defesa: 8, resistArmadura: 8, geral: 0 };
-
-// Nenhuma estatística usa mais grau cheio (as Resistências Naturais, que
-// usavam, saíram do STAT_LIST em 14/10) — mantido como Set vazio só pra não
-// quebrar quem ainda importa STAT_USA_GRAU_CHEIO.
-export const STAT_USA_GRAU_CHEIO = new Set();
-
-// Os Acertos reais do personagem, um por tipo de ataque físico — usado só
-// como RESUMO/exibição na ficha (não alimenta resolveAtaque, que já lê o
-// grau do atributo/proficiência direto). Esses números de bônus (E=0..A=+4)
-// são do modelo antigo "dado + bônus vs limiar"; o modelo novo é pool de
-// dados (sem bônus somado ao dado), então esse resumo mostra uma ideia
-// aproximada de "força de ataque" mas não corresponde 1:1 à fórmula nova.
-// TODO: revisar esse painel pra mostrar o número de dados do pool em vez do
-// bônus antigo. A entrada "Mágico" saiu em 14/10 (docs/MUDANCAS_RACAS_E_
-// MAGIA.md): o pool mágico não tem mais uma Proficiência fixa (é Base
-// mágica + Ofícios OU Inteligência, escolha do jogador a cada conjuração) —
-// não dava pra resumir num par atributo/proficiência fixo como os outros
-// dois tipos.
-export const ACERTOS_POR_TIPO = [
-  { key: "corpoACorpo", label: "Corpo a corpo", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
-  { key: "armaDeFogo", label: "Arma de fogo", attr: "destreza", prof: "armasDeFogo", tipo: "arma_de_fogo" },
-];
-
-export function computeAcertoTipo(character, entrada) {
-  const doAtributo = entrada.attr ? attrBonus(getAttrGrade(character, entrada.attr)) : 0;
-  const daProficiencia = attrBonus(character?.proficiencias?.[entrada.prof]);
-  return { total: doAtributo + daProficiencia, doAtributo, daProficiencia };
-}
+// STAT_LIST/DEFAULT_STAT_LINKS/STAT_BASE_DEFAULTS/STAT_USA_GRAU_CHEIO/
+// STAT_PROF_LINK/computeStat (painel antigo "Estatísticas de Combate":
+// Defesa/Resistência Armadura/Geral) e ACERTOS_POR_TIPO/computeAcertoTipo
+// (resumo antigo "Acerto por tipo") saíram em 15/10 (decisão do Pedro) — o
+// comentário aqui dizia desde 14/10 que nenhum dos dois alimentava
+// resolveAtaque, e ficaram sem função mecânica desde então; eram só
+// decoração herdada do modelo "dado + bônus vs limiar" anterior ao pool de
+// dados atual. `character.statBase`/`statTemp`/`statLinks` salvos em fichas
+// antigas não são apagados (mesma regra de toda remoção de campo neste
+// arquivo), só não são mais lidos por nada.
 
 // Catálogo de Habilidades Passivas de Combate — ÓRFÃ desde 14/10. O modelo de
 // combate novo (docs/SISTEMA_MAGIA.md) não tem mais fase de Acerto/Confirmação
@@ -459,15 +416,24 @@ export function attrBonus(grade) {
 // Perspicácia, Resolução) não têm função de combate - servem pra testes
 // interpretativos fora de combate, sem afetar nada aqui no motor.
 // Persistente (habilidade passiva, sempre ativa) soma +1 no HP máximo e +1 no SP máximo.
+// `character.bonusRecursos` (15/10, decisão do Pedro: implementar os bônus de
+// HP/MP/SP de raça/habilidade que até então eram só texto no catálogo) é
+// calculado por racasCatalogo.js:bonusRecursosDoPersonagem e anexado pelo
+// comGrausEfetivos — engine.js não conhece raças, só soma o número que já
+// vem pronto (mesmo padrão de disciplinaMagica.oficiosExtras). Um character
+// "cru" (sem passar por comGrausEfetivos) não tem bonusRecursos, então cai
+// no `|| 0` e o resultado é igual a antes de 15/10.
 export function computeMaxHP(character) {
   const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
-  return 2 + attrBonus(character?.atributosGerais?.vigor) + bonusPersistente;
+  const bonusRaca = character?.bonusRecursos?.hp || 0;
+  return 2 + attrBonus(character?.atributosGerais?.vigor) + bonusPersistente + bonusRaca;
 }
 
 export function computeMaxSP(character) {
   const base = character?.sp?.max ?? 3;
   const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
-  return base + bonusPersistente;
+  const bonusRaca = character?.bonusRecursos?.sp || 0;
+  return base + bonusPersistente + bonusRaca;
 }
 
 // MP (mana) máximo: 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Magia Inata (+1 MP
@@ -480,8 +446,9 @@ export const MANA_MIN = 1;
 export const MANA_MAX = 6;
 export function computeMaxMana(character) {
   const bonusMagiaInata = character?.disciplinaMagica?.magiaInata ? 1 : 0;
+  const bonusRaca = character?.bonusRecursos?.mp || 0;
   const base = character?.mp?.max ?? 3;
-  return Math.max(MANA_MIN, Math.min(MANA_MAX, base + bonusMagiaInata));
+  return Math.max(MANA_MIN, Math.min(MANA_MAX, base + bonusMagiaInata + bonusRaca));
 }
 
 // Avalia formulas simples do tipo "+1", "-1", "0" para bonus manuais de ataque.
@@ -523,21 +490,6 @@ export function findTriggeredProc(character, gatilho, dieValue, attackTipo) {
   });
   if (matching.length === 0) return null;
   return matching.sort((a, b) => b.prioridade - a.prioridade)[0];
-}
-
-// Cada estatística de combate pode ter uma Proficiência de Combate correspondente
-// que soma junto com os atributos vinculados (hoje só Defesa).
-export const STAT_PROF_LINK = { defesa: "defesaProf" };
-
-export function computeStat(character, statKey) {
-  const base = (character.statBase && character.statBase[statKey]) ?? STAT_BASE_DEFAULTS[statKey] ?? 0;
-  const temp = (character.statTemp && character.statTemp[statKey]) ?? 0;
-  const links = (character.statLinks && character.statLinks[statKey]) ?? DEFAULT_STAT_LINKS[statKey] ?? [];
-  const peso = STAT_USA_GRAU_CHEIO.has(statKey) ? (g) => GRADE_VALUE[g] ?? 1 : attrBonus;
-  const fromAttrs = links.reduce((sum, attrKey) => sum + peso(getAttrGrade(character, attrKey)), 0);
-  const profKey = STAT_PROF_LINK[statKey];
-  const fromProf = profKey ? peso(character.proficiencias?.[profKey]) : 0;
-  return base + fromAttrs + fromProf + temp;
 }
 
 // "Briga" foi eliminada (21/09): ataques salvos com profKey "briga" migram pra

@@ -3,7 +3,7 @@ import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
-  Upload, Download, ExternalLink, Eye, EyeOff, Route,
+  Upload, Download, ExternalLink, Eye, EyeOff, Route, RefreshCw,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -26,8 +26,9 @@ import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
 import {
   TIPOS_RELACAO, infoTipoRelacao, reporPessoasDoReino, mesclarPessoasComOverride,
-  gruposDoReino, relacoesDoPersonagem, itensVisiveis, geracoesDaGenealogia,
+  gruposDoReino, relacoesDoPersonagem, itensVisiveis,
 } from "./pessoasReino.js";
+import { layoutGenealogia, ligacoesVisiveis as ligacoesVisiveisNaArvore, CARTAO_LARGURA, CARTAO_ALTURA } from "./arvoreLayout.js";
 import {
   slugificar, paraPercentual, bboxPoligono, calcularRecorte,
   cidadesPosicionadas, personagemDaPessoa,
@@ -10152,81 +10153,330 @@ export function LinhaRelacao({ relacao, characters, onAbrirFicha }) {
   );
 }
 
-function NoGenealogia({ no, characters, onAbrirFicha, x, y, width, height }) {
-  const personagem = no?.personagemId ? (characters || []).find((c) => c.id === no.personagemId) : null;
-  const nome = personagem?.name || no?.nome || "?";
+function iniciaisDoNome(nome) {
+  const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+// Traço de uma ligação (barra de união ou ramo até um filho) com a mesma
+// animação de "se desenhando" das rotas do mapa (ver RotaRevealPath): traço
+// contínuo usa stroke-dasharray/dashoffset com pathLength=1; tracejado
+// (adoção/incerta) entra por opacidade — um traço tracejado "andando" fica
+// estranho visualmente. `opacidadeSelecao` é aplicada por cima, com sua
+// própria transição rápida, independente da entrada. O mount-then-flip
+// (useState false -> useEffect/rAF true) só acontece quando o elemento
+// MONTA — é o `key` do ArvoreGenealogica (gm + contador de "Redesenhar")
+// que força o remount da árvore inteira pra repetir a animação.
+function TracoGenealogico({ d, cor, tracejado, opacidadeSelecao, atraso, animando }) {
+  const [revelado, setRevelado] = useState(!animando);
+  useEffect(() => {
+    if (!animando) { setRevelado(true); return; }
+    setRevelado(false);
+    const raf = requestAnimationFrame(() => setRevelado(true));
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (tracejado) {
+    return (
+      <path
+        d={d} fill="none" stroke={cor} strokeWidth={1.6} strokeDasharray="6 5" strokeLinecap="round"
+        style={{ opacity: revelado ? opacidadeSelecao : 0, transition: animando ? `opacity 0.9s ease ${atraso}s` : "opacity 0.2s ease" }}
+      />
+    );
+  }
   return (
-    <foreignObject x={x} y={y} width={width} height={height}>
-      <div
-        title={no?.nota || ""}
-        onClick={personagem ? () => onAbrirFicha && onAbrirFicha(personagem.id) : undefined}
-        style={{
-          width: width - 2, height: height - 2, boxSizing: "border-box", display: "flex", alignItems: "center", gap: 5, padding: "3px 6px",
-          background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 6, cursor: personagem ? "pointer" : "default",
-          opacity: personagem ? 1 : 0.75,
-        }}
-      >
-        {personagem && <Retrato character={personagem} size={22} borderRadius={5} />}
-        <span style={{ fontSize: 10, fontFamily: "'Cinzel', serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nome}</span>
-      </div>
-    </foreignObject>
+    <path
+      d={d} fill="none" stroke={cor} strokeWidth={1.6} pathLength={1} strokeDasharray={1}
+      strokeDashoffset={revelado ? 0 : 1}
+      style={{
+        opacity: opacidadeSelecao,
+        transition: animando ? `stroke-dashoffset 0.9s ease ${atraso}s, opacity 0.2s ease` : "opacity 0.2s ease",
+      }}
+    />
   );
 }
 
-// Desenha a árvore em gerações (ver geracoesDaGenealogia em pessoasReino.js):
-// pais acima, filhos abaixo, linha tracejada quando a ligação não é
-// parentesco de sangue (criação, mentoria etc.). Rolagem horizontal própria
-// pra não quebrar o layout em tela pequena.
-export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha, gm }) {
-  // `itensVisiveis` (mesma convenção de soMestre do resto do reino) filtra nós
-  // e ligações individuais — não só a árvore inteira. É o que deixa um nó
-  // específico (ex.: um segredo dentro de uma árvore pública) visível só ao
-  // mestre sem esconder o resto da árvore.
-  const nos = itensVisiveis(genealogia.nos, gm);
-  const ligacoes = itensVisiveis(genealogia.ligacoes, gm);
-  const geracoes = geracoesDaGenealogia(nos, ligacoes);
-  const nodeW = 116, nodeH = 40, hGap = 14, vGap = 44, pad = 14;
-  const maxPorLinha = Math.max(1, ...geracoes.map((g) => g.nos.length));
-  const largura = pad * 2 + maxPorLinha * (nodeW + hGap) - hGap;
-  const altura = pad * 2 + Math.max(1, geracoes.length) * (nodeH + vGap) - vGap;
-  const posicoes = new Map();
-  geracoes.forEach((linha, gi) => {
-    linha.nos.forEach((id, i) => {
-      posicoes.set(id, { x: pad + i * (nodeW + hGap), y: pad + gi * (nodeH + vGap), width: nodeW, height: nodeH });
-    });
-  });
-  const nosPorId = new Map(nos.map((n) => [n.id, n]));
+// Cartão de uma pessoa na árvore. Clique/Enter/Espaço seleciona (destaca
+// ancestrais/descendentes/cônjuges na árvore inteira — ver ArvoreGenealogica)
+// em vez de abrir a ficha direto; "Abrir ficha" virou um botão no painel
+// abaixo da árvore. A animação de entrada (fade + subida de 8px) anima o
+// <g> INTERNO, nunca o <g transform=...> que posiciona o cartão — animar o
+// de fora faria a transição de CSS brigar com o transform do SVG e quebrar
+// a posição.
+function NoGenealogia({ no, characters, x, y, atraso, animando, gm, selecionado, apagado, onSelecionar }) {
+  const [revelado, setRevelado] = useState(!animando);
+  useEffect(() => {
+    if (!animando) { setRevelado(true); return; }
+    setRevelado(false);
+    const raf = requestAnimationFrame(() => setRevelado(true));
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const personagem = no?.personagemId ? (characters || []).find((c) => c.id === no.personagemId) : null;
+  const nome = personagem?.name || no?.nome || "?";
+  const tituloCompleto = no?.nota ? `${nome} — ${no.nota}` : nome;
+  const souSoMestre = gm && !!no?.soMestre;
   return (
-    <div style={{ overflowX: "auto", border: `1px solid ${LINE}`, borderRadius: 8, padding: 8 }}>
-      <svg width={largura} height={altura} style={{ display: "block", minWidth: largura }}>
-        {ligacoes.map((lig, i) => {
-          const filhoPos = posicoes.get(lig.filho);
-          if (!filhoPos) return null;
-          return (lig.pais || []).map((paiId, j) => {
-            const paiPos = posicoes.get(paiId);
-            if (!paiPos) return null;
-            const x1 = paiPos.x + paiPos.width / 2, y1 = paiPos.y + paiPos.height;
-            const x2 = filhoPos.x + filhoPos.width / 2, y2 = filhoPos.y;
-            const midY = (y1 + y2) / 2;
-            return (
-              <g key={`${i}-${j}`}>
-                <path
-                  d={`M ${x1} ${y1} V ${midY} H ${x2} V ${y2}`} fill="none" stroke={LINE} strokeWidth={1.5}
-                  strokeDasharray={lig.tracejado ? "4 3" : undefined}
+    <g transform={`translate(${x}, ${y})`}>
+      <g
+        role="button" tabIndex={0} aria-label={`Selecionar ${nome}`} aria-pressed={selecionado}
+        onClick={(e) => { e.stopPropagation(); onSelecionar(no.id); }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onSelecionar(no.id); } }}
+        style={{
+          opacity: apagado ? 0.2 : (revelado ? 1 : 0),
+          transform: revelado ? "translateY(0)" : "translateY(8px)",
+          transition: animando ? "opacity 0.9s ease, transform 0.9s ease" : "opacity 0.2s ease",
+          transitionDelay: animando ? `${atraso}s` : "0s",
+          cursor: "pointer", outline: "none",
+        }}
+      >
+        <foreignObject x={0} y={0} width={CARTAO_LARGURA} height={CARTAO_ALTURA}>
+          <div
+            title={tituloCompleto}
+            style={{
+              width: CARTAO_LARGURA - 2, height: CARTAO_ALTURA - 2, boxSizing: "border-box",
+              display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
+              background: PANEL_2, borderRadius: 8,
+              border: souSoMestre ? `1.5px dashed ${PURPLE}` : `1px solid ${selecionado ? BRASS_BRIGHT : LINE}`,
+              boxShadow: selecionado ? `0 0 0 2px ${BRASS_BRIGHT}55` : "none",
+            }}
+          >
+            {personagem ? (
+              <Retrato character={personagem} size={40} borderRadius={7} />
+            ) : (
+              <div style={{
+                width: 40, height: 40, borderRadius: "50%", background: "#00000030", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'Cinzel', serif", fontSize: 13, color: MUTED,
+              }}>
+                {iniciaisDoNome(nome)}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontFamily: "'Cinzel', serif", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {nome}
+              </div>
+              {souSoMestre && (
+                <div style={{ fontSize: 8.5, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>GM</div>
+              )}
+            </div>
+          </div>
+        </foreignObject>
+      </g>
+    </g>
+  );
+}
+
+function PainelParentesco({ titulo, ids, nomeDe, onClick }) {
+  if (!ids || ids.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 6, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", marginRight: 2 }}>
+        {titulo}:
+      </span>
+      {ids.map((id) => (
+        <button
+          key={id} onClick={() => onClick(id)}
+          style={{ fontSize: 11.5, padding: "2px 8px", borderRadius: 20, border: `1px solid ${LINE}`, background: "transparent", color: PARCHMENT, cursor: "pointer", fontFamily: "'Cinzel', serif" }}
+        >
+          {nomeDe(id)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LegendaGenealogia({ gm }) {
+  const Item = ({ children, label }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <svg width={22} height={10} style={{ flexShrink: 0 }}>{children}</svg>
+      <span style={{ fontSize: 10, color: MUTED }}>{label}</span>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 8, padding: "4px 2px" }}>
+      <Item label="União"><line x1={1} y1={5} x2={21} y2={5} stroke={BRASS} strokeWidth={2} /></Item>
+      <Item label="Filiação"><path d="M 2 1 V 6 H 20 V 9" fill="none" stroke={BRASS} strokeWidth={1.6} /></Item>
+      <Item label="Adoção/incerta"><line x1={1} y1={5} x2={21} y2={5} stroke={BRASS} strokeWidth={1.6} strokeDasharray="6 5" /></Item>
+      {gm && <Item label="Só GM"><rect x={1} y={1} width={20} height={8} rx={2} fill="none" stroke={PURPLE} strokeWidth={1.4} strokeDasharray="4 3" /></Item>}
+    </div>
+  );
+}
+
+// Desenha a árvore com o layout de arvoreLayout.js (pais acima, cônjuges
+// lado a lado, filhos centrados abaixo — ver layoutGenealogia). Rolagem
+// horizontal própria (svg responsivo com min-width) pra não quebrar o
+// layout em tela pequena. Clique num cartão seleciona (destaca ancestrais/
+// descendentes/cônjuges, painel com Pais/Cônjuge/Filhos abaixo); clique de
+// novo ou no fundo limpa.
+export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha, gm }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const [selecionadoId, setSelecionadoId] = useState(null);
+  const [redesenhoTick, setRedesenhoTick] = useState(0);
+  useEffect(() => { setSelecionadoId(null); }, [genealogia?.id]);
+
+  // `itensVisiveis` (mesma convenção de soMestre do resto do reino) filtra
+  // nós e ligações individuais — não só a árvore inteira. Depois disso, uma
+  // ligação cujo pai ficou oculto perde só esse pai (ou some de vez se não
+  // sobrar nenhum) — ver ligacoesVisiveis em arvoreLayout.js.
+  const nos = useMemo(() => itensVisiveis(genealogia?.nos, gm), [genealogia, gm]);
+  const ligacoes = useMemo(() => ligacoesVisiveisNaArvore(nos, itensVisiveis(genealogia?.ligacoes, gm)), [genealogia, gm, nos]);
+  const layout = useMemo(() => layoutGenealogia(nos, ligacoes), [nos, ligacoes]);
+  const nosPorId = useMemo(() => new Map(layout.nos.map((n) => [n.id, n])), [layout]);
+  const nosOriginaisPorId = useMemo(() => new Map(nos.map((n) => [n.id, n])), [nos]);
+
+  // Grafo pai/filho/cônjuge sobre as ligações já visíveis — usado tanto pro
+  // destaque de seleção quanto pro painel "Pais / Cônjuge / Filhos".
+  const { paisDe, filhosDe, conjugesDe } = useMemo(() => {
+    const paisDe = new Map(), filhosDe = new Map(), conjugesDe = new Map();
+    for (const l of ligacoes) {
+      if (!paisDe.has(l.filho)) paisDe.set(l.filho, []);
+      paisDe.get(l.filho).push(...l.pais);
+      for (const p of l.pais) {
+        if (!filhosDe.has(p)) filhosDe.set(p, []);
+        filhosDe.get(p).push(l.filho);
+      }
+      if (l.pais.length >= 2) {
+        for (const p of l.pais) {
+          if (!conjugesDe.has(p)) conjugesDe.set(p, new Set());
+          for (const q of l.pais) if (q !== p) conjugesDe.get(p).add(q);
+        }
+      }
+    }
+    return { paisDe, filhosDe, conjugesDe };
+  }, [ligacoes]);
+
+  const destacados = useMemo(() => {
+    if (!selecionadoId) return null;
+    const set = new Set([selecionadoId]);
+    function empilhar(mapa) {
+      const pilha = [selecionadoId];
+      while (pilha.length) {
+        const atual = pilha.pop();
+        for (const prox of mapa.get(atual) || []) {
+          if (!set.has(prox)) { set.add(prox); pilha.push(prox); }
+        }
+      }
+    }
+    empilhar(paisDe);
+    empilhar(filhosDe);
+    for (const c of conjugesDe.get(selecionadoId) || []) set.add(c);
+    return set;
+  }, [selecionadoId, paisDe, filhosDe, conjugesDe]);
+
+  function selecionar(id) {
+    setSelecionadoId((prev) => (prev === id ? null : id));
+  }
+  function nomeDe(id) {
+    const n = nosOriginaisPorId.get(id);
+    if (!n) return "?";
+    const p = n.personagemId ? (characters || []).find((c) => c.id === n.personagemId) : null;
+    return p?.name || n.nome || "?";
+  }
+
+  const pessoaSelecionada = selecionadoId ? nosOriginaisPorId.get(selecionadoId) : null;
+  const personagemSelecionado = pessoaSelecionada?.personagemId ? (characters || []).find((c) => c.id === pessoaSelecionada.personagemId) : null;
+  const animando = !reducedMotion;
+
+  return (
+    <div>
+      <div
+        style={{ overflowX: "auto", border: `1px solid ${LINE}`, borderRadius: 8, padding: 8 }}
+        onClick={() => selecionadoId && setSelecionadoId(null)}
+      >
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+          <Btn variant="ghost" onClick={(e) => { e.stopPropagation(); setRedesenhoTick((t) => t + 1); }}>
+            <RefreshCw size={12} /> Redesenhar
+          </Btn>
+        </div>
+        <svg viewBox={`0 0 ${layout.largura} ${layout.altura}`} style={{ display: "block", width: "100%", minWidth: 360, height: "auto" }}>
+          <g key={`${gm}-${redesenhoTick}`}>
+            {layout.unioes.map((uniao, ui) => {
+              const paisPos = uniao.pais.map((id) => nosPorId.get(id)).filter(Boolean);
+              if (paisPos.length === 0) return null;
+              const paisDestacados = !destacados || uniao.pais.every((id) => destacados.has(id));
+              let troncoX, troncoY;
+              let barra = null;
+              if (paisPos.length >= 2) {
+                const centros = paisPos.map((p) => p.x + CARTAO_LARGURA / 2);
+                const barraY = Math.max(...paisPos.map((p) => p.y + CARTAO_ALTURA)) + 14;
+                const minX = Math.min(...centros), maxX = Math.max(...centros);
+                troncoX = (minX + maxX) / 2;
+                troncoY = barraY;
+                const delayUniao = Math.min(...uniao.filhos.map((f) => nosPorId.get(f.id)?.geracao ?? 0)) * 0.45;
+                barra = (
+                  <TracoGenealogico
+                    d={`M ${minX} ${barraY} H ${maxX}`} cor={BRASS}
+                    opacidadeSelecao={paisDestacados ? 1 : 0.2} atraso={delayUniao} animando={animando}
+                  />
+                );
+              } else {
+                troncoX = paisPos[0].x + CARTAO_LARGURA / 2;
+                troncoY = paisPos[0].y + CARTAO_ALTURA;
+              }
+              return (
+                <g key={ui}>
+                  {barra}
+                  {uniao.filhos.map((f, fi) => {
+                    const filhoPos = nosPorId.get(f.id);
+                    if (!filhoPos) return null;
+                    const childCenterX = filhoPos.x + CARTAO_LARGURA / 2;
+                    const childTopY = filhoPos.y;
+                    const barramentoY = troncoY + 0.55 * (childTopY - troncoY);
+                    const d = `M ${troncoX} ${troncoY} V ${barramentoY} H ${childCenterX} V ${childTopY}`;
+                    const cor = f.soMestre && gm ? PURPLE : BRASS;
+                    const destacado = !destacados || (paisDestacados && destacados.has(f.id));
+                    return (
+                      <g key={`${ui}-${fi}`}>
+                        <TracoGenealogico d={d} cor={cor} tracejado={f.tracejado} opacidadeSelecao={destacado ? 1 : 0.2} atraso={filhoPos.geracao * 0.45} animando={animando} />
+                        {f.tipo && (
+                          <text x={childCenterX} y={childTopY - 4} fontSize={8} fill={MUTED} textAnchor="middle" fontFamily="'IBM Plex Mono', monospace" opacity={destacado ? 1 : 0.2}>
+                            {f.tipo}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </g>
+              );
+            })}
+            {layout.nos.map((pos) => {
+              const no = nosOriginaisPorId.get(pos.id);
+              if (!no) return null;
+              return (
+                <NoGenealogia
+                  key={pos.id} no={no} characters={characters} x={pos.x} y={pos.y}
+                  atraso={pos.geracao * 0.45} animando={animando} gm={gm}
+                  selecionado={selecionadoId === pos.id}
+                  apagado={!!destacados && !destacados.has(pos.id)}
+                  onSelecionar={selecionar}
                 />
-                <text x={(x1 + x2) / 2} y={midY - 3} fontSize={8} fill={MUTED} textAnchor="middle" fontFamily="'IBM Plex Mono', monospace">
-                  {lig.tipo}
-                </text>
-              </g>
-            );
-          });
-        })}
-        {[...posicoes.entries()].map(([id, pos]) => {
-          const no = nosPorId.get(id);
-          if (!no) return null;
-          return <NoGenealogia key={id} no={no} characters={characters} onAbrirFicha={onAbrirFicha} {...pos} />;
-        })}
-      </svg>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+
+      <LegendaGenealogia gm={gm} />
+
+      {pessoaSelecionada && (
+        <div style={{ ...cardBox, marginTop: 8 }}>
+          <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, marginBottom: 2 }}>
+            {nomeDe(selecionadoId)}
+          </div>
+          {pessoaSelecionada.nota && <p style={{ fontSize: 12, color: MUTED, fontStyle: "italic", margin: "0 0 8px" }}>{pessoaSelecionada.nota}</p>}
+          <PainelParentesco titulo="Pais" ids={paisDe.get(selecionadoId) || []} nomeDe={nomeDe} onClick={selecionar} />
+          <PainelParentesco titulo="Cônjuge" ids={[...(conjugesDe.get(selecionadoId) || [])]} nomeDe={nomeDe} onClick={selecionar} />
+          <PainelParentesco titulo="Filhos" ids={filhosDe.get(selecionadoId) || []} nomeDe={nomeDe} onClick={selecionar} />
+          {personagemSelecionado && (
+            <Btn variant="primary" onClick={() => onAbrirFicha && onAbrirFicha(personagemSelecionado.id)} style={{ marginTop: 4 }}>
+              Abrir ficha
+            </Btn>
+          )}
+        </div>
+      )}
     </div>
   );
 }

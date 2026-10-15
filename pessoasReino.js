@@ -111,39 +111,6 @@ export function itensVisiveis(lista, gm) {
   return (lista || []).filter((item) => gm || !item.soMestre);
 }
 
-// Layout em gerações pra desenhar a árvore genealógica: nós sem ligação como
-// filho ficam na geração 0; cada filho fica uma geração abaixo do maior pai.
-// Robusto a ciclos/dados malformados (nunca entra em loop infinito) — um nó
-// envolvido num ciclo fica na geração em que foi visto por último.
-export function geracoesDaGenealogia(nos, ligacoes) {
-  const ids = (nos || []).map((n) => n.id);
-  const geracao = new Map(ids.map((id) => [id, 0]));
-  const porFilho = new Map();
-  for (const l of ligacoes || []) {
-    if (!porFilho.has(l.filho)) porFilho.set(l.filho, []);
-    porFilho.get(l.filho).push(l);
-  }
-  const maxIteracoes = ids.length + 1;
-  for (let i = 0; i < maxIteracoes; i++) {
-    let mudou = false;
-    for (const id of ids) {
-      const ligacoesDoFilho = porFilho.get(id) || [];
-      for (const l of ligacoesDoFilho) {
-        const geracaoPais = Math.max(0, ...(l.pais || []).map((p) => geracao.get(p) ?? 0));
-        const alvo = geracaoPais + 1;
-        if (alvo > (geracao.get(id) ?? 0)) {
-          geracao.set(id, alvo);
-          mudou = true;
-        }
-      }
-    }
-    if (!mudou) break;
-  }
-  const porGeracao = new Map();
-  for (const id of ids) {
-    const g = geracao.get(id) ?? 0;
-    if (!porGeracao.has(g)) porGeracao.set(g, []);
-    porGeracao.get(g).push(id);
-  }
-  return [...porGeracao.entries()].sort((a, b) => a[0] - b[0]).map(([geracaoNum, nodeIds]) => ({ geracao: geracaoNum, nos: nodeIds }));
-}
+// O LAYOUT da árvore genealógica (posição x/y de cada nó, cônjuges lado a
+// lado, sobreposição resolvida) foi pra arvoreLayout.js — ver
+// layoutGenealogia lá, usada por ArvoreGenealogica em point-amaranth-app.jsx.

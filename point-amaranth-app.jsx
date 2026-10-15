@@ -45,6 +45,7 @@ import { normalizarEstado } from "./normalizar.js";
 import { mesclarCidadeComOverride, normalizarItemLista, paraItemLista } from "./cidadeOverrides.js";
 import { mesclarNpcComOverride } from "./npcOverrides.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
+import { duracaoRolagem, faceDoDado } from "./rolagemAnimada.js";
 
 /* ---------------------------------------------------------------
    TOKENS — paleta inspirada em Fire Emblem: Three Houses (fundo
@@ -5407,7 +5408,19 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // próprio piso de 1 dado, então não precisa clampar aqui.
   const [dadosExtraTeste, setDadosExtraTeste] = useState(0);
   const [history, setHistory] = useState([]);
+  // `rolling` = true enquanto a rolagem COMPLETA (botão Rolar) está animando
+  // (todos os dados pousam em cascata — ver rolagemAnimada.js); desabilita o
+  // botão Rolar e mantém o resumo escondido até o último dado pousar.
   const [rolling, setRolling] = useState(false);
+  // Índice do dado que está no meio de um re-roll de MP (só ESSE dado
+  // anima — spec "MP: só aquele dado faz o tumble"); null = nenhum.
+  const [animatingIndex, setAnimatingIndex] = useState(null);
+  // Índice do dado que acabou de ganhar +5 de SP (pulso de brilho, sem
+  // tumble — o valor já troca na hora); null = nenhum.
+  const [pulseIndex, setPulseIndex] = useState(null);
+  const pulseTimeoutRef = useRef(null);
+  useEffect(() => () => clearTimeout(pulseTimeoutRef.current), []);
+  const reducedMotion = usePrefersReducedMotion();
   const [lastRoll, setLastRoll] = useState(null);
   // Painel "Teste — Atributo + Perícia / Ataque": dois modos escolhidos por um
   // seletor no topo. `initialTestPanelMode` só existe pra teste de render (o
@@ -5519,14 +5532,27 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     : (GRADE_VALUE[rollAttrGrade] ?? 1);
   const totalDice = diceDoAtributoTeste + (GRADE_VALUE[rollProfGrade] ?? 1) + dadosExtraTeste;
 
+  // O resultado (os 3d10) é calculado AQUI, antes de qualquer animação — a
+  // animação só revela o que já foi decidido, nunca o contrário. `lastRoll`
+  // fica disponível na hora pros <Die> saberem o valor final de cada dado
+  // (cada um esconde isso sozinho piscando números aleatórios enquanto
+  // `rolling`), mas o RESUMO (sucessos/crítico/super sucesso) e o histórico
+  // só aparecem quando o último dado pousa — ver JSX abaixo (`{!rolling &&
+  // lastRoll && (...)}`) e duracaoRolagem (rolagemAnimada.js).
   function roll() {
-    setRolling(true);
-    setTimeout(() => {
-      const result = rollSuccessDice(totalDice, successThreshold);
-      setLastRoll(result);
+    if (rolling || animatingIndex !== null) return;
+    const result = rollSuccessDice(totalDice, successThreshold);
+    setLastRoll(result);
+    if (reducedMotion) {
       setHistory((h) => [{ ...result, attr: rollAttr, prof: rollProf, id: Date.now() }, ...h].slice(0, 6));
+      return;
+    }
+    setRolling(true);
+    const duracao = duracaoRolagem(Math.max(0, result.dice.length - 1), false);
+    setTimeout(() => {
       setRolling(false);
-    }, 380);
+      setHistory((h) => [{ ...result, attr: rollAttr, prof: rollProf, id: Date.now() }, ...h].slice(0, 6));
+    }, duracao);
   }
 
   // Modo Ataque do mesmo painel: montagem livre (Atributo + Proficiência +
@@ -5644,21 +5670,40 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     return { dice, successes, criticos, superSucesso };
   }
 
-  // MP: gasta 1 pra re-rolar um dado. SP: gasta 1 pra somar +5 num dado (limitado a 10).
+  // MP: gasta 1 pra re-rolar um dado. O valor novo já vem pronto (igual
+  // sempre foi) — só ESSE dado anima (tumble ~1s, sem atraso de posição:
+  // duracaoRolagem(0, ...)), e o recálculo (recomputeRoll) só é aplicado
+  // quando ele pousa, pro resumo não mudar antes da hora.
   function gastarMpRerolar(index) {
-    if (!lastRoll || !onUpdateCharacter || (character.mp?.current || 0) <= 0) return;
+    if (!lastRoll || !onUpdateCharacter || (character.mp?.current || 0) <= 0 || rolling || animatingIndex !== null) return;
     const novoDado = Math.floor(Math.random() * 10) + 1;
     const novosDados = [...lastRoll.dice];
     novosDados[index] = novoDado;
-    setLastRoll(recomputeRoll(novosDados));
+    const recomputado = recomputeRoll(novosDados);
     onUpdateCharacter(character.id, { mp: { ...character.mp, current: character.mp.current - 1 } });
+    if (reducedMotion) {
+      setLastRoll(recomputado);
+      return;
+    }
+    setAnimatingIndex(index);
+    setTimeout(() => {
+      setLastRoll(recomputado);
+      setAnimatingIndex(null);
+    }, duracaoRolagem(0, false));
   }
+  // SP: gasta 1 pra somar +5 num dado (limitado a 10) — sem tumble, só um
+  // pulso de brilho no dado (a troca de valor é instantânea, como sempre foi).
   function gastarSpMais5(index) {
-    if (!lastRoll || !onUpdateCharacter || (character.sp?.current || 0) <= 0) return;
+    if (!lastRoll || !onUpdateCharacter || (character.sp?.current || 0) <= 0 || rolling || animatingIndex !== null) return;
     const novosDados = [...lastRoll.dice];
     novosDados[index] = Math.min(10, novosDados[index] + 5);
     setLastRoll(recomputeRoll(novosDados));
     onUpdateCharacter(character.id, { sp: { ...character.sp, current: character.sp.current - 1 } });
+    if (!reducedMotion) {
+      setPulseIndex(index);
+      clearTimeout(pulseTimeoutRef.current);
+      pulseTimeoutRef.current = setTimeout(() => setPulseIndex(null), 500);
+    }
   }
 
   const attrLabel = ATRIBUTOS_GERAIS_LIST.find((a) => a.key === rollAttr)?.label;
@@ -5984,57 +6029,69 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   {" "}Sucesso se dado &gt; {successThreshold} (padrão: bate 6 = sucesso; um 10 natural sempre conta).
                 </div>
 
-                <Btn variant="primary" onClick={roll} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
+                <Btn
+                  variant="primary" onClick={roll} disabled={rolling || animatingIndex !== null}
+                  style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}
+                >
                   <Dices size={15} className={rolling ? "spin" : ""} /> Rolar {totalDice}d10
                 </Btn>
 
                 {lastRoll && (
                   <div style={{ marginTop: 14, textAlign: "center" }}>
-                    <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                      {lastRoll.dice.map((d, i) => (
-                        <div key={i} style={{ textAlign: "center" }}>
-                          <div style={{
-                            width: 32, height: 32, borderRadius: 6, border: `1px solid ${(d === 10 || d > successThreshold) ? BRASS_BRIGHT : LINE}`,
-                            background: d === 10 ? `${EMBER}22` : "#00000010",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: (d === 10 || d > successThreshold) ? BRASS_BRIGHT : MUTED, fontSize: 13,
-                          }}>{d}</div>
-                          <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 3 }}>
-                            {onUpdateCharacter && (
-                              <>
-                                <button
-                                  onClick={() => gastarMpRerolar(i)} disabled={(character.mp?.current || 0) <= 0}
-                                  title="Gastar 1 MP pra re-rolar este dado"
-                                  style={{
-                                    width: 18, height: 18, borderRadius: "50%", border: `1px solid ${MP_COLOR}`, background: "transparent",
-                                    color: MP_COLOR, fontSize: 9, cursor: (character.mp?.current || 0) > 0 ? "pointer" : "not-allowed",
-                                    opacity: (character.mp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-                                  }}
-                                >↻</button>
-                                <button
-                                  onClick={() => gastarSpMais5(i)} disabled={(character.sp?.current || 0) <= 0}
-                                  title="Gastar 1 SP pra somar +5 neste dado"
-                                  style={{
-                                    width: 18, height: 18, borderRadius: "50%", border: `1px solid ${SP_COLOR}`, background: "transparent",
-                                    color: SP_COLOR, fontSize: 8, fontWeight: 700, cursor: (character.sp?.current || 0) > 0 ? "pointer" : "not-allowed",
-                                    opacity: (character.sp?.current || 0) > 0 ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-                                  }}
-                                >+5</button>
-                              </>
-                            )}
+                    <div className="pt-dice-stage" style={{ ...PT_DICE_VARS, padding: "18px 8px", gap: 10 }}>
+                      {lastRoll.dice.map((d, i) => {
+                        const diceDesabilitados = rolling || animatingIndex !== null;
+                        return (
+                          <div key={i} style={{ textAlign: "center" }}>
+                            <Die
+                              value={d} indice={i} limiar={successThreshold}
+                              rolling={rolling || animatingIndex === i}
+                              reduced={reducedMotion}
+                              revealed={!rolling && animatingIndex !== i}
+                              selected={animatingIndex === i || pulseIndex === i}
+                              pulse={pulseIndex === i}
+                            />
+                            <div style={{ display: "flex", gap: 3, justifyContent: "center", marginTop: 3 }}>
+                              {onUpdateCharacter && (
+                                <>
+                                  <button
+                                    onClick={() => gastarMpRerolar(i)} disabled={diceDesabilitados || (character.mp?.current || 0) <= 0}
+                                    title="Gastar 1 MP pra re-rolar este dado"
+                                    style={{
+                                      width: 18, height: 18, borderRadius: "50%", border: `1px solid ${MP_COLOR}`, background: "transparent",
+                                      color: MP_COLOR, fontSize: 9, cursor: (!diceDesabilitados && (character.mp?.current || 0) > 0) ? "pointer" : "not-allowed",
+                                      opacity: (!diceDesabilitados && (character.mp?.current || 0) > 0) ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                                    }}
+                                  >↻</button>
+                                  <button
+                                    onClick={() => gastarSpMais5(i)} disabled={diceDesabilitados || (character.sp?.current || 0) <= 0}
+                                    title="Gastar 1 SP pra somar +5 neste dado"
+                                    style={{
+                                      width: 18, height: 18, borderRadius: "50%", border: `1px solid ${SP_COLOR}`, background: "transparent",
+                                      color: SP_COLOR, fontSize: 8, fontWeight: 700, cursor: (!diceDesabilitados && (character.sp?.current || 0) > 0) ? "pointer" : "not-allowed",
+                                      opacity: (!diceDesabilitados && (character.sp?.current || 0) > 0) ? 1 : 0.35, display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                                    }}
+                                  >+5</button>
+                                </>
+                              )}
+                            </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                    {!rolling && (
+                      <>
+                        <div style={{ fontSize: 12, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                          {lastRoll.successes} sucesso{lastRoll.successes === 1 ? "" : "s"} · {attrLabel} + {profLabel}
+                          {lastRoll.criticos > 0 && ` · ${lastRoll.criticos} crítico${lastRoll.criticos > 1 ? "s" : ""}`}
+                          {lastRoll.superSucesso && " · SUPER SUCESSO"}
                         </div>
-                      ))}
-                    </div>
-                    <div style={{ fontSize: 12, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
-                      {lastRoll.successes} sucesso{lastRoll.successes === 1 ? "" : "s"} · {attrLabel} + {profLabel}
-                      {lastRoll.criticos > 0 && ` · ${lastRoll.criticos} crítico${lastRoll.criticos > 1 ? "s" : ""}`}
-                      {lastRoll.superSucesso && " · SUPER SUCESSO"}
-                    </div>
-                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: 28, color: BRASS_BRIGHT, fontWeight: 700 }}>{lastRoll.successes}</div>
-                    <div style={{ fontSize: 9.5, color: MUTED, fontStyle: "italic", marginTop: 2 }}>
-                      <span style={{ color: MP_COLOR }}>↻</span> re-rola (1 MP) · <span style={{ color: SP_COLOR }}>+5</span> soma no dado (1 SP)
-                    </div>
+                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 28, color: BRASS_BRIGHT, fontWeight: 700 }}>{lastRoll.successes}</div>
+                        <div style={{ fontSize: 9.5, color: MUTED, fontStyle: "italic", marginTop: 2 }}>
+                          <span style={{ color: MP_COLOR }}>↻</span> re-rola (1 MP) · <span style={{ color: SP_COLOR }}>+5</span> soma no dado (1 SP)
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -6124,7 +6181,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 </Btn>
 
                 <div style={{ marginTop: 14 }}>
-                  <AttackResultPanel result={ataqueResult} emptyMessage="Escolha um ataque e role pra ver o resultado aqui." />
+                  <AttackResultPanel result={ataqueResult} emptyMessage="Escolha um ataque e role pra ver o resultado aqui." reduced={reducedMotion} />
                 </div>
 
                 {ataqueHistory.length > 0 && (
@@ -6218,7 +6275,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 {magiaResult && (
                   <div style={{ marginTop: 14 }}>
                     {magiaResult.resultadoAtaque ? (
-                      <AttackResultPanel result={magiaResult.resultadoAtaque} emptyMessage="" />
+                      <AttackResultPanel result={magiaResult.resultadoAtaque} emptyMessage="" reduced={reducedMotion} />
                     ) : (
                       <div style={{ fontSize: 12, color: PARCHMENT, textAlign: "center", padding: "10px 0" }}>{magiaResult.magia.efeito}</div>
                     )}
@@ -7195,21 +7252,156 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 // modelo não existe mais no motor. Usado pelo Confronto (DuelRoller) e pelo
 // modo Ataque/Magia do painel de Teste da ficha. Extraído daqui pra não
 // existir uma segunda versão divergente desse display.
-function DiceRow({ dice, limiar, sortudoAplicado, cor }) {
+// Lê prefers-reduced-motion e reage a mudanças — SÓ dentro de useEffect
+// (nunca no corpo do render: este componente também é renderizado via
+// react-dom/server em teste, onde `window` não existe).
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    let mq;
+    try {
+      mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    } catch {
+      return undefined;
+    }
+    setReduced(mq.matches);
+    const handler = (e) => setReduced(e.matches);
+    if (mq.addEventListener) mq.addEventListener("change", handler);
+    else if (mq.addListener) mq.addListener(handler);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", handler);
+      else if (mq.removeListener) mq.removeListener(handler);
+    };
+  }, []);
+  return reduced;
+}
+
+// Um dado d10 animado (coração da rolagem animada — ver rolagemAnimada.js
+// pra duracaoRolagem/faceDoDado). O VALOR final já vem pronto (calculado
+// antes, pelo motor) — este componente só decide COMO revelar: enquanto
+// `rolling`, pisca números aleatórios (~65ms) até a duração de
+// duracaoRolagem(indice, reduced) passar, aí trava no valor de verdade.
+// A COR (crítico/sucesso/"1") só aparece quando `revealed` — quem chama
+// decide quando isso vira true (ex.: só depois que o ÚLTIMO dado do grupo
+// pousa), pra não entregar o resultado antes da hora.
+function Die({ value, rolling, indice = 0, reduced, limiar, revealed = true, selected, pulse }) {
+  const [displayValue, setDisplayValue] = useState(value);
+  const [tumbling, setTumbling] = useState(false);
+  const [landing, setLanding] = useState(false);
+  const blinkRef = useRef(null);
+  const landTimeoutRef = useRef(null);
+  const landingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (!rolling) {
+      setDisplayValue(value);
+      setTumbling(false);
+      return undefined;
+    }
+    const dur = duracaoRolagem(indice, reduced);
+    if (dur <= 0) {
+      setDisplayValue(value);
+      setTumbling(false);
+      return undefined;
+    }
+    setTumbling(true);
+    blinkRef.current = setInterval(() => {
+      setDisplayValue(1 + Math.floor(Math.random() * 10));
+    }, 65);
+    landTimeoutRef.current = setTimeout(() => {
+      clearInterval(blinkRef.current);
+      setDisplayValue(value);
+      setTumbling(false);
+      setLanding(true);
+      landingTimeoutRef.current = setTimeout(() => setLanding(false), 350);
+    }, dur);
+    return () => {
+      clearInterval(blinkRef.current);
+      clearTimeout(landTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolling, value, indice, reduced]);
+
+  useEffect(() => () => {
+    clearInterval(blinkRef.current);
+    clearTimeout(landTimeoutRef.current);
+    clearTimeout(landingTimeoutRef.current);
+  }, []);
+
+  const face = (!tumbling && revealed) ? faceDoDado(displayValue, limiar) : "normal";
+  const delaySeconds = (Math.max(0, indice) * 140) / 1000;
+
+  const classNames = ["pt-die"];
+  if (face === "crit") classNames.push("pt-crit");
+  if (face === "win") classNames.push("pt-win");
+  if (face === "one") classNames.push("pt-one");
+  if (tumbling) classNames.push("pt-tumble");
+  if (landing) classNames.push("pt-land");
+  if (selected) classNames.push("pt-sel");
+  if (pulse) classNames.push("pt-pulse");
+
   return (
-    <div style={{ display: "flex", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+    <div className={classNames.join(" ")} style={{ "--d": `${delaySeconds}s` }}>
+      <span className="pt-die-shadow" />
+      <div className="pt-die-body">
+        <svg viewBox="0 0 100 108" className="pt-die-svg" aria-hidden="true">
+          <polygon className="pt-d-face" points="50,4 92,42 50,100 8,42" />
+          <polyline className="pt-d-line" points="8,42 50,62 92,42" />
+          <line className="pt-d-line" x1={50} y1={62} x2={50} y2={100} />
+          <text className="pt-d-num" x={50} y={40}>{displayValue}</text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// Variáveis CSS (cores) que todo .pt-die precisa — definidas uma vez no
+// wrapper de cada "mesa de dados" a partir das constantes do app.
+const PT_DICE_VARS = {
+  "--pt-panel": PANEL, "--pt-panel2": PANEL_2, "--pt-ink": INK, "--pt-line": LINE,
+  "--pt-brass": BRASS, "--pt-brass-hi": BRASS_BRIGHT, "--pt-ember": EMBER, "--pt-purple2": PURPLE_LIGHT,
+};
+
+// Fileira de dados que revela em grupo — usada por AttackResultPanel
+// (Ataque/Defesa, tanto na aba "Ataque"/"Magia" da ficha quanto no
+// DuelRoller do Confronto). Dispara uma rolagem nova sempre que o array
+// `dice` muda de IDENTIDADE (cada chamada de resolveAtaque devolve um
+// objeto novo) — não cada vez que o componente re-renderiza por outro
+// motivo. `onRevealed` avisa o pai quando o ÚLTIMO dado deste grupo pousa,
+// pra ele poder esconder o resumo (sucessos/ferimento) até lá.
+function AnimatedDiceRow({ dice, limiar, sortudoAplicado, reduced, onRevealed }) {
+  const [rolling, setRolling] = useState(false);
+  const prevDiceRef = useRef(null);
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (prevDiceRef.current === dice) return;
+    prevDiceRef.current = dice;
+    clearTimeout(timeoutRef.current);
+    if (reduced) {
+      setRolling(false);
+      onRevealed && onRevealed();
+      return;
+    }
+    setRolling(true);
+    const dur = duracaoRolagem(dice.length - 1, false);
+    timeoutRef.current = setTimeout(() => {
+      setRolling(false);
+      onRevealed && onRevealed();
+    }, dur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dice, reduced]);
+
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  return (
+    <div className="pt-dice-stage" style={{ ...PT_DICE_VARS, padding: "18px 8px", gap: 10 }}>
       {dice.map((d, i) => {
-        const hit = d === 10 || d > limiar;
         const foiSortudo = sortudoAplicado && sortudoAplicado.indice === i;
         return (
           <div key={i} style={{ textAlign: "center" }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 6, border: `1px solid ${d === 10 ? EMBER : hit ? cor : LINE}`,
-              background: d === 10 ? `${EMBER}33` : hit ? `${cor}33` : "#00000040",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: PARCHMENT, fontSize: 14,
-            }}>{d}</div>
-            {foiSortudo && (
+            <Die value={d} indice={i} rolling={rolling} reduced={reduced} limiar={limiar} revealed={!rolling} />
+            {foiSortudo && !rolling && (
               <div style={{ fontSize: 7.5, color: "#E0A800", fontWeight: 700, marginTop: 2 }} title="Sortudo: dado original re-rolado">
                 ★ {sortudoAplicado.original}→{d}
               </div>
@@ -7221,7 +7413,22 @@ function DiceRow({ dice, limiar, sortudoAplicado, cor }) {
   );
 }
 
-function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquerda pra ver o resultado aqui." }) {
+// `reduced` (prefers-reduced-motion) é passado pelo chamador — ele mesmo
+// decide via usePrefersReducedMotion(), aqui só repassa pro AnimatedDiceRow.
+function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquerda pra ver o resultado aqui.", reduced }) {
+  const [ataqueRevelado, setAtaqueRevelado] = useState(!!reduced);
+  const [defesaRevelado, setDefesaRevelado] = useState(!!reduced);
+  const prevResultRef = useRef(null);
+
+  // Cada rolagem nova (resolveAtaque devolve um objeto novo) esconde o
+  // resumo de novo até as duas fileiras (Ataque e Defesa) revelarem.
+  useEffect(() => {
+    if (prevResultRef.current === result) return;
+    prevResultRef.current = result;
+    setAtaqueRevelado(!!reduced);
+    setDefesaRevelado(!!reduced);
+  }, [result, reduced]);
+
   if (!result) {
     return (
       <div style={{ textAlign: "center", color: MUTED, fontSize: 12.5, padding: "20px 0" }}>
@@ -7230,41 +7437,48 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
     );
   }
   const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal } = result;
+  const tudoRevelado = ataqueRevelado && defesaRevelado;
   return (
     <>
       <div style={{ textAlign: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
           ATAQUE ({rolagemAtaque.dice.length}d10, sucesso {limiar === LIMIAR_BLINDADO ? "7+ — Blindado" : "6+"})
         </div>
-        <DiceRow dice={rolagemAtaque.dice} limiar={limiar} sortudoAplicado={rolagemAtaque.sortudoAplicado} cor={BRASS_BRIGHT} />
-        <div style={{ fontSize: 11.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", marginTop: 4 }}>
-          {rolagemAtaque.successes} sucesso{rolagemAtaque.successes === 1 ? "" : "s"}{rolagemAtaque.criticos > 0 ? ` · ${rolagemAtaque.criticos} crítico${rolagemAtaque.criticos > 1 ? "s" : ""}` : ""}{letal ? " · Letal" : ""}
-        </div>
+        <AnimatedDiceRow dice={rolagemAtaque.dice} limiar={limiar} sortudoAplicado={rolagemAtaque.sortudoAplicado} reduced={reduced} onRevealed={() => setAtaqueRevelado(true)} />
+        {tudoRevelado && (
+          <div style={{ fontSize: 11.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", marginTop: 4 }}>
+            {rolagemAtaque.successes} sucesso{rolagemAtaque.successes === 1 ? "" : "s"}{rolagemAtaque.criticos > 0 ? ` · ${rolagemAtaque.criticos} crítico${rolagemAtaque.criticos > 1 ? "s" : ""}` : ""}{letal ? " · Letal" : ""}
+          </div>
+        )}
       </div>
 
       <div style={{ textAlign: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
           DEFESA ({rolagemDefesa.totalDice}d10, {PROFICIENCIAS_LIST.find((p) => p.key === rolagemDefesa.profKey)?.label || "Resistência"})
         </div>
-        <DiceRow dice={rolagemDefesa.dice} limiar={LIMIAR_SUCESSO} sortudoAplicado={rolagemDefesa.sortudoAplicado} cor={MP_COLOR} />
-        <div style={{ fontSize: 11.5, color: MP_COLOR, fontFamily: "'IBM Plex Mono', monospace", marginTop: 4 }}>
-          {rolagemDefesa.successes} sucesso{rolagemDefesa.successes === 1 ? "" : "s"}
-        </div>
+        <AnimatedDiceRow dice={rolagemDefesa.dice} limiar={LIMIAR_SUCESSO} sortudoAplicado={rolagemDefesa.sortudoAplicado} reduced={reduced} onRevealed={() => setDefesaRevelado(true)} />
+        {tudoRevelado && (
+          <div style={{ fontSize: 11.5, color: MP_COLOR, fontFamily: "'IBM Plex Mono', monospace", marginTop: 4 }}>
+            {rolagemDefesa.successes} sucesso{rolagemDefesa.successes === 1 ? "" : "s"}
+          </div>
+        )}
       </div>
 
-      <div style={{ textAlign: "center", borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
-        <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-          Sucessos líquidos: {rolagemAtaque.successes} − {rolagemDefesa.successes} = {sucessosLiquidos}
+      {tudoRevelado && (
+        <div style={{ textAlign: "center", borderTop: `1px solid ${LINE}`, paddingTop: 10 }}>
+          <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+            Sucessos líquidos: {rolagemAtaque.successes} − {rolagemDefesa.successes} = {sucessosLiquidos}
+          </div>
+          <span style={{
+            fontFamily: "'Cinzel', serif", fontSize: 16,
+            color: tipoFerimento === "agravante" ? EMBER : tipoFerimento === "superficial" ? BRASS_BRIGHT : MUTED,
+          }}>
+            {tipoFerimento
+              ? `Ferimento ${tipoFerimento === "agravante" ? "AGRAVANTE" : "SUPERFICIAL"} ×${feridas}`
+              : "Sem ferimento"}
+          </span>
         </div>
-        <span style={{
-          fontFamily: "'Cinzel', serif", fontSize: 16,
-          color: tipoFerimento === "agravante" ? EMBER : tipoFerimento === "superficial" ? BRASS_BRIGHT : MUTED,
-        }}>
-          {tipoFerimento
-            ? `Ferimento ${tipoFerimento === "agravante" ? "AGRAVANTE" : "SUPERFICIAL"} ×${feridas}`
-            : "Sem ferimento"}
-        </span>
-      </div>
+      )}
     </>
   );
 }
@@ -7284,6 +7498,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
   const [defesaAtributo, setDefesaAtributo] = useState("vigor");
   const attack = attacksA[attackIdx] || attacksA[0];
   const vigorGrauB = GRADE_VALUE[getAttrGrade(b, "vigor")] ?? 1;
+  const reducedMotion = usePrefersReducedMotion();
 
   function chooseAndRoll(i) {
     setAttackIdx(i);
@@ -7325,7 +7540,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
         </div>
 
         <div style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 16, alignSelf: "start" }}>
-          <AttackResultPanel result={result} />
+          <AttackResultPanel result={result} reduced={reducedMotion} />
         </div>
       </div>
     </div>
@@ -11114,6 +11329,33 @@ export default function App() {
         .pt-wisp { position: absolute; left: 30%; top: 20%; width: 40%; height: 40%; border-radius: 50%; background: color-mix(in srgb, var(--sp) 55%, transparent); filter: blur(6px); pointer-events: none; animation: pt-wisp-kf 1.7s ease-out forwards; }
         @keyframes pt-wisp-kf { 0% { transform: translate(0,0) scale(.6); opacity: .8; } 100% { transform: translate(var(--wx), -80px) scale(2.4); opacity: 0; } }
         @media (prefers-reduced-motion: reduce) { .pt-orb, .pt-orb *, .pt-shard, .pt-drip, .pt-wisp { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+        /* ---------- rolagem animada: dados 3d10 (Teste/Ataque/Magia/Confronto) ---------- */
+        .pt-dice-stage { display: flex; justify-content: center; flex-wrap: wrap; align-items: flex-end; gap: clamp(10px, 4vw, 34px); padding: 42px 8px 30px; border-radius: 8px;
+          background: radial-gradient(ellipse at 50% 80%, color-mix(in srgb, var(--pt-brass) 18%, transparent), transparent 65%), var(--pt-panel2); border: 1px solid var(--pt-line); }
+        .pt-die { position: relative; background: none; border: 0; padding: 0; width: 92px; height: 118px; }
+        .pt-die-body { display: block; transform-origin: 50% 60%; }
+        .pt-die-svg { width: 92px; height: 100px; overflow: visible; display: block; }
+        .pt-d-face { fill: var(--pt-panel); stroke: var(--pt-ink); stroke-width: 3; stroke-linejoin: round; transition: fill .3s; }
+        .pt-d-line { fill: none; stroke: var(--pt-line); stroke-width: 1.6; }
+        .pt-d-num { font: 700 31px 'Cinzel', serif; fill: var(--pt-ink); text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: var(--pt-panel); stroke-width: 4px; }
+        .pt-die-shadow { position: absolute; left: 14px; right: 14px; bottom: 4px; height: 10px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.35), transparent); }
+        .pt-die.pt-win .pt-d-face { fill: color-mix(in srgb, var(--pt-brass) 30%, var(--pt-panel)); stroke: var(--pt-brass-hi); }
+        .pt-die.pt-crit .pt-d-face { fill: color-mix(in srgb, var(--pt-ember) 32%, var(--pt-panel)); stroke: var(--pt-ember); }
+        .pt-die.pt-crit::after { content: ""; position: absolute; left: 50%; top: 44px; width: 30px; height: 30px; margin: -15px; border-radius: 50%; border: 3px solid var(--pt-ember); animation: pt-burst .8s ease-out both; }
+        .pt-die.pt-one .pt-d-face { opacity: .5; }
+        .pt-die.pt-sel .pt-die-svg { filter: drop-shadow(0 0 6px var(--pt-purple2)); }
+        .pt-die.pt-sel::before { content: ""; position: absolute; inset: -6px -4px 8px; border: 2px dashed var(--pt-purple2); border-radius: 14px; }
+        .pt-die.pt-tumble .pt-die-body { animation: pt-tumble 1s cubic-bezier(.3,.6,.4,1) var(--d, 0s) both; }
+        .pt-die.pt-tumble .pt-die-shadow { animation: pt-shadow 1s ease-in var(--d, 0s) both; }
+        .pt-die.pt-land .pt-die-body { animation: pt-landing .35s ease-out; }
+        @keyframes pt-tumble { 0% { transform: translateY(-150px) rotate(-220deg) scale(.7); } 34% { transform: translateY(0) rotate(80deg) scale(1); } 50% { transform: translateY(-48px) rotate(210deg); } 68% { transform: translateY(0) rotate(320deg); } 82% { transform: translateY(-14px) rotate(350deg); } 100% { transform: translateY(0) rotate(360deg); } }
+        @keyframes pt-shadow { 0% { opacity: .1; transform: scale(.4); } 34%, 68%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.6); } 82% { opacity: .7; transform: scale(.85); } }
+        @keyframes pt-landing { 0% { transform: scale(1.12, .88); } 60% { transform: scale(.97, 1.04); } 100% { transform: none; } }
+        @keyframes pt-burst { from { transform: scale(.4); opacity: 1; } to { transform: scale(3.4); opacity: 0; } }
+        .pt-die.pt-pulse .pt-d-face { animation: pt-pulseglow .5s ease-out; }
+        @keyframes pt-pulseglow { 0% { filter: brightness(1); } 40% { filter: brightness(1.9); } 100% { filter: brightness(1); } }
+        @media (prefers-reduced-motion: reduce) { .pt-die, .pt-die * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
       `}</style>
 
       <div className="point-header" style={{

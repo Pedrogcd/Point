@@ -17,11 +17,12 @@ function sampleState() {
     cidadesOverrides: {},
     pessoasOverrides: {},
     npcsOverrides: {},
+    rotas: [],
   };
 }
 
 describe("buildBackup", () => {
-  it("inclui as 5 listas e metadados de versão/data", () => {
+  it("inclui as 6 listas (rotas incluída, 15/10) e metadados de versão/data", () => {
     const backup = buildBackup(sampleState());
     assert.equal(backup.version, 1);
     assert.ok(typeof backup.exportedAt === "string" && backup.exportedAt.length > 0);
@@ -30,6 +31,7 @@ describe("buildBackup", () => {
     assert.deepEqual(backup.gods, sampleState().gods);
     assert.deepEqual(backup.sagas, sampleState().sagas);
     assert.deepEqual(backup.objectives, sampleState().objectives);
+    assert.deepEqual(backup.rotas, sampleState().rotas);
   });
 
   it("listas ausentes no estado viram array vazio, não quebram", () => {
@@ -38,6 +40,7 @@ describe("buildBackup", () => {
     assert.deepEqual(backup.gods, []);
     assert.deepEqual(backup.sagas, []);
     assert.deepEqual(backup.objectives, []);
+    assert.deepEqual(backup.rotas, []);
   });
 });
 
@@ -75,6 +78,12 @@ describe("parseBackup", () => {
     assert.deepEqual(parsed.gods, []);
     assert.deepEqual(parsed.sagas, []);
     assert.deepEqual(parsed.objectives, []);
+    assert.deepEqual(parsed.rotas, []);
+  });
+
+  it("backup ANTIGO, de antes de `rotas` existir (sem essa chave), carrega normal — vira []", () => {
+    const parsed = parseBackup(JSON.stringify({ characters: [{ id: "almah" }], kingdoms: [], gods: [], sagas: [], objectives: [] }));
+    assert.deepEqual(parsed.rotas, []);
   });
 });
 
@@ -87,7 +96,7 @@ describe("ciclo exportar → importar", () => {
   });
 
   it("funciona com listas vazias (campanha nova, sem nada salvo ainda)", () => {
-    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {} };
+    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {}, rotas: [] };
     const serializado = JSON.stringify(buildBackup(original));
     const restaurado = parseBackup(serializado);
     assert.deepEqual(restaurado, original);
@@ -101,7 +110,7 @@ describe("ciclo exportar → importar", () => {
         classes: [{ name: "Duelista de Estoc", description: "..." }, { name: "Mercador", description: "..." }],
         hp: { current: 3, max: 3 },
       }],
-      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {},
+      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {}, rotas: [],
     };
     const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
     assert.deepEqual(restaurado, original);

@@ -3,7 +3,7 @@
 // point-amaranth-app.jsx), pra poderem ser testadas com node --test
 // (ver backup.test.js).
 
-const BACKUP_KEYS = ["characters", "kingdoms", "gods", "sagas", "objectives"];
+const BACKUP_KEYS = ["characters", "kingdoms", "gods", "sagas", "objectives", "rotas"];
 // cidadesOverrides e pessoasOverrides são objetos ({ [id]: { campo: valor } }),
 // não listas — por isso ficam fora de BACKUP_KEYS (que default pra `[]`) e
 // são tratados à parte, com default `{}`. Backup antigo sem uma dessas chaves

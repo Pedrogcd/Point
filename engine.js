@@ -664,10 +664,22 @@ export function diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte = "ofici
 // base da defesa. Saturante: se `defesaAtributo` for "destreza", rola 2
 // dados a menos (mín. 0). `ehMagia`: true quando o ataque tem o descritor
 // "magia" — ativa o Resiste a Magia (Descendentes de Arcani, ver abaixo).
-export function resolveRolagemDefesa({ defensor, defesaAtributo, saturante, ehMagia, limiar = LIMIAR_SUCESSO }) {
+// `totalDiceManual` (14/10, ainda mais tarde, pedido do Pedro — painel Teste
+// "Ataque"/"Magia": "em vez de perguntar o vigor e atributo de defesa do
+// alvo, apenas dê a opção de quantos dados o jogador defensor rola"): quando
+// informado, pula o cálculo por atributo+proficiência (e o desconto de
+// Saturante, que não faz mais sentido sem um "atributo de defesa" pra
+// checar) e usa esse número direto — Resiste a Magia (se o alvo tiver o
+// descritor) continua descontando 1 dado por cima, igual no cálculo normal.
+export function resolveRolagemDefesa({ defensor, defesaAtributo, saturante, ehMagia, limiar = LIMIAR_SUCESSO, totalDiceManual }) {
   const profKey = "resistFisicaProf";
-  let totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] ?? 1);
-  if (saturante && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - 2);
+  let totalDice;
+  if (totalDiceManual != null) {
+    totalDice = Math.max(0, totalDiceManual);
+  } else {
+    totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] ?? 1);
+    if (saturante && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - 2);
+  }
   // Resiste a Magia (Descendentes de Arcani, catalogo-racas.json): ao se
   // defender de um ataque com o descritor "magia", rola 1 dado a menos e tem
   // 1 sucesso sempre garantido — substitui o antigo Blindado Mágico dessa raça.
@@ -725,9 +737,14 @@ export function aplicarFerimentos(hp, tipo, quantidade = 1) {
 // ["letal"], ["perfurante"], ["saturante", "sortudo"]). `defesaAtributo` é o
 // Atributo Geral que o defensor está usando como base da defesa (escolha do
 // jogador, ver UI). `feridas`/`superficial` vêm da arma/magia (padrão 1
-// ferida, não forçado a superficial).
-export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, feridas = 1, superficial = false }) {
-  const limiar = limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
+// ferida, não forçado a superficial). `limiarOverride` (14/10, ainda mais
+// tarde — painel Teste, aba "Magia": "Limiar de sucesso" virou um campo
+// editável, igual a aba Teste) pula o cálculo automático de
+// limiarAtaque (Blindado/Perfurante) e usa o valor direto. `totalDiceDefesaManual`
+// repassa pra resolveRolagemDefesa (ver lá) — usado pela aba "Ataque", que
+// trocou "atributo de defesa + grau" por um número direto de dados.
+export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo, feridas = 1, superficial = false, limiarOverride, totalDiceDefesaManual }) {
+  const limiar = limiarOverride != null ? limiarOverride : limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
   const ehMagia = descritoresAtaque.includes("magia");
   // Sortudo "normal" (personagem ou a própria magia/arma) vale pra qualquer
   // ataque. "sortudo_fisico" (14/10, Descendentes de Sabato — pedido do
@@ -736,7 +753,7 @@ export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque,
     || (!ehMagia && temDescritor(attacker, "sortudo_fisico"));
   const rolagemAtaque = rolarComSortudo(totalDiceAtaque, limiar, temSortudoAtacante);
   const saturante = descritoresAtaque.includes("saturante");
-  const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo, saturante, ehMagia });
+  const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo, saturante, ehMagia, totalDiceManual: totalDiceDefesaManual });
   const sucessosLiquidos = Math.max(0, rolagemAtaque.successes - rolagemDefesa.successes);
   const letal = descritoresAtaque.includes("letal");
   const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] ?? 1;

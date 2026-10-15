@@ -171,6 +171,14 @@ const DESCRITOR_INFO = {
   atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
 };
 
+// Listas curadas pro modo Ataque livre do painel Teste (14/10, mais tarde,
+// pedido do Pedro: escolher Atributo + Proficiência + característica em vez
+// de um ataque catalogado, e escolher a característica do ALVO em vez de
+// atributo de defesa + Resistência Física) — ver CharacterSheet, `rollAtaque`/
+// `ataqueAlvoSintetico`. Reaproveitam os labels/cores de DESCRITOR_INFO.
+const CARACTERISTICAS_ATAQUE = ["letal", "saturante", "perfurante", "sortudo", "em_area"];
+const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia"];
+
 
 
 const HABILIDADE_CATEGORIAS = [
@@ -5193,7 +5201,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // padrão 5 ("dado > 5", ou seja, bate 6 = sucesso) — voltou a ser editável
   // em 08/10 (decisão do Pedro, revertendo a trava do mesmo dia).
   const [successThreshold, setSuccessThreshold] = useState(5);
-  const [ascensaoDiff, setAscensaoDiff] = useState(0);
+  // Dados extra do Teste — pode ser negativo pra TIRAR dados do pool, não só
+  // adicionar (pedido do Pedro, 14/10, mais tarde: "substitua dados extras
+  // ascensão por apenas dados extras e me faça ter a opção de tirar dados
+  // também"). Sem o Math.max(0, ...) de antes; rollSuccessDice já tem seu
+  // próprio piso de 1 dado, então não precisa clampar aqui.
+  const [dadosExtraTeste, setDadosExtraTeste] = useState(0);
   const [history, setHistory] = useState([]);
   const [rolling, setRolling] = useState(false);
   const [lastRoll, setLastRoll] = useState(null);
@@ -5208,21 +5221,42 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // colide com uma key de ATRIBUTOS_GERAIS_LIST de verdade.
   const [manaGastaTeste, setManaGastaTeste] = useState(1);
   const [custoMagiaTeste, setCustoMagiaTeste] = useState(1);
-  const [ataqueIdx, setAtaqueIdx] = useState(0);
-  // Alvo sintético do modo Ataque (igual o Confronto): sem ficha de verdade,
-  // só os campos que resolveAtaque precisa pra rolar a defesa e o ferimento.
+  // Modo Ataque (14/10, mais tarde, pedido do Pedro: "em vez de escolher que
+  // tipo de ataque, me faça escolher o atributo para o ataque, a
+  // proficiência, e a característica... e aplique a característica") — saiu
+  // o seletor de ataque salvo/catalogado (`ataqueOptions`/`ataqueIdx`),
+  // virou montagem livre: Atributo + Proficiência (igual diceAtaqueFisico) +
+  // características (descritores do próprio ataque, ex.: Letal/Saturante/
+  // Perfurante/Sortudo) aplicadas direto na rolagem via `descritoresAtaque`.
+  const [ataqueAtributo, setAtaqueAtributo] = useState("destreza");
+  const [ataqueProf, setAtaqueProf] = useState("combateCorpoACorpo");
+  const [ataqueCaracteristicas, setAtaqueCaracteristicas] = useState([]);
+  // Alvo sintético do modo Ataque (igual o Confronto, mas sem ficha de
+  // verdade) — compartilhado com o modo Magia (`ataqueAlvoSintetico` abaixo).
+  // Vigor continua pedido à parte (decide agravante x superficial, não é
+  // dado de dados) — "Atributo de defesa"/"Resistência Física" saíram,
+  // viraram um número direto de dados (pedido do Pedro: "em vez de
+  // perguntar o vigor e atributo de defesa do alvo, apenas dê a opção de
+  // quantos dados o jogador defensor rola e a opção de qual característica
+  // possui... e aplique").
   const [ataqueVigorGrau, setAtaqueVigorGrau] = useState("E");
-  const [ataqueDefesaAtributo, setAtaqueDefesaAtributo] = useState("vigor");
-  const [ataqueDefesaAtributoGrau, setAtaqueDefesaAtributoGrau] = useState("E");
-  const [ataqueResistFisicaGrau, setAtaqueResistFisicaGrau] = useState("E");
-  const [ataqueBlindado, setAtaqueBlindado] = useState(false);
-  const [ataqueResisteAMagia, setAtaqueResisteAMagia] = useState(false);
+  const [ataqueDadosDefesa, setAtaqueDadosDefesa] = useState(2);
+  const [ataqueCaracteristicasAlvo, setAtaqueCaracteristicasAlvo] = useState([]);
   const [ataqueResult, setAtaqueResult] = useState(null);
   const [ataqueHistory, setAtaqueHistory] = useState([]);
   // Modo Magia (docs/SISTEMA_MAGIA.md itens 4/6/7/9): conjura uma magia do
   // catálogo (data/magias.js) contra o mesmo alvo sintético do modo Ataque.
   const [magiaId, setMagiaId] = useState(MAGIAS[0]?.id);
   const [manaGastaMagia, setManaGastaMagia] = useState(MAGIAS[0]?.custoMp ?? 1);
+  // Limiar de sucesso e dados extra do modo Magia (14/10, mais tarde, pedido
+  // do Pedro: "nas magias, faça eu poder botar também as opções de Limiar
+  // de sucesso (dado >) e Dados extra") — mesmo par de campos que já existia
+  // na aba Teste, agora editável aqui também. `limiarMagia` pula o cálculo
+  // automático de limiarAtaque (Blindado/Perfurante) — ver resolveAtaque
+  // (limiarOverride); `dadosExtraMagia` soma direto no pool (pode ser
+  // negativo, tira dados).
+  const [limiarMagia, setLimiarMagia] = useState(5);
+  const [dadosExtraMagia, setDadosExtraMagia] = useState(0);
   const [magiaResult, setMagiaResult] = useState(null);
   const [magiaHistory, setMagiaHistory] = useState([]);
   // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): até 3 slots na ficha
@@ -5284,7 +5318,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const diceDoAtributoTeste = usandoBaseMagicaNoTeste
     ? diceBaseMagica(manaGastaTeste, custoMagiaTeste)
     : (GRADE_VALUE[rollAttrGrade] ?? 1);
-  const totalDice = diceDoAtributoTeste + (GRADE_VALUE[rollProfGrade] ?? 1) + Math.max(0, ascensaoDiff);
+  const totalDice = diceDoAtributoTeste + (GRADE_VALUE[rollProfGrade] ?? 1) + dadosExtraTeste;
 
   function roll() {
     setRolling(true);
@@ -5296,37 +5330,28 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     }, 380);
   }
 
-  // Modo Ataque do mesmo painel: ataques físicos do próprio personagem (com
-  // fallback genérico, igual o Confronto) contra um alvo SINTÉTICO (sem ficha
-  // de verdade) definido na mão — Vigor, Resistência Física e Blindado
-  // (14/10: vale contra qualquer ataque, Blindado Mágico não existe mais
-  // separado) + Resiste a Magia (defesa contra o descritor Magia). Ataques
-  // mágicos saíram daqui (ver aba "Magia", abaixo) — não há mais "arma
-  // mágica" em BASE_ATTACK_TYPES (data/magias.js é a fonte única pra isso,
-  // ver engine.js).
-  const ataqueOptions = character.attacks && character.attacks.length > 0
-    ? character.attacks
-    : [{ nome: "(ataque genérico)", tipo: "marcial", atributoKey: "destreza", profKey: "combateCorpoACorpo", ajusteDados: 0, feridas: 1, descritores: [] }];
-  const ataqueSelecionado = ataqueOptions[ataqueIdx] || ataqueOptions[0];
-  // Alvo sintético (mesma peça que o Confronto usa pro oponente Editável —
-  // ver resolveFichaAtaque/makeEditableOpponent) só pra montar o objeto que a
-  // aba Magia reaproveita (resolveAtaque chamado direto, pois a magia não
-  // vem de BASE_ATTACK_TYPES/resolveFichaAtaque).
+  // Modo Ataque do mesmo painel: montagem livre (Atributo + Proficiência +
+  // características, ver estados acima) contra um alvo SINTÉTICO (sem ficha
+  // de verdade). Alvo sintético (mesma ideia do Confronto, mas sem ficha de
+  // verdade) — Vigor à parte (ferimento) + dados de defesa diretos +
+  // características escolhidas (ex.: Blindado, Resiste a Magia) viram
+  // `descritores` — compartilhado com o modo Magia logo abaixo.
   const ataqueAlvoSintetico = {
-    atributosGerais: { vigor: ataqueVigorGrau, [ataqueDefesaAtributo]: ataqueDefesaAtributo === "vigor" ? ataqueVigorGrau : ataqueDefesaAtributoGrau },
-    proficiencias: { resistFisicaProf: ataqueResistFisicaGrau },
-    descritores: [...(ataqueBlindado ? ["blindado"] : []), ...(ataqueResisteAMagia ? ["resiste_a_magia"] : [])],
+    atributosGerais: { vigor: ataqueVigorGrau },
+    descritores: ataqueCaracteristicasAlvo,
   };
 
   function rollAtaque() {
-    const r = resolveFichaAtaque({
-      character: characterEfetivo, attack: ataqueSelecionado,
-      targetVigorGrau: ataqueVigorGrau, targetDefesaAtributo: ataqueDefesaAtributo, targetDefesaAtributoGrau: ataqueDefesaAtributoGrau,
-      targetResistFisicaGrau: ataqueResistFisicaGrau,
-      targetBlindado: ataqueBlindado, targetResisteAMagia: ataqueResisteAMagia,
+    const totalDiceAtaque = diceAtaqueFisico(characterEfetivo, ataqueAtributo, ataqueProf, 0);
+    const r = resolveAtaque({
+      attacker: characterEfetivo, defender: ataqueAlvoSintetico,
+      totalDiceAtaque, descritoresAtaque: ataqueCaracteristicas,
+      feridas: 1, superficial: false,
+      totalDiceDefesaManual: ataqueDadosDefesa,
     });
     setAtaqueResult(r);
-    setAtaqueHistory((h) => [{ ...r, atkNome: ataqueSelecionado.nome, id: Date.now() }, ...h].slice(0, 6));
+    const atkNome = `${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === ataqueAtributo)?.label || ataqueAtributo} + ${PROFICIENCIAS_LIST.find((p) => p.key === ataqueProf)?.label || ataqueProf}`;
+    setAtaqueHistory((h) => [{ ...r, atkNome, id: Date.now() }, ...h].slice(0, 6));
   }
 
   // Modo Magia: conjura uma magia do catálogo (data/magias.js) contra o MESMO
@@ -5346,11 +5371,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     const manaGasta = manaGastaMagia;
     let resultadoAtaque = null;
     if (!magiaSelecionada.semRolagem) {
-      const totalDiceAtaque = diceAtaqueMagico(characterEfetivo, manaGasta, magiaSelecionada.custoMp || 0, fonteMagia, magiaSelecionada.ajusteDados || 0);
+      const totalDiceAtaque = diceAtaqueMagico(characterEfetivo, manaGasta, magiaSelecionada.custoMp || 0, fonteMagia, magiaSelecionada.ajusteDados || 0) + dadosExtraMagia;
       resultadoAtaque = resolveAtaque({
         attacker: characterEfetivo, defender: ataqueAlvoSintetico,
-        totalDiceAtaque, descritoresAtaque: magiaSelecionada.descritores, defesaAtributo: ataqueDefesaAtributo,
+        totalDiceAtaque, descritoresAtaque: magiaSelecionada.descritores,
         feridas: magiaSelecionada.feridas || 1, superficial: !!magiaSelecionada.superficial,
+        limiarOverride: limiarMagia, totalDiceDefesaManual: ataqueDadosDefesa,
       });
     }
     const rolagemRecuperacao = rollSuccessDice(contagemOficiosMagicos(characterEfetivo) + manaGasta, LIMIAR_SUCESSO);
@@ -5747,14 +5773,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   <Field label="Limiar de sucesso (dado >)">
                     <input type="number" min={0} max={9} style={inputStyle} value={successThreshold} onChange={(e) => setSuccessThreshold(Math.max(0, Math.min(9, Number(e.target.value))))} />
                   </Field>
-                  <Field label="Dados extra (Ascensão)">
-                    <input type="number" min={0} style={inputStyle} value={ascensaoDiff} onChange={(e) => setAscensaoDiff(Math.max(0, Number(e.target.value)))} />
+                  <Field label="Dados extra">
+                    <input type="number" style={inputStyle} value={dadosExtraTeste} onChange={(e) => setDadosExtraTeste(Number(e.target.value))} />
                   </Field>
                 </div>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
                   {usandoBaseMagicaNoTeste
-                    ? `Dados = Base mágica (${diceDoAtributoTeste}, 2d10 + extra de mana) + grau da Perícia (${GRADE_VALUE[rollProfGrade]}) + dados extra (${ascensaoDiff}) = ${totalDice}d10.`
-                    : `Dados = grau do Atributo (${GRADE_VALUE[rollAttrGrade]}) + grau da Perícia (${GRADE_VALUE[rollProfGrade]}) + dados extra (${ascensaoDiff}) = ${totalDice}d10.`}
+                    ? `Dados = Base mágica (${diceDoAtributoTeste}, 2d10 + extra de mana) + grau da Perícia (${GRADE_VALUE[rollProfGrade]}) + dados extra (${dadosExtraTeste}) = ${totalDice}d10.`
+                    : `Dados = grau do Atributo (${GRADE_VALUE[rollAttrGrade]}) + grau da Perícia (${GRADE_VALUE[rollProfGrade]}) + dados extra (${dadosExtraTeste}) = ${totalDice}d10.`}
                   {" "}Sucesso se dado &gt; {successThreshold} (padrão: bate 6 = sucesso; um 10 natural sempre conta).
                 </div>
 
@@ -5828,11 +5854,37 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
             {rollPanelMode === "ataque" && (
               <>
-                <Field label="Ataque">
-                  <select value={ataqueIdx} onChange={(e) => { setAtaqueIdx(Number(e.target.value)); setAtaqueResult(null); }} style={inputStyle}>
-                    {ataqueOptions.map((atk, i) => <option key={i} value={i}>{atk.nome} ({TIPOS_ATAQUE[atk.tipo]?.label || "Marcial"})</option>)}
-                  </select>
-                </Field>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Field label="Atributo">
+                    <select value={ataqueAtributo} onChange={(e) => setAtaqueAtributo(e.target.value)} style={inputStyle}>
+                      {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({characterEfetivo.atributosGerais?.[a.key] || "E"})</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Proficiência">
+                    <select value={ataqueProf} onChange={(e) => setAtaqueProf(e.target.value)} style={inputStyle}>
+                      {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label} ({characterEfetivo.proficiencias?.[p.key] || "E"})</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                    Característica do ataque
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {CARACTERISTICAS_ATAQUE.map((id) => {
+                      const info = DESCRITOR_INFO[id];
+                      const ativo = ataqueCaracteristicas.includes(id);
+                      return (
+                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: ativo ? info.cor : PARCHMENT }} title={info.descricao}>
+                          <input
+                            type="checkbox" checked={ativo}
+                            onChange={() => setAtaqueCaracteristicas((prev) => (ativo ? prev.filter((x) => x !== id) : [...prev, id]))}
+                          /> {info.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div style={{ fontSize: 10.5, color: PURPLE, margin: "2px 0 8px", fontWeight: 600 }}>Alvo sintético (sem ficha — só pra testar o ataque)</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <Field label="Vigor do alvo (grau)">
@@ -5840,31 +5892,28 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                       {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
                     </select>
                   </Field>
-                  <Field label="Atributo de defesa">
-                    <select value={ataqueDefesaAtributo} onChange={(e) => setAtaqueDefesaAtributo(e.target.value)} style={inputStyle}>
-                      {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
-                    </select>
+                  <Field label="Dados que o alvo rola na defesa">
+                    <input type="number" min={0} style={inputStyle} value={ataqueDadosDefesa} onChange={(e) => setAtaqueDadosDefesa(Math.max(0, Number(e.target.value)))} />
                   </Field>
                 </div>
-                {ataqueDefesaAtributo !== "vigor" && (
-                  <Field label={`Grau de ${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === ataqueDefesaAtributo)?.label}`}>
-                    <select value={ataqueDefesaAtributoGrau} onChange={(e) => setAtaqueDefesaAtributoGrau(e.target.value)} style={inputStyle}>
-                      {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </Field>
-                )}
-                <Field label="Resistência Física (grau) — 14/10: defesa é sempre Resistência Física, físico ou mágico">
-                  <select value={ataqueResistFisicaGrau} onChange={(e) => setAtaqueResistFisicaGrau(e.target.value)} style={inputStyle}>
-                    {GRADE_ORDER.map((g) => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </Field>
-                <div style={{ display: "flex", gap: 14, margin: "2px 0 10px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
-                    <input type="checkbox" checked={ataqueBlindado} onChange={(e) => setAtaqueBlindado(e.target.checked)} /> Blindado (vale contra físico e mágico)
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
-                    <input type="checkbox" checked={ataqueResisteAMagia} onChange={(e) => setAtaqueResisteAMagia(e.target.checked)} /> Resiste a Magia
-                  </label>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
+                    Característica do alvo
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {CARACTERISTICAS_ALVO.map((id) => {
+                      const info = DESCRITOR_INFO[id];
+                      const ativo = ataqueCaracteristicasAlvo.includes(id);
+                      return (
+                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: ativo ? info.cor : PARCHMENT }} title={info.descricao}>
+                          <input
+                            type="checkbox" checked={ativo}
+                            onChange={() => setAtaqueCaracteristicasAlvo((prev) => (ativo ? prev.filter((x) => x !== id) : [...prev, id]))}
+                          /> {info.label}
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
                   Sucessos líquidos = sucessos do ataque − sucessos da defesa (mínimo 0). Agravante se sucessos líquidos ≥ Vigor do alvo (grau cheio, Letal reduz em 1); senão, superficial.
@@ -5950,6 +5999,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 <Field label={`Mana gasta (custo da magia: ${magiaSelecionada?.custoMp ?? "—"})`}>
                   <input type="number" min={0} style={inputStyle} value={manaGastaMagia} onChange={(e) => setManaGastaMagia(Math.max(0, Number(e.target.value)))} />
                 </Field>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <Field label="Limiar de sucesso (dado >)">
+                    <input type="number" min={0} max={9} style={inputStyle} value={limiarMagia} onChange={(e) => setLimiarMagia(Math.max(0, Math.min(9, Number(e.target.value))))} />
+                  </Field>
+                  <Field label="Dados extra">
+                    <input type="number" style={inputStyle} value={dadosExtraMagia} onChange={(e) => setDadosExtraMagia(Number(e.target.value))} />
+                  </Field>
+                </div>
                 <div style={{ fontSize: 10, color: manaInsuficiente ? EMBER : MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
                   Mana atual: {manaAtual}/{computeMaxMana(character)}{manaInsuficiente ? " — mana insuficiente pra conjurar" : ""}. Usa o mesmo alvo sintético da aba Ataque.
                 </div>

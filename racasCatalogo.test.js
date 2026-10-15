@@ -113,22 +113,39 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
 });
 
 // Checagem automática de deriva: toda habilidade (principal ou secundária, de
-// qualquer raça) cujo `efeito` mencione "+1 grau" ou "+1 na proficiência"/
-// "+1 nas proficiências" precisa estar em BONUS_GRAU_POR_HABILIDADE (bônus
-// fixo) e/ou BONUS_GRAU_ESCOLHA_POR_HABILIDADE (bônus à escolha do jogador —
-// ex.: Mana Concentrada, Homúnculo), e vice-versa — se o Pedro editar o
-// catálogo de novo (mudar um efeito, trocar uma habilidade) e isso mexer em
-// quem dá bônus de grau, o teste quebra aqui em vez de silenciosamente ficar
-// desatualizado. Homúnculo aparece nas duas tabelas (Atletismo é fixo,
-// Força-ou-Destreza é escolha) — por isso a cobertura usa a UNIÃO dos ids.
+// qualquer raça) cujo `efeito` mencione "+1 grau"/"+1 na(s) proficiência(s)"
+// OU a variante "+1 dado em <Proficiência>"/"+1 em <Proficiência>" (texto
+// nomeando a proficiência com inicial maiúscula direto, sem a palavra
+// "testes" no meio — ex.: "Adaptado": "+1 dado em Sobrevivência, +1 em
+// Atletismo e +1 em Furtividade") precisa estar em BONUS_GRAU_POR_HABILIDADE
+// (bônus fixo) e/ou BONUS_GRAU_ESCOLHA_POR_HABILIDADE (bônus à escolha do
+// jogador — ex.: Mana Concentrada, Homúnculo), e vice-versa — se o Pedro
+// editar o catálogo de novo (mudar um efeito, trocar uma habilidade) e isso
+// mexer em quem dá bônus de grau, o teste quebra aqui em vez de
+// silenciosamente ficar desatualizado. Homúnculo aparece nas duas tabelas
+// (Atletismo é fixo, Força-ou-Destreza é escolha) — por isso a cobertura usa
+// a UNIÃO dos ids.
+//
+// A variante "+1 dado em/+1 em <Maiúscula>" foi adicionada em 15/10 (achado
+// da revisão docs/revisao/03-racas.md: "Adaptado" usava essa frase e não
+// tinha entrada, e a checagem original não pegava porque não contém "+1
+// grau" nem "+1 na(s) proficiência(s)"). O `[A-ZÀ-Ú]` depois de "em " exige
+// maiúscula logo em seguida, o que já exclui sozinho os "+1 dado em testes
+// de..."/"+1 dado em testes que..." (testes de veneno, salto, faro, faro,
+// faro, físicos/mentais de Sharkan/Coelho-Bode/Leonino/Lobo-Canino/Raposa-
+// Kitsune/Transformação) — esses são bônus condicionais de uma rolagem
+// específica, não bônus de grau permanente, e não devem ser mapeados aqui
+// (conferido manualmente em 15/10: a extensão da regex não capturou nenhum
+// deles, só "adaptado").
 describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálogo inteiro", () => {
   const todasHabilidades = CATALOGO_RACAS.racas.flatMap((r) => [...r.principais, ...r.secundarias]);
-  const mencionamBonusDeGrau = todasHabilidades.filter((h) => /\+1 grau|\+1 na proficiência|\+1 nas proficiências/.test(h.efeito));
+  const REGEX_BONUS_DE_GRAU = /\+1 grau|\+1 na proficiência|\+1 nas proficiências|\+1 dado em [A-ZÀ-Ú]|\+1 em [A-ZÀ-Ú]/;
+  const mencionamBonusDeGrau = todasHabilidades.filter((h) => REGEX_BONUS_DE_GRAU.test(h.efeito));
   const idsMapeados = new Set([...Object.keys(BONUS_GRAU_POR_HABILIDADE), ...Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE)]);
 
   it("toda habilidade cujo efeito menciona bônus de grau está mapeada (fixa ou à escolha)", () => {
     const faltando = mencionamBonusDeGrau.filter((h) => !idsMapeados.has(h.id)).map((h) => h.id);
-    assert.deepEqual(faltando, [], `habilidades com "+1 grau"/"+1 na(s) proficiência(s)" no efeito mas sem entrada em nenhuma das duas tabelas: ${faltando.join(", ")}`);
+    assert.deepEqual(faltando, [], `habilidades com "+1 grau"/"+1 na(s) proficiência(s)"/"+1 dado em X"/"+1 em X" no efeito mas sem entrada em nenhuma das duas tabelas: ${faltando.join(", ")}`);
   });
 
   it("todo id mapeado (nas duas tabelas) existe de verdade no catálogo e seu efeito realmente menciona bônus de grau", () => {
@@ -140,9 +157,9 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
     }
   });
 
-  it("cobertura esperada: 21 habilidades distintas (20 com bônus fixo, 2 à escolha, Homúnculo nas duas — 14/10: Descendentes de Sabato saiu, virou bônus de raça — ver BONUS_GRAU_FIXO_POR_RACA)", () => {
-    assert.equal(idsMapeados.size, 21);
-    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 20);
+  it("cobertura esperada: 22 habilidades distintas (21 com bônus fixo, 2 à escolha, Homúnculo nas duas — 15/10: Adaptado entrou no bônus fixo)", () => {
+    assert.equal(idsMapeados.size, 22);
+    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 21);
     assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 2);
   });
 });

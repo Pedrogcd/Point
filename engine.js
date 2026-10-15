@@ -3,11 +3,17 @@
 // point-amaranth-app.jsx importa deste módulo — esta é a fonte única da lógica
 // de regras. Não duplique estas funções de volta no jsx.
 //
-// Fonte de verdade das regras de combate/magia: docs/SISTEMA_MAGIA.md (14/10) —
-// substitui o modelo antigo de Acerto/Confirmação em duas fases por rolagem +
-// ferimento direto. SISTEMA.md (mais antigo) ainda cobre o que não mudou
-// (Teste genérico, recursos, status effects de texto livre). Ver CONTEXTO.md
-// pro "porquê" de cada decisão de design.
+// Fonte de verdade das regras de combate/magia: os TRÊS arquivos juntos —
+// docs/SISTEMA_MAGIA.md (guia geral, atualizado em 15/10 pra parar de citar
+// Resistência Mágica/Blindado Mágico/Magias Ofensivas/Manipulação de Mana,
+// todos extintos), docs/MUDANCAS_RACAS_E_MAGIA.md e docs/DISCIPLINAS_MAGIA.md
+// (14/10, detalham raças/disciplinas/catálogo de magias com mais precisão —
+// onde algum dos três divergir dos outros dois, valem esses dois por serem
+// mais recentes e específicos). Substituem o modelo antigo de Acerto/
+// Confirmação em duas fases por rolagem + ferimento direto. SISTEMA.md (mais
+// antigo) ainda cobre o que não mudou (Teste genérico, recursos, status
+// effects de texto livre). Ver CONTEXTO.md pro "porquê" de cada decisão de
+// design.
 
 // Grau F (14/10): abaixo de E, selecionável em qualquer Atributo Geral ou
 // Proficiência — pedido explícito do Pedro pra representar uma fraqueza

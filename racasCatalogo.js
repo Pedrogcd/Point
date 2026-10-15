@@ -2,7 +2,7 @@
 // Funções puras (sem React), usadas pela UI (point-amaranth-app.jsx) e pela
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
-import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
+import { GRADE_ORDER, PROFICIENCIAS_LIST, temDescritor } from "./engine.js";
 import { DISCIPLINAS, getDisciplinaPorId } from "./data/magias.js";
 
 export const CATALOGO_RACAS = catalogo;
@@ -44,16 +44,18 @@ export function descritoresDeSelecao(...entradas) {
   return resultado;
 }
 
-// Checa se o personagem tem um descritor ativo (vindo de `character.descritores`
-// — já é a união sem duplicar das habilidades principal/secundária escolhidas,
-// ver descritoresDeSelecao). Existe pra não repetir `(character?.descritores ||
-// []).includes(id)` em todo lugar que precisa checar um descritor específico
-// (ex.: Sortudo, Ignora Blindado) — hoje é só esse `includes`, mas é o ponto
-// único pra outras fontes de descritor (ex.: armadura dando Blindado) entrarem
-// no futuro sem precisar caçar cada chamada.
-export function temDescritor(character, id) {
-  return (character?.descritores || []).includes(id);
-}
+// `temDescritor` era duplicada aqui e em engine.js (mesma assinatura, mesma
+// checagem `entidade?.descritores.includes(nome)`, só com nomes de parâmetro
+// diferentes) — unificado em 15/10 (revisão docs/revisao/02-rolagens.md,
+// achado da seção "Descritores") pra ter um único ponto de checagem de
+// descritor no app inteiro, como o comentário de engine.js já pedia. Agora é
+// só um re-export: quem importa `temDescritor` de racasCatalogo.js (ex.:
+// racasCatalogo.test.js) continua funcionando sem mudar nada, e o
+// comportamento é exatamente o mesmo (checa `character.descritores`, que já
+// é a união das habilidades principal/secundária escolhidas — ver
+// descritoresDeSelecao — mesma coisa que engine.js chama de `entidade`,
+// porque também é usada com ataques/magias, não só personagens).
+export { temDescritor };
 
 // Remapeamento do esquema antigo (racaId/habilidadePrincipalId/habilidadeSecundariaId,
 // enviado nos PRs #30/#31) pro novo (raca/habilidadePrincipal) — os ids de
@@ -171,6 +173,21 @@ export const BONUS_GRAU_POR_HABILIDADE = {
   ],
   "pele-grossa": [
     { tipo: "proficiencia", chave: "resistFisicaProf", teto: "A" },
+  ],
+  // "Adaptado" (Niosh) — faltava aqui (achado da revisão docs/revisao/03-
+  // racas.md, 15/10): o `efeito` do catálogo usa "+1 dado em Sobrevivência,
+  // +1 em Atletismo e +1 em Furtividade", fora do padrão de frase que a
+  // checagem automática original reconhecia ("+1 grau"/"+1 na(s)
+  // proficiência(s)") — por isso nunca foi pega como pendência. Mapeada
+  // igual às outras (bônus fixo, teto C por padrão) porque o texto nomeia
+  // as 3 proficiências diretamente, igual "Camuflagem Animal" acima
+  // (mesmo padrão, só com "+1 dado em"/"+1 em" em vez de "+1 na
+  // proficiência"); ver também o ajuste da regex da checagem automática
+  // em racasCatalogo.test.js.
+  adaptado: [
+    { tipo: "proficiencia", chave: "sobrevivencia" },
+    { tipo: "proficiencia", chave: "atletismo" },
+    { tipo: "proficiencia", chave: "furtividade" },
   ],
   "cla-radiante": [{ tipo: "atributo", chave: "carisma" }],
   "cla-noctis": [{ tipo: "atributo", chave: "manipulacao" }],

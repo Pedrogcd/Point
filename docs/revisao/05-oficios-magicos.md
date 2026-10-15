@@ -7,7 +7,7 @@ Fonte: `data/magias.js` (lido integralmente) e `engine.js` (funções de pool/re
 Só **5 disciplinas** de magia existem (`DISCIPLINAS`, `data/magias.js:62-90`):
 
 1. **Ofício Mágico: Magias de guerra** (`oficio-magias-de-guerra`) — o único ofício com conteúdo completo. Ex-"Ofício Mágico"/"Evocação". Dá:
-   - +1 grau (teto C) em **Magias Gerais**, **Acadêmicos** e **Tecnologia** (`racasCatalogo.js:420-424`).
+   - +1 grau (teto C) em **Magias Gerais**, **Acadêmicos** e **Tecnologia** (`racasCatalogo.js:437-441`).
    - Acesso a "tela de mana" (`temTelaDeMana: true`) e troca grátis de magia equipada gastando uma ação (`trocaGratisComAcao: true`) — ambos são só flags de dados hoje; não encontrei lógica de UI específica de "tela de mana" nem um sistema de ações que consuma a troca grátis (o app não modela ações/turnos — comentário explícito em `data/magias.js:59-60`).
    - 2 magias iniciais, até 3 ativas.
 2. **Magia Inata** (`magia-inata`) — não conta como ofício mágico. Dá +1 MP máximo e +1d10 fixo em toda rolagem de magia. 2 iniciais, até 3 ativas.
@@ -19,7 +19,7 @@ Não existe nenhum "Ofício Mágico: Encantamentos" ou "Construto" com conteúdo
 
 ## Magia Inata — detalhe
 
-Diferente de um ofício mágico, mas usa o MESMO catálogo de magias (`MAGIAS`) para equipar. Bônus: `computeMaxMana` soma +1 se `disciplinaMagica.magiaInata` (`engine.js:476`); `diceAtaqueMagico` soma +1 dado fixo pelo mesmo flag (`engine.js:655`). `temMagiaInataDoPersonagem` (`racasCatalogo.js:283-285`) checa se algum slot de disciplina tem `disciplinaId === "magia-inata"`.
+Diferente de um ofício mágico, mas usa o MESMO catálogo de magias (`MAGIAS`) para equipar. Bônus: `computeMaxMana` soma +1 se `disciplinaMagica.magiaInata` (`engine.js:482`); `diceAtaqueMagico` soma +1 dado fixo pelo mesmo flag (`engine.js:661`). `temMagiaInataDoPersonagem` (`racasCatalogo.js:300-302`) checa se algum slot de disciplina tem `disciplinaId === "magia-inata"`.
 
 ## Catálogo de magias (`MAGIAS`, `data/magias.js:101-222`) — 12 entradas
 
@@ -44,10 +44,10 @@ Todas as magias, exceto Escudo de Mana (sem rolagem) e Sensor (placeholder), sã
 
 ## Pool do ataque mágico
 
-`diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte, ajusteDados)` — `engine.js:644-658`:
+`diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte, ajusteDados)` — `engine.js:650-664`:
 
 ```
-Base mágica        = 2 + max(0, manaGasta - custoMagia)        [diceBaseMagica/extraDeManaMagica, engine.js:610-622]
+Base mágica        = 2 + max(0, manaGasta - custoMagia)        [diceBaseMagica/extraDeManaMagica, engine.js:616-628]
 contribuição        = contagemOficiosMagicos(attacker)          [se fonte === "oficios", padrão]
                      OU GRADE_VALUE[grau de Inteligência]        [se fonte === "inteligencia", escolha do jogador]
 bônus Magia Inata   = +1 se disciplinaMagica.magiaInata
@@ -55,7 +55,7 @@ ajuste da magia     = ajusteDados da magia (ex.: +1 em Mísseis Mágicos)
 TOTAL = max(0, Base mágica + contribuição + bônus Magia Inata + ajuste da magia)
 ```
 
-`contagemOficiosMagicos(character)` (`engine.js:632-642`) = nº de disciplinas tipo `oficio-magico` equipadas (até 3, incluindo as vazias) + `oficiosExtras` (Clã Natrus/Corvus/Seasus, +1 cada — `racasCatalogo.js:235-239`, somado dentro de `comGrausEfetivos`).
+`contagemOficiosMagicos(character)` (`engine.js:638-648`) = nº de disciplinas tipo `oficio-magico` equipadas (até 3, incluindo as vazias) + `oficiosExtras` (Clã Natrus/Corvus/Seasus, +1 cada — `racasCatalogo.js:252-256`, somado dentro de `comGrausEfetivos`).
 
 ## Recuperação de mana
 
@@ -63,7 +63,7 @@ Ao conjurar (`point-amaranth-app.jsx:5405`): rola `contagemOficiosMagicos(charac
 
 ## MP máximo e faixa de mana
 
-`MANA_MIN = 1`, `MANA_MAX = 6` (`engine.js:473-474`). `computeMaxMana` = `clamp(1, 6, base + 1 se Magia Inata)` (`engine.js:475-479`) — "base" vem de `character.mp.max` (default 3), não de um valor fixo por raça. Bate com `docs/SISTEMA_MAGIA.md` linha 33 ("Cada pessoa tem de 1 a 6 de mana") e `docs/MUDANCAS_RACAS_E_MAGIA.md` linha 14 ("Toda a mana volta no fim da cena" — não encontrei um botão "Fim de cena" com essa lógica localizado nesta revisão; só confirmei o "Início de turno", ver abaixo em "Não verificado").
+`MANA_MIN = 1`, `MANA_MAX = 6` (`engine.js:479-480`). `computeMaxMana` = `clamp(1, 6, base + 1 se Magia Inata)` (`engine.js:481-485`) — "base" vem de `character.mp.max` (default 3), não de um valor fixo por raça. Bate com `docs/SISTEMA_MAGIA.md` linha 33 ("Cada pessoa tem de 1 a 6 de mana") e `docs/MUDANCAS_RACAS_E_MAGIA.md` linha 14 ("Toda a mana volta no fim da cena" — confirmado abaixo, botão "Fim de cena").
 
 ## Confirmações adicionais (botão "Fim de cena" e "Tela de mana")
 

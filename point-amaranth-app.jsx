@@ -3,7 +3,7 @@ import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
-  Upload, Download, ExternalLink, Eye, EyeOff,
+  Upload, Download, ExternalLink, Eye, EyeOff, Route,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -46,6 +46,11 @@ import { mesclarCidadeComOverride, normalizarItemLista, paraItemLista } from "./
 import { mesclarNpcComOverride } from "./npcOverrides.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
 import { duracaoRolagem, faceDoDado } from "./rolagemAnimada.js";
+import {
+  TIPOS_ROTA, TIPO_ROTA_PADRAO, ESTILO_ROTA,
+  caminhoSuave, simplificarTraco, grudarNaCidade,
+  normalizarRota, migrarRotas, rotasVisiveis, rotuloRota,
+} from "./rotasMapa.js";
 
 /* ---------------------------------------------------------------
    TOKENS — paleta inspirada em Fire Emblem: Three Houses (fundo
@@ -8553,7 +8558,50 @@ const TAMANHOS_TOOLTIP_MAPA = [
   { label: "M", titulo: 15.5, texto: 14, largura: 280 },
   { label: "G", titulo: 19, texto: 17, largura: 340 },
 ];
-function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId, onAbrirReino, onAbrirCidade, editando }) {
+
+// Traço de uma rota do mapa (ver rotasMapa.js), com a animação de entrada
+// ("desenhando a linha") quando `animando` é true — uma máscara SVG com um
+// <path pathLength="1"> branco grosso, stroke-dashoffset 1 -> 0 por
+// transição CSS. Pra transição disparar o path precisa nascer com
+// dashoffset 1 e só passar pra 0 no frame SEGUINTE (daí o useEffect com
+// requestAnimationFrame) — um toggle de classe só no mount, sem esse
+// segundo frame, não anima (o navegador já pinta o estado final direto).
+// Rotas já existentes ao abrir a aba chegam aqui com animando=false e
+// aparecem reveladas desde o primeiro paint, sem transição nenhuma.
+function RotaRevealPath({ rota, d, animando }) {
+  const [revelado, setRevelado] = useState(!animando);
+  useEffect(() => {
+    if (!animando) { setRevelado(true); return; }
+    setRevelado(false);
+    const raf = requestAnimationFrame(() => setRevelado(true));
+    return () => cancelAnimationFrame(raf);
+  }, [animando, rota.id]);
+  const maskId = `rota-mask-${rota.id}`;
+  const estilo = ESTILO_ROTA[rota.tipo] || ESTILO_ROTA[TIPO_ROTA_PADRAO];
+  return (
+    <g>
+      <mask id={maskId} maskUnits="userSpaceOnUse" x={0} y={0} width={MAPA_MUNDO.largura} height={MAPA_MUNDO.altura}>
+        <path
+          d={d} fill="none" stroke="#fff" strokeWidth={22} strokeLinecap="round" strokeLinejoin="round"
+          pathLength={1} strokeDasharray={1} strokeDashoffset={revelado ? 0 : 1}
+          style={{ transition: animando ? "stroke-dashoffset 1.3s ease-in-out" : "none" }}
+        />
+      </mask>
+      <g mask={`url(#${maskId})`}>
+        {rota.tipo === "ferrovia" ? (
+          <>
+            <path d={d} fill="none" stroke={estilo.corBase} strokeWidth={estilo.larguraBase} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={d} fill="none" stroke={estilo.corTopo} strokeWidth={estilo.larguraTopo} strokeDasharray={estilo.tracejadoTopo} strokeLinecap="round" />
+          </>
+        ) : (
+          <path d={d} fill="none" stroke={estilo.cor} strokeWidth={estilo.largura} strokeDasharray={estilo.tracejado} strokeLinecap="round" strokeLinejoin="round" />
+        )}
+      </g>
+    </g>
+  );
+}
+
+function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId, onAbrirReino, onAbrirCidade, editando, gm, rotas, setRotas, askConfirm }) {
   const containerRef = useRef(null);
   const [hover, setHover] = useState(null); // { nome, descricao, ponto }
   const [tamanhoTooltipIdx, setTamanhoTooltipIdx] = useState(() => {
@@ -8572,19 +8620,119 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
   const tamanhoTooltip = TAMANHOS_TOOLTIP_MAPA[tamanhoTooltipIdx];
   const [recorteReinoId, setRecorteReinoId] = useState(null);
   const [reinoEditandoId, setReinoEditandoId] = useState(null);
-  const [modoEdicao, setModoEdicao] = useState(null); // null | "tracando" | "posicionando"
+  const [modoEdicao, setModoEdicao] = useState(null); // null | "tracando" | "posicionando" | "rota"
   const [draftPoligono, setDraftPoligono] = useState([]);
   const [pontoPendente, setPontoPendente] = useState(null);
   const [nomeCidadeInput, setNomeCidadeInput] = useState("");
   const [arrastando, setArrastando] = useState(null);
 
+  // ---- Rotas (dado do MUNDO — cruzam reinos, não pertencem a um reino só;
+  // ver rotasMapa.js) — estado da ferramenta "Traçar rota" (terceiro modo de
+  // edição, não precisa de um reino selecionado primeiro).
+  const [rotaEditandoId, setRotaEditandoId] = useState(null); // id da rota sendo editada, ou null (rota nova)
+  const [rotaVisivelOriginal, setRotaVisivelOriginal] = useState(true); // preserva visivel/soMestre ao editar
+  const [rotaSoMestreOriginal, setRotaSoMestreOriginal] = useState(false);
+  const [rotaNomeInput, setRotaNomeInput] = useState("");
+  const [rotaTipoInput, setRotaTipoInput] = useState(TIPO_ROTA_PADRAO);
+  const [rotaModoDesenho, setRotaModoDesenho] = useState("pontos"); // "pontos" | "maolivre"
+  const [rotaDraftPontos, setRotaDraftPontos] = useState([]); // [{x,y,cidadeId?}]
+  const [arrastandoPontoRotaIdx, setArrastandoPontoRotaIdx] = useState(null);
+  const [desenhandoLivre, setDesenhandoLivre] = useState(false);
+  const [tracoLivre, setTracoLivre] = useState([]); // pontos crus capturados durante o arrasto "à mão livre"
+  const [rotasAnimando, setRotasAnimando] = useState(() => new Set()); // ids tocando a animação de entrada agora
+  const timeoutsAnimacaoRotaRef = useRef({});
+  useEffect(() => () => { Object.values(timeoutsAnimacaoRotaRef.current).forEach(clearTimeout); }, []);
+  const reducedMotion = usePrefersReducedMotion();
+
+  // Todas as cidades já posicionadas, de TODOS os reinos — uma rota pode
+  // cruzar vários, então a colagem em cidade (ferramenta de rota) não fica
+  // restrita ao reino que estiver em edição no momento.
+  const todasCidades = useMemo(
+    () => kingdoms.flatMap((k) => cidadesPosicionadas(k.cities).map((c) => ({ id: c.id, name: c.name, x: c.x, y: c.y }))),
+    [kingdoms]
+  );
+  const aspectoMapa = MAPA_MUNDO.altura / MAPA_MUNDO.largura;
+  // Rotas visíveis no modo atual (gm/jogador do app inteiro — mesmo
+  // mecanismo de normalizarModo/CHAVE_MODO, não um estado próprio daqui).
+  const rotasParaExibir = useMemo(() => rotasVisiveis(rotas, gm), [rotas, gm]);
+
+  function dispararAnimacaoRota(id) {
+    if (reducedMotion) return;
+    setRotasAnimando((prev) => new Set(prev).add(id));
+    clearTimeout(timeoutsAnimacaoRotaRef.current[id]);
+    timeoutsAnimacaoRotaRef.current[id] = setTimeout(() => {
+      setRotasAnimando((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    }, 1300);
+  }
+  function iniciarFerramentaRota() {
+    setModoEdicao((m) => (m === "rota" ? null : "rota"));
+    setRotaEditandoId(null);
+    setRotaVisivelOriginal(true);
+    setRotaSoMestreOriginal(false);
+    setRotaNomeInput("");
+    setRotaTipoInput(TIPO_ROTA_PADRAO);
+    setRotaModoDesenho("pontos");
+    setRotaDraftPontos([]);
+  }
+  function iniciarEdicaoRota(r) {
+    setReinoEditandoId(null);
+    setModoEdicao("rota");
+    setRotaEditandoId(r.id);
+    setRotaVisivelOriginal(r.visivel);
+    setRotaSoMestreOriginal(r.soMestre);
+    setRotaNomeInput(r.nome || "");
+    setRotaTipoInput(r.tipo);
+    setRotaModoDesenho("pontos");
+    setRotaDraftPontos(r.pontos.map((p) => ({ ...p })));
+  }
+  function cancelarRota() {
+    setModoEdicao(null);
+    setRotaEditandoId(null);
+    setRotaDraftPontos([]);
+    setDesenhandoLivre(false);
+    setTracoLivre([]);
+  }
+  function desfazerPontoRota() {
+    setRotaDraftPontos((prev) => prev.slice(0, -1));
+  }
+  function concluirRota() {
+    if (rotaDraftPontos.length < 2) return;
+    const idsExistentes = new Set(rotas.filter((r) => r.id !== rotaEditandoId).map((r) => r.id));
+    const nova = normalizarRota({
+      id: rotaEditandoId || undefined,
+      nome: rotaNomeInput,
+      tipo: rotaTipoInput,
+      pontos: rotaDraftPontos,
+      visivel: rotaVisivelOriginal,
+      soMestre: rotaSoMestreOriginal,
+    }, idsExistentes);
+    if (!nova) return;
+    setRotas((prev) => {
+      const existe = prev.some((r) => r.id === nova.id);
+      return existe ? prev.map((r) => (r.id === nova.id ? nova : r)) : [...prev, nova];
+    });
+    dispararAnimacaoRota(nova.id);
+    cancelarRota();
+  }
+  function alternarVisibilidadeRota(r) {
+    setRotas((prev) => prev.map((x) => (x.id === r.id ? { ...x, visivel: !x.visivel } : x)));
+    if (!r.visivel) dispararAnimacaoRota(r.id); // estava oculta, vai mostrar agora — toca a animação de novo
+  }
+  function excluirRota(r) {
+    askConfirm(`Excluir a rota "${r.nome || "sem nome"}"? Essa ação não pode ser desfeita.`, () => {
+      setRotas((prev) => prev.filter((x) => x.id !== r.id));
+      if (rotaEditandoId === r.id) cancelarRota();
+    });
+  }
+
   const reinoEditando = reinoEditandoId ? kingdoms.find((k) => k.id === reinoEditandoId) : null;
   const reinoRecorte = recorteReinoId ? kingdoms.find((k) => k.id === recorteReinoId) : null;
-  // Com uma ferramenta ativa (traçando/posicionando), um clique em cima do
-  // próprio território (ou de um pino) precisa virar ponto/posição, não
+  // Com uma ferramenta ativa (traçando/posicionando/rota), um clique em cima
+  // do próprio território (ou de um pino) precisa virar ponto/posição, não
   // re-selecionar o reino — por isso os dois cliques abaixo checam isso antes
-  // de agir e deixam o evento borbulhar pro onContainerClick quando for o caso.
-  const ferramentaAtiva = editando && !!reinoEditandoId && !!modoEdicao;
+  // de agir e deixam o evento borbulhar pro onContainerClick quando for o
+  // caso. "rota" não exige reino selecionado (a rota pode cruzar vários).
+  const ferramentaAtiva = editando && !!modoEdicao && (modoEdicao === "rota" || !!reinoEditandoId);
   const recorte = reinoRecorte ? calcularRecorte(reinoRecorte.mapa?.poligono) : null;
 
   function pontoDoEvento(e) {
@@ -8620,10 +8768,48 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
   }
 
   function onContainerClick(e) {
-    if (!editando || !reinoEditandoId || !modoEdicao) return;
+    if (!editando || !modoEdicao) return;
+    if (modoEdicao !== "rota" && !reinoEditandoId) return;
+    // Em "à mão livre" o traço inteiro já vem do arrasto (ver
+    // onContainerPointerDown/Move/Up) — um clique simples aqui não deve
+    // acrescentar outro ponto (spec: "Nesse modo o clique simples NÃO
+    // adiciona ponto").
+    if (modoEdicao === "rota" && rotaModoDesenho !== "pontos") return;
     const p = pontoDoEvento(e);
     if (modoEdicao === "tracando") setDraftPoligono((prev) => [...prev, p]);
     else if (modoEdicao === "posicionando") setPontoPendente(p);
+    else if (modoEdicao === "rota") {
+      const grudado = grudarNaCidade({ x: p[0], y: p[1] }, todasCidades, 0.025, aspectoMapa);
+      setRotaDraftPontos((prev) => [...prev, grudado]);
+    }
+  }
+  // "À mão livre": captura o traço cru enquanto o ponteiro está pressionado
+  // e se movendo (pointer events, não mouse events, pra funcionar igual com
+  // caneta/touch); ao soltar, simplifica (RDP) e cola as pontas nas cidades
+  // próximas — o resultado vira pontos editáveis iguais aos do modo "Pontos".
+  function onContainerPointerDown(e) {
+    if (!editando || modoEdicao !== "rota" || rotaModoDesenho !== "maolivre") return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const [x, y] = pontoDoEvento(e);
+    setTracoLivre([{ x, y }]);
+    setDesenhandoLivre(true);
+  }
+  function onContainerPointerMove(e) {
+    if (!desenhandoLivre) return;
+    const [x, y] = pontoDoEvento(e);
+    setTracoLivre((prev) => [...prev, { x, y }]);
+  }
+  function onContainerPointerUp() {
+    if (!desenhandoLivre) return;
+    setDesenhandoLivre(false);
+    const simplificado = simplificarTraco(tracoLivre, 0.004, aspectoMapa);
+    if (simplificado.length >= 2) {
+      const comExtremosColados = simplificado.map((p, i, arr) => (
+        (i === 0 || i === arr.length - 1) ? grudarNaCidade(p, todasCidades, 0.025, aspectoMapa) : p
+      ));
+      setRotaDraftPontos(comExtremosColados);
+    }
+    setTracoLivre([]);
   }
   function fecharTracado() {
     if (draftPoligono.length < 3) return;
@@ -8672,6 +8858,27 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arrastando, reinoEditandoId]);
 
+  // Arrastar um ponto já colocado na rota em construção — mesmo padrão do
+  // arrasto de cidade acima; cola na cidade mais próxima ao soltar, se tiver
+  // uma dentro do raio.
+  useEffect(() => {
+    if (arrastandoPontoRotaIdx === null) return;
+    function onMove(e) {
+      const [x, y] = pontoDoEvento(e);
+      setRotaDraftPontos((prev) => prev.map((p, i) => (i === arrastandoPontoRotaIdx ? { x, y } : p)));
+    }
+    function onUp(e) {
+      const [x, y] = pontoDoEvento(e);
+      const grudado = grudarNaCidade({ x, y }, todasCidades, 0.025, aspectoMapa);
+      setRotaDraftPontos((prev) => prev.map((p, i) => (i === arrastandoPontoRotaIdx ? grudado : p)));
+      setArrastandoPontoRotaIdx(null);
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrastandoPontoRotaIdx, todasCidades, aspectoMapa]);
+
   const aspect = `${MAPA_MUNDO.largura} / ${MAPA_MUNDO.altura}`;
   const transformEstilo = recorte
     ? { transform: `scale(${recorte.scale}) translate(${recorte.translateX}%, ${recorte.translateY}%)`, transition: "transform 0.4s ease" }
@@ -8693,10 +8900,12 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
       </div>
       <div
         ref={containerRef} onClick={onContainerClick}
+        onPointerDown={onContainerPointerDown} onPointerMove={onContainerPointerMove} onPointerUp={onContainerPointerUp}
         style={{
           position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${LINE}`, marginBottom: 12,
           aspectRatio: aspect, background: "#00000010",
           cursor: editando && modoEdicao ? "crosshair" : "default",
+          ...(editando && modoEdicao === "rota" && rotaModoDesenho === "maolivre" ? { touchAction: "none", userSelect: "none" } : {}),
         }}
       >
         <div style={{ position: "absolute", inset: 0, ...transformEstilo }}>
@@ -8737,6 +8946,55 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
                 {draftPoligono.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r={0.006} fill={BRASS_BRIGHT} />)}
               </g>
             )}
+          </svg>
+
+          {/* Rotas do mapa (ver rotasMapa.js) — cruzam reinos, então ficam numa
+              <svg> própria, com viewBox em PIXELS (MAPA_MUNDO.largura x altura) em
+              vez do 0-a-1 do svg de cima: caminhoSuave devolve o "d" do <path> em
+              pixels, pra não ficar com o traço fino/grosso desproporcional numa
+              imagem não quadrada (ver nota no topo de rotasMapa.js). */}
+          <svg
+            viewBox={`0 0 ${MAPA_MUNDO.largura} ${MAPA_MUNDO.altura}`} preserveAspectRatio="none"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          >
+            <g pointerEvents="none">
+              {rotasParaExibir.filter((r) => r.id !== rotaEditandoId).map((r) => (
+                <RotaRevealPath key={r.id} rota={r} d={caminhoSuave(r.pontos)} animando={rotasAnimando.has(r.id)} />
+              ))}
+              {modoEdicao === "rota" && rotaDraftPontos.length > 1 && (() => {
+                const estiloDraft = ESTILO_ROTA[rotaTipoInput] || ESTILO_ROTA[TIPO_ROTA_PADRAO];
+                const dDraft = caminhoSuave(rotaDraftPontos);
+                return rotaTipoInput === "ferrovia" ? (
+                  <>
+                    <path d={dDraft} fill="none" stroke={estiloDraft.corBase} strokeWidth={estiloDraft.larguraBase} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+                    <path d={dDraft} fill="none" stroke={estiloDraft.corTopo} strokeWidth={estiloDraft.larguraTopo} strokeDasharray={estiloDraft.tracejadoTopo} strokeLinecap="round" opacity={0.85} />
+                  </>
+                ) : (
+                  <path d={dDraft} fill="none" stroke={estiloDraft.cor} strokeWidth={estiloDraft.largura} strokeDasharray={estiloDraft.tracejado} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+                );
+              })()}
+            </g>
+            {/* Pontos editáveis da rota em construção — círculo numerado de raio 11
+                (unidades do viewBox) sobre o traço; arrastar move (ver o useEffect
+                de arrastandoPontoRotaIdx), duplo clique remove. onClick também
+                precisa de stopPropagation: um pointerdown/dblclick aqui ainda
+                deixa o evento "click" do navegador (que dispara em cada clique
+                da sequência do duplo clique, e de novo ao soltar um arrasto)
+                borbulhar pro onContainerClick do mapa e adicionar um ponto novo
+                sem querer — sem isso, arrastar ou apagar um ponto cria outro. */}
+            {modoEdicao === "rota" && rotaDraftPontos.map((p, i) => (
+              <g
+                key={i}
+                transform={`translate(${p.x * MAPA_MUNDO.largura}, ${p.y * MAPA_MUNDO.altura})`}
+                onPointerDown={(e) => { e.stopPropagation(); setArrastandoPontoRotaIdx(i); }}
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => { e.stopPropagation(); setRotaDraftPontos((prev) => prev.filter((_, idx) => idx !== i)); }}
+                style={{ cursor: "grab" }}
+              >
+                <circle r={11} fill={p.cidadeId ? BRASS_BRIGHT : PURPLE} stroke="#F3E9D2" strokeWidth={2} />
+                <text textAnchor="middle" dominantBaseline="central" fontSize={10.5} fontFamily="'IBM Plex Mono', monospace" fill="#F3E9D2">{i + 1}</text>
+              </g>
+            ))}
           </svg>
 
           {/* Nome do reino no centro do território — só na visão do mundo (sem recorte ativo pra outro reino). */}
@@ -8861,7 +9119,11 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: BRASS, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 8 }}>
             Modo de edição do mapa
           </div>
-          {!reinoEditando && <p style={{ fontSize: 12.5, color: MUTED, margin: 0 }}>Clique num reino (pino ou território) pra editar o mapa dele.</p>}
+          {!reinoEditando && modoEdicao !== "rota" && (
+            <p style={{ fontSize: 12.5, color: MUTED, margin: "0 0 8px" }}>
+              Clique num reino (pino ou território) pra editar o mapa dele, ou trace uma rota abaixo (rotas cruzam reinos — não precisa escolher um).
+            </p>
+          )}
           {reinoEditando && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
               <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT }}>{reinoEditando.name}</span>
@@ -8901,6 +9163,80 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
           {reinoEditando && !modoEdicao && (
             <p style={{ fontSize: 11, color: MUTED, margin: "8px 0 0" }}>Arraste um marcador de cidade já posicionado pra mover, ou use o × pra remover.</p>
           )}
+
+          {/* Rotas são dado do MUNDO (cruzam reinos — ver rotasMapa.js), então a
+              ferramenta fica disponível sempre que `editando`, com ou sem um
+              reino escolhido (diferente de Traçar fronteira/Posicionar cidade). */}
+          <div style={{ marginTop: reinoEditando ? 10 : 0, paddingTop: reinoEditando ? 10 : 0, borderTop: reinoEditando ? `1px solid ${LINE}` : "none" }}>
+            <Btn variant={modoEdicao === "rota" ? "primary" : "default"} onClick={iniciarFerramentaRota}>
+              <Route size={13} /> Traçar rota
+            </Btn>
+          </div>
+
+          {modoEdicao === "rota" && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${LINE}` }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <input
+                  value={rotaNomeInput} onChange={(e) => setRotaNomeInput(e.target.value)}
+                  placeholder="Nome da rota" style={{ ...inputStyle, fontSize: 12.5, padding: "5px 9px", width: 180 }}
+                />
+                {TIPOS_ROTA.map((t) => (
+                  <Btn key={t} variant={rotaTipoInput === t ? "primary" : "default"} onClick={() => setRotaTipoInput(t)}>
+                    {t === "terrestre" ? "Terrestre" : t === "ferrovia" ? "Ferrovia" : "Marítima"}
+                  </Btn>
+                ))}
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                <Btn variant={rotaModoDesenho === "pontos" ? "primary" : "default"} onClick={() => setRotaModoDesenho("pontos")}>
+                  Pontos
+                </Btn>
+                <Btn variant={rotaModoDesenho === "maolivre" ? "primary" : "default"} onClick={() => setRotaModoDesenho("maolivre")}>
+                  À mão livre
+                </Btn>
+                <span style={{ fontSize: 11.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {rotaDraftPontos.length} ponto{rotaDraftPontos.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                <Btn variant="ghost" onClick={desfazerPontoRota} disabled={rotaDraftPontos.length === 0}>
+                  <ChevronLeft size={13} /> Desfazer ponto
+                </Btn>
+                <Btn variant="primary" onClick={concluirRota} disabled={rotaDraftPontos.length < 2}>
+                  <Check size={13} /> Concluir
+                </Btn>
+                <Btn variant="ghost" onClick={cancelarRota}>
+                  <X size={13} /> Cancelar
+                </Btn>
+              </div>
+              <p style={{ fontSize: 11, color: MUTED, margin: "8px 0 0" }}>
+                {rotaModoDesenho === "pontos"
+                  ? "Clique no mapa pra acrescentar um ponto; clicar numa cidade cola o ponto nela. Arraste um ponto pra mover, dois cliques pra remover."
+                  : "Segure e arraste no mapa pra desenhar o traço; ao soltar ele vira pontos editáveis (arrastar move, dois cliques remove)."}
+              </p>
+            </div>
+          )}
+
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${LINE}` }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+              Rotas do mapa ({rotas.length})
+            </div>
+            {rotas.length === 0 && <p style={{ fontSize: 11.5, color: MUTED, margin: 0 }}>Nenhuma rota traçada ainda.</p>}
+            {rotas.map((r) => (
+              <div key={r.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${LINE}` }}>
+                <span style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PARCHMENT }}>{r.nome || "(sem nome)"}</span>
+                <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase" }}>{r.tipo}</span>
+                {rotuloRota(r, todasCidades) && <span style={{ fontSize: 11, color: MUTED }}>{rotuloRota(r, todasCidades)}</span>}
+                {r.soMestre && <span style={{ fontSize: 10, color: EMBER, fontFamily: "'IBM Plex Mono', monospace" }}>só mestre</span>}
+                <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+                  <Btn variant="ghost" onClick={() => alternarVisibilidadeRota(r)}>
+                    {r.visivel ? <><EyeOff size={12} /> Ocultar</> : <><Eye size={12} /> Mostrar</>}
+                  </Btn>
+                  <Btn variant="ghost" onClick={() => iniciarEdicaoRota(r)}><Pencil size={12} /> Editar</Btn>
+                  <Btn variant="ghost" onClick={() => excluirRota(r)}><Trash2 size={12} /> Excluir</Btn>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -9168,7 +9504,7 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
   );
 }
 
-export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc, onAbrirFicha }) {
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc, onAbrirFicha, rotas, setRotas }) {
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
@@ -9361,7 +9697,7 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
             kingdoms={kingdoms} setKingdoms={setKingdoms} removeCity={removeCity}
             reinoAbertoId={reinoId} onAbrirReino={abrirReino}
             onAbrirCidade={(reino, cidade) => setCidadeMapaAberta({ reinoId: reino.id, cidadeId: cidade.id })}
-            editando={editandoMapa}
+            editando={editandoMapa} gm={gm} rotas={rotas} setRotas={setRotas} askConfirm={askConfirm}
           />
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
             {kingdoms.map((k) => (
@@ -10888,6 +11224,9 @@ export default function App() {
   // { [npcId]: { campo: valor } }, mesclado na hora de exibir (ver
   // npcOverrides.js e NpcDetalhe em WorldView).
   const [npcsOverrides, setNpcsOverrides] = useState({});
+  // Rotas do mapa (ver rotasMapa.js) — dado do MUNDO, cruza reinos, por isso
+  // é uma lista irmã de `kingdoms`, não um campo dentro de cada reino.
+  const [rotas, setRotas] = useState([]);
   const [gods, setGods] = useState(SEED_GODS);
   const [sagas, setSagas] = useState(SEED_SAGAS);
   const [objectives, setObjectives] = useState(SEED_OBJECTIVES);
@@ -11069,6 +11408,10 @@ export default function App() {
         const o = await storage.get("point-objectives");
         if (o?.value) setObjectives(JSON.parse(o.value));
       } catch (e) {}
+      try {
+        const r = await storage.get("point-rotas");
+        if (r?.value) setRotas(migrarRotas(JSON.parse(r.value)));
+      } catch (e) {}
       setLoaded(true);
     })();
   }, []);
@@ -11081,6 +11424,7 @@ export default function App() {
   useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
   useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
   useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-rotas", JSON.stringify(rotas)).catch(() => {}); }, [rotas, loaded]);
 
   const filtered = useMemo(() => {
     const porGrupo = grupoFilter === "todos" ? characters : characters.filter((c) => grupoDoPersonagem(c) === grupoFilter);
@@ -11201,7 +11545,7 @@ export default function App() {
   // login, isso é a rede de segurança — baixa um .json com tudo (personagens +
   // reinos/deuses/sagas/objetivos) pra poder restaurar se algo for apagado.
   function handleExportBackup() {
-    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides });
+    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides, rotas });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -11239,6 +11583,7 @@ export default function App() {
         setCidadesOverrides(normalizado.cidadesOverrides);
         setPessoasOverrides(normalizado.pessoasOverrides);
         setNpcsOverrides(normalizado.npcsOverrides);
+        setRotas(normalizado.rotas);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );
@@ -11545,6 +11890,7 @@ export default function App() {
             pessoasOverrides={pessoasOverrides} setPessoasOverrides={setPessoasOverrides}
             npcsOverrides={npcsOverrides} onEditarCampoNpc={editarCampoNpc} onRestaurarCampoNpc={restaurarCampoNpc}
             onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
+            rotas={rotas} setRotas={setRotas}
           />
         )}
         {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} />}

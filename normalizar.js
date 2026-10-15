@@ -8,6 +8,7 @@
 
 import { migrarCidades } from "./mapaMundo.js";
 import { migrarPersonagens } from "./personagens.js";
+import { migrarRotas } from "./rotasMapa.js";
 
 function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -60,5 +61,9 @@ export function normalizarEstado(state) {
   const cidadesOverrides = normalizarCidadesOverrides(state?.cidadesOverrides);
   const pessoasOverrides = normalizarPessoasOverrides(state?.pessoasOverrides);
   const npcsOverrides = normalizarNpcsOverrides(state?.npcsOverrides);
-  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides };
+  // Rotas do mapa (ver rotasMapa.js) — dado do MUNDO, não de um reino
+  // (cruzam reinos), então ficam numa lista irmã de `kingdoms`, não dentro
+  // de cada reino. migrarRotas nunca lança: lixo vira [] sem derrubar a tela.
+  const rotas = migrarRotas(state?.rotas);
+  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides, rotas };
 }

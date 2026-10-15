@@ -5242,6 +5242,18 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const [ataqueVigorGrau, setAtaqueVigorGrau] = useState("E");
   const [ataqueDadosDefesa, setAtaqueDadosDefesa] = useState(2);
   const [ataqueCaracteristicasAlvo, setAtaqueCaracteristicasAlvo] = useState([]);
+  // Saturante "em efeito" (15/10, pedido do Pedro): como o alvo sintético
+  // virou "quantos dados o defensor rola" direto (sem "atributo de
+  // defesa"), o desconto automático de Saturante (-2 se a defesa usasse
+  // Destreza) deixou de ter como se aplicar sozinho — ver nota na seção
+  // "Decisão minha" do CONTEXTO.md de 14/10. Em vez de reintroduzir o
+  // seletor de atributo de defesa inteiro, só pergunta direto se Saturante
+  // está em efeito (ou seja, o defensor tá defendendo com Destreza) —
+  // quando marcado, desconta 2 (mín. 0) de `ataqueDadosDefesa` na hora de
+  // rolar. Só aparece quando Saturante é relevante: escolhido como
+  // característica do ataque (aba Ataque) ou vindo da própria magia (aba
+  // Magia, que reaproveita este mesmo alvo sintético).
+  const [ataqueSaturanteAtivo, setAtaqueSaturanteAtivo] = useState(false);
   const [ataqueResult, setAtaqueResult] = useState(null);
   const [ataqueHistory, setAtaqueHistory] = useState([]);
   // Modo Magia (docs/SISTEMA_MAGIA.md itens 4/6/7/9): conjura uma magia do
@@ -5347,7 +5359,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       attacker: characterEfetivo, defender: ataqueAlvoSintetico,
       totalDiceAtaque, descritoresAtaque: ataqueCaracteristicas,
       feridas: 1, superficial: false,
-      totalDiceDefesaManual: ataqueDadosDefesa,
+      totalDiceDefesaManual: ataqueDadosDefesaEfetivos,
     });
     setAtaqueResult(r);
     const atkNome = `${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === ataqueAtributo)?.label || ataqueAtributo} + ${PROFICIENCIAS_LIST.find((p) => p.key === ataqueProf)?.label || ataqueProf}`;
@@ -5365,6 +5377,17 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const magiaSelecionada = getMagiaPorId(magiaId) || MAGIAS[0];
   const manaAtual = character.mp?.current ?? 0;
   const manaInsuficiente = manaGastaMagia > manaAtual;
+  // Saturante "em efeito" (15/10, pedido do Pedro): o alvo sintético virou
+  // "quantos dados o defensor rola" direto, sem "atributo de defesa" pra
+  // checar — então o desconto de Saturante (-2, mín. 0, só quando a defesa
+  // usaria Destreza) não tinha mais como se aplicar sozinho. Em vez de
+  // voltar a perguntar o atributo de defesa inteiro, o jogador só confirma
+  // se Saturante está em efeito (`ataqueSaturanteAtivo`) sempre que o
+  // ataque ativo (característica escolhida na aba Ataque) ou a magia
+  // selecionada (aba Magia) tiver o descritor — o campo aparece nas duas
+  // abas por ser o mesmo alvo sintético compartilhado.
+  const saturanteRelevante = ataqueCaracteristicas.includes("saturante") || !!magiaSelecionada?.descritores?.includes("saturante");
+  const ataqueDadosDefesaEfetivos = (saturanteRelevante && ataqueSaturanteAtivo) ? Math.max(0, ataqueDadosDefesa - 2) : ataqueDadosDefesa;
 
   function castMagia() {
     if (!onUpdateCharacter || manaInsuficiente) return;
@@ -5376,7 +5399,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         attacker: characterEfetivo, defender: ataqueAlvoSintetico,
         totalDiceAtaque, descritoresAtaque: magiaSelecionada.descritores,
         feridas: magiaSelecionada.feridas || 1, superficial: !!magiaSelecionada.superficial,
-        limiarOverride: limiarMagia, totalDiceDefesaManual: ataqueDadosDefesa,
+        limiarOverride: limiarMagia, totalDiceDefesaManual: ataqueDadosDefesaEfetivos,
       });
     }
     const rolagemRecuperacao = rollSuccessDice(contagemOficiosMagicos(characterEfetivo) + manaGasta, LIMIAR_SUCESSO);
@@ -5896,6 +5919,19 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     <input type="number" min={0} style={inputStyle} value={ataqueDadosDefesa} onChange={(e) => setAtaqueDadosDefesa(Math.max(0, Number(e.target.value)))} />
                   </Field>
                 </div>
+                {saturanteRelevante && (
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: ataqueSaturanteAtivo ? DESCRITOR_INFO.saturante.cor : PARCHMENT }} title={DESCRITOR_INFO.saturante.descricao}>
+                      <input type="checkbox" checked={ataqueSaturanteAtivo} onChange={(e) => setAtaqueSaturanteAtivo(e.target.checked)} />
+                      Saturante em efeito (alvo defendendo com Destreza)
+                    </label>
+                    <div style={{ fontSize: 10, color: MUTED, marginTop: 2, fontStyle: "italic" }}>
+                      {ataqueSaturanteAtivo
+                        ? `-2 dados (mínimo 0): ${ataqueDadosDefesa} → ${ataqueDadosDefesaEfetivos} dados de defesa.`
+                        : "Marque se o alvo está defendendo com Destreza — desconta 2 dados (mínimo 0) da defesa."}
+                    </div>
+                  </div>
+                )}
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
                     Característica do alvo

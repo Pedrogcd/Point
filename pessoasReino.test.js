@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   TIPOS_RELACAO, infoTipoRelacao, reporPessoasDoReino, mesclarPessoasComOverride,
-  gruposDoReino, relacoesDoPersonagem, itensVisiveis, geracoesDaGenealogia,
+  gruposDoReino, relacoesDoPersonagem, itensVisiveis,
 } from "./pessoasReino.js";
 
 const PESSOAS_SUTH = {
@@ -172,42 +172,5 @@ describe("TIPOS_RELACAO / infoTipoRelacao", () => {
   });
 });
 
-describe("geracoesDaGenealogia", () => {
-  it("nó sem ligação como filho fica na geração 0; filho fica uma geração abaixo do maior pai", () => {
-    const nos = [{ id: "a" }, { id: "b" }, { id: "c" }];
-    const ligacoes = [{ pais: ["a"], filho: "b" }, { pais: ["b"], filho: "c" }];
-    const geracoes = geracoesDaGenealogia(nos, ligacoes);
-    assert.deepEqual(geracoes.map((g) => g.geracao), [0, 1, 2]);
-    assert.deepEqual(geracoes[0].nos, ["a"]);
-    assert.deepEqual(geracoes[2].nos, ["c"]);
-  });
-
-  it("filho com dois pais de gerações diferentes fica abaixo do mais profundo (maior geração)", () => {
-    const nos = [{ id: "avo" }, { id: "pai" }, { id: "mae" }, { id: "filho" }];
-    const ligacoes = [
-      { pais: ["avo"], filho: "pai" }, // pai: geração 1
-      { pais: ["pai", "mae"], filho: "filho" }, // mae: geração 0, pai: geração 1 -> filho: geração 2
-    ];
-    const geracoes = geracoesDaGenealogia(nos, ligacoes);
-    const geracaoDoFilho = geracoes.find((g) => g.nos.includes("filho")).geracao;
-    assert.equal(geracaoDoFilho, 2);
-  });
-
-  it("ligações tracejadas (criação/mentoria) ainda participam do cálculo de geração — o campo é só visual", () => {
-    const nos = [{ id: "criadora" }, { id: "criacao" }];
-    const ligacoes = [{ pais: ["criadora"], filho: "criacao", tracejado: true }];
-    const geracoes = geracoesDaGenealogia(nos, ligacoes);
-    assert.equal(geracoes.find((g) => g.nos.includes("criacao")).geracao, 1);
-  });
-
-  it("dados malformados (ligação apontando pra nó inexistente) não lança nem entra em loop infinito", () => {
-    const nos = [{ id: "a" }];
-    const ligacoes = [{ pais: ["inexistente"], filho: "a" }];
-    assert.doesNotThrow(() => geracoesDaGenealogia(nos, ligacoes));
-  });
-
-  it("nós/ligações ausentes não lança (guarda x || [])", () => {
-    assert.doesNotThrow(() => geracoesDaGenealogia(undefined, undefined));
-    assert.deepEqual(geracoesDaGenealogia(undefined, undefined), []);
-  });
-});
+// O layout da árvore genealógica (antigo geracoesDaGenealogia) foi pra
+// arvoreLayout.js — ver layoutGenealogia e arvoreLayout.test.js.

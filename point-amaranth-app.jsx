@@ -4457,7 +4457,33 @@ function dotsQuebradasPadrao(current, max) {
   return new Set(Array.from({ length: Math.max(0, max - current) }, (_, k) => current + k));
 }
 
-function ResourceDots({ label, resource, color, icon: Icon, onToggle, rachavel, verboEsvaziar = "esvaziar" }) {
+// ---- visuais animados de HP/MP/SP (coração/líquido/gás) ------------------
+// Paths/posições compartilhados pelos 3 visuais novos de ResourceDots
+// (visual="coracao"|"liquido"|"gas"). Os clipPaths que esses paths usam
+// (pt-clipL/pt-clipR/pt-clipOrb) são renderizados uma vez só pelo painel
+// Recursos via <ResourceDotsDefs />.
+const PT_HEART_PATH = "M24 42 C8 30 2 22 2 13 C2 6 7.5 2 13 2 C18 2 22 5 24 9 C26 5 30 2 35 2 C40.5 2 46 6 46 13 C46 22 40 30 24 42 Z";
+const PT_CRACK_PATH = "M24 7 L20 16 L27 22 L21 30 L24 42";
+const PT_WAVE_PATH = "M0 6 Q12 0 24 6 T48 6 T72 6 T96 6 V70 H0 Z";
+const PT_SP_BLOB_SPOTS = [[10, 8], [26, 6], [4, 22], [24, 24], [14, 16], [18, 28]];
+const PT_HP_ARIA = { full: "inteiro", crack: "rachado", broken: "quebrado" };
+function ptRand(a, b) { return a + Math.random() * (b - a); }
+
+// Definições SVG compartilhadas pelos 3 ResourceDots do painel Recursos
+// (coração/líquido/gás) — um <svg> só, renderizado uma vez pelo painel.
+export function ResourceDotsDefs() {
+  return (
+    <svg width={0} height={0} style={{ position: "absolute" }} aria-hidden="true">
+      <defs>
+        <clipPath id="pt-clipL"><polygon points="-5,-5 24,-5 24,7 20,16 27,22 21,30 24,46 -5,46" /></clipPath>
+        <clipPath id="pt-clipR"><polygon points="53,-5 24,-5 24,7 20,16 27,22 21,30 24,46 53,46" /></clipPath>
+        <clipPath id="pt-clipOrb"><circle cx={24} cy={24} r={21} /></clipPath>
+      </defs>
+    </svg>
+  );
+}
+
+export function ResourceDots({ label, resource, color, icon: Icon, onToggle, rachavel, verboEsvaziar = "esvaziar", visual }) {
   const max = Math.max(0, resource.max || 0);
   const current = Math.max(0, Math.min(resource.current ?? 0, max));
   const [quebradas, setQuebradas] = useState(() => dotsQuebradasPadrao(current, max));
@@ -4510,41 +4536,214 @@ function ResourceDots({ label, resource, color, icon: Icon, onToggle, rachavel, 
     setRachadas((prev) => new Set(prev).add(i));
   }
 
+  // ---- só usado pelos visuais novos (visual="coracao"|"liquido"|"gas") ----
+  // reducedMotionRef só é lido dentro de efeitos/handlers (nunca no render),
+  // porque este componente também é renderizado via react-dom/server em
+  // teste, onde `window` não existe.
+  const reducedMotionRef = useRef(false);
+  useEffect(() => {
+    try { reducedMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { /* sem matchMedia — assume sem redução */ }
+  }, []);
+
+  const burstIdRef = useRef(0);
+  const [bursts, setBursts] = useState([]); // [{ id, i, kind, pieces }] — estilhaços/gotas/fiapos temporários
+  const [efeitoClasse, setEfeitoClasse] = useState({}); // { [i]: "pt-shake" | "pt-heal" | "pt-slosh" }
+  const timeoutsRef = useRef([]);
+  useEffect(() => () => { timeoutsRef.current.forEach(clearTimeout); timeoutsRef.current = []; }, []);
+
+  function agendar(fn, ms) {
+    timeoutsRef.current.push(setTimeout(fn, ms));
+  }
+
+  function marcarEfeito(i, cls, ms) {
+    setEfeitoClasse((prev) => ({ ...prev, [i]: cls }));
+    agendar(() => setEfeitoClasse((prev) => {
+      if (prev[i] !== cls) return prev;
+      const { [i]: _removido, ...resto } = prev;
+      return resto;
+    }), ms);
+  }
+
+  function estourarPecas(i, kind) {
+    if (reducedMotionRef.current) return;
+    const id = ++burstIdRef.current;
+    let pieces, ms;
+    if (kind === "shard") {
+      pieces = Array.from({ length: 8 }, () => ({ dx: ptRand(-34, 34), dy: ptRand(20, 62), rot: ptRand(-260, 260) }));
+      ms = 1000;
+    } else if (kind === "drip") {
+      pieces = Array.from({ length: 3 }, (_, k) => ({ ml: ptRand(-8, 8), delay: 0.05 + k * 0.1 }));
+      ms = 600;
+    } else {
+      pieces = Array.from({ length: 4 }, (_, k) => ({ wx: ptRand(-22, 22), delay: k * 0.18 }));
+      ms = 2000;
+    }
+    setBursts((prev) => [...prev, { id, i, kind, pieces }]);
+    agendar(() => setBursts((prev) => prev.filter((b) => b.id !== id)), ms);
+  }
+
+  // Dispara as animações por TRANSIÇÃO do estado (crack/broken/vazio) —
+  // tanto quando vem de um clique quanto quando o valor muda por fora
+  // (ex.: dano resolvido em outro painel): compara contra o estado anterior
+  // guardado neste ref, não contra a origem da mudança.
+  const prevDotsRef = useRef({ quebradas, rachadas });
+  useEffect(() => {
+    if (!visual) { prevDotsRef.current = { quebradas, rachadas }; return; }
+    const { quebradas: prevQ, rachadas: prevR } = prevDotsRef.current;
+    for (let i = 0; i < max; i++) {
+      const eraQuebrada = prevQ.has(i);
+      const eraRachada = !eraQuebrada && prevR.has(i);
+      const estaQuebrada = quebradas.has(i);
+      const estaRachada = !estaQuebrada && rachadas.has(i);
+      if (visual === "coracao") {
+        if (!eraRachada && !eraQuebrada && estaRachada) marcarEfeito(i, "pt-shake", 400);
+        else if (!eraQuebrada && estaQuebrada) estourarPecas(i, "shard");
+        else if (eraQuebrada && !estaQuebrada) marcarEfeito(i, "pt-heal", 750);
+        else if (eraRachada && !estaRachada && !estaQuebrada) marcarEfeito(i, "pt-heal", 750);
+      } else if (visual === "liquido") {
+        if (!eraQuebrada && estaQuebrada) { marcarEfeito(i, "pt-slosh", 700); estourarPecas(i, "drip"); }
+      } else if (visual === "gas") {
+        if (!eraQuebrada && estaQuebrada) estourarPecas(i, "wisp");
+      }
+    }
+    prevDotsRef.current = { quebradas, rachadas };
+  }, [quebradas, rachadas, max, visual]);
+
+  const spEx = useMemo(() => Array.from({ length: max }, () => PT_SP_BLOB_SPOTS.map(() => ptRand(-18, 18))), [max]);
+
+  function renderDot(i) {
+    const Tag = onToggle ? "button" : "div";
+    const extra = efeitoClasse[i] || "";
+
+    if (!visual) {
+      const cheia = !quebradas.has(i);
+      const rachada = cheia && rachadas.has(i);
+      return (
+        <Tag
+          key={i}
+          type={onToggle ? "button" : undefined}
+          onClick={onToggle ? () => clicarBolinha(i) : undefined}
+          title={onToggle ? (cheia ? (rachavel ? (rachada ? "Clique pra quebrar" : "Clique pra rachar") : `Clique pra ${verboEsvaziar}`) : "Clique pra restaurar") : undefined}
+          className={pulso === i ? "dot-pop" : ""}
+          style={{
+            width: 14, height: 14, borderRadius: "50%", padding: 0, position: "relative",
+            background: cheia ? color : "#00000020",
+            border: `1px solid ${cheia ? color : LINE}`,
+            opacity: rachada ? 0.55 : 1,
+            cursor: onToggle ? "pointer" : "default",
+            transition: "background 0.22s ease, opacity 0.22s ease",
+          }}
+        >
+          {rachada && (
+            <svg viewBox="0 0 14 14" width={14} height={14} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+              <polyline points="4,1 7,6 5,7 10,13" fill="none" stroke="#2B2116" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </Tag>
+      );
+    }
+
+    if (visual === "coracao") {
+      const estado = quebradas.has(i) ? "broken" : rachadas.has(i) ? "crack" : "full";
+      return (
+        <Tag
+          key={i}
+          type={onToggle ? "button" : undefined}
+          className={`pt-orb pt-hp ${extra}`}
+          data-s={estado}
+          onClick={onToggle ? () => clicarBolinha(i) : undefined}
+          title={onToggle ? (estado === "broken" ? "Clique pra restaurar" : estado === "crack" ? "Clique pra quebrar" : "Clique pra rachar") : undefined}
+          aria-label={`${label} ${i + 1}: ${PT_HP_ARIA[estado]}`}
+          style={{ cursor: onToggle ? "pointer" : "default" }}
+        >
+          <svg viewBox="0 0 48 46" className="pt-heart-svg" aria-hidden="true">
+            <path className="pt-h-whole" d={PT_HEART_PATH} />
+            <path className="pt-h-shine" d="M9 10 C7.5 12 7 15 8 18" />
+            <g className="pt-h-half pt-L"><path d={PT_HEART_PATH} clipPath="url(#pt-clipL)" /></g>
+            <g className="pt-h-half pt-R"><path d={PT_HEART_PATH} clipPath="url(#pt-clipR)" /></g>
+            <path className="pt-h-crack" d={PT_CRACK_PATH} pathLength={100} />
+          </svg>
+          {bursts.filter((b) => b.i === i && b.kind === "shard").flatMap((b) =>
+            b.pieces.map((p, k) => (
+              <span key={`${b.id}-${k}`} className="pt-shard" style={{ "--dx": `${p.dx}px`, "--dy": `${p.dy}px`, "--rot": `${p.rot}deg` }} />
+            ))
+          )}
+        </Tag>
+      );
+    }
+
+    if (visual === "liquido") {
+      const cheia = !quebradas.has(i);
+      return (
+        <Tag
+          key={i}
+          type={onToggle ? "button" : undefined}
+          className={`pt-orb pt-mp ${extra}`}
+          data-full={String(cheia)}
+          onClick={onToggle ? () => clicarBolinha(i) : undefined}
+          title={onToggle ? (cheia ? `Clique pra ${verboEsvaziar}` : "Clique pra restaurar") : undefined}
+          aria-label={`${label} ${i + 1}: ${cheia ? "cheio" : "vazio"}`}
+          style={{ cursor: onToggle ? "pointer" : "default" }}
+        >
+          <svg viewBox="0 0 48 48" className="pt-orb-svg" aria-hidden="true">
+            <circle className="pt-glass-bg" cx={24} cy={24} r={22} />
+            <g clipPath="url(#pt-clipOrb)">
+              <g className="pt-liquid" style={{ "--lv": cheia ? 1 : 0 }}>
+                <g className="pt-wv pt-wv2"><path d={PT_WAVE_PATH} /></g>
+                <g className="pt-wv"><path d={PT_WAVE_PATH} /></g>
+              </g>
+            </g>
+            <circle className="pt-glass" cx={24} cy={24} r={22} />
+            <path className="pt-glint" d="M11 16 A14 14 0 0 1 20 9" />
+          </svg>
+          {bursts.filter((b) => b.i === i && b.kind === "drip").flatMap((b) =>
+            b.pieces.map((p, k) => (
+              <span key={`${b.id}-${k}`} className="pt-drip" style={{ marginLeft: p.ml, animationDelay: `${p.delay}s` }} />
+            ))
+          )}
+        </Tag>
+      );
+    }
+
+    // visual === "gas"
+    const cheia = !quebradas.has(i);
+    const evaporando = bursts.some((b) => b.i === i && b.kind === "wisp");
+    return (
+      <Tag
+        key={i}
+        type={onToggle ? "button" : undefined}
+        className={`pt-orb pt-sp ${evaporando ? "pt-evap" : ""} ${extra}`}
+        data-full={String(cheia)}
+        onClick={onToggle ? () => clicarBolinha(i) : undefined}
+        title={onToggle ? (cheia ? `Clique pra ${verboEsvaziar}` : "Clique pra restaurar") : undefined}
+        aria-label={`${label} ${i + 1}: ${cheia ? "cheio" : "vazio"}`}
+        style={{ cursor: onToggle ? "pointer" : "default" }}
+      >
+        <svg viewBox="0 0 48 48" className="pt-orb-svg" aria-hidden="true" style={{ position: "absolute", inset: 0 }}>
+          <circle className="pt-ring" cx={24} cy={24} r={22} />
+        </svg>
+        <div className="pt-gas">
+          {PT_SP_BLOB_SPOTS.map(([x, y], bi) => (
+            <span key={bi} className="pt-blob" style={{ "--x": `${x}%`, "--y": `${y}%`, "--d": `${(2 + bi * 0.45).toFixed(2)}s`, "--i": bi, "--ex": `${(spEx[i]?.[bi] ?? 0).toFixed(0)}px` }} />
+          ))}
+        </div>
+        {bursts.filter((b) => b.i === i && b.kind === "wisp").flatMap((b) =>
+          b.pieces.map((p, k) => (
+            <span key={`${b.id}-${k}`} className="pt-wisp" style={{ "--wx": `${p.wx}px`, animationDelay: `${p.delay}s` }} />
+          ))
+        )}
+      </Tag>
+    );
+  }
+
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 8, "--hp": EMBER, "--mp": MP_COLOR, "--sp": SP_COLOR, "--bg": PANEL, "--muted": MUTED, "--ink": INK }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Icon size={12} color={color} /> {label}</span>
         <span>{current}/{max}</span>
       </div>
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-        {Array.from({ length: max }, (_, i) => {
-          const cheia = !quebradas.has(i);
-          const rachada = cheia && rachadas.has(i);
-          const Tag = onToggle ? "button" : "div";
-          return (
-            <Tag
-              key={i}
-              type={onToggle ? "button" : undefined}
-              onClick={onToggle ? () => clicarBolinha(i) : undefined}
-              title={onToggle ? (cheia ? (rachavel ? (rachada ? "Clique pra quebrar" : "Clique pra rachar") : `Clique pra ${verboEsvaziar}`) : "Clique pra restaurar") : undefined}
-              className={pulso === i ? "dot-pop" : ""}
-              style={{
-                width: 14, height: 14, borderRadius: "50%", padding: 0, position: "relative",
-                background: cheia ? color : "#00000020",
-                border: `1px solid ${cheia ? color : LINE}`,
-                opacity: rachada ? 0.55 : 1,
-                cursor: onToggle ? "pointer" : "default",
-                transition: "background 0.22s ease, opacity 0.22s ease",
-              }}
-            >
-              {rachada && (
-                <svg viewBox="0 0 14 14" width={14} height={14} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                  <polyline points="4,1 7,6 5,7 10,13" fill="none" stroke="#2B2116" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
-            </Tag>
-          );
-        })}
+      <div style={{ display: "flex", gap: visual ? 6 : 4, flexWrap: "wrap", alignItems: "center" }}>
+        {Array.from({ length: max }, (_, i) => renderDot(i))}
         {max === 0 && <span style={{ fontSize: 10, color: MUTED, fontStyle: "italic" }}>sem pontos</span>}
       </div>
     </div>
@@ -5535,20 +5734,21 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
           <div style={panelStyle}>
             <div style={panelHeadStyle}>Recursos</div>
+            <ResourceDotsDefs />
             <ResourceDots
-              key={`hp-${character.id}`} label="HP" rachavel
+              key={`hp-${character.id}`} label="HP" rachavel visual="coracao"
               resource={{ current: Math.min(character.hp?.current ?? computeMaxHP(character), computeMaxHP(character)), max: computeMaxHP(character) }}
               color={EMBER} icon={Droplet}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { hp: { ...character.hp, current: novo } }) : undefined}
             />
             <ResourceDots
-              key={`mp-${character.id}`} label="MP (Mana Points)"
+              key={`mp-${character.id}`} label="MP (Mana Points)" visual="liquido"
               resource={{ current: Math.min(character.mp?.current ?? computeMaxMana(character), computeMaxMana(character)), max: computeMaxMana(character) }}
               color={MP_COLOR} icon={Sparkles}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { mp: { ...character.mp, current: novo } }) : undefined}
             />
             <ResourceDots
-              key={`sp-${character.id}`} label="SP (Soul Points)" verboEsvaziar="evaporar"
+              key={`sp-${character.id}`} label="SP (Soul Points)" verboEsvaziar="evaporar" visual="gas"
               resource={{ current: Math.min(character.sp?.current ?? computeMaxSP(character), computeMaxSP(character)), max: computeMaxSP(character) }}
               color={SP_COLOR} icon={Flame}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { sp: { ...character.sp, current: novo } }) : undefined}
@@ -10869,6 +11069,51 @@ export default function App() {
         .mapa-distritos svg { display: block; width: 100%; height: auto; }
         .mapa-distritos .region { cursor: pointer; }
         .mapa-distritos .region:hover .shape, .mapa-distritos .region:focus .shape { stroke: ${INK}; stroke-width: 2.5; }
+
+        /* ---------- Recursos animados: HP (coração) / MP (líquido) / SP (gás) ---------- */
+        .pt-orb { position: relative; width: 28px; height: 28px; background: none; border: 0; padding: 0; overflow: visible; -webkit-tap-highlight-color: transparent; }
+        @media (max-width: 480px) { .pt-orb { width: 24px; height: 24px; } }
+        .pt-orb-svg, .pt-heart-svg { width: 100%; height: 100%; overflow: visible; display: block; }
+        .pt-h-whole { fill: var(--hp); stroke: color-mix(in srgb, var(--hp) 60%, #000); stroke-width: 1.6; transition: opacity .15s; }
+        .pt-h-shine { fill: none; stroke: #fff; stroke-opacity: .55; stroke-width: 2.2; stroke-linecap: round; transition: opacity .15s; }
+        .pt-h-half { opacity: 0; transform-box: view-box; transform-origin: 24px 40px; transition: transform .7s cubic-bezier(.3,.7,.3,1), opacity .5s; }
+        .pt-h-half path { fill: var(--hp); stroke: color-mix(in srgb, var(--hp) 60%, #000); stroke-width: 1.6; }
+        .pt-h-crack { fill: none; stroke: var(--bg); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; opacity: 0; transition: stroke-dashoffset .45s ease-out; }
+        .pt-hp[data-s="crack"] .pt-h-crack { stroke-dashoffset: 0; opacity: 1; }
+        .pt-hp[data-s="broken"] .pt-h-whole, .pt-hp[data-s="broken"] .pt-h-shine { opacity: 0; }
+        .pt-hp[data-s="broken"] .pt-h-half { opacity: .5; }
+        .pt-hp[data-s="broken"] .pt-h-half.pt-L { transform: translate(-4px,6px) rotate(-18deg); }
+        .pt-hp[data-s="broken"] .pt-h-half.pt-R { transform: translate(4px,7px) rotate(20deg); }
+        .pt-hp[data-s="broken"] .pt-h-half path { fill: var(--muted); stroke: var(--muted); }
+        .pt-hp.pt-shake { animation: pt-shake .4s ease-out; }
+        .pt-hp.pt-heal .pt-heart-svg { animation: pt-heal .7s ease-out; }
+        @keyframes pt-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-3px) rotate(-5deg); } 40% { transform: translateX(3px) rotate(5deg); } 60% { transform: translateX(-2px); } 80% { transform: translateX(2px); } }
+        @keyframes pt-heal { 0% { transform: scale(.6); filter: brightness(2); } 60% { transform: scale(1.18); } 100% { transform: none; filter: none; } }
+        .pt-shard { position: absolute; left: 50%; top: 45%; width: 7px; height: 9px; background: var(--hp); clip-path: polygon(0 0, 100% 30%, 40% 100%); pointer-events: none; animation: pt-shard .95s cubic-bezier(.2,.6,.4,1) forwards; }
+        @keyframes pt-shard { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; } }
+        .pt-glass-bg { fill: color-mix(in srgb, var(--mp) 10%, transparent); }
+        .pt-glass { fill: none; stroke: var(--mp); stroke-width: 2.2; }
+        .pt-glint { fill: none; stroke: #fff; stroke-opacity: .6; stroke-width: 2.4; stroke-linecap: round; }
+        .pt-liquid { fill: var(--mp); transform: translateY(calc((1 - var(--lv, 1)) * 50px - 6px)); transition: transform .5s cubic-bezier(.5,.05,.7,.4); }
+        .pt-mp[data-full="true"] .pt-liquid { transition: transform .6s cubic-bezier(.2,.7,.3,1); }
+        .pt-wv { animation: pt-wave 2.4s linear infinite; }
+        .pt-wv2 { animation-duration: 3.4s; animation-direction: reverse; opacity: .55; transform: translateY(2px); }
+        @keyframes pt-wave { from { transform: translateX(0); } to { transform: translateX(-48px); } }
+        .pt-mp.pt-slosh .pt-orb-svg { animation: pt-slosh .6s ease-in-out; }
+        @keyframes pt-slosh { 0%, 100% { transform: none; } 20% { transform: rotate(-10deg); } 45% { transform: rotate(8deg); } 70% { transform: rotate(-4deg); } }
+        .pt-drip { position: absolute; left: 50%; bottom: 6%; width: 6px; height: 9px; margin-left: -3px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: var(--mp); opacity: 0; animation: pt-drip .5s ease-in forwards; }
+        @keyframes pt-drip { 0% { transform: translateY(0) scale(.5); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(46px) scale(1); opacity: 0; } }
+        .pt-sp .pt-ring { fill: none; stroke: var(--sp); stroke-width: 1.6; stroke-dasharray: 3 4; opacity: .8; }
+        .pt-gas { position: absolute; inset: 3px; border-radius: 50%; clip-path: circle(50%); transition: opacity .8s, transform .8s; }
+        .pt-sp[data-full="false"] .pt-gas { opacity: 0; transform: scale(.4); }
+        .pt-sp.pt-evap .pt-gas { clip-path: none; }
+        .pt-blob { position: absolute; left: var(--x); top: var(--y); width: 55%; height: 55%; border-radius: 50%; filter: blur(3px); background: radial-gradient(circle at 40% 40%, color-mix(in srgb, var(--sp) 70%, #fff), var(--sp) 55%, transparent 72%); animation: pt-drift var(--d) ease-in-out infinite alternate; }
+        @keyframes pt-drift { from { transform: translate(-3px,2px) scale(.95); } to { transform: translate(4px,-3px) scale(1.12); } }
+        .pt-sp.pt-evap .pt-blob { animation: pt-evap-blob 1.5s ease-in forwards; animation-delay: calc(var(--i) * .08s); }
+        @keyframes pt-evap-blob { 0% { transform: translate(0,0) scale(1); opacity: 1; filter: blur(3px); } 100% { transform: translate(var(--ex), -70px) scale(2.2); opacity: 0; filter: blur(9px); } }
+        .pt-wisp { position: absolute; left: 30%; top: 20%; width: 40%; height: 40%; border-radius: 50%; background: color-mix(in srgb, var(--sp) 55%, transparent); filter: blur(6px); pointer-events: none; animation: pt-wisp-kf 1.7s ease-out forwards; }
+        @keyframes pt-wisp-kf { 0% { transform: translate(0,0) scale(.6); opacity: .8; } 100% { transform: translate(var(--wx), -80px) scale(2.4); opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) { .pt-orb, .pt-orb *, .pt-shard, .pt-drip, .pt-wisp { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
       `}</style>
 
       <div className="point-header" style={{

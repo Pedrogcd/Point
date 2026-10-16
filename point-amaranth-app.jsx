@@ -11215,7 +11215,11 @@ export function ArvoreGenealogica({ genealogia, characters, onAbrirFicha, gm }) 
             <RefreshCw size={12} /> Redesenhar
           </Btn>
         </div>
-        <svg viewBox={`0 0 ${layout.largura} ${layout.altura}`} style={{ display: "block", width: "100%", minWidth: 360, height: "auto" }}>
+        <svg
+          viewBox={`0 0 ${layout.largura} ${layout.altura}`}
+          width={layout.largura} height={layout.altura}
+          style={{ display: "block" }}
+        >
           <g key={`${gm}-${redesenhoTick}`}>
             {layout.unioes.map((uniao, ui) => {
               const paisPos = uniao.pais.map((id) => nosPorId.get(id)).filter(Boolean);

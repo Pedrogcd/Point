@@ -10,6 +10,11 @@ const BACKUP_KEYS = ["characters", "kingdoms", "gods", "sagas", "objectives", "r
 // carrega normal: vira `{}`, ou seja, nenhuma edição de GM aplicada
 // (comportamento idêntico a hoje, antes de cada chave existir).
 const CHAVES_OVERRIDES = ["cidadesOverrides", "pessoasOverrides", "npcsOverrides"];
+// `encontro` (painel de combate do Confronto, ver encontro.js) é um objeto
+// ÚNICO (não uma lista nem um mapa por id) — mesma blindagem de default `{}`
+// das overrides acima; normalizarEstado chama normalizarEncontro em cima,
+// que já trata `{}`/ausente como "nenhum encontro em andamento".
+const CHAVE_ENCONTRO = "encontro";
 
 function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -20,6 +25,7 @@ export function buildBackup(state) {
   const backup = { version: 1, exportedAt: new Date().toISOString() };
   for (const key of BACKUP_KEYS) backup[key] = state?.[key] ?? [];
   for (const key of CHAVES_OVERRIDES) backup[key] = isPlainObject(state?.[key]) ? state[key] : {};
+  backup[CHAVE_ENCONTRO] = isPlainObject(state?.[CHAVE_ENCONTRO]) ? state[CHAVE_ENCONTRO] : {};
   return backup;
 }
 
@@ -40,5 +46,6 @@ export function parseBackup(raw) {
   const result = {};
   for (const key of BACKUP_KEYS) result[key] = Array.isArray(data[key]) ? data[key] : [];
   for (const key of CHAVES_OVERRIDES) result[key] = isPlainObject(data[key]) ? data[key] : {};
+  result[CHAVE_ENCONTRO] = isPlainObject(data[CHAVE_ENCONTRO]) ? data[CHAVE_ENCONTRO] : {};
   return result;
 }

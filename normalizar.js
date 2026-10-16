@@ -9,6 +9,7 @@
 import { migrarCidades } from "./mapaMundo.js";
 import { migrarPersonagens } from "./personagens.js";
 import { migrarRotas } from "./rotasMapa.js";
+import { normalizarEncontro } from "./encontro.js";
 
 function isPlainObject(v) {
   return !!v && typeof v === "object" && !Array.isArray(v);
@@ -65,5 +66,9 @@ export function normalizarEstado(state) {
   // (cruzam reinos), então ficam numa lista irmã de `kingdoms`, não dentro
   // de cada reino. migrarRotas nunca lança: lixo vira [] sem derrubar a tela.
   const rotas = migrarRotas(state?.rotas);
-  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides, rotas };
+  // Encontro (painel de combate do Confronto, ver encontro.js) — objeto
+  // único (não lista/mapa por id); normalizarEncontro já trata ausente/
+  // lixo como "nenhum encontro em andamento", tolerante como os demais.
+  const encontro = normalizarEncontro(state?.encontro);
+  return { characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides, rotas, encontro };
 }

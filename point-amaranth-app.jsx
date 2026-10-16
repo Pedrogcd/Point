@@ -4,7 +4,7 @@ import {
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
   Upload, Download, ExternalLink, Eye, EyeOff, Route, RefreshCw,
-  ChevronUp, UserPlus, Skull, Play, StopCircle,
+  ChevronUp, UserPlus, Skull, Play, StopCircle, Network,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -41,6 +41,10 @@ import {
   cidadesPosicionadas, personagemDaPessoa,
 } from "./mapaMundo.js";
 import { textoVisivel, entradasVisiveis, npcVisivel, npcsPorReinoECidade, normalizarModo, CHAVE_MODO, MAPA_MUNDO } from "./mundo.js";
+import {
+  montarArvoreMundo, ehPendencia, filtrarArvore, resumoArvore,
+  todosOsIds, idsSecoesApenas, idsAbertosPadrao,
+} from "./arvoreMundo.js";
 import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
@@ -4185,7 +4189,7 @@ const SEMENTES_PESSOAS_REINO = [
 // não duplica nada quando a reposição do useEffect rodar de novo depois.
 export const SEED_KINGDOMS = reporPessoasDoReino(SEED_KINGDOMS_RAW, SEMENTES_PESSOAS_REINO);
 
-const SEED_GODS = [
+export const SEED_GODS = [
   { id: "kronos", name: "Kronos", domain: "Tempo", description: "Divindade ligada à manipulação e ao domínio do tempo; seu templo em Katalão forma sacerdotisas-guerreiras como Boda. [Rascunho — refine comigo.]" },
   { id: "umbra", name: "Umbra", domain: "Proteção / Sombra", description: "Divindade das sombras e da proteção contra ameaças dimensionais; seus paladinos, como Mercúrio, defendem os reinos de incursões de outros planos. [Rascunho — refine comigo.]" },
   { id: "gigas", name: "Gigas", domain: "Força / Criação", description: "Divindade associada à força bruta e à criação material — ligada tanto a Almah quanto, em parte, à formação de Erin. [Rascunho — refine comigo.]" },
@@ -4206,7 +4210,7 @@ const GRUPO_C_ORDER = ["almah", "kiryu", "fate", "boda", "leona", "ookami", "kut
 // Grupo C (a campanha principal), "aurora" é o Sidepoint, "suth" é a mesa do
 // Império de Suth, "goethia" é a mesa do reino de Goethia, "hetalion" é a
 // mesa da república federativa de Hetalion.
-const GRUPOS = [
+export const GRUPOS = [
   { id: "c", label: "Grupo C", subtitulo: "Cavaleiros de Omem · campanha principal", cor: BRASS },
   { id: "aurora", label: "Grupo Aurora", subtitulo: "Mercenários de Beltezu · mesa Sidepoint", cor: "#B5654A" },
   { id: "suth", label: "Grupo Suth", subtitulo: "Três Pilares do Império de Suth", cor: EMBER },
@@ -4214,7 +4218,7 @@ const GRUPOS = [
   { id: "hetalion", label: "Grupo Hetalion", subtitulo: "Generais e Executores das Quatro Federações", cor: FACTION_SEAL["Hetalion"] },
 ];
 
-const SEED_SAGAS = [
+export const SEED_SAGAS = [
   {
     id: "saga_casamento",
     title: "O Casamento em Suth",
@@ -10042,7 +10046,12 @@ export function CidadePaginaView({ kingdoms, setKingdoms, reinoId, cidadeId, aba
   );
 }
 
-export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc, onAbrirFicha, rotas, setRotas }) {
+export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, cidadesOverrides, setCidadesOverrides, pessoasOverrides, setPessoasOverrides, npcsOverrides, onEditarCampoNpc, onRestaurarCampoNpc, onAbrirFicha, rotas, setRotas, gods, sagas, onAbrirDeuses, onAbrirSagas }) {
+  // "Mapa" é a visão de sempre (mapa interativo + detalhe de reino/cidade);
+  // "Árvore" é uma segunda visão, só leitura+navegação, com a hierarquia
+  // inteira do mundo (ver ArvoreMundoView/arvoreMundo.js) — não duplica
+  // nenhum dado, só lê kingdoms/gods/characters/sagas já carregados aqui.
+  const [visaoMundo, setVisaoMundo] = useState("mapa");
   const [reinoId, setReinoId] = useState(null);
   const [abaReino, setAbaReino] = useState("geral");
   const [cidadeId, setCidadeId] = useState(null);
@@ -10101,6 +10110,23 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
 
   function abrirReino(id) {
     setReinoId(id); setAbaReino("geral"); setCidadeId(null);
+  }
+  // Navegação a partir da Árvore (ver ArvoreMundoView mais abaixo): volta pra
+  // visão Mapa (onde o detalhe de reino/cidade de fato aparece) e então
+  // reaproveita a mesma navegação de sempre — reino/cidade nunca saem do
+  // Mundo, só o alvo "ficha" (onAbrirFicha, prop do App) troca de aba.
+  function abrirReinoDaArvore(id) {
+    setVisaoMundo("mapa");
+    abrirReino(id);
+  }
+  function abrirCidadeDaArvore(rId, cId) {
+    setVisaoMundo("mapa");
+    abrirCidade(rId, cId, "geral");
+  }
+  function abrirPessoasDoReinoDaArvore(id) {
+    setVisaoMundo("mapa");
+    abrirReino(id);
+    setAbaReino("pessoas");
   }
   function addCity(kid) {
     const draft = newCity[kid];
@@ -10185,6 +10211,27 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
 
   return (
     <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <Btn variant={visaoMundo === "mapa" ? "primary" : "ghost"} onClick={() => setVisaoMundo("mapa")}>
+          <MapIcon size={13} /> Mapa
+        </Btn>
+        <Btn variant={visaoMundo === "arvore" ? "primary" : "ghost"} onClick={() => setVisaoMundo("arvore")}>
+          <Network size={13} /> Árvore
+        </Btn>
+      </div>
+
+      {visaoMundo === "arvore" && (
+        <ArvoreMundoView
+          kingdoms={kingdoms} gods={gods} characters={characters} sagas={sagas}
+          pessoasOverrides={pessoasOverrides} gm={gm}
+          onAbrirReino={abrirReinoDaArvore} onAbrirCidade={abrirCidadeDaArvore}
+          onAbrirFicha={onAbrirFicha} onAbrirDeuses={onAbrirDeuses} onAbrirSagas={onAbrirSagas}
+          onAbrirPessoasDoReino={abrirPessoasDoReinoDaArvore}
+        />
+      )}
+
+      {visaoMundo === "mapa" && (
+      <>
       {popup && (
         <MundoPopup
           acao={popup} gm={gm} onClose={() => setPopup(null)} onAcao={setPopup}
@@ -10627,6 +10674,246 @@ export function WorldView({ kingdoms, setKingdoms, askConfirm, gm, characters, c
       )}
       </>
       )}
+      </>
+      )}
+    </div>
+  );
+}
+
+/* --- Árvore do mundo (aba Mundo > Árvore) — ver arvoreMundo.js pros dados
+   puros. A UI segue de perto o artefato aprovado (ver PROMPT 6): CSS e
+   estrutura escopados sob .arv-mundo, classes genéricas (.row/.btn/.tag/
+   .tree/.stat…) definidas no <style> global junto com as outras (ver
+   final do arquivo). --- */
+const TIPOS_NO_ARVORE = {
+  mundo: "Mundo", reino: "Reino", cidade: "Cidade", org: "Grupo interno",
+  pessoa: "Pessoa", deus: "Divindade", mesa: "Mesa de jogo", saga: "Saga", gen: "Genealogia", grupo: "Seção",
+};
+const CHAVE_ARVORE_MUNDO_ABERTOS = "point-arvore-mundo-abertos";
+const LEGENDA_ARVORE_TIPOS = ["mundo", "reino", "cidade", "org", "pessoa", "deus", "mesa", "saga", "gen"];
+
+function lerAbertosArvoreMundo() {
+  try {
+    const raw = localStorage.getItem(CHAVE_ARVORE_MUNDO_ABERTOS);
+    if (!raw) return null;
+    const lista = JSON.parse(raw);
+    return Array.isArray(lista) ? new Set(lista) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function TagsNoArvore({ n }) {
+  const tags = [];
+  if (n.status === "esboco") tags.push({ key: "esboco", cls: "tag warn", texto: "Esboço" });
+  if (n.status === "vazio") tags.push({ key: "vazio", cls: "tag warn", texto: "Sem texto" });
+  if (n.status === "ok") tags.push({ key: "ok", cls: "tag ok", texto: "Documentada" });
+  if (n.sub === "Capital") tags.push({ key: "capital", cls: "tag ficha", texto: "Capital" });
+  if (n.t === "pessoa") tags.push(n.ficha ? { key: "ficha", cls: "tag ficha", texto: "Ficha" } : { key: "semficha", cls: "tag", texto: "Sem ficha" });
+  if (n.secret) tags.push({ key: "gm", cls: "tag gm", texto: "GM" });
+  if (n.count != null && n.t !== "cidade") tags.push({ key: "count", cls: "tag count", texto: String(n.count) });
+  if (tags.length === 0) return null;
+  return (
+    <span className="tags">
+      {tags.map((t) => <span key={t.key} className={t.cls}>{t.texto}</span>)}
+    </span>
+  );
+}
+
+// Nó da árvore: clique no rótulo navega pro `alvo` (reino/cidade/ficha/
+// deuses/sagas/pessoas-do-reino); a seta só abre/fecha. Nós sem `alvo`
+// (seções, organizações, mesas) abrem/fecham no clique em qualquer lugar da
+// linha — igual ao artefato original.
+export function NoArvoreMundo({ n, profundidade, forced, abertos, onToggle, onNavegar, characters }) {
+  const kids = n.children || [];
+  const tem = kids.length > 0 || (n.empty && n.t === "grupo");
+  const aberto = forced ? true : abertos.has(n.id) || profundidade === 0;
+  const subTexto = n.sub && n.sub !== "Capital" ? <span className="sb">{n.sub}</span> : null;
+  const personagem = n.t === "pessoa" && n.personagemId ? (characters || []).find((c) => c.id === n.personagemId) : null;
+  const mostrarRetrato = n.t === "pessoa" && !!personagem?.imageUrl;
+
+  const glifo = mostrarRetrato
+    ? <Retrato character={personagem} size={26} borderRadius="50%" />
+    : <i className={`glyph g-${n.t}`} aria-hidden="true" />;
+
+  const miolo = (
+    <>
+      {glifo}
+      <span className="lb">{n.label}</span>
+      {subTexto}
+      <TagsNoArvore n={n} />
+    </>
+  );
+
+  let linha;
+  if (tem && n.alvo) {
+    linha = (
+      <div className="row" style={{ padding: 0 }}>
+        <button
+          type="button" className="am-caret-btn" aria-expanded={aberto}
+          aria-label={aberto ? `Recolher ${n.label}` : `Expandir ${n.label}`} onClick={() => onToggle(n.id)}
+        >
+          <span className="caret" aria-hidden="true">▶</span>
+        </button>
+        <button type="button" className="am-linha-alvo" onClick={() => onNavegar(n.alvo)}>
+          {miolo}
+        </button>
+      </div>
+    );
+  } else if (tem) {
+    linha = (
+      <button type="button" className="row" aria-expanded={aberto} onClick={() => onToggle(n.id)}>
+        <span className="caret" aria-hidden="true">▶</span>
+        {miolo}
+      </button>
+    );
+  } else if (n.alvo) {
+    linha = (
+      <button type="button" className="row" onClick={() => onNavegar(n.alvo)}>
+        <span className="caret" aria-hidden="true" />
+        {miolo}
+      </button>
+    );
+  } else {
+    linha = (
+      <div className="row">
+        <span className="caret" aria-hidden="true" />
+        {miolo}
+      </div>
+    );
+  }
+
+  return (
+    <li className={`n t-${n.t}${n.hit ? " hit" : ""}`} title={TIPOS_NO_ARVORE[n.t]}>
+      {linha}
+      {tem && aberto && (
+        kids.length > 0 ? (
+          <ul className="t">
+            {kids.map((filho) => (
+              <NoArvoreMundo
+                key={filho.id} n={filho} profundidade={profundidade + 1} forced={forced}
+                abertos={abertos} onToggle={onToggle} onNavegar={onNavegar} characters={characters}
+              />
+            ))}
+          </ul>
+        ) : (
+          <div className="empty">{n.empty}</div>
+        )
+      )}
+    </li>
+  );
+}
+
+export function ArvoreMundoView({
+  kingdoms, gods, characters, sagas, grupos, gm, pessoasOverrides,
+  onAbrirReino, onAbrirCidade, onAbrirFicha, onAbrirDeuses, onAbrirSagas, onAbrirPessoasDoReino,
+}) {
+  const gruposMesas = grupos || GRUPOS;
+  const kingdomsComPessoas = useMemo(
+    () => (kingdoms || []).map((k) => ({ ...k, pessoas: mesclarPessoasComOverride(k.pessoas, pessoasOverrides?.[k.id] || {}) })),
+    [kingdoms, pessoasOverrides]
+  );
+  const arvore = useMemo(
+    () => montarArvoreMundo({ kingdoms: kingdomsComPessoas, gods, characters, sagas, grupos: gruposMesas, gm }),
+    [kingdomsComPessoas, gods, characters, sagas, gruposMesas, gm]
+  );
+
+  const [busca, setBusca] = useState("");
+  const [soPendencias, setSoPendencias] = useState(false);
+  const [abertos, setAbertos] = useState(() => lerAbertosArvoreMundo() || idsAbertosPadrao(arvore));
+
+  useEffect(() => {
+    try { localStorage.setItem(CHAVE_ARVORE_MUNDO_ABERTOS, JSON.stringify([...abertos])); } catch (e) {}
+  }, [abertos]);
+
+  function alternarAberto(id) {
+    setAbertos((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+  function expandirTudo() { setAbertos(new Set(todosOsIds(arvore))); }
+  function recolherTudo() { setAbertos(idsSecoesApenas(arvore)); }
+
+  function navegarPara(alvo) {
+    if (!alvo) return;
+    if (alvo.tipo === "reino") onAbrirReino?.(alvo.reinoId);
+    else if (alvo.tipo === "cidade") onAbrirCidade?.(alvo.reinoId, alvo.cidadeId);
+    else if (alvo.tipo === "ficha") onAbrirFicha?.(alvo.personagemId);
+    else if (alvo.tipo === "deuses") onAbrirDeuses?.();
+    else if (alvo.tipo === "sagas") onAbrirSagas?.();
+    else if (alvo.tipo === "pessoas") onAbrirPessoasDoReino?.(alvo.reinoId);
+  }
+
+  const termo = busca.trim();
+  const raizFiltrada = filtrarArvore(arvore, termo, soPendencias);
+  const forced = !!termo.trim() || soPendencias;
+  const resumo = resumoArvore(arvore);
+  const stats = [
+    { label: "Reinos", valor: resumo.reino },
+    { label: "Cidades", valor: resumo.cidade },
+    { label: "Divindades", valor: resumo.deus },
+    { label: "Personagens", valor: resumo.pessoaMesa },
+    { label: "Grupos internos", valor: resumo.org },
+  ];
+
+  return (
+    <div className="arv-mundo">
+      <div className="wrap">
+        <header>
+          <h1>AMARANTH</h1>
+          <div className="sub">Árvore hierárquica do mundo de Point · montada com os dados do app</div>
+        </header>
+
+        <div className="stats">
+          {stats.map((s) => (
+            <div key={s.label} className="stat">
+              <b>{s.valor}</b>
+              <span>{s.label}</span>
+            </div>
+          ))}
+          <div className="stat warn">
+            <b>{resumo.pendencias}</b>
+            <span>Pendências</span>
+          </div>
+        </div>
+
+        <div className="tools">
+          <input
+            type="search" value={busca} onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar reino, cidade, pessoa, deus…" aria-label="Buscar na árvore"
+          />
+          <button type="button" className="btn" onClick={expandirTudo}>Expandir tudo</button>
+          <button type="button" className="btn" onClick={recolherTudo}>Recolher</button>
+          <button
+            type="button" className="btn" aria-pressed={soPendencias}
+            onClick={() => setSoPendencias((v) => !v)}
+          >
+            Só pendências
+          </button>
+        </div>
+
+        <div className="tree">
+          {raizFiltrada ? (
+            <ul className="t">
+              <NoArvoreMundo
+                n={raizFiltrada} profundidade={0} forced={forced} abertos={abertos}
+                onToggle={alternarAberto} onNavegar={navegarPara} characters={characters}
+              />
+            </ul>
+          ) : (
+            <p className="empty">Nada encontrado com esses filtros.</p>
+          )}
+        </div>
+
+        <div className="legend">
+          {LEGENDA_ARVORE_TIPOS.map((t) => (
+            <span key={t}><i className={`glyph g-${t}`} aria-hidden="true" />{TIPOS_NO_ARVORE[t]}</span>
+          ))}
+        </div>
+        <p className="note">Pendência: cidade em esboço ou sem texto, grupo sem itens, pessoa sem ficha. A visão Jogador oculta o que é segredo do mestre.</p>
+      </div>
     </div>
   );
 }
@@ -12507,6 +12794,78 @@ export default function App() {
         .pt-die.pt-pulse .pt-d-face { animation: pt-pulseglow .5s ease-out; }
         @keyframes pt-pulseglow { 0% { filter: brightness(1); } 40% { filter: brightness(1.9); } 100% { filter: brightness(1); } }
         @media (prefers-reduced-motion: reduce) { .pt-die, .pt-die * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+        /* ---------- Árvore do mundo (Mundo > Árvore) — porte do artefato aprovado,
+           CSS inteiro escopado sob .arv-mundo; variáveis de cor mapeadas pras
+           constantes do app onde o PROMPT pediu, resto mantido literal. ---------- */
+        .arv-mundo {
+          --bg: ${PANEL_2}; --panel: ${PANEL}; --panel2: #EADFC0; --line: ${LINE}; --ink: ${INK}; --muted: ${MUTED};
+          --brass: ${BRASS}; --brass-hi: ${BRASS_BRIGHT}; --ember: ${EMBER}; --purple: ${PURPLE}; --purple2: ${PURPLE_LIGHT}; --on-purple: ${PURPLE_TEXT};
+          --t-mundo: #4B3B6B; --t-reino: #A9762C; --t-cidade: #2F6D61; --t-org: #6B5590; --t-pessoa: #6B5D45; --t-deus: #B5654A; --t-mesa: #4A6B96; --t-saga: #8C9A4E; --t-gen: #4A7A4E; --t-grupo: #6B5D45;
+          --warn: #B5651D; --ok: #3F7A4A;
+          --font-display: 'Cinzel', Georgia, serif; --font-body: 'Spectral', Georgia, serif; --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+          background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+        }
+        .arv-mundo, .arv-mundo * { box-sizing: border-box; }
+        .arv-mundo button, .arv-mundo input { font: inherit; color: inherit; }
+        .arv-mundo button { cursor: pointer; }
+        .arv-mundo *:focus-visible { outline: 2px solid var(--purple2); outline-offset: 2px; }
+        .arv-mundo .wrap { max-width: 980px; margin: 0 auto; padding: 14px; }
+        .arv-mundo h1 { font: 700 28px var(--font-display); letter-spacing: .14em; color: var(--brass-hi); margin: 0; }
+        .arv-mundo .sub { font: 500 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+        .arv-mundo .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 18px 0 14px; }
+        .arv-mundo .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+        .arv-mundo .stat b { display: block; font: 700 24px var(--font-display); color: var(--brass-hi); line-height: 1.1; }
+        .arv-mundo .stat span { font: 500 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .arv-mundo .stat.warn b { color: var(--warn); }
+        .arv-mundo .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+        .arv-mundo .tools input[type=search] { flex: 1 1 220px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; min-height: 38px; }
+        .arv-mundo .btn { font: 600 11.5px var(--font-display); letter-spacing: .06em; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); min-height: 38px; }
+        .arv-mundo .btn[aria-pressed="true"] { background: var(--purple); color: var(--on-purple); border-color: transparent; }
+        .arv-mundo .btn:hover { border-color: var(--brass); }
+        .arv-mundo .tree { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 10px 14px; }
+        .arv-mundo ul.t { list-style: none; margin: 0; padding: 0; }
+        .arv-mundo ul.t ul.t { margin-left: 15px; padding-left: 15px; border-left: 1.5px solid var(--line); }
+        .arv-mundo li.n { position: relative; margin: 2px 0; }
+        .arv-mundo ul.t ul.t > li.n::before { content: ""; position: absolute; left: -15px; top: 17px; width: 13px; border-top: 1.5px solid var(--line); }
+        .arv-mundo .row { display: flex; align-items: center; gap: 8px; min-height: 34px; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 3px 8px; }
+        .arv-mundo button.row:hover { background: var(--panel2); }
+        .arv-mundo .am-caret-btn { background: none; border: 0; padding: 0; width: 14px; flex: none; display: flex; align-items: center; justify-content: center; }
+        .arv-mundo .am-linha-alvo { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; background: none; border: 0; padding: 3px 8px 3px 0; text-align: left; border-radius: 6px; }
+        .arv-mundo .am-linha-alvo:hover { background: var(--panel2); }
+        .arv-mundo .caret { width: 14px; flex: none; color: var(--muted); transition: transform .18s; font-size: 11px; text-align: center; display: inline-block; }
+        .arv-mundo [aria-expanded="true"] > .caret { transform: rotate(90deg); }
+        .arv-mundo .glyph { width: 10px; height: 10px; flex: none; background: var(--c); display: inline-block; }
+        .arv-mundo .g-mundo { --c: var(--t-mundo); border-radius: 50%; width: 14px; height: 14px; }
+        .arv-mundo .g-reino { --c: var(--t-reino); clip-path: polygon(0 100%, 0 30%, 25% 55%, 50% 0, 75% 55%, 100% 30%, 100% 100%); width: 14px; height: 12px; }
+        .arv-mundo .g-cidade { --c: var(--t-cidade); border-radius: 2px; }
+        .arv-mundo .g-org { --c: var(--t-org); transform: rotate(45deg); width: 9px; height: 9px; }
+        .arv-mundo .g-pessoa { --c: var(--t-pessoa); border-radius: 50%; width: 8px; height: 8px; }
+        .arv-mundo .g-deus { --c: var(--t-deus); clip-path: polygon(50% 0, 100% 100%, 0 100%); width: 12px; height: 11px; }
+        .arv-mundo .g-mesa { --c: var(--t-mesa); border-radius: 2px; clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%); width: 11px; height: 12px; }
+        .arv-mundo .g-saga { --c: var(--t-saga); border-radius: 1px; width: 9px; height: 12px; }
+        .arv-mundo .g-gen { --c: var(--t-gen); clip-path: polygon(40% 0, 60% 0, 60% 40%, 100% 40%, 100% 60%, 60% 60%, 60% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%); }
+        .arv-mundo .g-grupo { --c: var(--t-grupo); border-radius: 2px; height: 3px; width: 12px; }
+        .arv-mundo .lb { font-family: var(--font-body); font-weight: 500; }
+        .arv-mundo .t-mundo > .row .lb { font: 700 18px var(--font-display); letter-spacing: .1em; }
+        .arv-mundo .t-reino > .row .lb, .arv-mundo .t-reino .am-linha-alvo .lb { font: 700 15px var(--font-display); letter-spacing: .07em; }
+        .arv-mundo .t-grupo > .row .lb { font: 600 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+        .arv-mundo .t-org > .row .lb, .arv-mundo .t-mesa > .row .lb { font-weight: 600; }
+        .arv-mundo .sb { color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .arv-mundo .tags { margin-left: auto; display: flex; gap: 5px; flex: none; align-items: center; }
+        .arv-mundo .tag { font: 600 10px var(--font-mono); border-radius: 99px; padding: 1px 8px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+        .arv-mundo .tag.count { background: var(--panel2); }
+        .arv-mundo .tag.warn { color: var(--warn); border-color: var(--warn); }
+        .arv-mundo .tag.ok { color: var(--ok); border-color: var(--ok); }
+        .arv-mundo .tag.gm { background: var(--purple); color: var(--on-purple); border-color: transparent; }
+        .arv-mundo .tag.ficha { color: var(--brass-hi); border-color: var(--brass); }
+        .arv-mundo .empty { color: var(--muted); font: 400 12px var(--font-mono); padding: 4px 8px 4px 30px; }
+        .arv-mundo li.n.hit > .row .lb { background: color-mix(in srgb, var(--brass) 30%, transparent); border-radius: 3px; padding: 0 3px; }
+        .arv-mundo .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; font: 400 12px var(--font-mono); color: var(--muted); }
+        .arv-mundo .legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .arv-mundo .note { font: 400 12px var(--font-mono); color: var(--muted); margin-top: 12px; }
+        @media (max-width: 560px) { .arv-mundo .sb { display: none; } .arv-mundo .tags { flex-wrap: wrap; justify-content: flex-end; } }
+        @media (prefers-reduced-motion: reduce) { .arv-mundo, .arv-mundo * { transition-duration: .01ms !important; } }
       `}</style>
 
       <div className="point-header" style={{
@@ -12702,6 +13061,8 @@ export default function App() {
             npcsOverrides={npcsOverrides} onEditarCampoNpc={editarCampoNpc} onRestaurarCampoNpc={restaurarCampoNpc}
             onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
             rotas={rotas} setRotas={setRotas}
+            gods={gods} sagas={sagas}
+            onAbrirDeuses={() => setTab("gods")} onAbrirSagas={() => setTab("sagas")}
           />
         )}
         {tab === "gods" && <GodsView gods={gods} setGods={setGods} askConfirm={askConfirm} />}

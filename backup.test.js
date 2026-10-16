@@ -18,6 +18,7 @@ function sampleState() {
     pessoasOverrides: {},
     npcsOverrides: {},
     rotas: [],
+    encontro: {},
   };
 }
 
@@ -32,6 +33,7 @@ describe("buildBackup", () => {
     assert.deepEqual(backup.sagas, sampleState().sagas);
     assert.deepEqual(backup.objectives, sampleState().objectives);
     assert.deepEqual(backup.rotas, sampleState().rotas);
+    assert.deepEqual(backup.encontro, sampleState().encontro);
   });
 
   it("listas ausentes no estado viram array vazio, não quebram", () => {
@@ -41,6 +43,7 @@ describe("buildBackup", () => {
     assert.deepEqual(backup.sagas, []);
     assert.deepEqual(backup.objectives, []);
     assert.deepEqual(backup.rotas, []);
+    assert.deepEqual(backup.encontro, {});
   });
 });
 
@@ -79,6 +82,7 @@ describe("parseBackup", () => {
     assert.deepEqual(parsed.sagas, []);
     assert.deepEqual(parsed.objectives, []);
     assert.deepEqual(parsed.rotas, []);
+    assert.deepEqual(parsed.encontro, {});
   });
 
   it("backup ANTIGO, de antes de `rotas` existir (sem essa chave), carrega normal — vira []", () => {
@@ -96,7 +100,7 @@ describe("ciclo exportar → importar", () => {
   });
 
   it("funciona com listas vazias (campanha nova, sem nada salvo ainda)", () => {
-    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {}, rotas: [] };
+    const original = { characters: [], kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {}, rotas: [], encontro: {} };
     const serializado = JSON.stringify(buildBackup(original));
     const restaurado = parseBackup(serializado);
     assert.deepEqual(restaurado, original);
@@ -110,7 +114,7 @@ describe("ciclo exportar → importar", () => {
         classes: [{ name: "Duelista de Estoc", description: "..." }, { name: "Mercador", description: "..." }],
         hp: { current: 3, max: 3 },
       }],
-      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {}, rotas: [],
+      kingdoms: [], gods: [], sagas: [], objectives: [], cidadesOverrides: {}, pessoasOverrides: {}, npcsOverrides: {}, rotas: [], encontro: {},
     };
     const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
     assert.deepEqual(restaurado, original);
@@ -197,6 +201,34 @@ describe("npcsOverrides no backup — edições do GM nos NPCs de mundo (14/10)"
     for (const invalido of [[], "x", 42, null]) {
       const restaurado = parseBackup(JSON.stringify({ characters: [], npcsOverrides: invalido }));
       assert.deepEqual(restaurado.npcsOverrides, {});
+    }
+  });
+});
+
+describe("encontro no backup — painel de combate do Confronto (16/10)", () => {
+  it("buildBackup inclui encontro; ausente no estado vira {}", () => {
+    assert.deepEqual(buildBackup({ characters: [] }).encontro, {});
+  });
+
+  it("ciclo exportar → importar preserva o encontro em andamento", () => {
+    const original = {
+      ...sampleState(),
+      encontro: { id: "e1", rodada: 2, fase: "turno", turnoIdx: 0, ordem: ["c1"], combatentes: { c1: { id: "c1", tipo: "personagem", personagemId: "almah" } }, limiarManutencao: 5, registro: [] },
+    };
+    const restaurado = parseBackup(JSON.stringify(buildBackup(original)));
+    assert.deepEqual(restaurado.encontro, original.encontro);
+  });
+
+  it("backup ANTIGO, sem a chave encontro, carrega normal (vira {})", () => {
+    const backupAntigo = { characters: [{ id: "almah" }], kingdoms: [], gods: [], sagas: [], objectives: [] };
+    const restaurado = parseBackup(JSON.stringify(backupAntigo));
+    assert.deepEqual(restaurado.encontro, {});
+  });
+
+  it("encontro com formato inválido (array, string, número) vira {}, não quebra", () => {
+    for (const invalido of [[], "x", 42, null]) {
+      const restaurado = parseBackup(JSON.stringify({ characters: [], encontro: invalido }));
+      assert.deepEqual(restaurado.encontro, {});
     }
   });
 });

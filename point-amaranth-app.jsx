@@ -4,6 +4,7 @@ import {
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
   Upload, Download, ExternalLink, Eye, EyeOff, Route, RefreshCw,
+  ChevronUp, UserPlus, Skull, Play, StopCircle,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -22,6 +23,12 @@ import {
 } from "./engine.js";
 import { MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS } from "./data/magias.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
+import {
+  criarEncontro, criarCombatentePersonagem, criarCombatenteAvulso,
+  adicionarCombatente, removerCombatente, atualizarCombatente, reordenar,
+  alternarEstado, alternarAcaoGasta, proximoTurno, registrarRolagemManutencao,
+  registrarAcao, normalizarEncontro, ESTADOS_COMBATE, LADOS,
+} from "./encontro.js";
 import { reporCidadesSemente, idsCidadesSemente } from "./cidades.js";
 import { aplicarFichaSuthDoFate, preencherReinoSuth } from "./suth.js";
 import {
@@ -7612,7 +7619,13 @@ export function resolveFichaAtaque({
   });
 }
 
-export function CompareView({ characters, onUpdateCharacter }) {
+export function CompareView({ characters, onUpdateCharacter, gm, askConfirm, encontro, setEncontro }) {
+  // Sub-aba "Encontro" (painel de combate em grupo) é GM-only — se o modo
+  // virar Jogador enquanto ela estiver aberta, cai de volta pro Duelo (a
+  // sub-aba nunca fica selecionada sem o botão que leva a ela existir).
+  const [subTab, setSubTab] = useState("duelo");
+  useEffect(() => { if (!gm && subTab === "encontro") setSubTab("duelo"); }, [gm, subTab]);
+
   const [aId, setAId] = useState(characters[0]?.id || "");
   const [bId, setBId] = useState(EDITABLE_OPPONENT_ID);
   const [editableStats, setEditableStats] = useState({
@@ -7655,6 +7668,23 @@ export function CompareView({ characters, onUpdateCharacter }) {
   return (
     <div>
       <SectionTitle icon={Swords}>Confronto</SectionTitle>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <Btn variant={subTab === "duelo" ? "primary" : "ghost"} onClick={() => setSubTab("duelo")}>
+          <Swords size={13} /> Duelo
+        </Btn>
+        {gm && (
+          <Btn variant={subTab === "encontro" ? "primary" : "ghost"} onClick={() => setSubTab("encontro")}>
+            <Users size={13} /> Encontro
+          </Btn>
+        )}
+      </div>
+
+      {subTab === "encontro" && gm && (
+        <EncontroPainel characters={characters} onUpdateCharacter={onUpdateCharacter} askConfirm={askConfirm} encontro={encontro} setEncontro={setEncontro} />
+      )}
+
+      {subTab === "duelo" && (
+      <>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 16, marginBottom: 8, alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 10.5, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>ATACANTE</div>
@@ -7810,6 +7840,513 @@ export function CompareView({ characters, onUpdateCharacter }) {
           <DuelRoller key={`${a.id}-${b.id}`} a={a} b={b} onUpdateCharacter={onUpdateCharacter} />
         </>
       )}
+      </>
+      )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   ENCONTRO — painel de combate em grupo (sub-aba do Confronto, GM-only).
+   Dados puros em encontro.js; aqui só desenho/wiring com `characters`
+   (HP/MP/SP/Defesa/RN de combatentes-personagem são SEMPRE lidos/gravados
+   por onUpdateCharacter, nunca duplicados — ver criarCombatentePersonagem).
+----------------------------------------------------------------*/
+const ALIADOS_COR = "#2F8577"; // verde-água, só deste painel — distinto do SP_COLOR (verde oliva) e do MP_COLOR (azul)
+
+function iniciaisDoNomeEncontro(nome) {
+  const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
+  if (partes.length === 0) return "?";
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function nomeDoCombatente(combatente, characters) {
+  if (!combatente) return "?";
+  if (combatente.tipo === "avulso") return combatente.nome;
+  return (characters || []).find((c) => c.id === combatente.personagemId)?.name || "(ficha apagada)";
+}
+
+function personagemDoCombatente(combatente, characters) {
+  return combatente?.tipo === "personagem" ? (characters || []).find((c) => c.id === combatente.personagemId) || null : null;
+}
+
+function recursoDoCombatente(combatente, characters, chave) {
+  if (combatente.tipo === "avulso") return combatente[chave] || { current: 0, max: 0 };
+  const p = personagemDoCombatente(combatente, characters);
+  if (!p) return { current: 0, max: 0 };
+  const max = chave === "hp" ? computeMaxHP(p) : chave === "mp" ? computeMaxMana(p) : computeMaxSP(p);
+  const current = Math.max(0, Math.min(p[chave]?.current ?? max, max));
+  return { current, max };
+}
+
+function defesaDoCombatente(combatente, characters) {
+  if (combatente.tipo === "avulso") return combatente.defesa;
+  const p = personagemDoCombatente(combatente, characters);
+  return p ? computeStat(p, "defesa") : null;
+}
+
+function armaduraDoCombatente(combatente, characters) {
+  if (combatente.tipo === "avulso") return null;
+  const p = personagemDoCombatente(combatente, characters);
+  return p ? computeStat(p, "resistArmadura") : null;
+}
+
+function rnFisicaDoCombatente(combatente, characters) {
+  if (combatente.tipo === "avulso") return null;
+  const p = personagemDoCombatente(combatente, characters);
+  return p?.proficiencias?.resistFisicaProf || "E";
+}
+
+const ACOES_TURNO = [
+  { key: "movimento", label: "Movimento" },
+  { key: "acao", label: "Ação" },
+  { key: "bAcao", label: "B.Ação" },
+  { key: "reacao", label: "Reação" },
+];
+
+function RecursoMini({ label, resource, color, icon, visual, verboEsvaziar, onToggle }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{ fontSize: 8.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", width: 20 }}>{label}</span>
+      <ResourceDots
+        label={label} resource={resource} color={color} icon={icon} visual={visual}
+        rachavel={visual === "coracao"} verboEsvaziar={verboEsvaziar} onToggle={onToggle}
+      />
+    </div>
+  );
+}
+
+function CombatenteCard({ combatente, characters, ehAVez, selecionado, onSelecionar, onAlternarAcao }) {
+  const nome = nomeDoCombatente(combatente, characters);
+  const personagem = personagemDoCombatente(combatente, characters);
+  const cor = combatente.lado === "aliados" ? ALIADOS_COR : EMBER;
+  const hp = recursoDoCombatente(combatente, characters, "hp");
+  const mp = recursoDoCombatente(combatente, characters, "mp");
+  const sp = recursoDoCombatente(combatente, characters, "sp");
+  const defesa = defesaDoCombatente(combatente, characters);
+  const rnFis = rnFisicaDoCombatente(combatente, characters);
+  return (
+    <div
+      role="button" tabIndex={0} aria-pressed={selecionado}
+      onClick={() => onSelecionar(combatente.id)}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelecionar(combatente.id); } }}
+      style={{
+        ...cardBox, cursor: "pointer", outline: "none", position: "relative",
+        border: ehAVez ? `2px solid ${BRASS_BRIGHT}` : selecionado ? `1.5px solid ${BRASS}` : `1px solid ${LINE}`,
+        boxShadow: ehAVez ? `0 0 10px ${BRASS_BRIGHT}66` : "none",
+      }}
+    >
+      {ehAVez && (
+        <span style={{
+          position: "absolute", top: -9, left: 10, fontSize: 8.5, fontFamily: "'IBM Plex Mono', monospace",
+          letterSpacing: 0.5, color: INK, background: BRASS_BRIGHT, padding: "1px 7px", borderRadius: 3, textTransform: "uppercase",
+        }}>
+          Turno
+        </span>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        {personagem ? (
+          <Retrato character={personagem} size={34} borderRadius={7} iconColor={cor} style={{ border: `1.5px solid ${cor}` }} />
+        ) : (
+          <div style={{
+            width: 34, height: 34, borderRadius: "50%", flexShrink: 0, background: `${cor}33`, border: `1.5px solid ${cor}`,
+            display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cinzel', serif", fontSize: 12, color: cor,
+          }}>
+            {iniciaisDoNomeEncontro(nome)}
+          </div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nome}</div>
+          <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+            Def {defesa ?? "—"} / RN Fís {rnFis ?? "—"}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginBottom: 8 }}>
+        <RecursoMini label="HP" resource={hp} color={EMBER} icon={Droplet} visual="coracao" />
+        <RecursoMini label="MP" resource={mp} color={MP_COLOR} icon={Sparkles} visual="liquido" />
+        <RecursoMini label="SP" resource={sp} color={SP_COLOR} icon={Flame} visual="gas" verboEsvaziar="evaporar" />
+      </div>
+
+      {combatente.estados.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+          {combatente.estados.map((id) => {
+            const info = ESTADOS_COMBATE.find((e) => e.id === id);
+            return (
+              <span key={id} style={{ fontSize: 8.5, fontFamily: "'IBM Plex Mono', monospace", color: "#fff", background: info?.cor || MUTED, borderRadius: 3, padding: "1px 6px" }}>
+                {info?.label || id}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {ehAVez && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {ACOES_TURNO.map((a) => {
+            const gasta = combatente.acoesGastas?.[a.key];
+            return (
+              <button
+                key={a.key}
+                onClick={(e) => { e.stopPropagation(); onAlternarAcao(combatente.id, a.key); }}
+                style={{
+                  fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace", padding: "2px 7px", borderRadius: 10,
+                  border: `1px solid ${gasta ? MUTED : BRASS}`, background: gasta ? "#00000020" : "transparent",
+                  color: gasta ? MUTED : BRASS, textDecoration: gasta ? "line-through" : "none", cursor: "pointer",
+                }}
+              >
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GavetaCombatente({ combatente, characters, onUpdateCharacter, encontro, setEncontro, askConfirm }) {
+  const nome = nomeDoCombatente(combatente, characters);
+  const defesa = defesaDoCombatente(combatente, characters);
+  const armadura = armaduraDoCombatente(combatente, characters);
+  const rnFis = rnFisicaDoCombatente(combatente, characters);
+
+  function aplicarRecurso(chave, novoCurrent) {
+    if (combatente.tipo === "avulso") {
+      const atual = combatente[chave];
+      setEncontro((prev) => atualizarCombatente(prev, combatente.id, { [chave]: { ...atual, current: Math.max(0, Math.min(novoCurrent, atual.max)) } }));
+    } else {
+      const p = personagemDoCombatente(combatente, characters);
+      if (!p || !onUpdateCharacter) return;
+      const max = chave === "hp" ? computeMaxHP(p) : chave === "mp" ? computeMaxMana(p) : computeMaxSP(p);
+      onUpdateCharacter(p.id, { [chave]: { ...p[chave], current: Math.max(0, Math.min(novoCurrent, max)) } });
+    }
+  }
+  function ajustar(chave, delta) {
+    const r = recursoDoCombatente(combatente, characters, chave);
+    aplicarRecurso(chave, r.current + delta);
+    setEncontro((prev) => registrarAcao(prev, `${nome}: ${chave.toUpperCase()} ${delta > 0 ? "+" : ""}${delta}.`));
+  }
+
+  return (
+    <div style={{ ...cardBox, marginBottom: 12 }}>
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, marginBottom: 8 }}>{nome}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>
+        <div>Defesa<br /><span style={{ color: BRASS_BRIGHT, fontSize: 14 }}>{defesa ?? "—"}</span></div>
+        <div>Armadura<br /><span style={{ color: BRASS_BRIGHT, fontSize: 14 }}>{armadura ?? "—"}</span></div>
+        <div>RN Fís<br /><span style={{ color: BRASS_BRIGHT, fontSize: 14 }}>{rnFis ?? "—"}</span></div>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+        <Btn variant="ghost" onClick={() => ajustar("hp", -1)}><Droplet size={12} /> Dano −1 HP</Btn>
+        <Btn variant="ghost" onClick={() => ajustar("hp", 1)}><Droplet size={12} /> Cura +1 HP</Btn>
+        <Btn variant="ghost" onClick={() => ajustar("mp", -1)}><Sparkles size={12} /> Gastar MP</Btn>
+        <Btn variant="ghost" onClick={() => ajustar("sp", -1)}><Flame size={12} /> Gastar SP</Btn>
+      </div>
+
+      <div style={{ fontSize: 10, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", marginBottom: 5 }}>Estados</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 10 }}>
+        {ESTADOS_COMBATE.map((estado) => {
+          const ligado = combatente.estados.includes(estado.id);
+          return (
+            <button
+              key={estado.id}
+              onClick={() => setEncontro((prev) => atualizarCombatente(prev, combatente.id, alternarEstado(combatente, estado.id)))}
+              style={{
+                fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", padding: "3px 9px", borderRadius: 12, cursor: "pointer",
+                border: `1px solid ${estado.cor}`, background: ligado ? estado.cor : "transparent", color: ligado ? "#fff" : estado.cor,
+              }}
+            >
+              {estado.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <Field label="Nota do mestre">
+        <textarea
+          style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={combatente.nota}
+          onChange={(e) => setEncontro((prev) => atualizarCombatente(prev, combatente.id, { nota: e.target.value }))}
+        />
+      </Field>
+
+      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+        <Btn variant="ghost" onClick={() => setEncontro((prev) => ({ ...prev, ordem: reordenar(prev.ordem, combatente.id, "cima") }))}>
+          <ChevronUp size={13} /> Subir
+        </Btn>
+        <Btn variant="ghost" onClick={() => setEncontro((prev) => ({ ...prev, ordem: reordenar(prev.ordem, combatente.id, "baixo") }))}>
+          <ChevronDown size={13} /> Descer
+        </Btn>
+        <Btn variant="danger" onClick={() => setEncontro((prev) => removerCombatente(prev, combatente.id))}>
+          <Trash2 size={13} /> Remover
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+export function AdicionarCombatente({ characters, jaAdicionados, onAdicionar, onFechar }) {
+  const [personagemId, setPersonagemId] = useState("");
+  const [lado, setLado] = useState("aliados");
+  const porGrupo = useMemo(() => {
+    const mapa = new Map();
+    for (const c of characters) {
+      if (jaAdicionados.has(c.id)) continue;
+      const g = grupoDoPersonagem(c);
+      if (!mapa.has(g)) mapa.set(g, []);
+      mapa.get(g).push(c);
+    }
+    return mapa;
+  }, [characters, jaAdicionados]);
+  return (
+    <div style={{ ...cardBox, marginBottom: 12 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: PARCHMENT, marginBottom: 8 }}>Adicionar combatente</div>
+      <Field label="Personagem">
+        <select style={inputStyle} value={personagemId} onChange={(e) => setPersonagemId(e.target.value)}>
+          <option value="">— escolha —</option>
+          {[...porGrupo.entries()].map(([grupoId, membros]) => (
+            <optgroup key={grupoId} label={GRUPOS.find((g) => g.id === grupoId)?.label || grupoId}>
+              {membros.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </Field>
+      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        {LADOS.map((l) => (
+          <label key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: PARCHMENT, textTransform: "capitalize" }}>
+            <input type="radio" name="lado-personagem" checked={lado === l} onChange={() => setLado(l)} /> {l}
+          </label>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <Btn variant="primary" disabled={!personagemId} onClick={() => { if (personagemId) onAdicionar(criarCombatentePersonagem(personagemId, lado)); }}>
+          <UserPlus size={13} /> Adicionar
+        </Btn>
+        <Btn variant="ghost" onClick={onFechar}><X size={13} /> Cancelar</Btn>
+      </div>
+    </div>
+  );
+}
+
+export function AdicionarAvulso({ onAdicionar, onFechar }) {
+  const [nome, setNome] = useState("");
+  const [lado, setLado] = useState("inimigos");
+  const [defesa, setDefesa] = useState(8);
+  const [hp, setHp] = useState(3);
+  const [mp, setMp] = useState(0);
+  const [sp, setSp] = useState(0);
+  return (
+    <div style={{ ...cardBox, marginBottom: 12 }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: PARCHMENT, marginBottom: 8 }}>Adicionar inimigo avulso</div>
+      <Field label="Nome"><input style={inputStyle} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Bandido" /></Field>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }}>
+        <Field label="Defesa"><input type="number" style={inputStyle} value={defesa} onChange={(e) => setDefesa(Number(e.target.value))} /></Field>
+        <Field label="HP"><input type="number" style={inputStyle} value={hp} onChange={(e) => setHp(Number(e.target.value))} /></Field>
+        <Field label="MP"><input type="number" style={inputStyle} value={mp} onChange={(e) => setMp(Number(e.target.value))} /></Field>
+        <Field label="SP"><input type="number" style={inputStyle} value={sp} onChange={(e) => setSp(Number(e.target.value))} /></Field>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        {LADOS.map((l) => (
+          <label key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: PARCHMENT, textTransform: "capitalize" }}>
+            <input type="radio" name="lado-avulso" checked={lado === l} onChange={() => setLado(l)} /> {l}
+          </label>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <Btn variant="primary" onClick={() => onAdicionar(criarCombatenteAvulso({ nome, lado, defesa, hp, mp, sp }))}>
+          <Skull size={13} /> Adicionar
+        </Btn>
+        <Btn variant="ghost" onClick={onFechar}><X size={13} /> Cancelar</Btn>
+      </div>
+    </div>
+  );
+}
+
+export function EncontroPainel({ characters, onUpdateCharacter, askConfirm, encontro, setEncontro }) {
+  const [selecionadoId, setSelecionadoId] = useState(null);
+  const [mostrarAddPersonagem, setMostrarAddPersonagem] = useState(false);
+  const [mostrarAddAvulso, setMostrarAddAvulso] = useState(false);
+  const [ultimaManutencao, setUltimaManutencao] = useState(null); // { combatenteId, resultados, sucessos }
+  const reducedMotion = usePrefersReducedMotion();
+  const timeoutsRef = useRef([]);
+  useEffect(() => () => { timeoutsRef.current.forEach(clearTimeout); }, []);
+
+  const combatentesOrdenados = encontro.ordem.map((id) => encontro.combatentes[id]).filter(Boolean);
+  const combatenteAtual = combatentesOrdenados[encontro.turnoIdx] || null;
+  const selecionado = selecionadoId ? encontro.combatentes[selecionadoId] : null;
+  const jaAdicionados = useMemo(() => new Set(Object.values(encontro.combatentes).filter((c) => c.tipo === "personagem").map((c) => c.personagemId)), [encontro.combatentes]);
+
+  function alternarAcao(id, acaoKey) {
+    setEncontro((prev) => atualizarCombatente(prev, id, alternarAcaoGasta(prev.combatentes[id], acaoKey)));
+  }
+
+  function iniciarOuEncerrarTurno() {
+    if (!combatenteAtual) return;
+    const nome = nomeDoCombatente(combatenteAtual, characters);
+    if (encontro.fase === "turno") {
+      setEncontro((prev) => registrarAcao(proximoTurno(prev), `Rodada ${prev.rodada} — ${nome} encerrou o turno.`));
+    } else {
+      setEncontro((prev) => registrarAcao(proximoTurno(prev), `Rodada ${prev.rodada} — ${nome} inicia o turno.`));
+    }
+  }
+
+  function rolarManutencao() {
+    if (!combatenteAtual) return;
+    const recurso = recursoDoCombatente(combatenteAtual, characters, "mp");
+    const vazios = recurso.max - recurso.current;
+    if (vazios <= 0) {
+      setEncontro((prev) => registrarAcao(prev, `Manutenção: ${nomeDoCombatente(combatenteAtual, characters)} não tem MP vazio pra rolar.`));
+      return;
+    }
+    const vals = Array.from({ length: vazios }, () => 1 + Math.floor(Math.random() * 10));
+    const { resultados, sucessos } = registrarRolagemManutencao(vals, encontro.limiarManutencao);
+    setUltimaManutencao({ combatenteId: combatenteAtual.id, resultados, sucessos });
+
+    function aplicarMP(novoCurrent) {
+      if (combatenteAtual.tipo === "avulso") {
+        setEncontro((prev) => atualizarCombatente(prev, combatenteAtual.id, { mp: { ...prev.combatentes[combatenteAtual.id].mp, current: novoCurrent } }));
+      } else if (onUpdateCharacter) {
+        onUpdateCharacter(combatenteAtual.personagemId, { mp: { ...personagemDoCombatente(combatenteAtual, characters)?.mp, current: novoCurrent } });
+      }
+    }
+    // Cada sucesso enche uma bolinha de MP por vez (0,35s entre elas, pra
+    // a animação de líquido enchendo do ResourceDots tocar uma de cada
+    // vez) — prefers-reduced-motion aplica tudo de uma vez.
+    const passo = reducedMotion ? 0 : 350;
+    for (let i = 0; i < sucessos; i++) {
+      const alvo = recurso.current + i + 1;
+      timeoutsRef.current.push(setTimeout(() => aplicarMP(alvo), i * passo));
+    }
+    const nome = nomeDoCombatente(combatenteAtual, characters);
+    setEncontro((prev) => registrarAcao(prev, `Manutenção: ${nome} rolou ${vals.join(", ")} (sucesso >${prev.limiarManutencao}) — ${sucessos} MP recuperado${sucessos === 1 ? "" : "s"}.`));
+  }
+
+  function adicionar(combatente) {
+    setEncontro((prev) => registrarAcao(adicionarCombatente(prev, combatente), `${nomeDoCombatente(combatente, characters)} entrou no encontro (${combatente.lado}).`));
+    setMostrarAddPersonagem(false);
+    setMostrarAddAvulso(false);
+  }
+
+  function encerrarEncontro() {
+    askConfirm("Encerrar o encontro? Isso limpa a rodada, os combatentes e o registro. Essa ação não pode ser desfeita.", () => {
+      setEncontro(criarEncontro());
+      setSelecionadoId(null);
+      setUltimaManutencao(null);
+    });
+  }
+
+  return (
+    <div>
+      {/* Barra de rodada */}
+      <div style={{
+        borderRadius: 6, padding: "10px 14px", marginBottom: 14,
+        background: `linear-gradient(100deg, ${PURPLE} 0%, ${PURPLE_LIGHT} 100%)`,
+        display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12,
+      }}>
+        <span style={{ fontFamily: "'Cinzel', serif", fontSize: 15, color: PURPLE_TEXT, letterSpacing: 1 }}>
+          RODADA {encontro.rodada}
+        </span>
+        <div style={{ display: "flex", gap: 6, fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, textTransform: "uppercase" }}>
+          <span style={{ color: encontro.fase === "manutencao" ? "#F0D98C" : "#F3E9D299", fontWeight: encontro.fase === "manutencao" ? 700 : 400 }}>Manutenção</span>
+          <span style={{ color: "#F3E9D266" }}>·</span>
+          <span style={{ color: encontro.fase === "turno" ? "#F0D98C" : "#F3E9D299", fontWeight: encontro.fase === "turno" ? 700 : 400 }}>Turno</span>
+        </div>
+        <span style={{ color: PURPLE_TEXT, fontSize: 12, fontStyle: "italic" }}>
+          {combatenteAtual ? `Vez de ${nomeDoCombatente(combatenteAtual, characters)}` : "Nenhum combatente no encontro"}
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          {encontro.fase === "manutencao" && combatenteAtual && (
+            <Btn variant="default" onClick={rolarManutencao}><Dices size={13} /> Rolar MP vazios</Btn>
+          )}
+          <Btn variant="primary" disabled={!combatenteAtual} onClick={iniciarOuEncerrarTurno}>
+            {encontro.fase === "manutencao" ? <><Play size={13} /> Iniciar turno</> : <><StopCircle size={13} /> Encerrar turno</>}
+          </Btn>
+        </div>
+      </div>
+
+      {ultimaManutencao && ultimaManutencao.combatenteId === combatenteAtual?.id && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          <span style={{ fontSize: 10, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>Manutenção:</span>
+          {ultimaManutencao.resultados.map((r, i) => (
+            <span
+              key={i}
+              style={{
+                width: 22, height: 22, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700,
+                background: r.sucesso ? "#2F6D4D" : "#00000020", color: r.sucesso ? "#fff" : MUTED,
+                border: `1px solid ${r.sucesso ? "#2F6D4D" : LINE}`,
+              }}
+            >
+              {r.valor}
+            </span>
+          ))}
+          <span style={{ fontSize: 10.5, color: BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{ultimaManutencao.sucessos} MP recuperado{ultimaManutencao.sucessos === 1 ? "" : "s"}</span>
+        </div>
+      )}
+
+      <Field label={`Limiar de sucesso da Manutenção (dado > N — padrão ${LIMIAR_SUCESSO}, não especificado em CORE_RULES pra essa rolagem)`}>
+        <input
+          type="number" style={{ ...inputStyle, maxWidth: 100 }} value={encontro.limiarManutencao}
+          onChange={(e) => setEncontro((prev) => ({ ...prev, limiarManutencao: Number(e.target.value) }))}
+        />
+      </Field>
+
+      <div className="pt-encontro-grid" style={{ marginTop: 14 }}>
+        <div>
+          <div className="pt-encontro-cartoes">
+            {combatentesOrdenados.map((c, i) => (
+              <CombatenteCard
+                key={c.id} combatente={c} characters={characters}
+                ehAVez={i === encontro.turnoIdx} selecionado={selecionadoId === c.id}
+                onSelecionar={(id) => setSelecionadoId((prev) => (prev === id ? null : id))}
+                onAlternarAcao={alternarAcao}
+              />
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+            <Btn variant="default" onClick={() => { setMostrarAddPersonagem((v) => !v); setMostrarAddAvulso(false); }}>
+              <UserPlus size={13} /> Adicionar combatente
+            </Btn>
+            <Btn variant="default" onClick={() => { setMostrarAddAvulso((v) => !v); setMostrarAddPersonagem(false); }}>
+              <Skull size={13} /> Adicionar inimigo avulso
+            </Btn>
+            <Btn variant="danger" onClick={encerrarEncontro}><Trash2 size={13} /> Encerrar encontro</Btn>
+          </div>
+          {mostrarAddPersonagem && (
+            <div style={{ marginTop: 10 }}>
+              <AdicionarCombatente characters={characters} jaAdicionados={jaAdicionados} onAdicionar={adicionar} onFechar={() => setMostrarAddPersonagem(false)} />
+            </div>
+          )}
+          {mostrarAddAvulso && (
+            <div style={{ marginTop: 10 }}>
+              <AdicionarAvulso onAdicionar={adicionar} onFechar={() => setMostrarAddAvulso(false)} />
+            </div>
+          )}
+        </div>
+
+        <div className="pt-encontro-gaveta">
+          {selecionado && (
+            <GavetaCombatente
+              combatente={selecionado} characters={characters} onUpdateCharacter={onUpdateCharacter}
+              encontro={encontro} setEncontro={setEncontro} askConfirm={askConfirm}
+            />
+          )}
+          <div style={cardBox}>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: PARCHMENT, marginBottom: 8 }}>Registro</div>
+            {encontro.registro.length === 0 && <p style={{ fontSize: 11.5, color: MUTED, margin: 0 }}>Nada ainda.</p>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {encontro.registro.map((item, i) => (
+                <div key={item.id} style={{ fontSize: 11.5, color: i === 0 ? PARCHMENT : MUTED, fontWeight: i === 0 ? 600 : 400 }}>
+                  {item.texto}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -11477,6 +12014,10 @@ export default function App() {
   // Rotas do mapa (ver rotasMapa.js) — dado do MUNDO, cruza reinos, por isso
   // é uma lista irmã de `kingdoms`, não um campo dentro de cada reino.
   const [rotas, setRotas] = useState([]);
+  // Painel de Encontro (aba Confronto > Encontro, GM-only) — um único
+  // encontro em andamento por vez (ver encontro.js); HP/MP/SP/Defesa/RN dos
+  // combatentes-personagem continuam vivendo em `characters`, não aqui.
+  const [encontro, setEncontro] = useState(() => criarEncontro());
   const [gods, setGods] = useState(SEED_GODS);
   const [sagas, setSagas] = useState(SEED_SAGAS);
   const [objectives, setObjectives] = useState(SEED_OBJECTIVES);
@@ -11662,6 +12203,10 @@ export default function App() {
         const r = await storage.get("point-rotas");
         if (r?.value) setRotas(migrarRotas(JSON.parse(r.value)));
       } catch (e) {}
+      try {
+        const en = await storage.get("point-encontro");
+        if (en?.value) setEncontro(normalizarEncontro(JSON.parse(en.value)));
+      } catch (e) {}
       setLoaded(true);
     })();
   }, []);
@@ -11675,6 +12220,7 @@ export default function App() {
   useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
   useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
   useEffect(() => { if (loaded) storage.set("point-rotas", JSON.stringify(rotas)).catch(() => {}); }, [rotas, loaded]);
+  useEffect(() => { if (loaded) storage.set("point-encontro", JSON.stringify(encontro)).catch(() => {}); }, [encontro, loaded]);
 
   const filtered = useMemo(() => {
     const porGrupo = grupoFilter === "todos" ? characters : characters.filter((c) => grupoDoPersonagem(c) === grupoFilter);
@@ -11795,7 +12341,7 @@ export default function App() {
   // login, isso é a rede de segurança — baixa um .json com tudo (personagens +
   // reinos/deuses/sagas/objetivos) pra poder restaurar se algo for apagado.
   function handleExportBackup() {
-    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides, rotas });
+    const backup = buildBackup({ characters, kingdoms, gods, sagas, objectives, cidadesOverrides, pessoasOverrides, npcsOverrides, rotas, encontro });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -11834,6 +12380,7 @@ export default function App() {
         setPessoasOverrides(normalizado.pessoasOverrides);
         setNpcsOverrides(normalizado.npcsOverrides);
         setRotas(normalizado.rotas);
+        setEncontro(normalizado.encontro);
       },
       { title: "Importar backup", confirmLabel: "Importar", icon: Upload, tone: PURPLE }
     );
@@ -11879,6 +12426,15 @@ export default function App() {
         .mapa-distritos svg { display: block; width: 100%; height: auto; }
         .mapa-distritos .region { cursor: pointer; }
         .mapa-distritos .region:hover .shape, .mapa-distritos .region:focus .shape { stroke: ${INK}; stroke-width: 2.5; }
+
+        /* ---------- Painel de Encontro (Confronto > Encontro) ---------- */
+        .pt-encontro-grid { display: grid; grid-template-columns: 1fr 330px; gap: 16px; align-items: start; }
+        .pt-encontro-gaveta { position: sticky; top: 12px; }
+        .pt-encontro-cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+        @media (max-width: 900px) {
+          .pt-encontro-grid { grid-template-columns: 1fr; }
+          .pt-encontro-gaveta { position: static; }
+        }
 
         /* ---------- Recursos animados: HP (coração) / MP (líquido) / SP (gás) ---------- */
         .pt-orb { position: relative; width: 28px; height: 28px; background: none; border: 0; padding: 0; overflow: visible; -webkit-tap-highlight-color: transparent; }
@@ -12129,7 +12685,12 @@ export default function App() {
           />
         )}
 
-        {tab === "compare" && <CompareView characters={characters} onUpdateCharacter={updateCharacterFields} />}
+        {tab === "compare" && (
+          <CompareView
+            characters={characters} onUpdateCharacter={updateCharacterFields}
+            gm={gm} askConfirm={askConfirm} encontro={encontro} setEncontro={setEncontro}
+          />
+        )}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
         {tab === "world" && (

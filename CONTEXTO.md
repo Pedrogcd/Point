@@ -488,6 +488,24 @@ Pedro pediu três mudanças no painel "Teste — Atributo + Perícia" (as 3 abas
 
 Verificado via Playwright: aba Teste com "Dados extra" = -3 mostra "dados extra (-3) = -1d10" na fórmula (negativo aceito, sem travar); aba Ataque com Atributo=Destreza, Proficiência=Combate Corpo a Corpo, característica Letal marcada, alvo com 2 dados de defesa e característica Blindado marcada — rolar mostra "ATAQUE (2d10, sucesso 7+ — Blindado)" (limiar automático ainda funcionando, vindo do Blindado escolhido), "DEFESA (2d10, Resistência Física)" com exatamente 2 dados, resultado "Ferimento AGRAVANTE ×1" e histórico "Destreza + Combate Corpo a Corpo"; aba Magia mostra os campos novos "Limiar de sucesso (dado >)" (5) e "Dados extra" (0) logo abaixo de "Mana gasta". Suíte de testes: 656 → **661 testes** (7 novos em `engine.test.js`: 3 pra `totalDiceManual` em `resolveRolagemDefesa`, 2 pra `limiarOverride`/`totalDiceDefesaManual` em `resolveAtaque`).
 
+### Painel "Encontro" (combate em grupo) dentro de Confronto (16/10)
+
+Pedro pediu um painel de GM pra rodar combate em grupo (vários aliados x vários inimigos), já que o "Confronto" só tinha o Duelo (1v1, `DuelRoller`). Virou uma sub-aba nova dentro de Confronto — "Duelo" (existente, intocada) e "Encontro" (nova, só aparece em modo GM) — em vez de substituir ou misturar com o Duelo.
+
+**Lógica pura em `encontro.js`** (sem React/DOM, testado em `encontro.test.js`, 34 testes): `criarEncontro`, `criarCombatentePersonagem`/`criarCombatenteAvulso`, `adicionarCombatente`/`removerCombatente`/`atualizarCombatente`/`reordenar`, `alternarEstado`/`alternarAcaoGasta`, `proximoTurno` (avança Manutenção→Turno dentro do mesmo combatente; encerrar o turno do ÚLTIMO da `ordem` incrementa a rodada e volta pro primeiro), `registrarRolagemManutencao`, `registrarAcao` (log), `normalizarEncontro` (tolerante a `undefined`/`null`/lixo, idempotente — mesmo padrão de `migrarRotas`). Só existe UM encontro por vez (singleton) — por isso `criarEncontro()` usa um id fixo (`"encontro_atual"`), não aleatório; um id aleatório quebrava a idempotência de `normalizarEncontro` em reimportações (pego pela própria suíte de testes, ver abaixo).
+
+**Combatentes**: ou referenciam um personagem de verdade por id (HP/MP/SP lidos e escritos pelo MESMO caminho da ficha — `onUpdateCharacter(id, { hp: { ...hp, current } })` — ficha e painel nunca divergem; Defesa/Armadura/RN Física vêm de `computeMaxHP`/`computeMaxMana`/`computeMaxSP`/`computeStat`, nunca recalculados à mão), ou são "avulsos" (inimigo genérico, nome+Defesa+HP/MP/SP digitados uma vez na criação, guardados dentro do próprio combatente).
+
+**Discrepância flagueada, não resolvida sozinho**: o pedido original citava "Def / RN Fís / RN Mág" nos cartões, mas Resistência Mágica foi **extinta** do jogo na reescrita de 14/10 (ver "Mudanças de raças e magia" acima — defesa contra ataque físico ou mágico usa só Resistência Física agora). Em vez de inventar um stat que não existe mais no motor, os cartões/gaveta mostram só Def/Armadura/RN Física — Pedro precisa confirmar se é isso mesmo ou se "RN Mágica" deveria voltar nalgum formato novo.
+
+**Limiar da rolagem de Manutenção**: CORE_RULES não define um limiar específico pra "1d10 por MP vazio, sucesso recupera 1 MP" — usei o limiar geral do motor (`LIMIAR_SUCESSO = 5`, ou seja sucesso em 6+) como padrão, mas deixei **editável** no próprio painel (campo numérico acima dos cartões) em vez de travar um valor, já que não tinha onde confirmar isso nas regras. Pedro precisa confirmar se 6+ é mesmo a intenção.
+
+**Estados de combate** (ENVENENAMENTO/DESACELERAÇÃO/IMPACTO/CHAMAS): são toggles puramente visuais (viram chip colorido no cartão) — nenhum dos quatro tem efeito mecânico automático implementado em `engine.js` hoje (IMPACTO/CHAMAS só aparecem como texto descritivo em habilidades). Não inventei limite de quantos estados um combatente pode ter ao mesmo tempo, já que o pedido não especificava um.
+
+**Persistência**: `encontro` é uma categoria nova no mesmo mecanismo de storage de tudo mais (`storage.get/set("point-encontro")`, chave própria, incluída no backup via `backup.js`/`buildBackup`/`parseBackup`, migrada via `normalizarEstado` igual às rotas). Testado com Playwright: montar um combatente avulso, recarregar a página inteira (não navegação SPA) e confirmar que ele volta — confirmado que funciona, mas só depois de até ~2 minutos neste sandbox específico, porque o Supabase está bloqueado pela política de rede daqui e o app tenta ele primeiro pra cada uma das ~15 chaves salvas antes de cair pro `localStorage` (mesmo comportamento no `main` sem nenhuma mudança minha — não é regressão). Em produção, com Supabase alcançável, isso resolve em milissegundos, igual já funciona pras outras chaves (`point-rotas`, `point-kingdoms` etc.).
+
+Verificado via Playwright: montagem de 3 aliados (personagens de verdade) + 2 inimigos avulsos, gaveta mostrando Defesa/Armadura/RN Física + ações rápidas, toggle de ENVENENAMENTO virando chip no cartão, "Dano −1 HP" rachando e depois quebrando o coração (reaproveitando a animação do `ResourceDots` sem escrever animação nova), "Rolar MP vazios" mostrando os d10 (verde se sucesso) e "N MP recuperado", 2 rodadas completas avançando RODADA 1→3 corretamente, recarregamento de página preservando o combatente adicionado, e modo Jogador escondendo a sub-aba Encontro (fica só Duelo). Suíte: 753 → **787 testes** (34 em `encontro.test.js`, 12 em `encontro.render.test.js`, mais os ajustes em `backup.test.js`/`normalizar.test.js`).
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 
@@ -689,6 +707,12 @@ Numeração igual à do próprio arquivo, seção "Pendências (não implementar
 3. **Como o jogador adquire magias além das 2 iniciais** (a reserva) — hoje não há distinção entre "as 2 iniciais" e "equipar livremente até 3"; o `DisciplinaSlotPicker` deixa trocar qualquer magia da reserva a qualquer momento (pelo custo de MP ou de graça com ação, ambos já implementados), sem gate nenhum pras duas primeiras.
 4. **Bônus e habilidades de Encantamentos, Alquimia e Constructo** — cadastradas como disciplinas vazias (`vazia: true` em `data/magias.js:DISCIPLINAS`), contam 1 ofício mágico cada se escolhidas, mas sem nenhum bônus nem lista de habilidades própria ainda.
 5. **Sensor**: pool, custo e duração continuam "a definir" — mesmo placeholder desde 13/10 (ver item 11 acima).
+
+### 13. Decisões em aberto do painel "Encontro" (combate em grupo) (16/10)
+Ver "Painel 'Encontro' (combate em grupo) dentro de Confronto" acima pro detalhe completo. Resumo do que precisa de resposta do Pedro:
+- **RN Mágica nos cartões/gaveta**: o pedido original citava "Def / RN Fís / RN Mág", mas Resistência Mágica foi extinta do jogo em 14/10 — hoje os cartões mostram só Def/Armadura/RN Física. Confirmar se é isso mesmo.
+- **Limiar de sucesso da Manutenção**: usei o limiar geral do motor (6+) como padrão, exposto como campo editável no painel (CORE_RULES não define um específico pra essa rolagem). Confirmar se 6+ é a intenção certa.
+- **Estados de combate sem mecânica automática**: ENVENENAMENTO/DESACELERAÇÃO/IMPACTO/CHAMAS no painel são só chips visuais, sem efeito automático (nenhum dos quatro tem implementação mecânica em `engine.js` hoje) — mesma pergunta já em aberto no item 11 acima pros status effects em geral.
 
 ---
 

@@ -56,6 +56,16 @@ describe("normalizarEstado", () => {
     assert.deepEqual(normalizado.cidadesOverrides, {});
     assert.deepEqual(normalizado.pessoasOverrides, {});
     assert.deepEqual(normalizado.npcsOverrides, {});
+    assert.equal(normalizado.encontro.rodada, 1);
+    assert.deepEqual(normalizado.encontro.ordem, []);
+  });
+
+  it("encontro ausente/inválido não quebra; vira um encontro vazio válido (ver encontro.js)", () => {
+    for (const bruto of [undefined, null, "x", 42, []]) {
+      const normalizado = normalizarEstado({ encontro: bruto });
+      assert.equal(normalizado.encontro.rodada, 1);
+      assert.equal(normalizado.encontro.fase, "manutencao");
+    }
   });
 
   it("cidadesOverrides válido passa direto; formato inválido (array/string/entrada não-objeto) vira {}", () => {

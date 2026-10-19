@@ -21,7 +21,7 @@ import {
   contagemOficiosMagicos,
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
-import { MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS } from "./data/magias.js";
+import { MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS } from "./data/magias.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import {
   criarEncontro, criarCombatentePersonagem, criarCombatenteAvulso,
@@ -187,6 +187,7 @@ const DESCRITOR_INFO = {
   perfurante: { label: "Perfurante", cor: BRASS_BRIGHT, descricao: "Ignora o Blindado do alvo." },
   letal: { label: "Letal", cor: EMBER, descricao: "Reduz em 1 (mínimo 1) o Vigor necessário para o ferimento virar agravante." },
   atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
+  queimadura: { label: "Queimadura", cor: EMBER, descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola 1 d10 extra (separado do pool) contra 8+ (9+ se o alvo tiver Blindado; Perfurante ignora). Cada sucesso é 1 ferimento à parte, superficial — ou agravante se os sucessos de queimadura chegarem ao Vigor do alvo." },
 };
 
 // Listas curadas pro modo Ataque livre do painel Teste (14/10, mais tarde,
@@ -194,7 +195,7 @@ const DESCRITOR_INFO = {
 // de um ataque catalogado, e escolher a característica do ALVO em vez de
 // atributo de defesa + Resistência Física) — ver CharacterSheet, `rollAtaque`/
 // `ataqueAlvoSintetico`. Reaproveitam os labels/cores de DESCRITOR_INFO.
-const CARACTERISTICAS_ATAQUE = ["letal", "saturante", "perfurante", "sortudo", "em_area"];
+const CARACTERISTICAS_ATAQUE = ["letal", "saturante", "perfurante", "sortudo", "em_area", "queimadura"];
 const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia"];
 
 
@@ -5176,7 +5177,7 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
 // Disciplina" do Humano (character.disciplinaExtraHumano) — quem chama lê e
 // grava onde for certo (gravarSlotDisciplina em CharacterSheet) e passa só
 // o valor atual + callbacks; este componente não sabe mais onde o dado mora.
-function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose }) {
+function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose, encantamentosAtivos, onToggleEncantamento }) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
   const [trocaRemover, setTrocaRemover] = useState("");
@@ -5281,6 +5282,36 @@ function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onE
                   Tela de mana: acesso extra que permite analisar magias (docs/DISCIPLINAS_MAGIA.md — sem mecânica numérica definida no guia ainda).
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Encantamentos (Pedro, 19/10): "quebra 1 de mana; enquanto
+              estiver quebrada, os ataques do usuário ganham o descritor".
+              A economia de mana quebrada (descontar/restaurar MP,
+              "desquebrar" fora de combate) NÃO existe no motor ainda — este
+              checkbox só liga/desliga o EFEITO (vira character.
+              encantamentosAtivos, que racasCatalogo.js:comGrausEfetivos lê
+              pra somar o descritor concedido), sem gastar MP nenhum. TODO
+              no relatório final. */}
+          {atual && def?.id === "oficio-encantamentos" && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
+                Encantamentos ativos (mana quebrada)
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {ENCANTAMENTOS.map((enc) => {
+                  const ativo = (encantamentosAtivos || []).includes(enc.id);
+                  return (
+                    <label key={enc.id} title={enc.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: PARCHMENT }}>
+                      <input type="checkbox" checked={ativo} onChange={() => onToggleEncantamento(enc.id)} />
+                      {enc.nome} ({enc.custoManaQuebrada} mana quebrada)
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 9.5, color: MUTED, marginTop: 6, fontStyle: "italic" }}>
+                TODO: a economia de mana quebrada (descontar/restaurar MP) ainda não existe no motor — este botão só liga/desliga o efeito, sem gastar MP.
+              </div>
             </div>
           )}
         </div>
@@ -5585,9 +5616,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
 
   function rollAtaque() {
     const totalDiceAtaque = diceAtaqueFisico(characterEfetivo, ataqueAtributo, ataqueProf, 0);
+    // descritoresEfetivosDoAtaque soma a Queimadura concedida pelo PERSONAGEM
+    // (Encantamento Flamejante, 19/10) às características escolhidas aqui.
     const r = resolveAtaque({
       attacker: characterEfetivo, defender: ataqueAlvoSintetico,
-      totalDiceAtaque, descritoresAtaque: ataqueCaracteristicas,
+      totalDiceAtaque, descritoresAtaque: descritoresEfetivosDoAtaque(characterEfetivo, { descritores: ataqueCaracteristicas }),
       feridas: 1, superficial: false,
       totalDiceDefesaManual: ataqueDadosDefesa,
     });
@@ -5614,9 +5647,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     let resultadoAtaque = null;
     if (!magiaSelecionada.semRolagem) {
       const totalDiceAtaque = diceAtaqueMagico(characterEfetivo, manaGasta, magiaSelecionada.custoMp || 0, fonteMagia, magiaSelecionada.ajusteDados || 0) + dadosExtraMagia;
+      // descritoresEfetivosDoAtaque soma a Queimadura concedida pelo
+      // PERSONAGEM (Encantamento Flamejante, 19/10) aos descritores da magia
+      // — "os ataques do usuário (físicos e mágicos) ganham Queimadura 1".
       resultadoAtaque = resolveAtaque({
         attacker: characterEfetivo, defender: ataqueAlvoSintetico,
-        totalDiceAtaque, descritoresAtaque: magiaSelecionada.descritores,
+        totalDiceAtaque, descritoresAtaque: descritoresEfetivosDoAtaque(characterEfetivo, magiaSelecionada),
         feridas: magiaSelecionada.feridas || 1, superficial: !!magiaSelecionada.superficial,
         limiarOverride: limiarMagia, totalDiceDefesaManual: ataqueDadosDefesa,
       });
@@ -6512,6 +6548,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             onConfirmarTroca={(gratis, remover, adicionar) => {
               const habilidadesAtivas = (atual?.habilidadesAtivas || []).filter((m) => m !== remover).concat(adicionar);
               gravar({ ...atual, habilidadesAtivas }, gratis ? {} : { mp: { ...character.mp, current: (character.mp?.current || 0) - 1 } });
+            }}
+            encantamentosAtivos={character.encantamentosAtivos}
+            onToggleEncantamento={(encantamentoId) => {
+              const ativos = character.encantamentosAtivos || [];
+              const novos = ativos.includes(encantamentoId) ? ativos.filter((e) => e !== encantamentoId) : [...ativos, encantamentoId];
+              onUpdateCharacter(character.id, { encantamentosAtivos: novos });
             }}
             onClose={() => setDisciplinaSlotAberto(null)}
           />
@@ -7453,7 +7495,7 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
       </div>
     );
   }
-  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal } = result;
+  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal, queimadura } = result;
   const tudoRevelado = ataqueRevelado && defesaRevelado;
   return (
     <>
@@ -7494,6 +7536,17 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
               ? `Ferimento ${tipoFerimento === "agravante" ? "AGRAVANTE" : "SUPERFICIAL"} ×${feridas}`
               : "Sem ferimento"}
           </span>
+          {/* Queimadura (Pedro, 19/10): rolagem separada, nunca soma com os
+              sucessos líquidos do ataque principal — ver engine.js:
+              resolveQueimadura. Só aparece quando o ataque tem o descritor
+              (ataque/magia OU Encantamento Flamejante do atacante). */}
+          {queimadura && (
+            <div style={{ marginTop: 6, fontSize: 11, color: EMBER, fontFamily: "'IBM Plex Mono', monospace" }}>
+              Queimadura: {queimadura.dados}d10, {queimadura.sucessos} sucesso{queimadura.sucessos === 1 ? "" : "s"}, {queimadura.tipoFerimento
+                ? `ferimento ${queimadura.tipoFerimento === "agravante" ? "AGRAVANTE" : "superficial"} ×${queimadura.feridas}`
+                : "sem ferimento"}
+            </div>
+          )}
         </div>
       )}
     </>

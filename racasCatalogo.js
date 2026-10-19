@@ -3,7 +3,7 @@
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
-import { DISCIPLINAS, getDisciplinaPorId } from "./data/magias.js";
+import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos } from "./data/magias.js";
 
 export const CATALOGO_RACAS = catalogo;
 
@@ -468,10 +468,21 @@ export function comGrausEfetivos(character) {
     magiaInata: temMagiaInataDoPersonagem(character),
     magiasAtivas: magiasAtivasDoPersonagem(character),
   };
+  // Encantamento Flamejante e qualquer outro encantamento futuro (19/10, ver
+  // data/magias.js:ENCANTAMENTOS/descritoresDeEncantamentosAtivos): soma os
+  // descritores concedidos pelos encantamentos ATIVOS do personagem
+  // (character.encantamentosAtivos) nos descritores de PERSONAGEM, de onde
+  // engine.js:descritoresEfetivosDoAtaque lê pra aplicar o efeito (ex.:
+  // Queimadura 1) em qualquer ataque dele, físico ou mágico. Sem clonar
+  // quando não há nenhum encantamento ativo (igual ao resto da função).
+  const descritoresEncantamentos = descritoresDeEncantamentosAtivos(character);
+  const descritores = descritoresEncantamentos.length
+    ? [...new Set([...(character.descritores || []), ...descritoresEncantamentos])]
+    : character.descritores;
   const bonusAplicado = { proficiencias: {}, atributos: {} };
   const semBonusDeGrau = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0;
   if (semBonusDeGrau) {
-    return { character: { ...character, disciplinaMagica }, bonusAplicado };
+    return { character: { ...character, disciplinaMagica, descritores }, bonusAplicado };
   }
   const tetos = tetoGrauDoPersonagem(character);
   const proficiencias = { ...character.proficiencias };
@@ -488,5 +499,5 @@ export function comGrausEfetivos(character) {
     atributosGerais[chave] = novoGrau;
     bonusAplicado.atributos[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
   }
-  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica }, bonusAplicado };
+  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, descritores }, bonusAplicado };
 }

@@ -4,12 +4,14 @@ import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria,
   descritoresDeSelecao, migrarSelecaoRacaLegado, temDescritor,
   CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
-  BONUS_GRAU_ESCOLHA_POR_RACA, BONUS_OFICIO_EXTRA_POR_HABILIDADE,
+  DESCRITOR_ESCOLHA_POR_HABILIDADE, BONUS_OFICIO_EXTRA_POR_HABILIDADE,
+  descritorEscolhidoDoPersonagem,
   bonusGrauDoPersonagem, grauComBonus, comGrausEfetivos,
   oficiosExtrasDoPersonagem, tetoGrauDoPersonagem,
   disciplinasDoPersonagem, oficiosMagicosDoPersonagem, temMagiaInataDoPersonagem, magiasAtivasDoPersonagem,
-  temEncaixeExtraDeDisciplina,
+  temEncaixeExtraDeDisciplina, descritoresDeTransformacaoAtiva,
 } from "./racasCatalogo.js";
+import { computeMaxSP } from "./engine.js";
 
 describe("racasCatalogo — lookups", () => {
   it("lista as 6 raças do catálogo", () => {
@@ -51,12 +53,16 @@ describe("racasCatalogo — descritoresDeSelecao", () => {
     assert.deepEqual(resultado, ["blindado"]);
   });
 
-  it("dedupe quando duas entradas dão o mesmo descritor", () => {
+  // 21/10: Leonino e Garras e Presas mudaram de descritores (seção 8.5) —
+  // Leonino agora dá "letal" (geral), Garras e Presas dá "desarmado_perfurante"
+  // (não mais "desarmado_letal"/"ignora_blindado") — não há mais duplicata
+  // real entre os dois, mas o teste continua valendo com os ids novos.
+  it("combina descritores de principal e secundária de raças diferentes", () => {
     const ningen = encontrarRaca("ningen");
-    const principal = encontrarPrincipal(ningen, "leonino"); // descritores: ["desarmado_letal"]
-    const secundaria = encontrarSecundaria(ningen, "garras-e-presas"); // descritores: ["desarmado_letal", "ignora_blindado"]
+    const principal = encontrarPrincipal(ningen, "leonino"); // descritores: ["letal"]
+    const secundaria = encontrarSecundaria(ningen, "garras-e-presas"); // descritores: ["desarmado_perfurante"]
     const resultado = descritoresDeSelecao(principal, secundaria);
-    assert.deepEqual(resultado, ["desarmado_letal", "ignora_blindado"]);
+    assert.deepEqual(resultado, ["letal", "desarmado_perfurante"]);
   });
 
   it("entradas null/undefined não quebram e não entram no resultado", () => {
@@ -64,9 +70,9 @@ describe("racasCatalogo — descritoresDeSelecao", () => {
   });
 
   it("habilidade sem descritor não adiciona nada", () => {
-    const humano = encontrarRaca("humano");
-    const manaFluida = encontrarPrincipal(humano, "mana-fluida"); // descritores: []
-    assert.deepEqual(descritoresDeSelecao(manaFluida), []);
+    const ningen = encontrarRaca("ningen");
+    const sentidosAgucados = encontrarSecundaria(ningen, "sentidos-agucados"); // descritores: []
+    assert.deepEqual(descritoresDeSelecao(sentidosAgucados), []);
   });
 });
 
@@ -140,10 +146,18 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
     }
   });
 
-  it("cobertura esperada: 19 habilidades distintas (18 com bônus fixo, 2 à escolha, Homúnculo nas duas — 14/10: Descendentes de Sabato saiu, virou bônus de raça — ver BONUS_GRAU_FIXO_POR_RACA; 21/10: Goethiano e Mana Estática saíram — viraram descritor Resistente/+1 HP/Blindado, sem bônus de grau, ver docs/ATUALIZACAO_21-10.md)", () => {
-    assert.equal(idsMapeados.size, 19);
+  // 21/10 (seção 8): "pele-grossa" saiu do bônus fixo (não dá mais +1 grau em
+  // Defesa) e "adaptado" entrou (antes "+1 dado" solto, virou bônus de grau
+  // de verdade) — fixo continua em 18, só trocou de membro. "homunculo"
+  // saiu da tabela de ESCOLHA (o Potente virou descritor, não grau) — agora
+  // as duas tabelas não têm mais overlap nenhum. "mana-fluida"/"mana-
+  // estatica"/"descendentes-de-sharkan" entraram na escolha (cada uma com
+  // sua própria proficiência à escolha, seção 8.3/8.4) — escolha vai de 2
+  // pra 4. União: 18 + 4 = 22 (sem overlap).
+  it("cobertura esperada: 22 habilidades distintas (18 com bônus fixo, 4 à escolha, sem overlap entre as duas tabelas)", () => {
+    assert.equal(idsMapeados.size, 22);
     assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 18);
-    assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 2);
+    assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 4);
   });
 });
 
@@ -235,24 +249,15 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.equal(bonusAplicado.atributos.vigor, undefined);
   });
 
-  it("Homúnculo dá +1 fixo em Atletismo mesmo sem escolha de Força/Destreza feita", () => {
+  // 21/10: Homúnculo perdeu a escolha de grau em Força/Destreza — virou "um
+  // Potente à escolha" (descritor, ver describe("descritorEscolhidoDoPersonagem")
+  // acima), Atletismo continua fixo.
+  it("Homúnculo dá +1 fixo em Atletismo, sem bônus de grau à escolha (o Potente agora é descritor)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo" });
     assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: {} });
   });
-
-  it("Homúnculo soma também o bônus à escolha quando o jogador escolheu Força", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo", bonusGrauEscolha: { homunculo: "forca" } });
-    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: { forca: 1 } });
-  });
-
-  it("Homúnculo com escolha em Destreza bonifica destreza, não força", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo", bonusGrauEscolha: { homunculo: "destreza" } });
-    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: { destreza: 1 } });
-  });
-
-  it("Homúnculo com escolha fora das opções válidas (ex.: vigor) ignora a escolha", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "homunculo", bonusGrauEscolha: { homunculo: "vigor" } });
-    assert.deepEqual(bonus, { proficiencias: { atletismo: 1 }, atributos: {} });
+  it("Homúnculo não tem mais entrada em BONUS_GRAU_ESCOLHA_POR_HABILIDADE", () => {
+    assert.equal(BONUS_GRAU_ESCOLHA_POR_HABILIDADE.homunculo, undefined);
   });
 
   it("Mana Concentrada sem escolha não dá bônus de grau nenhum", () => {
@@ -260,29 +265,43 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
-  it("Mana Concentrada com escolha de proficiência soma o bônus nela", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-concentrada", bonusGrauEscolha: { "mana-concentrada": "furtividade" } });
-    assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
+  it("Mana Concentrada com as duas escolhas de proficiência soma o bônus em cada uma", () => {
+    const bonus = bonusGrauDoPersonagem({
+      raca: "humano", habilidadePrincipal: "mana-concentrada",
+      bonusGrauEscolha: { "mana-concentrada": ["furtividade", "percepcao"] },
+    });
+    assert.deepEqual(bonus, { proficiencias: { furtividade: 1, percepcao: 1 }, atributos: {} });
   });
 
-  // 21/10: Mana Estática perdeu o bônus de grau de vez — virou só o
-  // descritor "resistente" (ver racasCatalogo — descritoresDeSelecao /
-  // catalogo-racas.json). "Todo tipo de humano ganha +1 grau numa
-  // proficiência à escolha" continua existindo, mas é um bônus da RAÇA
-  // Humano (BONUS_GRAU_ESCOLHA_POR_RACA), não desta habilidade específica.
-  it("Mana Estática (humano) não dá mais bônus de grau nenhum (21/10) — virou o descritor Resistente", () => {
+  // 21/10: Mana Estática ganhou uma escolha de proficiência PRÓPRIA (1,
+  // não-combate) além do descritor Resistente (ver catalogo-racas.json) —
+  // antes vinha de BONUS_GRAU_ESCOLHA_POR_RACA (retirado), agora é só dela.
+  it("Mana Estática (humano) sem escolha não dá bônus de grau", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-estatica" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
+  it("Mana Estática com escolha de proficiência soma o bônus nela", () => {
+    const bonus = bonusGrauDoPersonagem({
+      raca: "humano", habilidadePrincipal: "mana-estatica",
+      bonusGrauEscolha: { "mana-estatica": ["medicina"] },
+    });
+    assert.deepEqual(bonus, { proficiencias: { medicina: 1 }, atributos: {} });
+  });
+  it("Mana Fluida com escolha de proficiência soma o bônus nela (21/10, nova)", () => {
+    const bonus = bonusGrauDoPersonagem({
+      raca: "humano", habilidadePrincipal: "mana-fluida",
+      bonusGrauEscolha: { "mana-fluida": ["politica"] },
+    });
+    assert.deepEqual(bonus, { proficiencias: { politica: 1 }, atributos: {} });
+  });
 
-  // Pele Grossa trocou de Resistência Física pra Defesa (21/10, docs/
-  // ATUALIZACAO_21-10.md item 1) — mesmo teto A (sem teto C). O +1 Força de
-  // todo Niosh continua intocado (BONUS_GRAU_FIXO_POR_RACA).
-  it("Pele Grossa (niosh) dá +1 em Defesa sem teto C, até A — mais o +1 Força de todo Niosh (14/10, mais tarde)", () => {
+  // Pele Grossa (21/10, seção 8.4, revisão posterior ao item 1): não dá mais
+  // bônus de grau nenhum — virou só o descritor Blindado (ver
+  // catalogo-racas.json). O +1 Força de todo Niosh continua intocado
+  // (BONUS_GRAU_FIXO_POR_RACA, tabela independente).
+  it("Pele Grossa (niosh) não dá bônus de grau nenhum — só o +1 Força de todo Niosh continua valendo", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
-    assert.deepEqual(bonus, { proficiencias: { defesaProf: 1 }, atributos: { forca: 1 } });
-    const { character } = comGrausEfetivos({ raca: "niosh", habilidadeSecundaria: "pele-grossa", proficiencias: { defesaProf: "C" } });
-    assert.equal(character.proficiencias.defesaProf, "B"); // sem teto C
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
   });
 
   it("Clã Radiante (elfo) dá +1 em Carisma", () => {
@@ -556,34 +575,76 @@ describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () 
     assert.equal(bonus.proficiencias.furtividade, 1);
   });
 
-  it("habilidade sem bônus de grau (ex.: Mana Fluida) não aparece no resultado", () => {
+  it("habilidade com bônus à escolha (ex.: Mana Fluida) sem escolha feita não dá bônus nenhum", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-fluida" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
-  it("Elfo com bonusGrauEscolhaRaca válido (não-combate) soma o bônus — 'todo tipo de elfo' (14/10)", () => {
+  // 21/10 (docs/ATUALIZACAO_21-10.md seção 8): BONUS_GRAU_ESCOLHA_POR_RACA
+  // (bônus racial único, "todo tipo de elfo/humano") foi RETIRADO —
+  // bonusGrauEscolhaRaca não é mais lido em lugar nenhum, mesmo com um valor
+  // salvo (campo legado). Mana Concentrada/Fluida/Estática (Humano) ganharam
+  // escolhas PRÓPRIAS no lugar — ver describe("Mana Concentrada...") abaixo.
+  it("bonusGrauEscolhaRaca não tem mais nenhum efeito (campo legado, retirado em 21/10)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", bonusGrauEscolhaRaca: "sobrevivencia" });
-    assert.deepEqual(bonus, { proficiencias: { sobrevivencia: 1 }, atributos: {} });
-  });
-
-  it("Humano com bonusGrauEscolhaRaca válido soma o bônus — 'todo tipo de humano' (14/10)", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "humano", bonusGrauEscolhaRaca: "academicos" });
-    assert.deepEqual(bonus, { proficiencias: { academicos: 1 }, atributos: {} });
-  });
-
-  it("bonusGrauEscolhaRaca com uma proficiência de Combate é inválido (ignorado) — só não-combate", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "elfo", bonusGrauEscolhaRaca: "resistFisicaProf" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
-
-  it("bonusGrauEscolhaRaca sem escolha feita ainda não dá bônus nenhum", () => {
-    const bonus = bonusGrauDoPersonagem({ raca: "elfo" });
-    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
-  });
-
-  it("raças sem bônus-à-escolha racial (ex.: Niosh) ignoram bonusGrauEscolhaRaca (mas o bônus FIXO de Força do Niosh continua valendo — são tabelas independentes)", () => {
+  it("Niosh: bonusGrauEscolhaRaca não afeta nada, mas o bônus FIXO de Força continua valendo (tabelas independentes)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", bonusGrauEscolhaRaca: "sobrevivencia" });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
+  });
+});
+
+// Mana Concentrada (Humano, 21/10): "duas proficiências, que podem ser a
+// mesma" — BONUS_GRAU_ESCOLHA_POR_HABILIDADE agora é um ARRAY de escolhas
+// independentes, character.bonusGrauEscolha[habId] um array de valores.
+describe("bonusGrauDoPersonagem — escolha múltipla (Mana Concentrada, 21/10)", () => {
+  it("duas proficiências DIFERENTES somam cada uma +1", () => {
+    const bonus = bonusGrauDoPersonagem({
+      raca: "humano", habilidadePrincipal: "mana-concentrada",
+      bonusGrauEscolha: { "mana-concentrada": ["academicos", "medicina"] },
+    });
+    assert.deepEqual(bonus, { proficiencias: { academicos: 1, medicina: 1 }, atributos: {} });
+  });
+  it("a MESMA proficiência escolhida nas duas soma +2 (\"podem ser a mesma\")", () => {
+    const bonus = bonusGrauDoPersonagem({
+      raca: "humano", habilidadePrincipal: "mana-concentrada",
+      bonusGrauEscolha: { "mana-concentrada": ["academicos", "academicos"] },
+    });
+    assert.deepEqual(bonus, { proficiencias: { academicos: 2 }, atributos: {} });
+  });
+  it("só a primeira escolhida: só ela soma", () => {
+    const bonus = bonusGrauDoPersonagem({
+      raca: "humano", habilidadePrincipal: "mana-concentrada",
+      bonusGrauEscolha: { "mana-concentrada": ["academicos"] },
+    });
+    assert.deepEqual(bonus, { proficiencias: { academicos: 1 }, atributos: {} });
+  });
+  it("proficiência de Combate não é uma opção válida (ignorada)", () => {
+    assert.ok(!BONUS_GRAU_ESCOLHA_POR_HABILIDADE["mana-concentrada"][0].opcoes.includes("defesaProf"));
+  });
+  it("sem nada escolhido, não dá bônus nenhum", () => {
+    const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-concentrada" });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+});
+
+// Homúnculo (Humano, 21/10): "um Potente à escolha" — descritor, não grau.
+describe("descritorEscolhidoDoPersonagem (21/10, Homúnculo)", () => {
+  it("devolve o descritor escolhido quando válido", () => {
+    const ch = { raca: "humano", habilidadeSecundaria: "homunculo", descritorEscolha: { homunculo: "potente_forca" } };
+    assert.deepEqual(descritorEscolhidoDoPersonagem(ch), ["potente_forca"]);
+  });
+  it("sem escolha feita, devolve []", () => {
+    const ch = { raca: "humano", habilidadeSecundaria: "homunculo" };
+    assert.deepEqual(descritorEscolhidoDoPersonagem(ch), []);
+  });
+  it("valor fora de opcoes é ignorado", () => {
+    const ch = { raca: "humano", habilidadeSecundaria: "homunculo", descritorEscolha: { homunculo: "blindado" } };
+    assert.deepEqual(descritorEscolhidoDoPersonagem(ch), []);
+  });
+  it("habilidade sem entrada em DESCRITOR_ESCOLHA_POR_HABILIDADE não quebra", () => {
+    assert.deepEqual(descritorEscolhidoDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-concentrada" }), []);
   });
 });
 
@@ -598,9 +659,9 @@ describe("racasCatalogo — tetoGrauDoPersonagem", () => {
     assert.deepEqual(tetos, { proficiencias: {}, atributos: {} });
   });
 
-  it("Pele Grossa (teto A) aparece em proficiencias.defesaProf (21/10: trocou de Resistência Física pra Defesa)", () => {
+  it("Pele Grossa não tem mais teto nenhum (21/10: não dá bônus de grau, virou só Blindado)", () => {
     const tetos = tetoGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
-    assert.deepEqual(tetos, { proficiencias: { defesaProf: "A" }, atributos: {} });
+    assert.deepEqual(tetos, { proficiencias: {}, atributos: {} });
   });
 });
 
@@ -692,5 +753,165 @@ describe("racasCatalogo — temDescritor", () => {
     assert.equal(temDescritor({}, "sortudo"), false);
     assert.equal(temDescritor(null, "sortudo"), false);
     assert.equal(temDescritor(undefined, "sortudo"), false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Seção 8 (21/10, docs/ATUALIZACAO_21-10.md): Humano/Niosh/Ningen/Elfo
+// revisados. Integração fim-a-fim via comGrausEfetivos + o catálogo de
+// verdade (catalogo-racas.json), pra pegar erro de digitação nos ids de
+// descritor que os testes unitários de cada mecanismo (engine.test.js,
+// describe("bonusGrauDoPersonagem — escolha múltipla")) não pegariam.
+// ---------------------------------------------------------------------------
+
+// `character.descritores` NUNCA é derivado dinamicamente por comGrausEfetivos
+// a partir de habilidadePrincipal/habilidadeSecundaria — é um SNAPSHOT
+// calculado por descritoresDeSelecao() e gravado na ficha no momento da
+// ESCOLHA (ver point-amaranth-app.jsx, função `escolher` do picker de raça).
+// Os testes abaixo simulam esse snapshot pra testar comGrausEfetivos de
+// ponta a ponta, igual uma ficha de verdade chegaria até ele.
+function comHabilidade(raca, principalId, secundariaId, extra = {}) {
+  const racaInfo = encontrarRaca(raca);
+  const principal = encontrarPrincipal(racaInfo, principalId);
+  const secundaria = encontrarSecundaria(racaInfo, secundariaId);
+  const descritores = descritoresDeSelecao(principal, secundaria);
+  return { raca, habilidadePrincipal: principalId, habilidadeSecundaria: secundariaId, descritores, ...extra };
+}
+
+describe("Seção 8 — Humano revisado (21/10)", () => {
+  it("Mana Concentrada: Veloz + SP+1 (texto) + 2 escolhas de proficiência", () => {
+    const { character } = comGrausEfetivos(comHabilidade("humano", "mana-concentrada", null, {
+      bonusGrauEscolha: { "mana-concentrada": ["investigacao", "medicina"] },
+    }));
+    assert.ok(character.descritores.includes("veloz"));
+    assert.equal(character.proficiencias.investigacao, "D");
+    assert.equal(character.proficiencias.medicina, "D");
+  });
+  it("Mana Fluida: Reabastecer + escolha de proficiência", () => {
+    const { character } = comGrausEfetivos(comHabilidade("humano", "mana-fluida", null, {
+      bonusGrauEscolha: { "mana-fluida": ["politica"] },
+    }));
+    assert.ok(character.descritores.includes("reabastecer"));
+    assert.equal(character.proficiencias.politica, "D");
+  });
+  it("Mana Estática: Resistente + hp_maximo_1 + escolha de proficiência", () => {
+    const { character } = comGrausEfetivos(comHabilidade("humano", "mana-estatica", null, {
+      bonusGrauEscolha: { "mana-estatica": ["medicina"] },
+    }));
+    assert.ok(character.descritores.includes("resistente"));
+    assert.ok(character.descritores.includes("hp_maximo_1"));
+    assert.equal(character.proficiencias.medicina, "D");
+  });
+  it("Homúnculo: Resistente sempre + sp_maximo_menos_1 + Atletismo fixo + Potente à escolha", () => {
+    const { character } = comGrausEfetivos(comHabilidade("humano", null, "homunculo", {
+      descritorEscolha: { homunculo: "potente_destreza" },
+    }));
+    assert.ok(character.descritores.includes("resistente"));
+    assert.ok(character.descritores.includes("sp_maximo_menos_1"));
+    assert.ok(character.descritores.includes("potente_destreza"));
+    assert.equal(character.proficiencias.atletismo, "D");
+    assert.equal(computeMaxSP(character), 2); // 3 base - 1 (Homúnculo)
+  });
+  it("Goethiano: Resistente + Blindado, sem HP (21/10, revisado de novo)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("humano", null, "goethiano"));
+    assert.deepEqual(character.descritores, ["resistente", "blindado"]);
+  });
+});
+
+describe("Seção 8 — Niosh revisado (21/10)", () => {
+  it("Descendentes de Sharkan: Resistente + Imune a Envenenamento + escolha Física", () => {
+    const { character } = comGrausEfetivos(comHabilidade("niosh", "descendentes-de-sharkan", null, {
+      bonusGrauEscolha: { "descendentes-de-sharkan": ["atletismo"] },
+    }));
+    assert.ok(character.descritores.includes("resistente"));
+    assert.ok(character.descritores.includes("imune_envenenamento"));
+    assert.equal(character.proficiencias.atletismo, "D");
+  });
+  it("Descendentes de Arcani: Resistente + Reabastecer, sem Resiste a Magia (21/10)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("niosh", "descendentes-de-arcani", null));
+    assert.deepEqual(character.descritores, ["resistente", "reabastecer"]);
+  });
+  it("Descendentes de Sabato: Resistente + Potente Força + hp_maximo_1, sem sortudo_fisico (21/10)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("niosh", "descendentes-de-sabato", null));
+    assert.deepEqual(character.descritores, ["resistente", "potente_forca", "hp_maximo_1"]);
+  });
+  it("Agressividade Oni: Letal geral (não mais ignora_blindado)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("niosh", null, "agressividade-oni"));
+    assert.deepEqual(character.descritores, ["letal"]);
+  });
+  it("Pele Grossa: só Blindado, sem bônus de grau (21/10)", () => {
+    const { character, bonusAplicado } = comGrausEfetivos(comHabilidade("niosh", null, "pele-grossa"));
+    assert.ok(character.descritores.includes("blindado"));
+    assert.equal(bonusAplicado.proficiencias.defesaProf, undefined);
+  });
+  it("Adaptado: 3 proficiências de verdade (21/10, antes era '+1 dado' sem mecanismo)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("niosh", null, "adaptado"));
+    assert.equal(character.proficiencias.sobrevivencia, "D");
+    assert.equal(character.proficiencias.atletismo, "D");
+    assert.equal(character.proficiencias.furtividade, "D");
+  });
+});
+
+describe("Seção 8 — Ningen revisado (21/10)", () => {
+  it("Coelho/Bode: sortudo_esquiva (não mais salto/faro)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("ningen", "coelho-bode", null));
+    assert.deepEqual(character.descritores, ["sortudo_esquiva"]);
+  });
+  it("Leonino/Reptiliano/Lobo-Canino: Letal geral (não mais desarmado_letal)", () => {
+    const leonino = comGrausEfetivos(comHabilidade("ningen", "leonino", null)).character;
+    assert.deepEqual(leonino.descritores, ["letal"]);
+    const reptiliano = comGrausEfetivos(comHabilidade("ningen", "reptiliano", null)).character;
+    assert.deepEqual(reptiliano.descritores, ["resistente", "letal"]);
+    const lobo = comGrausEfetivos(comHabilidade("ningen", "lobo-canino", null)).character;
+    assert.deepEqual(lobo.descritores, ["letal"]);
+  });
+  it("Garras e Presas: desarmado_perfurante (não mais desarmado_letal/ignora_blindado)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("ningen", null, "garras-e-presas"));
+    assert.deepEqual(character.descritores, ["desarmado_perfurante"]);
+  });
+});
+
+describe("Seção 8 — Elfo revisado (21/10)", () => {
+  it("Clã Radiante/Noctis perderam o Sortudo incondicional, ganharam Reabastecer", () => {
+    const radiante = comGrausEfetivos(comHabilidade("elfo", "cla-radiante", null)).character;
+    assert.deepEqual(radiante.descritores, ["reabastecer"]);
+    const noctis = comGrausEfetivos(comHabilidade("elfo", "cla-noctis", null)).character;
+    assert.deepEqual(noctis.descritores, ["reabastecer"]);
+  });
+  it("Clã Natrus ganhou Reabastecer", () => {
+    const { character } = comGrausEfetivos(comHabilidade("elfo", "cla-natrus", null));
+    assert.deepEqual(character.descritores, ["reabastecer"]);
+  });
+  it("Clã Corvus não tem mais o bônus racial de proficiência à escolha", () => {
+    const { character } = comGrausEfetivos(comHabilidade("elfo", "cla-corvus", null, { bonusGrauEscolhaRaca: "medicina" }));
+    assert.equal(character.proficiencias?.medicina, undefined);
+  });
+  it("Resistência à Dor continua igual (mantido, 21/10)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("elfo", null, "resistencia-a-dor"));
+    assert.deepEqual(character.descritores, ["resistente"]);
+  });
+});
+
+// Transformação (Ningen, 21/10): Potente Força/Destreza só enquanto ativa.
+describe("descritoresDeTransformacaoAtiva", () => {
+  it("sem a secundária Transformação escolhida, nunca ativa", () => {
+    assert.deepEqual(descritoresDeTransformacaoAtiva({ transformadoAtivo: true }), []);
+  });
+  it("com a secundária escolhida mas transformadoAtivo false, não concede nada", () => {
+    assert.deepEqual(descritoresDeTransformacaoAtiva({ habilidadeSecundaria: "transformacao", transformadoAtivo: false }), []);
+  });
+  it("com a secundária escolhida e transformadoAtivo true, concede os dois Potentes", () => {
+    assert.deepEqual(
+      descritoresDeTransformacaoAtiva({ habilidadeSecundaria: "transformacao", transformadoAtivo: true }),
+      ["potente_forca", "potente_destreza"],
+    );
+  });
+  it("wired em comGrausEfetivos: Potente Força/Destreza bumpam atributos quando transformado", () => {
+    const { character } = comGrausEfetivos({
+      raca: "ningen", habilidadeSecundaria: "transformacao", transformadoAtivo: true,
+      atributosGerais: { forca: "D", destreza: "D" },
+    });
+    assert.equal(character.atributosGerais.forca, "C");
+    assert.equal(character.atributosGerais.destreza, "C");
   });
 });

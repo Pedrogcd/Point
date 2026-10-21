@@ -19,14 +19,14 @@ import {
   limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
-  contagemOficiosMagicos,
+  contagemOficiosMagicos, diceRecuperacaoMana,
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
 import {
   MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO,
 } from "./data/magias.js";
-import { ARMAS, getArmaPorId, descritoresEfetivosArma, ALCANCE_LABEL } from "./data/armas.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
   ARMADURAS, getArmaduraPorId, armadurasDoSlot,
 } from "./data/armaduras.js";
@@ -57,7 +57,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_RACA,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -185,6 +185,11 @@ const DESCRITOR_INFO = {
   blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque contra você, físico ou mágico, precisam de no mínimo 7, em vez de 6, para dar sucesso. Perfurante ignora." },
   resiste_a_magia: { label: "Resiste a Magia", cor: PURPLE, descricao: "Ao se defender de um ataque com o descritor Magia: rola 1 dado a menos e tem 1 sucesso sempre garantido." },
   desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
+  desarmado_perfurante: { label: "Desarmado Perfurante", cor: BRASS_BRIGHT, descricao: "Seus ataques desarmados ganham Perfurante (ignoram Blindado)." },
+  reabastecer: { label: "Reabastecer", cor: MP_COLOR, descricao: "Na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais." },
+  azarado: { label: "Azarado", cor: "#8B5A2B", descricao: "Quem te ataca re-rola o primeiro sucesso do próprio teste e fica com o novo resultado, pra melhor ou pra pior. Oposto do Sortudo." },
+  sortudo_esquiva: { label: "Sortudo (esquiva)", cor: "#E0A800", descricao: "Como o Sortudo, mas só vale ao esquivar (defesa por Destreza): o primeiro dado que sair 1 ou 2 é re-rolado automaticamente, uma vez." },
+  imune_envenenamento: { label: "Imune a Envenenamento", cor: "#4A9A2E", descricao: "O descritor Envenenamento não tem nenhum efeito contra você." },
   ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
   veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "Etiqueta — ainda sem efeito no motor (prioridade/rodadas fora do escopo atual)." },
   sortudo: { label: "Sortudo", cor: "#E0A800", descricao: "O primeiro dado que sair 1 ou 2 em cada teste (inclusive de ataque) é re-rolado automaticamente, uma vez." },
@@ -221,7 +226,7 @@ const CARACTERISTICAS_ATAQUE = [
   "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
   "queimadura", "pesado", "envenenamento", "carga", "drenante",
 ];
-const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente"];
+const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente", "azarado", "imune_envenenamento"];
 
 
 
@@ -5404,8 +5409,7 @@ function DisciplinaSlotPicker({
 // componente do CharacterForm) pra lista de opções, e mostra a descrição/
 // efeito da selecionada + o seletor de bônus de grau à escolha (Mana
 // Concentrada, Homúnculo), se a habilidade tiver um.
-function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecionada, corForcada, onEscolher, onEsvaziar, bonusEscolha, valorBonus, onEscolherBonus, onClose }) {
-  const listaBonus = bonusEscolha?.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecionada, corForcada, onEscolher, onEsvaziar, bonusEscolha, valorBonus, onEscolherBonus, descritorEscolha, valorDescritorEscolha, onEscolherDescritor, onClose }) {
   return (
     <div
       onClick={onClose}
@@ -5432,15 +5436,29 @@ function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecion
               {selecionada.descricao} <em>Efeito: {selecionada.efeito}</em>
             </p>
           )}
-          {bonusEscolha && (
+          {bonusEscolha && bonusEscolha.map((escolha, i) => {
+            const listaBonus = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+            return (
+              <div key={i} style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 11, color: MUTED }}>
+                  Bônus{bonusEscolha.length > 1 ? ` ${i + 1}` : ""} de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha, não-combate):
+                </label>
+                <select style={{ ...inputStyle, width: 200 }} value={(valorBonus && valorBonus[i]) || ""} onChange={(e) => onEscolherBonus(i, e.target.value)}>
+                  <option value="">— escolher —</option>
+                  {escolha.opcoes.map((chave) => (
+                    <option key={chave} value={chave}>{listaBonus.find((x) => x.key === chave)?.label || chave}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+          {descritorEscolha && (
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <label style={{ fontSize: 11, color: MUTED }}>
-                Bônus de +1 grau ({bonusEscolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha):
-              </label>
-              <select style={{ ...inputStyle, width: 200 }} value={valorBonus || ""} onChange={(e) => onEscolherBonus(e.target.value)}>
+              <label style={{ fontSize: 11, color: MUTED }}>Descritor à escolha:</label>
+              <select style={{ ...inputStyle, width: 220 }} value={valorDescritorEscolha || ""} onChange={(e) => onEscolherDescritor(e.target.value)}>
                 <option value="">— escolher —</option>
-                {bonusEscolha.opcoes.map((chave) => (
-                  <option key={chave} value={chave}>{listaBonus.find((x) => x.key === chave)?.label || chave}</option>
+                {descritorEscolha.opcoes.map((id) => (
+                  <option key={id} value={id}>{DESCRITOR_INFO[id]?.label || id}</option>
                 ))}
               </select>
             </div>
@@ -5639,6 +5657,20 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       descritores: m.descritores, feridas: m.feridas, superficial: m.superficial, emArea: m.emArea,
       ajusteDados: m.ajusteDados, custoMp: m.custoMp,
     }));
+  // Arma equipada (21/10, docs/ATUALIZACAO_21-10.md item 6, catálogo em
+  // data/armas.js): mesmo padrão dos ataques de magia acima — derivada toda
+  // renderização a partir de character.equipamento.armaId/nomeArma/
+  // temPericiaArma, não persistida em character.attacks.
+  const armaEquipadaCatalogo = getArmaPorId(character.equipamento?.armaId);
+  const armaEquipadaAtaque = armaEquipadaCatalogo ? {
+    nome: character.equipamento?.nomeArma?.trim() || armaEquipadaCatalogo.nome,
+    tipo: armaEquipadaCatalogo.familia === "Arma de fogo" ? "arma_de_fogo" : "marcial",
+    profKey: profKeyDaArma(armaEquipadaCatalogo),
+    atributoKey: "destreza",
+    feridas: armaEquipadaCatalogo.feridas,
+    superficial: armaEquipadaCatalogo.superficial,
+    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, character.equipamento?.temPericiaArma),
+  } : null;
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
   const usandoBaseMagicaNoTeste = rollAttr === BASE_MAGICA_KEY;
@@ -5726,7 +5758,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         limiarOverride: limiarMagia, totalDiceDefesaManual: ataqueDadosDefesa,
       });
     }
-    const rolagemRecuperacao = rollSuccessDice(contagemOficiosMagicos(characterEfetivo) + manaGasta, LIMIAR_SUCESSO);
+    const rolagemRecuperacao = rollSuccessDice(diceRecuperacaoMana(characterEfetivo, manaGasta), LIMIAR_SUCESSO);
     const manaRecuperada = Math.min(rolagemRecuperacao.successes, manaGasta);
     const r = { magia: magiaSelecionada, manaGasta, resultadoAtaque, rolagemRecuperacao, manaRecuperada };
     setMagiaResult(r);
@@ -5996,22 +6028,90 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 </Btn>
               );
             })()}
+            {/* Transformação (Ningen, 21/10, docs/ATUALIZACAO_21-10.md seção
+                8.5): "gasta 1 SP; na forma bestial ganha Potente Força e
+                Potente Destreza ... dura até destransformar" — só o custo
+                de ativar e o toggle (persistido em character.
+                transformadoAtivo, lido por racasCatalogo.js:
+                descritoresDeTransformacaoAtiva) são mecânicos aqui; o -1
+                dado em testes mentais na forma bestial NÃO está mecanizado
+                (não há um "tipo de teste mental" marcado em engine.js pra
+                aplicar o descritor — ver relatório). */}
+            {onUpdateCharacter && character.habilidadeSecundaria === "transformacao" && (() => {
+              const spAtual = character.sp?.current ?? 0;
+              const ativo = !!character.transformadoAtivo;
+              return (
+                <Btn
+                  onClick={() => {
+                    if (ativo) { onUpdateCharacter(character.id, { transformadoAtivo: false }); return; }
+                    if (spAtual <= 0) return;
+                    onUpdateCharacter(character.id, { transformadoAtivo: true, sp: { ...character.sp, current: spAtual - 1 } });
+                  }}
+                  disabled={!ativo && spAtual <= 0}
+                  style={{ width: "100%", justifyContent: "center", marginTop: 6 }}
+                  title={ativo ? "Volta à forma normal, de graça." : "Transformação: gasta 1 SP, ganha Potente Força e Potente Destreza até destransformar."}
+                >
+                  <Flame size={13} color={SP_COLOR} /> {ativo ? "Destransformar" : "Transformar (-1 SP)"}
+                </Btn>
+              );
+            })()}
           </div>
 
-          {/* Equipamento defensivo (21/10, docs/ATUALIZACAO_21-10.md seção
-              7): até 1 armadura + 1 escudo + 1 acessório (Regra 5). Equipar
-              uma peça com custoSpEquipar>0 quebra o SP na hora (Regra 6,
-              "equipar já consome o SP, mesmo que o item não seja ativado").
-              temPericia<Slot> é campo manual provisório (a disciplina de
-              perícia ainda não existe, igual às armas) — sem ele, Regra 4
-              tira 1 dado da Defesa (ver racasCatalogo.js:comGrausEfetivos/
-              engine.js:resolveRolagemDefesa). manaAtiva<Slot> só existe nas 3
-              peças "mágicas" com custoManaAtivar>0 (Armadura de mana,
-              Escudo de mana, Chifre de Mana) — liga/desliga o descritor
-              delas (Campo de Mana/Firme 2) quebrando/reparando mana de
-              verdade, mesmo padrão dos Encantamentos. */}
+          {/* Equipamento (21/10, docs/ATUALIZACAO_21-10.md itens 6-7): 1 arma
+              + 1 armadura + 1 escudo + 1 acessório (Regra 5, estendida pra
+              arma a pedido do Pedro). Equipar uma peça defensiva com
+              custoSpEquipar>0 quebra o SP na hora (Regra 6, "equipar já
+              consome o SP, mesmo que o item não seja ativado"). temPericia
+              <Slot>/temPericiaArma é campo manual provisório (a disciplina
+              de perícia ainda não existe) — sem ele, armaduras tiram 1 dado
+              da Defesa (racasCatalogo.js:comGrausEfetivos/engine.js:
+              resolveRolagemDefesa) e a arma só concede o Descritor 1 (ver
+              data/armas.js:descritoresEfetivosArma). manaAtiva<Slot> só
+              existe nas 3 peças "mágicas" com custoManaAtivar>0 (Armadura de
+              mana, Escudo de mana, Chifre de Mana) — liga/desliga o
+              descritor delas (Campo de Mana/Firme 2) quebrando/reparando
+              mana de verdade, mesmo padrão dos Encantamentos. A arma
+              equipada não quebra SP/MP (o catálogo de armas não tem custo
+              de equipar) e vira um "ataque" derivado no painel Ataques
+              (armaEquipadaAtaque, acima) — nome livre, tipo escolhido no
+              catálogo (data/armas.js). */}
           <div style={panelStyle}>
-            <div style={panelHeadStyle}>Equipamento Defensivo</div>
+            <div style={panelHeadStyle}>Equipamento</div>
+            {(() => {
+              const eq = character.equipamento || {};
+              const armaCatalogo = getArmaPorId(eq.armaId);
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  <Field label="Arma">
+                    <select
+                      style={inputStyle} value={eq.armaId || ""} disabled={!onUpdateCharacter}
+                      onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, armaId: e.target.value || null, temPericiaArma: false } })}
+                    >
+                      <option value="">(nenhuma)</option>
+                      {ARMAS.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                    </select>
+                  </Field>
+                  {armaCatalogo && (
+                    <>
+                      <Field label="Nome da arma">
+                        <input
+                          style={inputStyle} value={eq.nomeArma || ""} disabled={!onUpdateCharacter}
+                          placeholder={armaCatalogo.exemplos}
+                          onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, nomeArma: e.target.value } })}
+                        />
+                      </Field>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
+                        <input
+                          type="checkbox" checked={!!eq.temPericiaArma} disabled={!onUpdateCharacter}
+                          onChange={() => onUpdateCharacter(character.id, { equipamento: { ...eq, temPericiaArma: !eq.temPericiaArma } })}
+                        />
+                        Tem perícia em {armaCatalogo.periciaFamilia} (sem isso, só {DESCRITOR_INFO[armaCatalogo.descritor1]?.label || armaCatalogo.descritor1} vale)
+                      </label>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             {(() => {
               const eq = character.equipamento || {};
               function equiparPeca(slotKey, idKey, periciaKey, manaKey, novoId) {
@@ -6082,11 +6182,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         <div>
           <div style={panelStyle}>
             <div style={panelHeadStyle}>Ataques</div>
-            {attacks.length === 0 && missingDefaultAttacks.length === 0 && ataquesDasDisciplinas.length === 0 && (
+            {attacks.length === 0 && missingDefaultAttacks.length === 0 && ataquesDasDisciplinas.length === 0 && !armaEquipadaAtaque && (
               <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhum ataque cadastrado.</p>
             )}
-            {(attacks.length > 0 || ataquesDasDisciplinas.length > 0) && (
+            {(attacks.length > 0 || ataquesDasDisciplinas.length > 0 || armaEquipadaAtaque) && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {armaEquipadaAtaque && <AttackCard key="arma-equipada" atk={armaEquipadaAtaque} character={characterEfetivo} />}
                 {attacks.map((atk, i) => <AttackCard key={`f-${i}`} atk={atk} character={characterEfetivo} />)}
                 {ataquesDasDisciplinas.map((atk, i) => <AttackCard key={`m-${i}`} atk={atk} character={characterEfetivo} />)}
               </div>
@@ -6662,6 +6763,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           ? encontrarPrincipal(racaInfoPicker, selecionadoId)
           : encontrarSecundaria(racaInfoPicker, selecionadoId);
         const bonusEscolha = selecionada ? BONUS_GRAU_ESCOLHA_POR_HABILIDADE[selecionada.id] : null;
+        const descritorEscolha = selecionada ? DESCRITOR_ESCOLHA_POR_HABILIDADE[selecionada.id] : null;
         function escolher(id) {
           const novaSelecionada = ehPrincipal ? encontrarPrincipal(racaInfoPicker, id) : encontrarSecundaria(racaInfoPicker, id);
           const outro = ehPrincipal
@@ -6689,7 +6791,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             onEsvaziar={selecionadoId ? esvaziar : null}
             bonusEscolha={bonusEscolha}
             valorBonus={selecionada ? character.bonusGrauEscolha?.[selecionada.id] : null}
-            onEscolherBonus={(chave) => onUpdateCharacter(character.id, { bonusGrauEscolha: { ...(character.bonusGrauEscolha || {}), [selecionada.id]: chave } })}
+            onEscolherBonus={(indice, chave) => {
+              const atual = Array.isArray(character.bonusGrauEscolha?.[selecionada.id]) ? [...character.bonusGrauEscolha[selecionada.id]] : [];
+              atual[indice] = chave;
+              onUpdateCharacter(character.id, { bonusGrauEscolha: { ...(character.bonusGrauEscolha || {}), [selecionada.id]: atual } });
+            }}
+            descritorEscolha={descritorEscolha}
+            valorDescritorEscolha={selecionada ? character.descritorEscolha?.[selecionada.id] : null}
+            onEscolherDescritor={(chave) => onUpdateCharacter(character.id, { descritorEscolha: { ...(character.descritorEscolha || {}), [selecionada.id]: chave } })}
             onClose={() => setHabilidadeRacaAberta(null)}
           />
         );
@@ -6993,61 +7102,68 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       };
     });
   }
-  // Bônus de grau à escolha do jogador (Mana Concentrada, Homúnculo — ver
-  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE em racasCatalogo.js). Guardado por
-  // habilidade (não por raça/personagem) pra não se perder se o jogador trocar
-  // de principal/secundária e voltar.
-  function escolherBonusGrau(habilidadeId, chave) {
-    setC((prev) => ({ ...prev, bonusGrauEscolha: { ...(prev.bonusGrauEscolha || {}), [habilidadeId]: chave } }));
+  // Bônus de grau à escolha do jogador (Mana Concentrada/Fluida/Estática —
+  // ver BONUS_GRAU_ESCOLHA_POR_HABILIDADE em racasCatalogo.js). 21/10: cada
+  // habilidade pode ter MAIS de uma escolha independente (Mana Concentrada
+  // tem 2, "podem ser a mesma") — guardado como um ARRAY por habilidade
+  // (não por raça/personagem, pra não se perder se o jogador trocar de
+  // principal/secundária e voltar).
+  function escolherBonusGrau(habilidadeId, indice, chave) {
+    setC((prev) => {
+      const atual = Array.isArray(prev.bonusGrauEscolha?.[habilidadeId]) ? [...prev.bonusGrauEscolha[habilidadeId]] : [];
+      atual[indice] = chave;
+      return { ...prev, bonusGrauEscolha: { ...(prev.bonusGrauEscolha || {}), [habilidadeId]: atual } };
+    });
   }
   // Seletor extra pro bônus de grau à escolha (ver escolherBonusGrau acima) —
   // só aparece sob a habilidade que de fato tem entrada em
-  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE (hoje: Mana Concentrada, Homúnculo).
+  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE (hoje: Mana Concentrada/Fluida/Estática).
   function renderEscolhaBonusGrau(habilidadeId) {
-    const escolha = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[habilidadeId];
+    const escolhas = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[habilidadeId];
+    if (!escolhas) return null;
+    const valores = c.bonusGrauEscolha?.[habilidadeId] || [];
+    return escolhas.map((escolha, i) => {
+      const lista = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+      return (
+        <div key={i} style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <label style={{ fontSize: 11, color: MUTED }}>
+            Bônus{escolhas.length > 1 ? ` ${i + 1}` : ""} de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha, não-combate):
+          </label>
+          <select
+            style={{ ...inputStyle, width: 200 }}
+            value={valores[i] || ""}
+            onChange={(e) => escolherBonusGrau(habilidadeId, i, e.target.value)}
+          >
+            <option value="">— escolher —</option>
+            {escolha.opcoes.map((chave) => (
+              <option key={chave} value={chave}>{lista.find((x) => x.key === chave)?.label || chave}</option>
+            ))}
+          </select>
+        </div>
+      );
+    });
+  }
+  // Descritor à escolha do jogador (21/10, novo — hoje só Homúnculo: "um
+  // Potente à escolha". Ver DESCRITOR_ESCOLHA_POR_HABILIDADE em
+  // racasCatalogo.js). Mesmo padrão posicional de escolherBonusGrau, mas
+  // guarda um valor único por habilidade (não um array).
+  function escolherDescritor(habilidadeId, chave) {
+    setC((prev) => ({ ...prev, descritorEscolha: { ...(prev.descritorEscolha || {}), [habilidadeId]: chave } }));
+  }
+  function renderEscolhaDescritor(habilidadeId) {
+    const escolha = DESCRITOR_ESCOLHA_POR_HABILIDADE[habilidadeId];
     if (!escolha) return null;
-    const lista = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
     return (
       <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <label style={{ fontSize: 11, color: MUTED }}>
-          Bônus de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha):
-        </label>
+        <label style={{ fontSize: 11, color: MUTED }}>Descritor à escolha:</label>
         <select
-          style={{ ...inputStyle, width: 200 }}
-          value={c.bonusGrauEscolha?.[habilidadeId] || ""}
-          onChange={(e) => escolherBonusGrau(habilidadeId, e.target.value)}
+          style={{ ...inputStyle, width: 220 }}
+          value={c.descritorEscolha?.[habilidadeId] || ""}
+          onChange={(e) => escolherDescritor(habilidadeId, e.target.value)}
         >
           <option value="">— escolher —</option>
-          {escolha.opcoes.map((chave) => (
-            <option key={chave} value={chave}>{lista.find((x) => x.key === chave)?.label || chave}</option>
-          ))}
-        </select>
-      </div>
-    );
-  }
-  // Bônus de grau à escolha RACIAL (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10:
-  // "todo tipo de elfo"/"todo tipo de humano ganha +1 grau à escolha numa
-  // proficiência não-combate") — diferente de escolherBonusGrau/
-  // renderEscolhaBonusGrau acima, que são por HABILIDADE; este é um único
-  // campo por PERSONAGEM (character.bonusGrauEscolhaRaca), já que vale pra
-  // raça inteira, não pra uma habilidade específica. Ver
-  // BONUS_GRAU_ESCOLHA_POR_RACA em racasCatalogo.js.
-  function renderEscolhaBonusGrauRaca(racaId) {
-    const escolha = BONUS_GRAU_ESCOLHA_POR_RACA[racaId];
-    if (!escolha) return null;
-    return (
-      <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <label style={{ fontSize: 11, color: MUTED }}>
-          Bônus racial de +1 grau (proficiência não-combate à escolha, até o teto C):
-        </label>
-        <select
-          style={{ ...inputStyle, width: 200 }}
-          value={c.bonusGrauEscolhaRaca || ""}
-          onChange={(e) => set(["bonusGrauEscolhaRaca"], e.target.value || null)}
-        >
-          <option value="">— escolher —</option>
-          {escolha.opcoes.map((chave) => (
-            <option key={chave} value={chave}>{PROFICIENCIAS_LIST.find((x) => x.key === chave)?.label || chave}</option>
+          {escolha.opcoes.map((id) => (
+            <option key={id} value={id}>{DESCRITOR_INFO[id]?.label || id}</option>
           ))}
         </select>
       </div>
@@ -7248,7 +7364,6 @@ export function CharacterForm({ initial, onSave, onCancel }) {
               selecionadoId={c.raca}
               onEscolher={escolherRaca}
             />
-            {renderEscolhaBonusGrauRaca(c.raca)}
             {racaAtual && (() => {
               const principalAtual = encontrarPrincipal(racaAtual, c.habilidadePrincipal);
               return (
@@ -7265,6 +7380,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                         {principalAtual.descricao} <em>Efeito: {principalAtual.efeito}</em>
                       </p>
                       {renderEscolhaBonusGrau(principalAtual.id)}
+                      {renderEscolhaDescritor(principalAtual.id)}
                     </>
                   )}
                 </div>
@@ -7295,6 +7411,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                         {secundariaAtual.descricao} <em>Efeito: {secundariaAtual.efeito}</em>
                       </p>
                       {renderEscolhaBonusGrau(secundariaAtual.id)}
+                      {renderEscolhaDescritor(secundariaAtual.id)}
                     </>
                   )}
                 </div>

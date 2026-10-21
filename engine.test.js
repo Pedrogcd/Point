@@ -22,6 +22,7 @@ import {
   grauDescritorNumerico, grauPreciso, grauEsmagador, grauEnvenenamento, grauCarga,
   LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveCarga, resolveDrenante,
   grauFirme, grauSelado, grauLento, quebrarSP, repararSP,
+  aplicarAzarado, diceRecuperacaoMana,
 } from "./engine.js";
 
 const SOCO = BASE_ATTACK_TYPES.find((a) => a.id === "soco");
@@ -367,6 +368,41 @@ describe("rolarComSortudo", () => {
   });
 });
 
+// Azarado (21/10, docs/ATUALIZACAO_21-10.md seção 5): oposto do Sortudo —
+// re-rola o primeiro SUCESSO (não o primeiro 1/2) e fica com o novo
+// resultado incondicionalmente, pra melhor ou pra pior.
+describe("aplicarAzarado", () => {
+  it("re-rola o primeiro sucesso (dado > limiar ou 10) e fica com o novo resultado", (t) => {
+    mockDice(t, [9]); // reroll
+    const base = { dice: [1, 7, 2], successes: 1, criticos: 0, superSucesso: false, sortudoAplicado: null };
+    const r = aplicarAzarado(base, 5);
+    assert.deepEqual(r.dice, [1, 9, 2]);
+    assert.equal(r.azaradoAplicado.indice, 1);
+    assert.equal(r.azaradoAplicado.original, 7);
+    assert.equal(r.azaradoAplicado.novo, 9);
+    assert.equal(r.successes, 1); // 9 ainda é sucesso
+  });
+  it("o novo resultado pode ser PIOR e tirar o sucesso (diferente do Sortudo)", (t) => {
+    mockDice(t, [3]); // reroll vira um não-sucesso
+    const base = { dice: [1, 7, 2], successes: 1, criticos: 0, superSucesso: false, sortudoAplicado: null };
+    const r = aplicarAzarado(base, 5);
+    assert.deepEqual(r.dice, [1, 3, 2]);
+    assert.equal(r.successes, 0); // perdeu o único sucesso
+  });
+  it("sem nenhum sucesso no array, não re-rola nada", () => {
+    const base = { dice: [1, 2, 3], successes: 0, criticos: 0, superSucesso: false, sortudoAplicado: null };
+    const r = aplicarAzarado(base, 5);
+    assert.deepEqual(r.dice, [1, 2, 3]);
+    assert.equal(r.azaradoAplicado, null);
+  });
+  it("preserva os outros campos do resultado original (ex.: sortudoAplicado já aplicado antes)", () => {
+    const sortudoAplicado = { indice: 1, original: 1, novo: 1 };
+    const base = { dice: [1, 1], successes: 0, criticos: 0, superSucesso: false, sortudoAplicado };
+    const r = aplicarAzarado(base, 5); // sem sucesso nenhum pra re-rolar
+    assert.deepEqual(r.sortudoAplicado, sortudoAplicado);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // temDescritor / limiarAtaque
 // ---------------------------------------------------------------------------
@@ -457,6 +493,20 @@ describe("descritoresEfetivosDoAtaque", () => {
   it("desarmado_letal não afeta ataques que não são desarmados", () => {
     const atacanteSemLetal = makeCharacter();
     assert.deepEqual(descritoresEfetivosDoAtaque(atacanteSemLetal, ARMA_BRANCA), ["letal"]);
+  });
+  // desarmado_perfurante (21/10, Garras e Presas): mesmo padrão de
+  // desarmado_letal, pro descritor Perfurante.
+  it("desarmado_perfurante (descritor de personagem) torna o ataque desarmado perfurante", () => {
+    const atacante = withDescritores(makeCharacter(), ["desarmado_perfurante"]);
+    assert.deepEqual(descritoresEfetivosDoAtaque(atacante, SOCO), ["perfurante"]);
+  });
+  it("desarmado_letal e desarmado_perfurante somam no mesmo ataque desarmado", () => {
+    const atacante = withDescritores(makeCharacter(), ["desarmado_letal", "desarmado_perfurante"]);
+    assert.deepEqual(descritoresEfetivosDoAtaque(atacante, SOCO), ["letal", "perfurante"]);
+  });
+  it("desarmado_perfurante não afeta ataques que não são desarmados", () => {
+    const atacante = withDescritores(makeCharacter(), ["desarmado_perfurante"]);
+    assert.deepEqual(descritoresEfetivosDoAtaque(atacante, ARMA_BRANCA), ["letal"]);
   });
 });
 
@@ -600,6 +650,13 @@ describe("grauDescritorNumerico (generaliza grauQueimadura)", () => {
 describe("resolveEnvenenamento", () => {
   it("sem o descritor Envenenamento, devolve null", () => {
     const r = resolveEnvenenamento({ descritoresAtaque: ["letal"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r, null);
+  });
+  // imune_envenenamento (21/10, Descendentes de Sharkan): zera o efeito por
+  // completo, diferente de Selado N (que só desconta grau).
+  it("imune_envenenamento zera o efeito por completo, mesmo com grau alto", () => {
+    const defenderImune = withDescritores(makeCharacter(), ["imune_envenenamento"]);
+    const r = resolveEnvenenamento({ defender: defenderImune, descritoresAtaque: ["envenenamento_5"], sucessosLiquidosAtaque: 3 });
     assert.equal(r, null);
   });
   it("sem sucesso líquido no ataque principal, devolve null", () => {
@@ -762,6 +819,23 @@ describe("contagemOficiosMagicos", () => {
   });
   it("sem disciplinaMagica, retorna 0", () => {
     assert.equal(contagemOficiosMagicos({}), 0);
+  });
+});
+
+// diceRecuperacaoMana (21/10, docs/ATUALIZACAO_21-10.md seção 3/5): extraída
+// da UI (point-amaranth-app.jsx:castMagia) pra poder somar o descritor
+// Reabastecer ("+1 dado na rolagem de recuperação de mana ao lançar").
+describe("diceRecuperacaoMana", () => {
+  it("= ofícios + mana gasta, sem Reabastecer", () => {
+    const c = { disciplinaMagica: { oficiosMagicos: ["magias-de-guerra"], oficiosExtras: 0 } };
+    assert.equal(diceRecuperacaoMana(c, 2), 3); // 1 ofício + 2 mana
+  });
+  it("Reabastecer soma +1 dado", () => {
+    const c = { disciplinaMagica: { oficiosMagicos: ["magias-de-guerra"], oficiosExtras: 0 }, descritores: ["reabastecer"] };
+    assert.equal(diceRecuperacaoMana(c, 2), 4); // 1 ofício + 2 mana + 1 Reabastecer
+  });
+  it("sem personagem/manaGasta, não quebra", () => {
+    assert.equal(diceRecuperacaoMana({}, 0), 0);
   });
 });
 
@@ -932,6 +1006,20 @@ describe("resolveRolagemDefesa", () => {
     const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor" });
     assert.equal(r.sortudoAplicado.original, 1);
     assert.equal(r.sortudoAplicado.novo, 10);
+  });
+  // sortudo_esquiva (21/10, Coelho/Bode): Sortudo restrito à esquiva
+  // (Destreza), mesma restrição de sortudo_fisico só que por atributo.
+  it("sortudo_esquiva aplica o re-roll só quando a defesa usa Destreza (esquivar)", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { destreza: "C" }), ["sortudo_esquiva"]); // 3+1=4
+    mockDice(t, [7, 1, 8, 9, /*reroll do 1*/ 10]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" });
+    assert.equal(r.sortudoAplicado.original, 1);
+  });
+  it("sortudo_esquiva não aplica ao bloquear (Força)", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { forca: "C" }), ["sortudo_esquiva"]); // 3+1=4
+    mockDice(t, [7, 1, 8, 9]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "forca" });
+    assert.equal(r.sortudoAplicado, null);
   });
   it("14/10: Resiste a Magia rola 1 dado a menos contra ataque com descritor Magia", (t) => {
     const defensor = withDescritores(withAttrs(makeCharacter(), { vigor: "C" }), ["resiste_a_magia"]); // 3+1=4 dados, -1 = 3
@@ -1278,6 +1366,25 @@ describe("resolveAtaque", () => {
     });
     assert.equal(r.sucessosLiquidos, 0);
     assert.equal(r.queimadura, null);
+  });
+
+  // Azarado (21/10, descritor do DEFENSOR): re-rola o primeiro sucesso do
+  // ATACANTE dentro de resolveAtaque.
+  it("defensor Azarado re-rola o primeiro sucesso do atacante", (t) => {
+    const defender = withDescritores(makeCharacter(), ["azarado"]);
+    // ataque: 3 dados (1,7,2) -> 1 sucesso (o 7); reroll do 7 vira 10; defesa: 2 dados sem sucesso
+    mockDice(t, [1, 7, 2, /*reroll azarado*/ 10, /*defesa*/ 1, 1]);
+    const r = resolveAtaque({ attacker: makeCharacter(), defender, totalDiceAtaque: 3, defesaAtributo: "vigor" });
+    assert.equal(r.rolagemAtaque.azaradoAplicado.original, 7);
+    assert.equal(r.rolagemAtaque.azaradoAplicado.novo, 10);
+    assert.equal(r.rolagemAtaque.successes, 1); // 10 ainda é sucesso
+  });
+  it("sem Azarado no defensor, não mexe na rolagem do atacante", (t) => {
+    const defender = makeCharacter();
+    mockDice(t, [1, 7, 2, /*defesa*/ 1, 1]);
+    const r = resolveAtaque({ attacker: makeCharacter(), defender, totalDiceAtaque: 3, defesaAtributo: "vigor" });
+    assert.equal(r.rolagemAtaque.azaradoAplicado, undefined);
+    assert.deepEqual(r.rolagemAtaque.dice, [1, 7, 2]);
   });
 
   // Descritores novos (21/10) wired no resultado de resolveAtaque.

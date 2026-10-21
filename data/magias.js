@@ -12,7 +12,8 @@
 // - id: chave estável (usada pra salvar qual magia tá "ativa" na ficha).
 // - nome: nome de exibição.
 // - descritores: array de strings minúsculas — as que o motor entende
-//   ("perfurante", "saturante", "letal", "sortudo") mais as que são só
+//   ("perfurante", "saturante", "letal", "sortudo", "queimadura"/
+//   "queimadura_N" — ver engine.js:grauQueimadura) mais as que são só
 //   etiqueta por enquanto ("magia", "em_area", "atrasada_1" — ver
 //   docs/SISTEMA_MAGIA.md, "Veloz/prioridade -1/atrasada 1: só etiquetas").
 // - custoMp: custo em mana pra conjurar (null = "a definir", caso do Sensor).
@@ -84,7 +85,7 @@ export const DISCIPLINAS = [
     bonusTexto: "+1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico).",
     descricao: "Magia que vem de dentro, sem estudo formal.",
   },
-  { id: "oficio-encantamentos", nome: "Ofício Mágico: Encantamentos", tipo: "oficio-magico", vazia: true, bonusTexto: "Disciplina vazia — bônus e habilidades ainda não definidos.", descricao: "Disciplina de ofício mágico." },
+  { id: "oficio-encantamentos", nome: "Ofício Mágico: Encantamentos", tipo: "oficio-magico", vazia: true, bonusTexto: "Bônus de grau ainda não definido. Primeira habilidade: Encantamento Flamejante (19/10 — ver abaixo).", descricao: "Disciplina de ofício mágico." },
   { id: "oficio-alquimia", nome: "Ofício Mágico: Alquimia", tipo: "oficio-magico", vazia: true, bonusTexto: "Disciplina vazia — bônus e habilidades ainda não definidos.", descricao: "Disciplina de ofício mágico." },
   { id: "oficio-constructo", nome: "Ofício Mágico: Constructo", tipo: "oficio-magico", vazia: true, bonusTexto: "Disciplina vazia — bônus e habilidades ainda não definidos.", descricao: "Disciplina de ofício mágico." },
 ];
@@ -219,8 +220,86 @@ export const MAGIAS = [
     placeholder: true,
     efeito: "Marca até 5 pessoas numa rede de visão e comunicação compartilhada.",
   },
+  // Chama Mágica (Pedro, 19/10): primeira magia a usar o descritor Queimadura
+  // (ver engine.js:grauQueimadura/resolveQueimadura). Nome e custo são
+  // placeholders do Pedro ("nomes e custos são placeholders") — ajuste aqui
+  // quando a planilha oficial tiver os valores finais.
+  {
+    id: "chama_magica",
+    nome: "Chama Mágica",
+    descritores: ["magia", "queimadura"],
+    custoMp: 2,
+    ajusteDados: 0,
+    feridas: 1,
+    superficial: false,
+    emArea: false,
+  },
 ];
 
 export function getMagiaPorId(id) {
   return MAGIAS.find((m) => m.id === id) || null;
+}
+
+// Catálogo de ENCANTAMENTOS (ofício mágico "Encantamentos", hoje `vazia:
+// true` em DISCIPLINAS — primeira entrada concreta dele, decidida pelo
+// Pedro em 19/10). Nome e custo são placeholders ("nomes e custos são
+// placeholders", pedido do Pedro).
+//
+// Regra de mana quebrada (01 - Sistema/Magias e Disciplinas.md do
+// Point-Vault, 15/10): "mana gasta que não regenera normalmente até o
+// jogador escolher desquebrar". NENHUMA PARTE dessa economia (descontar/
+// devolver MP, o botão de quebrar/desquebrar na ficha) existe no motor
+// ainda — só a etiqueta textual na nota do vault. Por isso esta entrada e
+// `descritoresDeEncantamentosAtivos` só modelam a CONSEQUÊNCIA do
+// encantamento estar ativo (quais descritores ele concede); a ativação em
+// si (campo `character.encantamentosAtivos`) é gravada por quem chama,
+// sem nenhum desconto de mana — ver TODO no relatório final.
+//
+// Campos:
+// - id: chave estável (usada em `character.encantamentosAtivos`).
+// - nome: nome de exibição.
+// - disciplinaId: a disciplina (DISCIPLINAS, acima) que dá acesso a este
+//   encantamento.
+// - custoManaQuebrada: quantos pontos de mana ficam quebrados enquanto
+//   este encantamento está ativo (hoje só documentado — não desconta MP).
+// - descritoresConcedidos: descritores que TODOS os ataques do usuário
+//   (físicos e mágicos) ganham enquanto o encantamento está ativo.
+export const ENCANTAMENTOS = [
+  {
+    id: "encantamento_flamejante",
+    nome: "Encantamento Flamejante",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    descritoresConcedidos: ["queimadura"],
+    descricao:
+      "Quebra 1 de mana (01 - Sistema/Magias e Disciplinas.md do Point-Vault, " +
+      "15/10). Enquanto a mana estiver quebrada, os ataques do usuário — " +
+      "físicos e mágicos — ganham Queimadura 1.",
+  },
+];
+
+export function getEncantamentoPorId(id) {
+  return ENCANTAMENTOS.find((e) => e.id === id) || null;
+}
+
+// União sem duplicar dos descritores concedidos pelos encantamentos ATIVOS
+// do personagem (`character.encantamentosAtivos`, lista de ids — ver
+// ENCANTAMENTOS acima). Mesmo padrão de racasCatalogo.js:descritoresDeSelecao.
+// Quem monta o personagem EFETIVO (racasCatalogo.js:comGrausEfetivos) soma
+// isto em `character.descritores`, de onde engine.js:descritoresEfetivosDoAtaque
+// lê pra aplicar a Queimadura em qualquer ataque do personagem.
+export function descritoresDeEncantamentosAtivos(character) {
+  const ativos = character?.encantamentosAtivos || [];
+  const vistos = new Set();
+  const resultado = [];
+  for (const id of ativos) {
+    const encantamento = getEncantamentoPorId(id);
+    for (const d of encantamento?.descritoresConcedidos || []) {
+      if (!vistos.has(d)) {
+        vistos.add(d);
+        resultado.push(d);
+      }
+    }
+  }
+  return resultado;
 }

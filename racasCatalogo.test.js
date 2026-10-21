@@ -542,6 +542,40 @@ describe("racasCatalogo — comGrausEfetivos", () => {
     assert.equal(character.name, "X");
     assert.deepEqual(character.hp, { current: 3, max: 3 });
   });
+
+  // Encantamento Flamejante (Pedro, 19/10 — ver data/magias.js:ENCANTAMENTOS/
+  // descritoresDeEncantamentosAtivos): character.encantamentosAtivos some os
+  // descritores concedidos em character.descritores, pra
+  // engine.js:descritoresEfetivosDoAtaque aplicar Queimadura em qualquer
+  // ataque do personagem.
+  it("sem encantamento ativo, descritores não muda (mesma referência)", () => {
+    const ch = { descritores: ["sortudo"], proficiencias: {}, atributosGerais: {} };
+    const { character } = comGrausEfetivos(ch);
+    assert.equal(character.descritores, ch.descritores);
+  });
+
+  it("Encantamento Flamejante ativo soma 'queimadura' em character.descritores", () => {
+    const ch = { descritores: ["sortudo"], encantamentosAtivos: ["encantamento_flamejante"], proficiencias: {}, atributosGerais: {} };
+    const { character } = comGrausEfetivos(ch);
+    assert.deepEqual(character.descritores, ["sortudo", "queimadura"]);
+  });
+
+  it("Encantamento Flamejante ativo também soma com bônus de grau de raça presentes", () => {
+    const ch = {
+      raca: "ningen", habilidadePrincipal: "leonino",
+      descritores: [], encantamentosAtivos: ["encantamento_flamejante"],
+      proficiencias: { investigacao: "E" }, atributosGerais: {},
+    };
+    const { character } = comGrausEfetivos(ch);
+    assert.equal(character.proficiencias.investigacao, "D");
+    assert.deepEqual(character.descritores, ["queimadura"]);
+  });
+
+  it("encantamentoId desconhecido não quebra e não soma nada", () => {
+    const ch = { descritores: [], encantamentosAtivos: ["inexistente"], proficiencias: {}, atributosGerais: {} };
+    const { character } = comGrausEfetivos(ch);
+    assert.deepEqual(character.descritores, []);
+  });
 });
 
 describe("racasCatalogo — temDescritor", () => {

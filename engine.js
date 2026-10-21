@@ -436,10 +436,22 @@ export function defaultAttacksForCharacter() {
 // `descritoresAtaque` pro resolveAtaque/resolveAtaqueEmArea.
 export function descritoresEfetivosDoAtaque(attacker, attack) {
   const base = attack?.descritores || [];
+  let resultado = base;
   if (attack?.ehDesarmado && temDescritor(attacker, "desarmado_letal") && !base.includes("letal")) {
-    return [...base, "letal"];
+    resultado = [...resultado, "letal"];
   }
-  return base;
+  // Queimadura concedida pelo PERSONAGEM (Encantamento Flamejante, 19/10 —
+  // ver data/magias.js:descritoresDeEncantamentosAtivos, que alimenta
+  // attacker.descritores via racasCatalogo.js:comGrausEfetivos) vale pra
+  // TODOS os ataques dele, físicos e mágicos — soma com a Queimadura
+  // própria do ataque/magia (grauQueimadura soma todas as ocorrências).
+  const queimadurasDoAtacante = (attacker?.descritores || []).filter(
+    (d) => d === "queimadura" || /^queimadura_\d+$/.test(d)
+  );
+  if (queimadurasDoAtacante.length) {
+    resultado = [...resultado, ...queimadurasDoAtacante];
+  }
+  return resultado;
 }
 
 export function attrBonus(grade) {
@@ -580,8 +592,31 @@ export function temDescritor(entidade, nome) {
   return (entidade?.descritores || []).includes(nome);
 }
 
+// Descritor "Queimadura N" (Pedro, 19/10): identifica o grau de queimadura
+// de um ataque/magia OU de um personagem (Encantamento Flamejante concede
+// Queimadura 1 a TODOS os ataques do usuário — ver
+// data/magias.js:descritoresDeEncantamentosAtivos e
+// descritoresEfetivosDoAtaque, abaixo). Codificado como string "queimadura"
+// (N implícito = 1) ou "queimadura_N" (N explícito), igual "atrasada_1" já
+// faz pra outro descritor com número (ver data/magias.js). Soma TODAS as
+// ocorrências encontradas no array (ex.: Chama Mágica com Queimadura 1 +
+// Encantamento Flamejante com Queimadura 1 = Queimadura 2 no mesmo ataque)
+// — não é uma regra confirmada pelo Pedro, é a leitura mais direta de
+// "ganham Queimadura 1" empilhando com o que o ataque já tiver; listada no
+// relatório final como decisão minha.
+export function grauQueimadura(descritores) {
+  const ds = descritores || [];
+  return ds.reduce((total, d) => {
+    if (d === "queimadura") return total + 1;
+    const m = /^queimadura_(\d+)$/.exec(d);
+    return m ? total + parseInt(m[1], 10) : total;
+  }, 0);
+}
+
 export const LIMIAR_SUCESSO = 5; // dado > 5 => 6+ é sucesso
 export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado
+export const LIMIAR_QUEIMADURA = 7; // dado > 7 => 8+ é sucesso na rolagem de Queimadura
+export const LIMIAR_QUEIMADURA_BLINDADO = 8; // dado > 8 => 9+ contra defensor Blindado
 
 // Limiar efetivo do dado de ATAQUE contra um defensor: 7+ se o defensor tiver
 // Blindado, exceto se o ataque for Perfurante (ignora Blindado) — "quando
@@ -729,6 +764,40 @@ export function aplicarFerimentos(hp, tipo, quantidade = 1) {
   return { ...hp, current, superficiais };
 }
 
+// Descritor "Queimadura N" (Pedro, 19/10) — efeito separado do dano
+// principal: só dispara se o ataque causou PELO MENOS 1 sucesso líquido
+// (sucessosLiquidosAtaque, já calculado pelo chamador); rola N d10 PRÓPRIOS
+// (fora do pool do ataque principal), sem rolagem de defesa — sucesso em 8+
+// (9+ se o defensor tiver Blindado; Perfurante/ignora_blindado ainda ignora
+// Blindado, mesma regra de limiarAtaque), 10 natural sempre sucesso
+// (rollSuccessDice já cobre isso). Cada sucesso = 1 ferimento PRÓPRIO, que
+// NÃO soma com os sucessos líquidos do ataque principal (ferimentos
+// contados à parte). Ferimento superficial por padrão; agravante só se os
+// sucessos de queimadura >= Vigor do alvo (grau cheio; Letal do MESMO
+// ataque reduz em 1, mínimo 1 — mesma fórmula de determinarFerimento, só
+// que aplicada aos sucessos da queimadura, não aos do ataque). Sortudo não
+// é mencionado na regra do Pedro pra este efeito — não aplicado aqui
+// (decisão minha, listada no relatório final). Devolve null quando não há
+// Queimadura no ataque ou quando o ataque não causou sucesso líquido.
+export function resolveQueimadura({ attacker, defender, descritoresAtaque = [], sucessosLiquidosAtaque }) {
+  const grau = grauQueimadura(descritoresAtaque);
+  if (grau <= 0 || !sucessosLiquidosAtaque || sucessosLiquidosAtaque < 1) return null;
+  const perfurante = descritoresAtaque.includes("perfurante") || temDescritor(attacker, "ignora_blindado");
+  const limiar = perfurante
+    ? LIMIAR_QUEIMADURA
+    : (temDescritor(defender, "blindado") ? LIMIAR_QUEIMADURA_BLINDADO : LIMIAR_QUEIMADURA);
+  const rolagem = rollSuccessDice(grau, limiar);
+  const letal = descritoresAtaque.includes("letal");
+  const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] ?? 1;
+  const tipoFerimento = determinarFerimento({
+    sucessosLiquidos: rolagem.successes, vigorGrauCheio, letal, superficialForcado: false,
+  });
+  return {
+    dados: grau, limiar, rolagem, sucessos: rolagem.successes,
+    tipoFerimento, feridas: tipoFerimento ? rolagem.successes : 0,
+  };
+}
+
 // Resolução de um ataque genérico (físico ou mágico) — docs/SISTEMA_MAGIA.md.
 // `totalDiceAtaque` já vem calculado pelo chamador (diceAtaqueFisico ou
 // diceAtaqueMagico), porque a origem do pool difere bastante entre os dois
@@ -758,9 +827,10 @@ export function resolveAtaque({ attacker, defender, tipoAtaque, totalDiceAtaque,
   const letal = descritoresAtaque.includes("letal");
   const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] ?? 1;
   const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado: superficial });
+  const queimadura = resolveQueimadura({ attacker, defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
   return {
     limiar, rolagemAtaque, rolagemDefesa, sucessosLiquidos, letal,
-    tipoFerimento, feridas: tipoFerimento ? feridas : 0,
+    tipoFerimento, feridas: tipoFerimento ? feridas : 0, queimadura,
   };
 }
 
@@ -789,9 +859,10 @@ export function resolveAtaqueEmArea({ attacker, defenders, tipoAtaque, totalDice
     const letal = descritoresAtaque.includes("letal");
     const vigorGrauCheio = GRADE_VALUE[getAttrGrade(defender, "vigor")] ?? 1;
     const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, superficialForcado: superficial });
+    const queimadura = resolveQueimadura({ attacker, defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
     return {
       defender, limiar, sucessosAtaque, rolagemDefesa, sucessosLiquidos, letal,
-      tipoFerimento, feridas: tipoFerimento ? feridas : 0,
+      tipoFerimento, feridas: tipoFerimento ? feridas : 0, queimadura,
     };
   });
   return { rolagemAtaqueBase, resultados };

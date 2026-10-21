@@ -17,6 +17,7 @@ import {
   contagemOficiosMagicos,
   resolveRolagemDefesa, determinarFerimento, aplicarFerimentos, resolveAtaque,
   resolveAtaqueEmArea, descritoresEfetivosDoAtaque,
+  grauQueimadura, resolveQueimadura, LIMIAR_QUEIMADURA, LIMIAR_QUEIMADURA_BLINDADO,
 } from "./engine.js";
 
 const SOCO = BASE_ATTACK_TYPES.find((a) => a.id === "soco");
@@ -351,6 +352,20 @@ describe("descritoresEfetivosDoAtaque", () => {
     const atacante = withDescritores(makeCharacter(), ["desarmado_letal"]);
     assert.deepEqual(descritoresEfetivosDoAtaque(atacante, ARMA_BRANCA), ["letal"]);
   });
+  // Queimadura concedida pelo PERSONAGEM (Pedro, 19/10 — Encantamento
+  // Flamejante, via racasCatalogo.js:comGrausEfetivos) soma com a do
+  // ataque/magia, igual desarmado_letal soma "letal".
+  it("Queimadura do personagem (ex.: Encantamento Flamejante) soma nos descritores do ataque", () => {
+    const atacante = withDescritores(makeCharacter(), ["queimadura"]);
+    assert.deepEqual(descritoresEfetivosDoAtaque(atacante, ARMA_BRANCA), ["letal", "queimadura"]);
+  });
+  it("sem Queimadura no personagem, não adiciona nada", () => {
+    assert.deepEqual(descritoresEfetivosDoAtaque(makeCharacter(), ARMA_BRANCA), ["letal"]);
+  });
+  it("Queimadura do personagem some com desarmado_letal no mesmo ataque desarmado", () => {
+    const atacante = withDescritores(makeCharacter(), ["desarmado_letal", "queimadura"]);
+    assert.deepEqual(descritoresEfetivosDoAtaque(atacante, SOCO), ["letal", "queimadura"]);
+  });
   it("desarmado_letal não afeta ataques que não são desarmados", () => {
     const atacanteSemLetal = makeCharacter();
     assert.deepEqual(descritoresEfetivosDoAtaque(atacanteSemLetal, ARMA_BRANCA), ["letal"]);
@@ -360,6 +375,89 @@ describe("descritoresEfetivosDoAtaque", () => {
 // ---------------------------------------------------------------------------
 // Base mágica (2d10 + extra de mana) e pools de dados de ataque
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// grauQueimadura / resolveQueimadura — descritor "Queimadura N" (Pedro, 19/10)
+// ---------------------------------------------------------------------------
+
+describe("grauQueimadura", () => {
+  it("sem o descritor, devolve 0", () => {
+    assert.equal(grauQueimadura([]), 0);
+    assert.equal(grauQueimadura(["letal", "perfurante"]), 0);
+  });
+  it("'queimadura' sem número = grau 1", () => {
+    assert.equal(grauQueimadura(["queimadura"]), 1);
+  });
+  it("'queimadura_N' explícito = grau N", () => {
+    assert.equal(grauQueimadura(["queimadura_3"]), 3);
+  });
+  it("soma todas as ocorrências (ex.: ataque + Encantamento Flamejante)", () => {
+    assert.equal(grauQueimadura(["queimadura", "queimadura_2"]), 3);
+  });
+  it("descritores undefined não quebra", () => {
+    assert.equal(grauQueimadura(undefined), 0);
+  });
+});
+
+describe("resolveQueimadura", () => {
+  it("sem o descritor Queimadura, devolve null", () => {
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: makeCharacter(), descritoresAtaque: ["letal"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r, null);
+  });
+  it("sem sucesso líquido no ataque principal, devolve null (não rola nada)", () => {
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: makeCharacter(), descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 0 });
+    assert.equal(r, null);
+  });
+  it("rola N d10 PRÓPRIOS (grau da Queimadura), sucesso em 8+, cada sucesso é 1 ferimento à parte", (t) => {
+    const defender = makeCharacter(); // Vigor E, grau cheio 1
+    mockDice(t, [9, 7, 10]); // 3 dados (queimadura_3): 9 e 10 batem 8+, 7 não
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender, descritoresAtaque: ["queimadura_3"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.dados, 3);
+    assert.equal(r.limiar, LIMIAR_QUEIMADURA);
+    assert.equal(r.sucessos, 2);
+    assert.equal(r.tipoFerimento, "agravante"); // 2 >= Vigor grau cheio 1
+    assert.equal(r.feridas, 2);
+  });
+  it("sem nenhum sucesso na rolagem de queimadura, sem ferimento (tipoFerimento null, feridas 0)", (t) => {
+    mockDice(t, [5]); // 5 não bate 8+
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: makeCharacter(), descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.sucessos, 0);
+    assert.equal(r.tipoFerimento, null);
+    assert.equal(r.feridas, 0);
+  });
+  it("superficial quando sucessos de queimadura < Vigor do alvo (grau cheio)", (t) => {
+    const defender = withAttrs(makeCharacter(), { vigor: "D" }); // grau cheio 2
+    mockDice(t, [9]); // 1 sucesso < 2
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender, descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.sucessos, 1);
+    assert.equal(r.tipoFerimento, "superficial");
+  });
+  it("Letal (do mesmo ataque) reduz o Vigor necessário em 1, igual no ataque normal", (t) => {
+    const defender = withAttrs(makeCharacter(), { vigor: "D" }); // grau cheio 2, Letal -> necessário 1
+    mockDice(t, [9]); // 1 sucesso
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender, descritoresAtaque: ["queimadura", "letal"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.tipoFerimento, "agravante"); // 1 >= (2-1)
+  });
+  it("9+ contra defensor Blindado (em vez de 8+)", (t) => {
+    const defenderBlindado = withDescritores(makeCharacter(), ["blindado"]);
+    mockDice(t, [8]); // 8 não basta pro Blindado (precisa 9+)
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: defenderBlindado, descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.limiar, LIMIAR_QUEIMADURA_BLINDADO);
+    assert.equal(r.sucessos, 0);
+  });
+  it("Perfurante no ataque ignora o Blindado do alvo (volta a 8+)", (t) => {
+    const defenderBlindado = withDescritores(makeCharacter(), ["blindado"]);
+    mockDice(t, [8]);
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: defenderBlindado, descritoresAtaque: ["queimadura", "perfurante"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.limiar, LIMIAR_QUEIMADURA);
+    assert.equal(r.sucessos, 1);
+  });
+  it("natural 10 sempre é sucesso na rolagem de queimadura (rollSuccessDice já garante)", (t) => {
+    mockDice(t, [10]);
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: makeCharacter(), descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.sucessos, 1);
+  });
+});
 
 describe("extraDeManaMagica / diceBaseMagica", () => {
   it("extra = mana gasta ACIMA do custo da magia, mínimo 0", () => {
@@ -763,6 +861,52 @@ describe("resolveAtaque", () => {
     const r = resolveAtaque({ attacker: makeCharacter(), defender, totalDiceAtaque: 1, defesaAtributo: "vigor", totalDiceDefesaManual: 1 });
     assert.equal(r.rolagemDefesa.totalDice, 1);
   });
+
+  // Queimadura (Pedro, 19/10) — resolveAtaque chama resolveQueimadura por
+  // cima da resolução normal, sem misturar os sucessos dos dois.
+  it("sem o descritor Queimadura, result.queimadura é null", (t) => {
+    mockDice(t, [7, /*defesa*/ 1, 1]);
+    const r = resolveAtaque({ attacker: makeCharacter(), defender: makeCharacter(), totalDiceAtaque: 1, defesaAtributo: "vigor" });
+    assert.equal(r.queimadura, null);
+  });
+  it("com Queimadura e sucesso líquido >=1, rola a queimadura separada (ferimentos à parte)", (t) => {
+    const defender = makeCharacter(); // Vigor E, grau cheio 1
+    mockDice(t, [7, /*defesa*/ 1, 1, /*queimadura*/ 9]);
+    const r = resolveAtaque({
+      attacker: makeCharacter(), defender, totalDiceAtaque: 1,
+      descritoresAtaque: ["queimadura"], defesaAtributo: "vigor",
+    });
+    assert.equal(r.sucessosLiquidos, 1);
+    assert.equal(r.tipoFerimento, "agravante");
+    assert.equal(r.feridas, 1);
+    assert.ok(r.queimadura);
+    assert.equal(r.queimadura.dados, 1);
+    assert.equal(r.queimadura.sucessos, 1);
+    assert.equal(r.queimadura.tipoFerimento, "agravante");
+    assert.equal(r.queimadura.feridas, 1);
+  });
+  it("sem sucesso líquido no ataque principal (defesa cancela tudo), Queimadura não dispara", (t) => {
+    mockDice(t, [6, /*defesa*/ 9, 9]); // sucessosLiquidos = 0, nenhum dado extra de queimadura consumido
+    const r = resolveAtaque({
+      attacker: makeCharacter(), defender: makeCharacter(), totalDiceAtaque: 1,
+      descritoresAtaque: ["queimadura"], defesaAtributo: "vigor",
+    });
+    assert.equal(r.sucessosLiquidos, 0);
+    assert.equal(r.queimadura, null);
+  });
+});
+
+describe("resolveAtaque — Queimadura concedida pelo personagem (Encantamento Flamejante, 19/10)", () => {
+  it("character.descritores com 'queimadura' NÃO entra automaticamente — quem chama precisa montar descritoresAtaque via descritoresEfetivosDoAtaque", (t) => {
+    // resolveAtaque é agnóstico a quem monta descritoresAtaque (docs/
+    // SISTEMA_MAGIA.md) — a soma do descritor de PERSONAGEM acontece em
+    // descritoresEfetivosDoAtaque (ver describe acima), não dentro de
+    // resolveAtaque. Este teste documenta essa fronteira.
+    const attacker = withDescritores(makeCharacter(), ["queimadura"]);
+    mockDice(t, [7, /*defesa*/ 1, 1]); // sem dado extra de queimadura: descritoresAtaque não foi passado
+    const r = resolveAtaque({ attacker, defender: makeCharacter(), totalDiceAtaque: 1, defesaAtributo: "vigor" });
+    assert.equal(r.queimadura, null);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -793,6 +937,27 @@ describe("resolveAtaqueEmArea", () => {
     });
     assert.equal(r.resultados[0].sucessosAtaque, 0); // 6 não bate 7+ pro Blindado
     assert.equal(r.resultados[1].sucessosAtaque, 1); // 6 bate 6+ pro normal
+  });
+  it("Queimadura (19/10) é resolvida por alvo, a partir dos sucessos líquidos de cada um", (t) => {
+    const alvo1 = makeCharacter(); // Vigor E, defesa 2 dados
+    const alvo2 = withAttrs(makeCharacter(), { vigor: "D" }); // Vigor D (grau cheio 2), defesa 3 dados
+    mockDice(t, [
+      7, // ataque base, 1 sucesso
+      /*defesa alvo1*/ 1, 1,
+      /*queimadura alvo1*/ 9,
+      /*defesa alvo2*/ 1, 1, 1,
+      /*queimadura alvo2*/ 9,
+    ]);
+    const r = resolveAtaqueEmArea({
+      attacker: makeCharacter(), defenders: [alvo1, alvo2], tipoAtaque: "marcial",
+      totalDiceAtaque: 1, defesaAtributo: "vigor", descritoresAtaque: ["queimadura"],
+    });
+    assert.ok(r.resultados[0].queimadura);
+    assert.equal(r.resultados[0].queimadura.sucessos, 1);
+    assert.equal(r.resultados[0].queimadura.tipoFerimento, "agravante"); // 1 >= Vigor grau cheio 1
+    assert.ok(r.resultados[1].queimadura);
+    assert.equal(r.resultados[1].queimadura.sucessos, 1);
+    assert.equal(r.resultados[1].queimadura.tipoFerimento, "superficial"); // 1 < Vigor grau cheio 2
   });
   it("defesaAtributoPorDefensor escolhe o atributo de defesa individualmente", (t) => {
     const alvo1 = withAttrs(makeCharacter(), { vigor: "B" });

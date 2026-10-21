@@ -84,6 +84,17 @@ export function descritoresEfetivosArma(arma, temPericia) {
   return out.filter(Boolean);
 }
 
+// Proficiência de combate usada ao atacar com uma arma do catálogo (pra
+// equipar na ficha — 21/10). O sistema só tem 2 proficiências de combate
+// físico (Armas de Fogo / Combate Corpo a Corpo, engine.js), então toda
+// arma que não é de fogo (lâminas, contundentes, hastes, flexíveis e as
+// de "Distância" como arco/besta/arremesso, que não têm perícia própria)
+// usa Combate Corpo a Corpo — mesma simplificação que BASE_ATTACK_TYPES já
+// fazia pra arma_branca. Decisão provisória minha, listada no relatório.
+export function profKeyDaArma(arma) {
+  return arma?.familia === "Arma de fogo" ? "armasDeFogo" : "combateCorpoACorpo";
+}
+
 export const ALCANCE_LABEL = {
   mesma_zona: "Mesma zona",
   uma_zona_adiante: "Até 1 zona",

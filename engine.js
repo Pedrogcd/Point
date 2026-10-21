@@ -476,6 +476,17 @@ export function descritoresEfetivosDoAtaque(attacker, attack) {
   if (attack?.ehDesarmado && temDescritor(attacker, "desarmado_letal") && !base.includes("letal")) {
     resultado = [...resultado, "letal"];
   }
+  // desarmado_perfurante (21/10, Garras e Presas — docs/ATUALIZACAO_21-10.md
+  // seção 8.5): "ataques desarmados ganham Perfurante" — mesmo padrão de
+  // desarmado_letal, só que pro descritor Perfurante. A segunda parte da
+  // habilidade ("à escolha na hora do ataque, Esmagador 1 ou Preciso 1") NÃO
+  // está aqui: é uma escolha do jogador NO MOMENTO do ataque, sem um lugar
+  // na UI de ataques catalogados pra isso (só existe esse tipo de escolha
+  // manual no painel "Ataque livre"/Teste) — listada como não mecanizada no
+  // relatório final.
+  if (attack?.ehDesarmado && temDescritor(attacker, "desarmado_perfurante") && !base.includes("perfurante")) {
+    resultado = [...resultado, "perfurante"];
+  }
   const doPersonagem = (attacker?.descritores || []).filter((d) => DESCRITORES_DE_ATAQUE_DO_PERSONAGEM.test(d));
   if (doPersonagem.length) {
     resultado = [...resultado, ...doPersonagem];
@@ -509,10 +520,16 @@ export function computeMaxHP(character) {
   return 2 + attrBonus(character?.atributosGerais?.vigor) + bonusPersistente + bonusDescritor;
 }
 
+// "sp_maximo_menos_1" (21/10, Homúnculo — docs/ATUALIZACAO_21-10.md seção
+// 8.3: "-1 SP máximo"): mesmo mecanismo de "hp_maximo_1" (descritor de
+// personagem, booleano — não soma por fonte), só que SUBTRAI em vez de
+// somar. Math.max(0, ...) pra nunca ficar negativo (defensivo — na prática
+// a base já é 3, nunca chegaria a isso).
 export function computeMaxSP(character) {
   const base = character?.sp?.max ?? 3;
   const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
-  return base + bonusPersistente;
+  const penalidadeHomunculo = temDescritor(character, "sp_maximo_menos_1") ? 1 : 0;
+  return Math.max(0, base + bonusPersistente - penalidadeHomunculo);
 }
 
 // MP (mana) máximo: 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Magia Inata (+1 MP
@@ -693,6 +710,33 @@ export function rolarComSortudo(totalDice, limiar, temSortudo) {
   return { dice, successes, criticos, superSucesso: successes >= 3, sortudoAplicado: { indice: idx, original, novo } };
 }
 
+// Azarado (21/10, docs/ATUALIZACAO_21-10.md seção 5): "o alvo re-rola o
+// primeiro sucesso do teste e fica com o novo resultado — oposto do
+// Sortudo". Implementado como descritor do DEFENSOR que afeta a rolagem do
+// ATACANTE (mesma leitura da habilidade racial Raposa/Kitsune, seção 8.5:
+// "o primeiro sucesso de UM ATAQUE CONTRA VOCÊ é re-rolado") — chamado de
+// dentro de `resolveAtaque`, nunca pelo próprio atacante. Diferente do
+// Sortudo, não tem "se não achar, devolve null": sempre re-rola o primeiro
+// sucesso achado, pro bem ou pro mal (dado novo pode ser melhor OU pior —
+// "fica com o novo resultado" é incondicional, ao contrário do Sortudo, que
+// só re-rola o 1/2 justamente porque não tem como piorar).
+// Decisão minha de ordem (não confirmada pelo Pedro, listada no relatório):
+// se o atacante também tiver Sortudo, o Sortudo aplica primeiro (sobre o
+// 1/2 original) — só depois o Azarado escaneia o array já modificado em
+// busca do primeiro sucesso. Não é regra fechada, é a leitura mais direta
+// de aplicar os dois descritores em sequência.
+export function aplicarAzarado(resultado, limiar) {
+  const idx = resultado.dice.findIndex((d) => d === 10 || d > limiar);
+  if (idx === -1) return { ...resultado, azaradoAplicado: null };
+  const dice = [...resultado.dice];
+  const original = dice[idx];
+  const novo = Math.floor(Math.random() * 10) + 1;
+  dice[idx] = novo;
+  const successes = dice.filter((d) => d === 10 || d > limiar).length;
+  const criticos = dice.filter((d) => d === 10).length;
+  return { ...resultado, dice, successes, criticos, superSucesso: successes >= 3, azaradoAplicado: { indice: idx, original, novo } };
+}
+
 // Checa se uma entidade (personagem OU ataque/magia — qualquer coisa com um
 // array `descritores`) tem um descritor específico. Único ponto de checagem
 // de descritor no motor (docs/SISTEMA_MAGIA.md item 3, função pedida
@@ -812,6 +856,17 @@ export function contagemOficiosMagicos(character) {
   return oficios.length + extras;
 }
 
+// Rolagem de recuperação de mana ao lançar ("ofícios mágicos + mana gasta",
+// docs/SISTEMA_MAGIA.md item 6/docs/ATUALIZACAO_21-10.md seção 3) — extraída
+// pra cá em 21/10 (antes vivia inline em point-amaranth-app.jsx:castMagia)
+// pra poder somar o descritor **Reabastecer** (seção 5, 21/10): "+1 dado na
+// rolagem de recuperação de mana ao lançar magia". `manaGasta` é o número de
+// mana gasto NESTA conjuração (não o total da ficha).
+export function diceRecuperacaoMana(character, manaGasta) {
+  const reabastecer = temDescritor(character, "reabastecer") ? 1 : 0;
+  return contagemOficiosMagicos(character) + (manaGasta || 0) + reabastecer;
+}
+
 // Pool de dados de um ataque MÁGICO: Base Mágica (2d10 + extra de mana) +
 // (Ofícios Mágicos OU Inteligência, à escolha do jogador a cada conjuração —
 // `fonte`: "oficios" default, ou "inteligencia") + ajuste da magia (ex.:
@@ -920,7 +975,12 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
   // 1 sucesso sempre garantido — substitui o antigo Blindado Mágico dessa raça.
   const resisteAMagia = !!ehMagia && temDescritor(defensor, "resiste_a_magia");
   if (resisteAMagia) totalDice = Math.max(0, totalDice - 1);
-  const temSortudo = temDescritor(defensor, "sortudo");
+  // sortudo_esquiva (21/10, Coelho/Bode — docs/ATUALIZACAO_21-10.md seção
+  // 8.5: "Sortudo ao esquivar"): mesma restrição de sortudo_fisico, mas por
+  // ATRIBUTO de defesa em vez de tipo de ataque — só vale quando a defesa
+  // usa Destreza (esquivar), nunca ao bloquear.
+  const temSortudo = temDescritor(defensor, "sortudo")
+    || (defesaAtributo === "destreza" && temDescritor(defensor, "sortudo_esquiva"));
   const rolagem = rolarComSortudo(totalDice, limiar, temSortudo);
   if (firmeGarantidos) rolagem.successes += firmeGarantidos; // sucessos garantidos do Firme N somam direto, sem rolar
   if (resisteAMagia && rolagem.successes < 1) rolagem.successes = 1; // 1 sucesso sempre garantido
@@ -1029,6 +1089,10 @@ export function resolveQueimadura({ attacker, defender, descritoresAtaque = [], 
 // cena (por isso é um estado à parte de hp.superficiais, que não distingue
 // a origem do ferimento).
 export function resolveEnvenenamento({ defender, descritoresAtaque = [], sucessosLiquidosAtaque, limiteAtual = 0, feridasAtuais = 0 }) {
+  // Imunidade total (21/10, Descendentes de Sharkan — docs/ATUALIZACAO_21-10.md
+  // seção 8.4: "imune a Envenenamento"): diferente de Selado N (que só
+  // desconta N dados), zera o efeito por completo, sem rolar nada.
+  if (temDescritor(defender, "imune_envenenamento")) return null;
   // Selado N (armadura, 21/10): "o Envenenamento... contra você rolam N
   // dados a menos" — mesmo desconto de resolveQueimadura.
   const grau = Math.max(0, grauEnvenenamento(descritoresAtaque) - grauSelado(defender?.descritores));
@@ -1134,7 +1198,12 @@ export function resolveAtaque({
   // Pedro) é uma versão restrita: só ativa quando o ataque NÃO é mágico.
   const temSortudoAtacante = temDescritor(attacker, "sortudo") || descritoresAtaque.includes("sortudo")
     || (!ehMagia && temDescritor(attacker, "sortudo_fisico"));
-  const rolagemAtaque = rolarComSortudo(totalDiceAtaque, limiar, temSortudoAtacante);
+  let rolagemAtaque = rolarComSortudo(totalDiceAtaque, limiar, temSortudoAtacante);
+  // Azarado (21/10, descritor do DEFENSOR): re-rola o primeiro sucesso do
+  // ATACANTE, incondicional — depois do Sortudo (ver aplicarAzarado acima).
+  if (temDescritor(defender, "azarado")) {
+    rolagemAtaque = aplicarAzarado(rolagemAtaque, limiar);
+  }
   const rolagemDefesa = resolveRolagemDefesa({ defensor: defender, defesaAtributo, descritoresAtaque, ehMagia, totalDiceManual: totalDiceDefesaManual });
   const sucessosLiquidos = Math.max(0, rolagemAtaque.successes - rolagemDefesa.successes);
   const letal = descritoresAtaque.includes("letal");

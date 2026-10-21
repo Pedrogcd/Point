@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useId } from "react";
+import { createPortal } from "react-dom";
 import {
   Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
   Upload, Download, ExternalLink, Eye, EyeOff, Route, RefreshCw,
-  ChevronUp, UserPlus, Skull, Play, StopCircle, Network,
+  ChevronUp, UserPlus, Skull, Play, StopCircle, Network, Tags, Search,
 } from "lucide-react";
 import {
   GRADE_VALUE, GRADE_ORDER,
@@ -19,14 +20,18 @@ import {
   limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
-  contagemOficiosMagicos,
+  contagemOficiosMagicos, diceRecuperacaoMana,
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
 import {
   MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO,
 } from "./data/magias.js";
-import { ARMAS, getArmaPorId, descritoresEfetivosArma, ALCANCE_LABEL } from "./data/armas.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
+import {
+  DESCRITORES, DESCRITORES_POR_ID, TIPOS_DESCRITOR, DESCRITORES_INTERNOS,
+  resolverDescritorToken, nomeDoToken, textoComN, marcarDescritoresNoTexto,
+} from "./data/descritores.js";
 import {
   ARMADURAS, getArmaduraPorId, armadurasDoSlot,
 } from "./data/armaduras.js";
@@ -57,7 +62,7 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_RACA,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
@@ -181,33 +186,49 @@ const HABILIDADE_CATEGORIA_INFO = {
 // ATRIBUTOS_GERAIS_LIST (todas vêm de engine.js, sem "__" no nome).
 const BASE_MAGICA_KEY = "__base_magica__";
 
-const DESCRITOR_INFO = {
-  blindado: { label: "Blindado", cor: "#5C86B0", descricao: "Dados de ataque contra você, físico ou mágico, precisam de no mínimo 7, em vez de 6, para dar sucesso. Perfurante ignora." },
-  resiste_a_magia: { label: "Resiste a Magia", cor: PURPLE, descricao: "Ao se defender de um ataque com o descritor Magia: rola 1 dado a menos e tem 1 sucesso sempre garantido." },
-  desarmado_letal: { label: "Desarmado Letal", cor: EMBER, descricao: "Seus ataques desarmados são tratados como armas letais e contam como arma branca para habilidades." },
-  ignora_blindado: { label: "Ignora Blindado", cor: BRASS_BRIGHT, descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (exceto o Blindado que não pode ser ignorado por habilidades)." },
-  veloz: { label: "Veloz", cor: "#4A9A6E", descricao: "Etiqueta — ainda sem efeito no motor (prioridade/rodadas fora do escopo atual)." },
-  sortudo: { label: "Sortudo", cor: "#E0A800", descricao: "O primeiro dado que sair 1 ou 2 em cada teste (inclusive de ataque) é re-rolado automaticamente, uma vez." },
-  sortudo_fisico: { label: "Sortudo (físico)", cor: "#E0A800", descricao: "Como o Sortudo, mas só vale em rolagens de ATAQUE FÍSICO (não mágico): o primeiro dado que sair 1 ou 2 é re-rolado automaticamente, uma vez. (Descendentes de Sabato, 14/10.)" },
-  magia: { label: "Magia", cor: PURPLE, descricao: "Toda magia tem este descritor — identifica o ataque como mágico." },
-  em_area: { label: "Em área", cor: "#5C86B0", descricao: "Atinge todos os alvos da zona; cada um rola a própria defesa; o conjurador rola uma vez; aliados na zona também são atingidos." },
-  perfurante: { label: "Perfurante", cor: BRASS_BRIGHT, descricao: "Ignora o Blindado do alvo." },
-  letal: { label: "Letal", cor: EMBER, descricao: "Reduz em 1 (mínimo 1) o Vigor necessário para o ferimento virar agravante." },
-  atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
-  queimadura: { label: "Queimadura", cor: EMBER, descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola 1 d10 extra (separado do pool) contra 8+ (9+ se o alvo tiver Blindado; Perfurante ignora). Cada sucesso é 1 ferimento à parte, superficial — ou agravante se os sucessos de queimadura chegarem ao Vigor do alvo." },
-  // 21/10 (docs/ATUALIZACAO_21-10.md, seção 5) — glossário novo. "Saturante"
-  // foi RETIRADO (equivale a Preciso 2; não tem mais efeito nenhum no
-  // motor, ver engine.js:resolveRolagemDefesa — nunca selecione "saturante"
-  // à toa, use "preciso"/"preciso_2").
-  preciso: { label: "Preciso", cor: "#B0784F", descricao: "Difícil de esquivar (nome provisório). Se o defensor usar Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Substitui o antigo Saturante (Saturante = Preciso 2)." },
-  esmagador: { label: "Esmagador", cor: "#8B5A2B", descricao: "Difícil de bloquear (nome provisório). Se o defensor usar Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Contrapartida do Preciso." },
-  resistente: { label: "Resistente", cor: "#4A9A6E", descricao: "Soma +1 ao Vigor necessário pro ferimento virar agravante. Não acumula (mais de uma fonte não soma mais que +1). Anula Letal (os dois juntos voltam pro Vigor normal)." },
-  pesado: { label: "Pesado", cor: EMBER, descricao: "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com ele — nunca sobe pra 8+). Em troca, a arma causa 2 ferimentos por ataque que acerta (ambos seguem a regra do Vigor — provisório)." },
-  envenenamento: { label: "Envenenamento", cor: "#4A9A2E", descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (sucesso 7+, ignora defesa e Blindado). Com pelo menos 1 sucesso, sempre exatamente 1 ferimento superficial. O total de ferimentos de veneno do alvo é limitado ao maior N já recebido — zera na cura ou no descanso longo." },
-  carga: { label: "Carga", cor: "#5C86B0", descricao: "Cada sucesso líquido do ataque deixa 1 carga no alvo. Ao chegar no N do ataque que acabou de carregar, descarrega: N dados extras (6+, sem defesa), cada sucesso é 1 ferimento (agravante se >= Vigor). As cargas ficam no alvo até a descarga ou o descanso longo." },
-  drenante: { label: "Drenante", cor: PURPLE, descricao: "Se o ataque causar ao menos 1 sucesso líquido, o alvo perde 1 mana disponível e o atacante recupera 1 mana gasta (nunca quebrada). Uma vez por ataque." },
-  hp_maximo_1: { label: "+1 HP máximo", cor: EMBER, descricao: "Soma +1 ao HP máximo do personagem." },
-};
+// DESCRITOR_INFO (21/10, migrado pra data/descritores.json): era um objeto
+// literal com label/cor/descricao hardcoded pra cada descritor — virou um
+// Proxy que resolve ao vivo a partir da fonte única (data/descritores.js),
+// pra todo DESCRITOR_INFO[token] que já existia no código continuar
+// funcionando sem precisar tocar em cada chamada. Tokens do glossário usam
+// resolverDescritorToken (label já com o N, cor por tipo, descricao =
+// regra com o N substituído); tokens que são só marcadores internos (não
+// aparecem na tabela, ver DESCRITORES_INTERNOS em data/descritores.js)
+// caem no segundo caso. Qualquer outro token devolve undefined, igual um
+// objeto comum devolveria pra uma chave que não existe.
+function corPorTipoDescritor(tipo) {
+  switch (tipo) {
+    case "Ataque": return EMBER;
+    case "Efeito extra": return "#8B5A2B";
+    case "Defesa": return "#5C86B0";
+    case "Teste": return "#E0A800";
+    case "Mana": return MP_COLOR;
+    case "Prioridade": return "#4A9A6E";
+    case "Condição": return BRASS_BRIGHT;
+    case "Duração": return PURPLE;
+    default: return MUTED;
+  }
+}
+const DESCRITOR_INFO = new Proxy({}, {
+  get(_alvo, token) {
+    if (typeof token !== "string") return undefined;
+    const resolvido = resolverDescritorToken(token);
+    if (resolvido) {
+      const { descritor, n } = resolvido;
+      return {
+        label: n != null ? `${descritor.nome} ${n}` : descritor.nome,
+        cor: corPorTipoDescritor(descritor.tipo),
+        descricao: textoComN(descritor.regra, n),
+      };
+    }
+    const interno = DESCRITORES_INTERNOS[token];
+    if (interno) return { label: interno.label, cor: MUTED, descricao: interno.descricao };
+    return undefined;
+  },
+  has(_alvo, token) {
+    return typeof token === "string" && (!!resolverDescritorToken(token) || !!DESCRITORES_INTERNOS[token]);
+  },
+});
 
 // Listas curadas pro modo Ataque livre do painel Teste (14/10, mais tarde,
 // pedido do Pedro: escolher Atributo + Proficiência + característica em vez
@@ -221,7 +242,7 @@ const CARACTERISTICAS_ATAQUE = [
   "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
   "queimadura", "pesado", "envenenamento", "carga", "drenante",
 ];
-const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente"];
+const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente", "azarado", "imune_envenenamento"];
 
 
 
@@ -4835,6 +4856,196 @@ const inputStyle = {
 };
 
 /* ---------------------------------------------------------------
+   DESCRITOR — selo + pop-up reutilizável (21/10, docs/descritores.json).
+   Onde quer que um descritor apareça (habilidade de raça, magia, arma,
+   armadura, item, ficha, texto de regra), passa por aqui em vez de um chip
+   avulso. Abre no hover, no foco por teclado e no toque (obrigatório — o
+   app é PWA); fecha com Esc, toque/clique fora ou perda de foco. Nunca sai
+   da tela: mede o próprio tamanho depois de montado e clampa contra a
+   viewport, preferindo abrir abaixo do selo e invertendo pra cima quando
+   não cabe.
+----------------------------------------------------------------*/
+const STATUS_BADGE_INFO = {
+  Etiqueta: { label: "Etiqueta", cor: MUTED },
+  "Em espera": { label: "Em espera", cor: BRASS_BRIGHT },
+  Futuro: { label: "Futuro", cor: PURPLE },
+};
+
+// Abre a aba "Descritores" focando um id — ver App (listener do evento) e
+// DescritoresView (quem rola até o cartão e aplica o destaque).
+function abrirNaAbaDescritores(id) {
+  window.dispatchEvent(new CustomEvent("point:abrir-descritor", { detail: { id } }));
+}
+
+function DescritorPopup({ id, descritor, n, interno, anchorRef, popupRef, onFechar, idPopup }) {
+  const [coords, setCoords] = useState(null);
+
+  useLayoutEffect(() => {
+    const trigger = anchorRef.current;
+    const popup = popupRef.current;
+    if (!trigger || !popup) return;
+    const margem = 8;
+    const tRect = trigger.getBoundingClientRect();
+    const pRect = popup.getBoundingClientRect();
+    let top = tRect.bottom + margem;
+    if (top + pRect.height > window.innerHeight - margem) {
+      const topCima = tRect.top - pRect.height - margem;
+      top = topCima >= margem ? topCima : Math.max(margem, window.innerHeight - pRect.height - margem);
+    }
+    let left = tRect.left;
+    if (left + pRect.width > window.innerWidth - margem) left = window.innerWidth - pRect.width - margem;
+    if (left < margem) left = margem;
+    setCoords({ top, left });
+  }, [anchorRef]);
+
+  const status = descritor ? STATUS_BADGE_INFO[descritor.status] : null;
+  return createPortal(
+    <div
+      ref={popupRef}
+      id={idPopup}
+      role="tooltip"
+      style={{
+        position: "fixed", top: coords?.top ?? -9999, left: coords?.left ?? -9999,
+        visibility: coords ? "visible" : "hidden", zIndex: 4000, maxWidth: 300,
+        background: PANEL, border: `1px solid ${LINE}`, borderRadius: 8,
+        boxShadow: "0 6px 18px #00000040", padding: "10px 12px", fontFamily: "'Spectral', serif",
+      }}
+      onMouseEnter={() => onFechar.cancelar()}
+      onMouseLeave={() => onFechar.agendar()}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+        <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: BRASS_BRIGHT, fontWeight: 700 }}>
+          {descritor ? (n != null ? `${descritor.nome} ${n}` : descritor.nome) : interno.label}
+        </span>
+        {status && (
+          <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: status.cor, border: `1px solid ${status.cor}88`, borderRadius: 10, padding: "1px 6px", whiteSpace: "nowrap" }}>
+            {status.label}
+          </span>
+        )}
+      </div>
+      {descritor && (
+        <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.4, marginBottom: 4, textTransform: "uppercase" }}>
+          {descritor.tipo}
+        </div>
+      )}
+      <div style={{ fontSize: 12, color: INK, lineHeight: 1.4, marginBottom: descritor ? 4 : 0 }}>
+        {descritor ? textoComN(descritor.resumo, n) : interno.descricao}
+      </div>
+      {descritor && (
+        <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.4, marginBottom: 6 }}>
+          {textoComN(descritor.regra, n)}
+        </div>
+      )}
+      {descritor && (
+        <button
+          type="button"
+          onClick={() => { onFechar.imediato(); abrirNaAbaDescritores(descritor.id); }}
+          style={{ background: "none", border: "none", padding: 0, font: "inherit", fontSize: 11, color: "#2F6D61", borderBottom: "1px dotted #2F6D61", cursor: "pointer" }}
+        >
+          Ver na aba Descritores
+        </button>
+      )}
+    </div>,
+    document.body,
+  );
+}
+
+function Descritor({ token, id, n: nProp }) {
+  const reactId = useId();
+  const idPopup = `descritor-popup-${reactId}`;
+  const [aberto, setAberto] = useState(false);
+  const anchorRef = useRef(null);
+  const popupRef = useRef(null);
+  const fecharTimeoutRef = useRef(null);
+
+  let descritor = null;
+  let n = nProp ?? null;
+  let interno = null;
+  if (token) {
+    const resolvido = resolverDescritorToken(token);
+    if (resolvido) { descritor = resolvido.descritor; n = resolvido.n; }
+    else interno = DESCRITORES_INTERNOS[token] || null;
+  } else if (id) {
+    descritor = DESCRITORES_POR_ID[id] || null;
+  }
+
+  const agendar = () => {
+    clearTimeout(fecharTimeoutRef.current);
+    fecharTimeoutRef.current = setTimeout(() => setAberto(false), 150);
+  };
+  const cancelar = () => clearTimeout(fecharTimeoutRef.current);
+  const abrir = () => { cancelar(); setAberto(true); };
+  const fecharImediato = () => { cancelar(); setAberto(false); };
+
+  useEffect(() => {
+    if (!aberto) return;
+    function onKeyDown(e) { if (e.key === "Escape") fecharImediato(); }
+    function onPointerDown(e) {
+      if (anchorRef.current?.contains(e.target) || popupRef.current?.contains(e.target)) return;
+      fecharImediato();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto]);
+
+  if (!descritor && !interno) return <span>{token || id}</span>;
+
+  const corSelo = descritor ? corPorTipoDescritor(descritor.tipo) : MUTED;
+  const rotulo = descritor ? (n != null ? `${descritor.nome} ${n}` : descritor.nome) : interno.label;
+
+  return (
+    <>
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-describedby={aberto ? idPopup : undefined}
+        onMouseEnter={abrir}
+        onMouseLeave={agendar}
+        onFocus={abrir}
+        onBlur={agendar}
+        onClick={(e) => { e.stopPropagation(); setAberto((v) => !v); }}
+        style={{
+          display: "inline", border: "none", background: `${corSelo}14`, color: corSelo,
+          font: "inherit", fontWeight: 600, borderRadius: 4, padding: "0 4px", margin: "0 1px",
+          borderBottom: `1px dotted ${corSelo}`, boxShadow: `0 1px 2px #00000022`, cursor: "help",
+        }}
+      >
+        {rotulo}
+      </button>
+      {aberto && (
+        <DescritorPopup
+          id={id} descritor={descritor} n={n} interno={interno} anchorRef={anchorRef} popupRef={popupRef} idPopup={idPopup}
+          onFechar={{ agendar, cancelar, imediato: fecharImediato }}
+        />
+      )}
+    </>
+  );
+}
+
+// Aplica marcarDescritoresNoTexto num texto corrido e devolve JSX — strings
+// continuam strings, os trechos reconhecidos (linkEmTextoLivre, inicial
+// maiúscula como no glossário) viram <Descritor>. Usado nos textos de
+// habilidade/magia/regra em vez do texto puro, sem mudar o texto em si.
+function TextoComDescritores({ texto, style }) {
+  if (!texto) return null;
+  const partes = marcarDescritoresNoTexto(texto);
+  return (
+    <span style={style}>
+      {partes.map((parte, i) =>
+        typeof parte === "string"
+          ? <React.Fragment key={i}>{parte}</React.Fragment>
+          : <Descritor key={i} id={parte.descritorId} n={parte.n} />
+      )}
+    </span>
+  );
+}
+
+/* ---------------------------------------------------------------
    FICHA — visualização completa + rolador de dados
 ----------------------------------------------------------------*/
 function StatBlock({ character }) {
@@ -4979,11 +5190,8 @@ function AttackCard({ atk, onClick, selected, character }) {
           : `${atributoInfo?.label || "Destreza"}${profInfo ? ` + ${profInfo.label}` : ""}, sucesso 6+ (7+ contra Blindado, exceto Perfurante)`}
       </div>
       {descritoresEfetivos.length > 0 && (
-        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-          {descritoresEfetivos.map((id) => {
-            const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
-            return <span key={id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
-          })}
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6, fontSize: 11 }}>
+          {descritoresEfetivos.map((id) => <Descritor key={id} token={id} />)}
         </div>
       )}
       {atk.descricao && <div style={{ fontSize: 10.5, color: MUTED, marginTop: 4, fontStyle: "italic" }}>{atk.descricao}</div>}
@@ -5030,8 +5238,8 @@ function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, efeito, vazio,
           <>
             <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, lineHeight: 1.25 }}>{titulo}</div>
             {subtitulo && <div style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace", color: cor }}>{subtitulo}</div>}
-            <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{corpo}</div>
-            {efeito && <div style={{ fontSize: 11, color: INK, marginTop: 2, fontStyle: "italic" }}>Efeito: {efeito}</div>}
+            <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}><TextoComDescritores texto={corpo} /></div>
+            {efeito && <div style={{ fontSize: 11, color: INK, marginTop: 2, fontStyle: "italic" }}>Efeito: <TextoComDescritores texto={efeito} /></div>}
           </>
         )}
       </div>
@@ -5156,7 +5364,7 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
                       : `Dispara com dado ≥${limiar} (${attrLabel})`}
                     {p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}
                   </div>
-                  <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}>{p.efeito}</div>
+                  <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45 }}><TextoComDescritores texto={p.efeito} /></div>
                 </div>
               );
             })}
@@ -5404,8 +5612,7 @@ function DisciplinaSlotPicker({
 // componente do CharacterForm) pra lista de opções, e mostra a descrição/
 // efeito da selecionada + o seletor de bônus de grau à escolha (Mana
 // Concentrada, Homúnculo), se a habilidade tiver um.
-function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecionada, corForcada, onEscolher, onEsvaziar, bonusEscolha, valorBonus, onEscolherBonus, onClose }) {
-  const listaBonus = bonusEscolha?.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecionada, corForcada, onEscolher, onEsvaziar, bonusEscolha, valorBonus, onEscolherBonus, descritorEscolha, valorDescritorEscolha, onEscolherDescritor, onClose }) {
   return (
     <div
       onClick={onClose}
@@ -5429,18 +5636,32 @@ function HabilidadeRacaPicker({ titulo, legenda, opcoes, selecionadoId, selecion
           <SeletorCards titulo={titulo} opcoes={opcoes} selecionadoId={selecionadoId} onEscolher={onEscolher} corForcada={corForcada} />
           {selecionada && (
             <p style={{ fontSize: 11.5, color: MUTED, marginTop: 10, lineHeight: 1.45 }}>
-              {selecionada.descricao} <em>Efeito: {selecionada.efeito}</em>
+              <TextoComDescritores texto={selecionada.descricao} /> <em>Efeito: <TextoComDescritores texto={selecionada.efeito} /></em>
             </p>
           )}
-          {bonusEscolha && (
+          {bonusEscolha && bonusEscolha.map((escolha, i) => {
+            const listaBonus = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+            return (
+              <div key={i} style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <label style={{ fontSize: 11, color: MUTED }}>
+                  Bônus{bonusEscolha.length > 1 ? ` ${i + 1}` : ""} de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha, não-combate):
+                </label>
+                <select style={{ ...inputStyle, width: 200 }} value={(valorBonus && valorBonus[i]) || ""} onChange={(e) => onEscolherBonus(i, e.target.value)}>
+                  <option value="">— escolher —</option>
+                  {escolha.opcoes.map((chave) => (
+                    <option key={chave} value={chave}>{listaBonus.find((x) => x.key === chave)?.label || chave}</option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
+          {descritorEscolha && (
             <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <label style={{ fontSize: 11, color: MUTED }}>
-                Bônus de +1 grau ({bonusEscolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha):
-              </label>
-              <select style={{ ...inputStyle, width: 200 }} value={valorBonus || ""} onChange={(e) => onEscolherBonus(e.target.value)}>
+              <label style={{ fontSize: 11, color: MUTED }}>Descritor à escolha:</label>
+              <select style={{ ...inputStyle, width: 220 }} value={valorDescritorEscolha || ""} onChange={(e) => onEscolherDescritor(e.target.value)}>
                 <option value="">— escolher —</option>
-                {bonusEscolha.opcoes.map((chave) => (
-                  <option key={chave} value={chave}>{listaBonus.find((x) => x.key === chave)?.label || chave}</option>
+                {descritorEscolha.opcoes.map((id) => (
+                  <option key={id} value={id}>{nomeDoToken(id)}</option>
                 ))}
               </select>
             </div>
@@ -5478,7 +5699,7 @@ function descricaoCurtaMagia(m) {
   if (m.feridas) partes.push(`${m.feridas} ferida${m.feridas > 1 ? "s" : ""}`);
   if (m.superficial) partes.push("superficial");
   if (m.emArea) partes.push("em área");
-  const descs = (m.descritores || []).filter((d) => d !== "magia").map((d) => DESCRITOR_INFO[d]?.label || d);
+  const descs = (m.descritores || []).filter((d) => d !== "magia").map((d) => nomeDoToken(d));
   if (descs.length) partes.push(descs.join(", "));
   return partes.join(" · ") || "Magia do catálogo.";
 }
@@ -5639,6 +5860,20 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       descritores: m.descritores, feridas: m.feridas, superficial: m.superficial, emArea: m.emArea,
       ajusteDados: m.ajusteDados, custoMp: m.custoMp,
     }));
+  // Arma equipada (21/10, docs/ATUALIZACAO_21-10.md item 6, catálogo em
+  // data/armas.js): mesmo padrão dos ataques de magia acima — derivada toda
+  // renderização a partir de character.equipamento.armaId/nomeArma/
+  // temPericiaArma, não persistida em character.attacks.
+  const armaEquipadaCatalogo = getArmaPorId(character.equipamento?.armaId);
+  const armaEquipadaAtaque = armaEquipadaCatalogo ? {
+    nome: character.equipamento?.nomeArma?.trim() || armaEquipadaCatalogo.nome,
+    tipo: armaEquipadaCatalogo.familia === "Arma de fogo" ? "arma_de_fogo" : "marcial",
+    profKey: profKeyDaArma(armaEquipadaCatalogo),
+    atributoKey: "destreza",
+    feridas: armaEquipadaCatalogo.feridas,
+    superficial: armaEquipadaCatalogo.superficial,
+    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, character.equipamento?.temPericiaArma),
+  } : null;
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
   const usandoBaseMagicaNoTeste = rollAttr === BASE_MAGICA_KEY;
@@ -5726,7 +5961,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         limiarOverride: limiarMagia, totalDiceDefesaManual: ataqueDadosDefesa,
       });
     }
-    const rolagemRecuperacao = rollSuccessDice(contagemOficiosMagicos(characterEfetivo) + manaGasta, LIMIAR_SUCESSO);
+    const rolagemRecuperacao = rollSuccessDice(diceRecuperacaoMana(characterEfetivo, manaGasta), LIMIAR_SUCESSO);
     const manaRecuperada = Math.min(rolagemRecuperacao.successes, manaGasta);
     const r = { magia: magiaSelecionada, manaGasta, resultadoAtaque, rolagemRecuperacao, manaRecuperada };
     setMagiaResult(r);
@@ -5996,22 +6231,90 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 </Btn>
               );
             })()}
+            {/* Transformação (Ningen, 21/10, docs/ATUALIZACAO_21-10.md seção
+                8.5): "gasta 1 SP; na forma bestial ganha Potente Força e
+                Potente Destreza ... dura até destransformar" — só o custo
+                de ativar e o toggle (persistido em character.
+                transformadoAtivo, lido por racasCatalogo.js:
+                descritoresDeTransformacaoAtiva) são mecânicos aqui; o -1
+                dado em testes mentais na forma bestial NÃO está mecanizado
+                (não há um "tipo de teste mental" marcado em engine.js pra
+                aplicar o descritor — ver relatório). */}
+            {onUpdateCharacter && character.habilidadeSecundaria === "transformacao" && (() => {
+              const spAtual = character.sp?.current ?? 0;
+              const ativo = !!character.transformadoAtivo;
+              return (
+                <Btn
+                  onClick={() => {
+                    if (ativo) { onUpdateCharacter(character.id, { transformadoAtivo: false }); return; }
+                    if (spAtual <= 0) return;
+                    onUpdateCharacter(character.id, { transformadoAtivo: true, sp: { ...character.sp, current: spAtual - 1 } });
+                  }}
+                  disabled={!ativo && spAtual <= 0}
+                  style={{ width: "100%", justifyContent: "center", marginTop: 6 }}
+                  title={ativo ? "Volta à forma normal, de graça." : "Transformação: gasta 1 SP, ganha Potente Força e Potente Destreza até destransformar."}
+                >
+                  <Flame size={13} color={SP_COLOR} /> {ativo ? "Destransformar" : "Transformar (-1 SP)"}
+                </Btn>
+              );
+            })()}
           </div>
 
-          {/* Equipamento defensivo (21/10, docs/ATUALIZACAO_21-10.md seção
-              7): até 1 armadura + 1 escudo + 1 acessório (Regra 5). Equipar
-              uma peça com custoSpEquipar>0 quebra o SP na hora (Regra 6,
-              "equipar já consome o SP, mesmo que o item não seja ativado").
-              temPericia<Slot> é campo manual provisório (a disciplina de
-              perícia ainda não existe, igual às armas) — sem ele, Regra 4
-              tira 1 dado da Defesa (ver racasCatalogo.js:comGrausEfetivos/
-              engine.js:resolveRolagemDefesa). manaAtiva<Slot> só existe nas 3
-              peças "mágicas" com custoManaAtivar>0 (Armadura de mana,
-              Escudo de mana, Chifre de Mana) — liga/desliga o descritor
-              delas (Campo de Mana/Firme 2) quebrando/reparando mana de
-              verdade, mesmo padrão dos Encantamentos. */}
+          {/* Equipamento (21/10, docs/ATUALIZACAO_21-10.md itens 6-7): 1 arma
+              + 1 armadura + 1 escudo + 1 acessório (Regra 5, estendida pra
+              arma a pedido do Pedro). Equipar uma peça defensiva com
+              custoSpEquipar>0 quebra o SP na hora (Regra 6, "equipar já
+              consome o SP, mesmo que o item não seja ativado"). temPericia
+              <Slot>/temPericiaArma é campo manual provisório (a disciplina
+              de perícia ainda não existe) — sem ele, armaduras tiram 1 dado
+              da Defesa (racasCatalogo.js:comGrausEfetivos/engine.js:
+              resolveRolagemDefesa) e a arma só concede o Descritor 1 (ver
+              data/armas.js:descritoresEfetivosArma). manaAtiva<Slot> só
+              existe nas 3 peças "mágicas" com custoManaAtivar>0 (Armadura de
+              mana, Escudo de mana, Chifre de Mana) — liga/desliga o
+              descritor delas (Campo de Mana/Firme 2) quebrando/reparando
+              mana de verdade, mesmo padrão dos Encantamentos. A arma
+              equipada não quebra SP/MP (o catálogo de armas não tem custo
+              de equipar) e vira um "ataque" derivado no painel Ataques
+              (armaEquipadaAtaque, acima) — nome livre, tipo escolhido no
+              catálogo (data/armas.js). */}
           <div style={panelStyle}>
-            <div style={panelHeadStyle}>Equipamento Defensivo</div>
+            <div style={panelHeadStyle}>Equipamento</div>
+            {(() => {
+              const eq = character.equipamento || {};
+              const armaCatalogo = getArmaPorId(eq.armaId);
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  <Field label="Arma">
+                    <select
+                      style={inputStyle} value={eq.armaId || ""} disabled={!onUpdateCharacter}
+                      onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, armaId: e.target.value || null, temPericiaArma: false } })}
+                    >
+                      <option value="">(nenhuma)</option>
+                      {ARMAS.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                    </select>
+                  </Field>
+                  {armaCatalogo && (
+                    <>
+                      <Field label="Nome da arma">
+                        <input
+                          style={inputStyle} value={eq.nomeArma || ""} disabled={!onUpdateCharacter}
+                          placeholder={armaCatalogo.exemplos}
+                          onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, nomeArma: e.target.value } })}
+                        />
+                      </Field>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
+                        <input
+                          type="checkbox" checked={!!eq.temPericiaArma} disabled={!onUpdateCharacter}
+                          onChange={() => onUpdateCharacter(character.id, { equipamento: { ...eq, temPericiaArma: !eq.temPericiaArma } })}
+                        />
+                        Tem perícia em {armaCatalogo.periciaFamilia} (sem isso, só <Descritor token={armaCatalogo.descritor1} /> vale)
+                      </label>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             {(() => {
               const eq = character.equipamento || {};
               function equiparPeca(slotKey, idKey, periciaKey, manaKey, novoId) {
@@ -6067,7 +6370,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                           type="checkbox" checked={!!eq[manaKey]} disabled={!onUpdateCharacter}
                           onChange={() => alternarMana(manaKey, peca, !!eq[manaKey])}
                         />
-                        Ativa ({peca.custoManaAtivar} mana quebrada) — concede {(peca.descritoresConcedidos || []).map((id) => DESCRITOR_INFO[id]?.label || id).join(", ")}
+                        Ativa ({peca.custoManaAtivar} mana quebrada) — concede {(peca.descritoresConcedidos || []).map((id, i) => (
+                          <React.Fragment key={id}>{i > 0 && ", "}<Descritor token={id} /></React.Fragment>
+                        ))}
                       </label>
                     )}
                   </div>
@@ -6082,11 +6387,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         <div>
           <div style={panelStyle}>
             <div style={panelHeadStyle}>Ataques</div>
-            {attacks.length === 0 && missingDefaultAttacks.length === 0 && ataquesDasDisciplinas.length === 0 && (
+            {attacks.length === 0 && missingDefaultAttacks.length === 0 && ataquesDasDisciplinas.length === 0 && !armaEquipadaAtaque && (
               <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhum ataque cadastrado.</p>
             )}
-            {(attacks.length > 0 || ataquesDasDisciplinas.length > 0) && (
+            {(attacks.length > 0 || ataquesDasDisciplinas.length > 0 || armaEquipadaAtaque) && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {armaEquipadaAtaque && <AttackCard key="arma-equipada" atk={armaEquipadaAtaque} character={characterEfetivo} />}
                 {attacks.map((atk, i) => <AttackCard key={`f-${i}`} atk={atk} character={characterEfetivo} />)}
                 {ataquesDasDisciplinas.map((atk, i) => <AttackCard key={`m-${i}`} atk={atk} character={characterEfetivo} />)}
               </div>
@@ -6140,7 +6446,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED, descricao: null };
                   return (
                     <div key={id} style={{ background: `${info.cor}12`, border: `1px solid ${info.cor}88`, borderLeft: `4px solid ${info.cor}`, borderRadius: 8, padding: "8px 12px" }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: info.cor }}>{info.label}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700 }}><Descritor token={id} /></div>
                       {info.descricao && <div style={{ fontSize: 11, color: INK, marginTop: 2 }}>{info.descricao}</div>}
                     </div>
                   );
@@ -6363,11 +6669,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                       const info = DESCRITOR_INFO[id];
                       const ativo = ataqueCaracteristicas.includes(id);
                       return (
-                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: ativo ? info.cor : PARCHMENT }} title={info.descricao}>
+                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: ativo ? info.cor : PARCHMENT }}>
                           <input
                             type="checkbox" checked={ativo}
                             onChange={() => setAtaqueCaracteristicas((prev) => (ativo ? prev.filter((x) => x !== id) : [...prev, id]))}
-                          /> {info.label}
+                          /> <Descritor token={id} />
                         </label>
                       );
                     })}
@@ -6393,11 +6699,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                       const info = DESCRITOR_INFO[id];
                       const ativo = ataqueCaracteristicasAlvo.includes(id);
                       return (
-                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: ativo ? info.cor : PARCHMENT }} title={info.descricao}>
+                        <label key={id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: ativo ? info.cor : PARCHMENT }}>
                           <input
                             type="checkbox" checked={ativo}
                             onChange={() => setAtaqueCaracteristicasAlvo((prev) => (ativo ? prev.filter((x) => x !== id) : [...prev, id]))}
-                          /> {info.label}
+                          /> <Descritor token={id} />
                         </label>
                       );
                     })}
@@ -6462,19 +6768,16 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   </select>
                 </Field>
                 {magiaSelecionada?.descritores?.length > 0 && (
-                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", margin: "0 0 10px" }}>
-                    {magiaSelecionada.descritores.map((id) => {
-                      const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
-                      return <span key={id} title={info.descricao} style={{ fontSize: 9.5, padding: "2px 7px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
-                    })}
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", margin: "0 0 10px", fontSize: 10.5 }}>
+                    {magiaSelecionada.descritores.map((id) => <Descritor key={id} token={id} />)}
                   </div>
                 )}
                 {magiaSelecionada?.placeholder ? (
                   <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>
-                    {magiaSelecionada.efeito} — pool e custo ainda não definidos no guia (TODO: docs/SISTEMA_MAGIA.md).
+                    <TextoComDescritores texto={magiaSelecionada.efeito} /> — pool e custo ainda não definidos no guia (TODO: docs/SISTEMA_MAGIA.md).
                   </div>
                 ) : magiaSelecionada?.semRolagem ? (
-                  <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}>{magiaSelecionada.efeito}</div>
+                  <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}><TextoComDescritores texto={magiaSelecionada.efeito} /></div>
                 ) : null}
                 {!magiaSelecionada?.semRolagem && !magiaSelecionada?.placeholder && (
                   <Field label={`Pool: Base mágica + Ofícios (${contagemOficiosMagicos(characterEfetivo)}) ou Inteligência — escolha`}>
@@ -6508,7 +6811,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     {magiaResult.resultadoAtaque ? (
                       <AttackResultPanel result={magiaResult.resultadoAtaque} emptyMessage="" reduced={reducedMotion} />
                     ) : (
-                      <div style={{ fontSize: 12, color: PARCHMENT, textAlign: "center", padding: "10px 0" }}>{magiaResult.magia.efeito}</div>
+                      <div style={{ fontSize: 12, color: PARCHMENT, textAlign: "center", padding: "10px 0" }}><TextoComDescritores texto={magiaResult.magia.efeito} /></div>
                     )}
                     <div style={{ fontSize: 11, color: MUTED, textAlign: "center", marginTop: 8, fontFamily: "'IBM Plex Mono', monospace" }}>
                       Recuperação de mana: [{magiaResult.rolagemRecuperacao.dice.join(",")}] · {magiaResult.rolagemRecuperacao.successes} sucesso{magiaResult.rolagemRecuperacao.successes === 1 ? "" : "s"} · recupera {magiaResult.manaRecuperada} mana (aplica no "Início de turno")
@@ -6662,6 +6965,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           ? encontrarPrincipal(racaInfoPicker, selecionadoId)
           : encontrarSecundaria(racaInfoPicker, selecionadoId);
         const bonusEscolha = selecionada ? BONUS_GRAU_ESCOLHA_POR_HABILIDADE[selecionada.id] : null;
+        const descritorEscolha = selecionada ? DESCRITOR_ESCOLHA_POR_HABILIDADE[selecionada.id] : null;
         function escolher(id) {
           const novaSelecionada = ehPrincipal ? encontrarPrincipal(racaInfoPicker, id) : encontrarSecundaria(racaInfoPicker, id);
           const outro = ehPrincipal
@@ -6689,7 +6993,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             onEsvaziar={selecionadoId ? esvaziar : null}
             bonusEscolha={bonusEscolha}
             valorBonus={selecionada ? character.bonusGrauEscolha?.[selecionada.id] : null}
-            onEscolherBonus={(chave) => onUpdateCharacter(character.id, { bonusGrauEscolha: { ...(character.bonusGrauEscolha || {}), [selecionada.id]: chave } })}
+            onEscolherBonus={(indice, chave) => {
+              const atual = Array.isArray(character.bonusGrauEscolha?.[selecionada.id]) ? [...character.bonusGrauEscolha[selecionada.id]] : [];
+              atual[indice] = chave;
+              onUpdateCharacter(character.id, { bonusGrauEscolha: { ...(character.bonusGrauEscolha || {}), [selecionada.id]: atual } });
+            }}
+            descritorEscolha={descritorEscolha}
+            valorDescritorEscolha={selecionada ? character.descritorEscolha?.[selecionada.id] : null}
+            onEscolherDescritor={(chave) => onUpdateCharacter(character.id, { descritorEscolha: { ...(character.descritorEscolha || {}), [selecionada.id]: chave } })}
             onClose={() => setHabilidadeRacaAberta(null)}
           />
         );
@@ -6993,61 +7304,68 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       };
     });
   }
-  // Bônus de grau à escolha do jogador (Mana Concentrada, Homúnculo — ver
-  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE em racasCatalogo.js). Guardado por
-  // habilidade (não por raça/personagem) pra não se perder se o jogador trocar
-  // de principal/secundária e voltar.
-  function escolherBonusGrau(habilidadeId, chave) {
-    setC((prev) => ({ ...prev, bonusGrauEscolha: { ...(prev.bonusGrauEscolha || {}), [habilidadeId]: chave } }));
+  // Bônus de grau à escolha do jogador (Mana Concentrada/Fluida/Estática —
+  // ver BONUS_GRAU_ESCOLHA_POR_HABILIDADE em racasCatalogo.js). 21/10: cada
+  // habilidade pode ter MAIS de uma escolha independente (Mana Concentrada
+  // tem 2, "podem ser a mesma") — guardado como um ARRAY por habilidade
+  // (não por raça/personagem, pra não se perder se o jogador trocar de
+  // principal/secundária e voltar).
+  function escolherBonusGrau(habilidadeId, indice, chave) {
+    setC((prev) => {
+      const atual = Array.isArray(prev.bonusGrauEscolha?.[habilidadeId]) ? [...prev.bonusGrauEscolha[habilidadeId]] : [];
+      atual[indice] = chave;
+      return { ...prev, bonusGrauEscolha: { ...(prev.bonusGrauEscolha || {}), [habilidadeId]: atual } };
+    });
   }
   // Seletor extra pro bônus de grau à escolha (ver escolherBonusGrau acima) —
   // só aparece sob a habilidade que de fato tem entrada em
-  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE (hoje: Mana Concentrada, Homúnculo).
+  // BONUS_GRAU_ESCOLHA_POR_HABILIDADE (hoje: Mana Concentrada/Fluida/Estática).
   function renderEscolhaBonusGrau(habilidadeId) {
-    const escolha = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[habilidadeId];
+    const escolhas = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[habilidadeId];
+    if (!escolhas) return null;
+    const valores = c.bonusGrauEscolha?.[habilidadeId] || [];
+    return escolhas.map((escolha, i) => {
+      const lista = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
+      return (
+        <div key={i} style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <label style={{ fontSize: 11, color: MUTED }}>
+            Bônus{escolhas.length > 1 ? ` ${i + 1}` : ""} de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha, não-combate):
+          </label>
+          <select
+            style={{ ...inputStyle, width: 200 }}
+            value={valores[i] || ""}
+            onChange={(e) => escolherBonusGrau(habilidadeId, i, e.target.value)}
+          >
+            <option value="">— escolher —</option>
+            {escolha.opcoes.map((chave) => (
+              <option key={chave} value={chave}>{lista.find((x) => x.key === chave)?.label || chave}</option>
+            ))}
+          </select>
+        </div>
+      );
+    });
+  }
+  // Descritor à escolha do jogador (21/10, novo — hoje só Homúnculo: "um
+  // Potente à escolha". Ver DESCRITOR_ESCOLHA_POR_HABILIDADE em
+  // racasCatalogo.js). Mesmo padrão posicional de escolherBonusGrau, mas
+  // guarda um valor único por habilidade (não um array).
+  function escolherDescritor(habilidadeId, chave) {
+    setC((prev) => ({ ...prev, descritorEscolha: { ...(prev.descritorEscolha || {}), [habilidadeId]: chave } }));
+  }
+  function renderEscolhaDescritor(habilidadeId) {
+    const escolha = DESCRITOR_ESCOLHA_POR_HABILIDADE[habilidadeId];
     if (!escolha) return null;
-    const lista = escolha.tipo === "atributo" ? ATRIBUTOS_GERAIS_LIST : PROFICIENCIAS_LIST;
     return (
       <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <label style={{ fontSize: 11, color: MUTED }}>
-          Bônus de +1 grau ({escolha.tipo === "atributo" ? "atributo" : "proficiência"} à escolha):
-        </label>
+        <label style={{ fontSize: 11, color: MUTED }}>Descritor à escolha:</label>
         <select
-          style={{ ...inputStyle, width: 200 }}
-          value={c.bonusGrauEscolha?.[habilidadeId] || ""}
-          onChange={(e) => escolherBonusGrau(habilidadeId, e.target.value)}
+          style={{ ...inputStyle, width: 220 }}
+          value={c.descritorEscolha?.[habilidadeId] || ""}
+          onChange={(e) => escolherDescritor(habilidadeId, e.target.value)}
         >
           <option value="">— escolher —</option>
-          {escolha.opcoes.map((chave) => (
-            <option key={chave} value={chave}>{lista.find((x) => x.key === chave)?.label || chave}</option>
-          ))}
-        </select>
-      </div>
-    );
-  }
-  // Bônus de grau à escolha RACIAL (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10:
-  // "todo tipo de elfo"/"todo tipo de humano ganha +1 grau à escolha numa
-  // proficiência não-combate") — diferente de escolherBonusGrau/
-  // renderEscolhaBonusGrau acima, que são por HABILIDADE; este é um único
-  // campo por PERSONAGEM (character.bonusGrauEscolhaRaca), já que vale pra
-  // raça inteira, não pra uma habilidade específica. Ver
-  // BONUS_GRAU_ESCOLHA_POR_RACA em racasCatalogo.js.
-  function renderEscolhaBonusGrauRaca(racaId) {
-    const escolha = BONUS_GRAU_ESCOLHA_POR_RACA[racaId];
-    if (!escolha) return null;
-    return (
-      <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <label style={{ fontSize: 11, color: MUTED }}>
-          Bônus racial de +1 grau (proficiência não-combate à escolha, até o teto C):
-        </label>
-        <select
-          style={{ ...inputStyle, width: 200 }}
-          value={c.bonusGrauEscolhaRaca || ""}
-          onChange={(e) => set(["bonusGrauEscolhaRaca"], e.target.value || null)}
-        >
-          <option value="">— escolher —</option>
-          {escolha.opcoes.map((chave) => (
-            <option key={chave} value={chave}>{PROFICIENCIAS_LIST.find((x) => x.key === chave)?.label || chave}</option>
+          {escolha.opcoes.map((id) => (
+            <option key={id} value={id}>{nomeDoToken(id)}</option>
           ))}
         </select>
       </div>
@@ -7248,7 +7566,6 @@ export function CharacterForm({ initial, onSave, onCancel }) {
               selecionadoId={c.raca}
               onEscolher={escolherRaca}
             />
-            {renderEscolhaBonusGrauRaca(c.raca)}
             {racaAtual && (() => {
               const principalAtual = encontrarPrincipal(racaAtual, c.habilidadePrincipal);
               return (
@@ -7262,9 +7579,10 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                   {principalAtual && (
                     <>
                       <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
-                        {principalAtual.descricao} <em>Efeito: {principalAtual.efeito}</em>
+                        <TextoComDescritores texto={principalAtual.descricao} /> <em>Efeito: <TextoComDescritores texto={principalAtual.efeito} /></em>
                       </p>
                       {renderEscolhaBonusGrau(principalAtual.id)}
+                      {renderEscolhaDescritor(principalAtual.id)}
                     </>
                   )}
                 </div>
@@ -7292,9 +7610,10 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                   ) : secundariaAtual && (
                     <>
                       <p style={{ fontSize: 11.5, color: MUTED, marginTop: 6, lineHeight: 1.45 }}>
-                        {secundariaAtual.descricao} <em>Efeito: {secundariaAtual.efeito}</em>
+                        <TextoComDescritores texto={secundariaAtual.descricao} /> <em>Efeito: <TextoComDescritores texto={secundariaAtual.efeito} /></em>
                       </p>
                       {renderEscolhaBonusGrau(secundariaAtual.id)}
+                      {renderEscolhaDescritor(secundariaAtual.id)}
                     </>
                   )}
                 </div>
@@ -7436,7 +7755,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
                   ? `Dispara sempre ao fazer contato${p.restricaoTipo ? ` com ataque ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`
                   : `Dispara com dado ≥${limiar} (${attrLabel})${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`}
               </div>
-              <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.4 }}>{p.efeito}</div>
+              <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.4 }}><TextoComDescritores texto={p.efeito} /></div>
             </label>
           );
         })}
@@ -12412,7 +12731,7 @@ function AbilitiesCatalogView() {
                 ? `Gatilho: sempre ao fazer contato${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`
                 : `Gatilho: ${p.gatilho.replace(/_/g, " ")} · Limiar por ${attrLabel}${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`}
             </div>
-            <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}>{p.efeito}</p>
+            <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}><TextoComDescritores texto={p.efeito} /></p>
           </div>
         );
       })}
@@ -12460,6 +12779,97 @@ function AbilitiesCatalogView() {
       {filtered.length === 0 && <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhuma habilidade encontrada.</p>}
         </div>
       </details>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   DESCRITORES — aba com a tabela completa (data/descritores.json),
+   agrupada por tipo, com busca/filtro e âncora por id (21/10).
+----------------------------------------------------------------*/
+function DescritoresView({ focoId }) {
+  const [busca, setBusca] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const cardRefs = useRef({});
+
+  useEffect(() => {
+    if (!focoId) return;
+    const el = cardRefs.current[focoId];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focoId]);
+
+  const buscaNormalizada = busca.trim().toLowerCase();
+  const filtrados = DESCRITORES.filter((d) => {
+    if (filtroTipo !== "todos" && d.tipo !== filtroTipo) return false;
+    if (filtroStatus !== "todos" && d.status !== filtroStatus) return false;
+    if (!buscaNormalizada) return true;
+    return [d.nome, d.resumo, d.regra, d.usadoEm].some((campo) => campo.toLowerCase().includes(buscaNormalizada));
+  });
+  const agrupados = TIPOS_DESCRITOR
+    .map((tipo) => ({ tipo, itens: filtrados.filter((d) => d.tipo === tipo) }))
+    .filter((g) => g.itens.length > 0);
+  const STATUS_LIST = ["Definido", "Etiqueta", "Em espera", "Futuro"];
+
+  return (
+    <div>
+      <SectionTitle icon={Tags}>Descritores</SectionTitle>
+      <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 12px" }}>
+        Tabela completa dos descritores do Point. Passe o mouse, use Tab ou toque num descritor em qualquer lugar do app pra ver este mesmo pop-up — "Ver na aba Descritores" traz direto pro cartão correspondente aqui.
+      </p>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ flex: "1 1 220px", display: "flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: `1px solid ${LINE}`, borderRadius: 4, padding: "6px 10px" }}>
+          <Search size={14} color={MUTED} />
+          <input
+            value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, resumo, regra ou uso..."
+            style={{ border: "none", outline: "none", flex: 1, fontSize: 13, fontFamily: "'Spectral', serif", background: "transparent", color: PARCHMENT }}
+          />
+        </div>
+        <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+          <option value="todos">Todos os tipos</option>
+          {TIPOS_DESCRITOR.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+          <option value="todos">Todos os status</option>
+          {STATUS_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {agrupados.length === 0 && <p style={{ color: MUTED, fontSize: 13 }}>Nenhum descritor bate com a busca/filtro.</p>}
+
+      {agrupados.map(({ tipo, itens }) => (
+        <div key={tipo} style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, color: BRASS, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, margin: "0 0 8px", textTransform: "uppercase" }}>{tipo}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
+            {itens.map((d) => {
+              const status = STATUS_BADGE_INFO[d.status];
+              const destacado = focoId === d.id;
+              return (
+                <div
+                  key={d.id} id={`descritor-${d.id}`}
+                  ref={(el) => { cardRefs.current[d.id] = el; }}
+                  style={{
+                    background: destacado ? `${BRASS}22` : PANEL_2, border: `1px solid ${destacado ? BRASS_BRIGHT : LINE}`,
+                    borderRadius: 8, padding: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT }}>{d.nome}{d.temN ? " N" : ""}</span>
+                    {status && (
+                      <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: status.cor, border: `1px solid ${status.cor}88`, borderRadius: 10, padding: "1px 6px", whiteSpace: "nowrap" }}>
+                        {status.label}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: BRASS, marginBottom: 6 }}>{d.resumo}</div>
+                  <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.45, marginBottom: 6 }}>{d.regra}</div>
+                  <div style={{ fontSize: 10.5, color: MUTED, fontStyle: "italic" }}>Usado em: {d.usadoEm}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -12527,7 +12937,7 @@ function RulesView() {
             Tipo: {TIPOS_ATAQUE[t.tipo]?.label} · {t.tipoAtaque || (t.custoMp ? `${t.custoMp}MP` : "Físico")} · Acerto {t.acerto} · Dano {t.dano} · Ferida {t.ferida}
             {t.modificadores && ` · ${t.modificadores.join(", ")}`}
           </div>
-          <p style={{ fontSize: 12, color: MUTED, margin: "4px 0 0", lineHeight: 1.4 }}>{t.descricao}</p>
+          <p style={{ fontSize: 12, color: MUTED, margin: "4px 0 0", lineHeight: 1.4 }}><TextoComDescritores texto={t.descricao} /></p>
           {t.cargaTest && (
             <p style={{ fontSize: 11, color: BRASS_BRIGHT, margin: "6px 0 0", fontStyle: "italic" }}>⚡ Carga: {t.cargaTest}</p>
           )}
@@ -12547,15 +12957,9 @@ function RulesView() {
           <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", margin: "4px 0" }}>
             Exemplos: {a.exemplos} · Feridas {a.feridas}{a.superficial ? " (superficial)" : ""}{a.extra === "pesado" ? " · Pesado" : ""}
           </div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-            {[a.descritor1, a.extra === "pesado" ? "pesado" : null].filter(Boolean).map((id) => {
-              const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
-              return <span key={id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
-            })}
-            {a.descritor2 && (() => {
-              const info = DESCRITOR_INFO[a.descritor2] || { label: a.descritor2, cor: MUTED };
-              return <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px dashed ${info.cor}`, color: info.cor }}>{info.label} (com perícia)</span>;
-            })()}
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6, fontSize: 10 }}>
+            {[a.descritor1, a.extra === "pesado" ? "pesado" : null].filter(Boolean).map((id) => <Descritor key={id} token={id} />)}
+            {a.descritor2 && <span><Descritor token={a.descritor2} /> (com perícia)</span>}
           </div>
           <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Perícia: {a.periciaFamilia}</div>
         </div>
@@ -12576,13 +12980,10 @@ function RulesView() {
             {a.custoSpEquipar > 0 && ` · ${a.custoSpEquipar} SP ao equipar`}
             {a.custoManaAtivar > 0 && ` · ${a.custoManaAtivar} mana quebrada (ativa)`}
           </div>
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-            {a.descritoresConcedidos.map((id) => {
-              const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
-              return <span key={id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
-            })}
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6, fontSize: 10 }}>
+            {a.descritoresConcedidos.map((id) => <Descritor key={id} token={id} />)}
           </div>
-          {a.extra && <p style={{ fontSize: 10.5, color: MUTED, margin: "6px 0 0", fontStyle: "italic" }}>{a.extra}</p>}
+          {a.extra && <p style={{ fontSize: 10.5, color: MUTED, margin: "6px 0 0", fontStyle: "italic" }}><TextoComDescritores texto={a.extra} /></p>}
           <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Perícia: {a.periciaFamilia || "não exige"}</div>
         </div>
       ))}
@@ -12594,7 +12995,7 @@ function RulesView() {
             <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: BRASS_BRIGHT }}>{s.name}</span>
             <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>Teste: {s.teste}</span>
           </div>
-          <p style={{ fontSize: 12, color: MUTED, margin: "6px 0 0", lineHeight: 1.5 }}>{s.texto}</p>
+          <p style={{ fontSize: 12, color: MUTED, margin: "6px 0 0", lineHeight: 1.5 }}><TextoComDescritores texto={s.texto} /></p>
         </div>
       ))}
 
@@ -12661,6 +13062,18 @@ export default function App() {
   const [sagas, setSagas] = useState(SEED_SAGAS);
   const [objectives, setObjectives] = useState(SEED_OBJECTIVES);
   const [tab, setTab] = useState("home");
+  // Aba "Descritores" (21/10): o pop-up do componente <Descritor> dispara
+  // este evento pro link "Ver na aba Descritores" funcionar de qualquer
+  // profundidade da árvore, sem precisar passar setTab por prop em tudo.
+  const [focoDescritorId, setFocoDescritorId] = useState(null);
+  useEffect(() => {
+    function onAbrirDescritor(e) {
+      setTab("descritores");
+      setFocoDescritorId(e.detail?.id || null);
+    }
+    window.addEventListener("point:abrir-descritor", onAbrirDescritor);
+    return () => window.removeEventListener("point:abrir-descritor", onAbrirDescritor);
+  }, []);
   const [subView, setSubView] = useState("list");
   const [selectedId, setSelectedId] = useState(null);
   const [editingChar, setEditingChar] = useState(null);
@@ -13032,6 +13445,7 @@ export default function App() {
     { id: "compare", label: "Confronto", icon: Swords },
     { id: "abilities", label: "Habilidades", icon: BookOpen },
     { id: "rules", label: "Regras", icon: ScrollText },
+    { id: "descritores", label: "Descritores", icon: Tags },
     { id: "world", label: "Mundo", icon: MapIcon },
     { id: "gods", label: "Deuses", icon: Sparkles },
     { id: "sagas", label: "Sagas", icon: ScrollText },
@@ -13404,6 +13818,7 @@ export default function App() {
         )}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
+        {tab === "descritores" && <DescritoresView focoId={focoDescritorId} />}
         {tab === "world" && (
           <WorldView
             kingdoms={kingdoms} setKingdoms={setKingdoms} askConfirm={askConfirm} gm={gm}

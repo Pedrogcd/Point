@@ -165,6 +165,13 @@ export const BONUS_GRAU_POR_HABILIDADE = {
     { tipo: "proficiencia", chave: "furtividade" },
     { tipo: "proficiencia", chave: "sobrevivencia" },
   ],
+  // "adaptado" (Niosh) virou bônus de GRAU de verdade em 21/10 — antes era
+  // "+1 dado" solto no texto, sem entrada aqui (mecanismo indefinido).
+  adaptado: [
+    { tipo: "proficiencia", chave: "sobrevivencia" },
+    { tipo: "proficiencia", chave: "atletismo" },
+    { tipo: "proficiencia", chave: "furtividade" },
+  ],
   "escamas-fortes": [{ tipo: "atributo", chave: "forca" }],
   "corpo-resistente": [{ tipo: "atributo", chave: "vigor" }],
   // "resistMagicaProf"/"magiasOfensivas" saíram do catálogo em 14/10 (docs/
@@ -176,12 +183,12 @@ export const BONUS_GRAU_POR_HABILIDADE = {
   // descritor Resistente): "mana-estatica" PERDEU o bônus de grau em
   // Resistência Física/Defesa de vez — virou só o descritor "resistente"
   // (ver catalogo-racas.json, campo `descritores`), sem bônus de grau
-  // nenhum. "pele-grossa" trocou de Resistência Física pra Defesa (a
-  // proficiência nova que assume o papel dela, ver engine.js:
-  // PROFICIENCIAS_LIST), mantendo o teto A.
-  "pele-grossa": [
-    { tipo: "proficiencia", chave: "defesaProf", teto: "A" },
-  ],
+  // nenhum.
+  //
+  // 21/10 (seção 8.4, revisão posterior): "pele-grossa" SAIU daqui de vez —
+  // tinha trocado de Resistência Física pra Defesa (+1 grau, teto A) no
+  // item 1, mas a seção 8.4 revisa de novo: "não dá mais +1 grau em
+  // Defesa", vira só o descritor Blindado (ver catalogo-racas.json).
   "cla-radiante": [{ tipo: "atributo", chave: "carisma" }],
   "cla-noctis": [{ tipo: "atributo", chave: "manipulacao" }],
   "cla-corvus": [
@@ -202,28 +209,62 @@ export const BONUS_GRAU_POR_HABILIDADE = {
 };
 
 // Habilidades cujo bônus de grau é à ESCOLHA do jogador (pedido confirmado em
-// 13/10) — a chave concreta não vem do catálogo, é guardada por personagem em
-// `character.bonusGrauEscolha[habilidadeId]` (preenchida pela UI em
-// CharacterForm). `opcoes` restringe o que é um valor válido: Mana Concentrada
-// aceita qualquer proficiência do catálogo ("uma proficiência à sua
-// escolha"); Homúnculo só Força ou Destreza ("+1 grau em Força ou Destreza").
+// 13/10) — as chaves concretas não vêm do catálogo, são guardadas por
+// personagem em `character.bonusGrauEscolha[habilidadeId]` (preenchida pela
+// UI em CharacterForm). Cada entrada é um ARRAY de escolhas independentes
+// (21/10, docs/ATUALIZACAO_21-10.md seção 8.3: "Mana Concentrada dá duas
+// proficiências, que podem ser a mesma" — por isso é um array, não um valor
+// só; antes de 21/10 era sempre um valor único, generalizado aqui porque
+// nenhuma ficha salva ainda usava esse campo com valor real pra migrar).
+// `character.bonusGrauEscolha[habId]` guarda um ARRAY de valores escolhidos,
+// na mesma ordem/índice das escolhas aqui — "podem ser a mesma" funciona
+// de graça: se o jogador escolher a mesma chave nas duas, os dois +1
+// somam na mesma proficiência (bonusGrauDoPersonagem soma por posição).
+// `opcoes` nunca inclui proficiência de Combate (seção 8.3: "o +1 grau em
+// proficiência nunca é de Combate", pra Humano).
 export const BONUS_GRAU_ESCOLHA_POR_HABILIDADE = {
-  "mana-concentrada": { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.map((p) => p.key) },
-  homunculo: { tipo: "atributo", opcoes: ["forca", "destreza"] },
+  "mana-concentrada": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  "mana-fluida": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  "mana-estatica": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  // Descendentes de Sharkan (Niosh, 21/10, seção 8.4): "+1 grau numa
+  // proficiência Física à escolha" — só as proficiências de categoria
+  // "fisica" (Atletismo/Ofício/Condução/Roubo/Furtividade/Sobrevivência),
+  // não qualquer não-combate.
+  "descendentes-de-sharkan": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria === "fisica").map((p) => p.key) },
+  ],
 };
 
-// Bônus de grau à escolha concedido pela RAÇA em si, não por uma habilidade
-// principal/secundária específica — novo em 14/10 (docs/MUDANCAS_RACAS_E_
-// MAGIA.md, mencionado nas linhas de Clã Corvus e Mana Estática: "todo tipo
-// de elfo"/"todo tipo de humano" ganha +1 grau, teto C, numa proficiência
-// não-combate à escolha, valendo pra qualquer personagem dessa raça,
-// independente de qual principal/secundária escolheu). Guardado numa chave
-// só por personagem, `character.bonusGrauEscolhaRaca` (não precisa de id de
-// habilidade, já que é por raça).
-export const BONUS_GRAU_ESCOLHA_POR_RACA = {
-  elfo: { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
-  humano: { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+// Habilidades cujo bônus é um DESCRITOR à escolha do jogador (21/10, novo —
+// Homúnculo: "um Potente à escolha (Força, Destreza ou ofício mágico)",
+// docs/ATUALIZACAO_21-10.md seção 8.3) — diferente de
+// BONUS_GRAU_ESCOLHA_POR_HABILIDADE (que bonifica um GRAU), aqui a escolha
+// vira um descritor de personagem direto (reaproveita os mesmos "Potente
+// Força/Destreza/ofício mágico" que a armadura já usa — ver data/armaduras.js
+// e comGrausEfetivos abaixo, que já sabe aplicar esses três descritores
+// onde quer que venham). Guardado em `character.descritorEscolha[habId]`.
+export const DESCRITOR_ESCOLHA_POR_HABILIDADE = {
+  homunculo: { opcoes: ["potente_forca", "potente_destreza", "potente_oficio_magico"] },
 };
+
+// BONUS_GRAU_ESCOLHA_POR_RACA (bônus de grau à escolha concedido pela RAÇA
+// em si, independente de qual principal/secundária escolhida) foi RETIRADO
+// em 21/10 (docs/ATUALIZACAO_21-10.md seção 8) — existia só pra Humano e
+// Elfo ("todo tipo de humano"/"todo tipo de elfo" ganha +1 grau numa
+// proficiência à escolha). A seção 8.3 revisa Humano com uma escolha de
+// proficiência DIFERENTE por cada tipo de mana (Mana Concentrada=2, Mana
+// Fluida=1, Mana Estática=1 — ver BONUS_GRAU_ESCOLHA_POR_HABILIDADE acima),
+// substituindo o bônus de raça único; a seção 8.6 não menciona mais nenhuma
+// escolha de proficiência genérica pra nenhum clã élfico — o bônus de Elfo
+// foi retirado de vez, sem substituto. `character.bonusGrauEscolhaRaca`
+// fica como campo legado nas fichas salvas, só não é mais lido aqui.
 
 // Bônus de grau FIXO (chave já definida, sem escolha do jogador) concedido
 // pela RAÇA em si, não por uma habilidade principal/secundária específica —
@@ -325,6 +366,42 @@ export function oficiosExtrasDoPersonagem(character) {
   return total;
 }
 
+// Descritores escolhidos pelo jogador via DESCRITOR_ESCOLHA_POR_HABILIDADE
+// (21/10, hoje só Homúnculo: "um Potente à escolha") — `character.
+// descritorEscolha[habId]` guarda a chave escolhida. Mesmo critério de
+// oficiosExtrasDoPersonagem (principal + secundária); devolve a lista pra
+// comGrausEfetivos somar em `character.descritores`.
+export function descritorEscolhidoDoPersonagem(character) {
+  const raca = encontrarRaca(character?.raca);
+  const principal = encontrarPrincipal(raca, character?.habilidadePrincipal);
+  const secundaria = encontrarSecundaria(raca, character?.habilidadeSecundaria);
+  const resultado = [];
+  for (const hab of [principal, secundaria]) {
+    if (!hab) continue;
+    const escolha = DESCRITOR_ESCOLHA_POR_HABILIDADE[hab.id];
+    if (!escolha) continue;
+    const chave = character?.descritorEscolha?.[hab.id];
+    if (chave && escolha.opcoes.includes(chave)) resultado.push(chave);
+  }
+  return resultado;
+}
+
+// Transformação (Ningen, 21/10, docs/ATUALIZACAO_21-10.md seção 8.5):
+// "gasta 1 SP; na forma bestial ganha Potente Força e Potente Destreza...
+// dura até destransformar". Diferente dos outros ganhos de descritor
+// (sempre ativos quando a habilidade é escolhida), este só vale enquanto
+// `character.transformadoAtivo` estiver ligado (toggle da UI, que gasta o
+// SP ao ativar — ver point-amaranth-app.jsx). O "-1 dado em testes
+// mentais" NÃO está aqui — não há um pool de "teste mental" genérico no
+// motor pra descontar (só o painel Teste, que não lê character.descritores
+// pra penalidade nenhuma) — listado como não mecanizado no relatório.
+export function descritoresDeTransformacaoAtiva(character) {
+  if (character?.habilidadeSecundaria === "transformacao" && character?.transformadoAtivo) {
+    return ["potente_forca", "potente_destreza"];
+  }
+  return [];
+}
+
 // Teto (grau máximo) de cada bônus de grau, por chave — default "C" quando
 // uma habilidade não especifica `teto` em BONUS_GRAU_POR_HABILIDADE. Função
 // separada de bonusGrauDoPersonagem de propósito: aquela função já é testada
@@ -383,23 +460,21 @@ export function bonusGrauDoPersonagem(character) {
         alvo[b.chave] = (alvo[b.chave] || 0) + 1;
       }
     }
-    const escolha = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[hab.id];
-    if (escolha) {
-      const chave = character?.bonusGrauEscolha?.[hab.id];
-      if (chave && escolha.opcoes.includes(chave)) {
-        const alvo = escolha.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
-        alvo[chave] = (alvo[chave] || 0) + 1;
-      }
-    }
-  }
-  // Bônus de grau à escolha da RAÇA em si (não de uma habilidade específica)
-  // — ver BONUS_GRAU_ESCOLHA_POR_RACA.
-  const escolhaRaca = BONUS_GRAU_ESCOLHA_POR_RACA[character?.raca];
-  if (escolhaRaca) {
-    const chave = character?.bonusGrauEscolhaRaca;
-    if (chave && escolhaRaca.opcoes.includes(chave)) {
-      const alvo = escolhaRaca.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
-      alvo[chave] = (alvo[chave] || 0) + 1;
+    // 21/10: cada entrada de BONUS_GRAU_ESCOLHA_POR_HABILIDADE é um ARRAY de
+    // escolhas independentes (ver comentário na constante) — Mana Concentrada
+    // tem 2, as outras têm 1. `character.bonusGrauEscolha[hab.id]` guarda um
+    // array de valores escolhidos, na mesma ordem.
+    const escolhas = BONUS_GRAU_ESCOLHA_POR_HABILIDADE[hab.id];
+    if (escolhas) {
+      const escolhidos = character?.bonusGrauEscolha?.[hab.id];
+      const lista = Array.isArray(escolhidos) ? escolhidos : (escolhidos ? [escolhidos] : []);
+      escolhas.forEach((escolha, i) => {
+        const chave = lista[i];
+        if (chave && escolha.opcoes.includes(chave)) {
+          const alvo = escolha.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+          alvo[chave] = (alvo[chave] || 0) + 1;
+        }
+      });
     }
   }
   // Bônus de grau FIXO da RAÇA em si (não de uma habilidade específica, sem
@@ -496,7 +571,11 @@ export function comGrausEfetivos(character) {
   // ativo/equipado (igual ao resto da função).
   const descritoresEncantamentos = descritoresDeEncantamentosAtivos(character);
   const descritoresEquipamento = descritoresDeEquipamentoDefensivo(character);
-  const descritoresExtras = [...descritoresEncantamentos, ...descritoresEquipamento];
+  // Descritor à escolha de habilidade racial (21/10 — hoje só Homúnculo,
+  // "um Potente à escolha"; ver DESCRITOR_ESCOLHA_POR_HABILIDADE acima).
+  const descritoresEscolhidos = descritorEscolhidoDoPersonagem(character);
+  const descritoresTransformacao = descritoresDeTransformacaoAtiva(character);
+  const descritoresExtras = [...descritoresEncantamentos, ...descritoresEquipamento, ...descritoresEscolhidos, ...descritoresTransformacao];
   const descritores = descritoresExtras.length
     ? [...new Set([...(character.descritores || []), ...descritoresExtras])]
     : character.descritores;

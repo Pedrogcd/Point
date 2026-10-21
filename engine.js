@@ -566,6 +566,36 @@ export function repararMana(mp, quantidade = 1) {
   return { ...mp, current: novoCurrent, quebrada: novaQuebrada };
 }
 
+// SP quebrado (21/10, docs/ATUALIZACAO_21-10.md seção 7.1/Regra 6): mesmo
+// formato de mana quebrada (`sp = { current, max, quebrada }`), mas com uma
+// diferença importante — "só se recupera no descanso longo", nunca de
+// graça fora de combate como a mana. Por isso `quebrarSP` é idêntica a
+// `quebrarMana` (mesma matemática de saturação), mas NÃO existe um
+// "repararSP a qualquer hora" exposto como ação livre na UI: o app não
+// modela "descanso longo" como mecânica própria (não existe em lugar
+// nenhum, nem pra zerar o limite de Envenenamento/Carga — ver seus
+// comentários acima), então `repararSP` só é chamada pelo botão "Restaurar
+// MP e SP" (reset manual completo, point-amaranth-app.jsx) — decisão minha,
+// provisória, listada no relatório final: trato esse botão como o
+// equivalente de "descanso longo" pra fins de SP quebrado, por ser o único
+// lugar do app que já reseta tudo de uma vez (e já fazia o mesmo pra mana
+// quebrada, ver comentário no botão).
+export function quebrarSP(sp, quantidade = 1) {
+  const current = sp?.current ?? 0;
+  const quebradaAtual = sp?.quebrada ?? 0;
+  const real = Math.max(0, Math.min(quantidade, current));
+  return { ...sp, current: current - real, quebrada: quebradaAtual + real };
+}
+export function repararSP(sp, quantidade = 1) {
+  const quebradaAtual = sp?.quebrada ?? 0;
+  const max = sp?.max ?? 0;
+  const current = sp?.current ?? 0;
+  const real = Math.max(0, Math.min(quantidade, quebradaAtual));
+  const novaQuebrada = quebradaAtual - real;
+  const novoCurrent = Math.min(Math.max(0, max - novaQuebrada), current + real);
+  return { ...sp, current: novoCurrent, quebrada: novaQuebrada };
+}
+
 // Avalia formulas simples do tipo "+1", "-1", "0" para bonus manuais de ataque.
 export function parseFlatBonus(value) {
   if (value === undefined || value === null || value === "") return 0;
@@ -694,6 +724,14 @@ export function grauPreciso(descritores) { return grauDescritorNumerico(descrito
 export function grauEsmagador(descritores) { return grauDescritorNumerico(descritores, "esmagador"); }
 export function grauEnvenenamento(descritores) { return grauDescritorNumerico(descritores, "envenenamento"); }
 export function grauCarga(descritores) { return grauDescritorNumerico(descritores, "carga"); }
+// Descritores defensivos de ARMADURA (21/10, docs/ATUALIZACAO_21-10.md
+// seção 7.2, planilha armaduras.xlsx) — diferente dos acima, estes vêm do
+// character.descritores do PRÓPRIO DEFENSOR (via data/armaduras.js:
+// descritoresDeEquipamentoDefensivo + racasCatalogo.js:comGrausEfetivos),
+// nunca de descritoresAtaque. Mesma convenção "nome"/"nome_N".
+export function grauFirme(descritores) { return grauDescritorNumerico(descritores, "firme"); }
+export function grauSelado(descritores) { return grauDescritorNumerico(descritores, "selado"); }
+export function grauLento(descritores) { return grauDescritorNumerico(descritores, "lento"); }
 
 export const LIMIAR_SUCESSO = 5; // dado > 5 => 6+ é sucesso
 export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado
@@ -751,9 +789,15 @@ export function diceBaseMagica(manaGasta, custoMagia) {
 // Pool de dados de um ataque FÍSICO: grau do Atributo Geral + grau da
 // Proficiência de Combate do ataque + ajuste manual da arma (dados extra ou a
 // menos, mínimo 0 no total).
+// Lento N (armadura Pesada, 21/10 — docs/ATUALIZACAO_21-10.md seção 7.2):
+// "rola N dados a menos em ações físicas (ataque físico e esquiva)" — aqui
+// cobre o lado do ataque físico; esquiva é tratada em resolveRolagemDefesa.
+// Não afeta ataque MÁGICO (diceAtaqueMagico) de propósito — a regra fala só
+// em "ações físicas".
 export function diceAtaqueFisico(attacker, atributoKey, profKey, ajusteDados = 0) {
   const base = (GRADE_VALUE[getAttrGrade(attacker, atributoKey)] ?? 1) + (GRADE_VALUE[attacker?.proficiencias?.[profKey]] ?? 1);
-  return Math.max(0, base + (ajusteDados || 0));
+  const lento = grauLento(attacker?.descritores);
+  return Math.max(0, base + (ajusteDados || 0) - lento);
 }
 
 // Contagem de Ofícios Mágicos (docs/MUDANCAS_RACAS_E_MAGIA.md): cada
@@ -836,14 +880,40 @@ export function diceAtaqueConstructo(dono, ajusteDados = 0) {
 export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaque = [], ehMagia, limiar = LIMIAR_SUCESSO, totalDiceManual }) {
   const profKey = "defesaProf";
   let totalDice;
+  let firmeGarantidos = 0;
   if (totalDiceManual != null) {
     totalDice = Math.max(0, totalDiceManual);
   } else {
     totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] ?? 1);
+    // Bônus de Defesa em dados da armadura equipada (21/10, seção 7.1,
+    // Regra 2) — já vem somado em `defensor.bonusDefesaEquipamento`
+    // (racasCatalogo.js:comGrausEfetivos, via data/armaduras.js:
+    // bonusDefesaDeEquipamento); engine.js só soma o número.
+    totalDice += defensor?.bonusDefesaEquipamento || 0;
     const preciso = grauPreciso(descritoresAtaque);
     if (preciso && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - preciso);
     const esmagador = grauEsmagador(descritoresAtaque);
     if (esmagador && defesaAtributo === "forca") totalDice = Math.max(0, totalDice - esmagador);
+    // Lento N (armadura Pesada, 21/10): -N dados na esquiva (Destreza), não
+    // no bloqueio — mesma regra de diceAtaqueFisico, lado da defesa.
+    const lento = defesaAtributo === "destreza" ? grauLento(defensor?.descritores) : 0;
+    if (lento) totalDice = Math.max(0, totalDice - lento);
+    // Firme N (escudo, 21/10 — docs/ATUALIZACAO_21-10.md seção 7.2): "só ao
+    // bloquear. Tira N dados da sua rolagem de defesa e considera N
+    // sucessos como garantidos." Descritor do DEFENSOR (vem do equipamento,
+    // ver data/armaduras.js/racasCatalogo.js:comGrausEfetivos), não do
+    // ataque — por isso lê `defensor?.descritores`, não `descritoresAtaque`.
+    if (defesaAtributo === "forca") {
+      firmeGarantidos = grauFirme(defensor?.descritores);
+      if (firmeGarantidos) totalDice = Math.max(0, totalDice - firmeGarantidos);
+    }
+    // Sem a perícia da família da armadura/escudo equipados (Regra 4, 21/10):
+    // -1 dado por peça sem perícia — já vem somado em
+    // `defensor.penalidadeDefesaSemPericia` (racasCatalogo.js:comGrausEfetivos,
+    // via data/armaduras.js:penalidadeDefesaSemPericiaDoPersonagem), engine.js
+    // só consome o número, sem conhecer armadura nenhuma.
+    const penalidadeSemPericia = defensor?.penalidadeDefesaSemPericia || 0;
+    if (penalidadeSemPericia) totalDice = Math.max(0, totalDice - penalidadeSemPericia);
   }
   // Resiste a Magia (Descendentes de Arcani, catalogo-racas.json): ao se
   // defender de um ataque com o descritor "magia", rola 1 dado a menos e tem
@@ -852,8 +922,9 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
   if (resisteAMagia) totalDice = Math.max(0, totalDice - 1);
   const temSortudo = temDescritor(defensor, "sortudo");
   const rolagem = rolarComSortudo(totalDice, limiar, temSortudo);
+  if (firmeGarantidos) rolagem.successes += firmeGarantidos; // sucessos garantidos do Firme N somam direto, sem rolar
   if (resisteAMagia && rolagem.successes < 1) rolagem.successes = 1; // 1 sucesso sempre garantido
-  return { ...rolagem, totalDice, profKey, resisteAMagia };
+  return { ...rolagem, totalDice, profKey, resisteAMagia, firmeGarantidos };
 }
 
 // Determina o tipo de ferimento causado pelos sucessos líquidos de um ataque
@@ -917,7 +988,11 @@ export function aplicarFerimentos(hp, tipo, quantidade = 1) {
 // (decisão minha, listada no relatório final). Devolve null quando não há
 // Queimadura no ataque ou quando o ataque não causou sucesso líquido.
 export function resolveQueimadura({ attacker, defender, descritoresAtaque = [], sucessosLiquidosAtaque }) {
-  const grau = grauQueimadura(descritoresAtaque);
+  // Selado N (armadura, 21/10 — docs/ATUALIZACAO_21-10.md seção 7.2): "a
+  // Queimadura... contra você rolam N dados a menos" — desconta ANTES do
+  // "não há Queimadura" (grau<=0), igual Preciso/Esmagador descontam antes
+  // de checar o pool.
+  const grau = Math.max(0, grauQueimadura(descritoresAtaque) - grauSelado(defender?.descritores));
   if (grau <= 0 || !sucessosLiquidosAtaque || sucessosLiquidosAtaque < 1) return null;
   const perfurante = descritoresAtaque.includes("perfurante") || temDescritor(attacker, "ignora_blindado");
   const limiar = perfurante
@@ -953,8 +1028,10 @@ export function resolveQueimadura({ attacker, defender, descritoresAtaque = [], 
 // nem gasto do limite). Zera na cura ou no descanso longo — NÃO no fim de
 // cena (por isso é um estado à parte de hp.superficiais, que não distingue
 // a origem do ferimento).
-export function resolveEnvenenamento({ descritoresAtaque = [], sucessosLiquidosAtaque, limiteAtual = 0, feridasAtuais = 0 }) {
-  const grau = grauEnvenenamento(descritoresAtaque);
+export function resolveEnvenenamento({ defender, descritoresAtaque = [], sucessosLiquidosAtaque, limiteAtual = 0, feridasAtuais = 0 }) {
+  // Selado N (armadura, 21/10): "o Envenenamento... contra você rolam N
+  // dados a menos" — mesmo desconto de resolveQueimadura.
+  const grau = Math.max(0, grauEnvenenamento(descritoresAtaque) - grauSelado(defender?.descritores));
   if (grau <= 0 || !sucessosLiquidosAtaque || sucessosLiquidosAtaque < 1) return null;
   const rolagem = rollSuccessDice(grau, LIMIAR_ENVENENAMENTO);
   const teveSucesso = rolagem.successes >= 1;
@@ -1010,15 +1087,25 @@ export function resolveCarga({ defender, descritoresAtaque = [], sucessosLiquido
 // sucesso líquido, o alvo perde 1 mana DISPONÍVEL e o atacante recupera 1
 // mana GASTA (nunca quebrada) — uma vez por ataque. Não rola dado nenhum;
 // só sinaliza que deve acontecer — quem chama (UI) aplica o MP real nos
-// dois personagens (ver mp.quebrada/quebrarMana/repararMana, abaixo: "nunca
+// dois personagens (ver mp.quebrada/quebrarMana/repararMana — "nunca
 // quebrada" é automático, porque a mana quebrada já fica fora do teto que
-// current pode recuperar). "Se o alvo não tiver mana, o atacante recupera
-// mesmo assim" (provisório, texto do Pedro) — por isso `manaRoubadaDoAlvo`
-// é só um TETO de 1, não garante que o alvo de fato tinha mana sobrando;
-// quem aplica clampa em 0.
-export function resolveDrenante({ descritoresAtaque = [], sucessosLiquidosAtaque }) {
+// current pode recuperar).
+// CORREÇÃO (21/10, mesma sessão do catálogo de armaduras — a versão mais
+// recente do documento fecha o que antes era provisório): "Alvo sem mana: o
+// atacante não recupera nada" — a versão anterior ("provisório: atacante
+// recupera mesmo assim") foi substituída; agora `resolveDrenante` lê
+// `defender.mp.current` de verdade em vez de sempre devolver 1.
+// Selado N (armadura, seção 7.2): "o Drenante não funciona contra você" —
+// anula o efeito por completo (nem o alvo perde, nem o atacante recupera),
+// não é um desconto de N dados como em Queimadura/Envenenamento (Drenante
+// não rola dado nenhum pra haver o que descontar).
+export function resolveDrenante({ defender, descritoresAtaque = [], sucessosLiquidosAtaque }) {
   if (!descritoresAtaque.includes("drenante") || !sucessosLiquidosAtaque || sucessosLiquidosAtaque < 1) return null;
-  return { aplicou: true, manaRoubadaDoAlvo: 1, manaRecuperadaPeloAtacante: 1 };
+  if (grauSelado(defender?.descritores) > 0) {
+    return { aplicou: false, bloqueadoPorSelado: true, manaRoubadaDoAlvo: 0, manaRecuperadaPeloAtacante: 0 };
+  }
+  const alvoTemMana = (defender?.mp?.current ?? 0) > 0;
+  return { aplicou: true, manaRoubadaDoAlvo: alvoTemMana ? 1 : 0, manaRecuperadaPeloAtacante: alvoTemMana ? 1 : 0 };
 }
 
 // Resolução de um ataque genérico (físico ou mágico) — docs/SISTEMA_MAGIA.md.
@@ -1056,11 +1143,11 @@ export function resolveAtaque({
   const tipoFerimento = determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, resistente, superficialForcado: superficial });
   const queimadura = resolveQueimadura({ attacker, defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
   const envenenamento = resolveEnvenenamento({
-    descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos,
+    defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos,
     limiteAtual: envenenamentoLimiteAtual, feridasAtuais: envenenamentoFeridasAtuais,
   });
   const carga = resolveCarga({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos, cargasAtuais });
-  const drenante = resolveDrenante({ descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
+  const drenante = resolveDrenante({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
   return {
     limiar, rolagemAtaque, rolagemDefesa, sucessosLiquidos, letal, resistente,
     tipoFerimento, feridas: tipoFerimento ? feridas : 0, queimadura, envenenamento, carga, drenante,
@@ -1098,7 +1185,7 @@ export function resolveAtaqueEmArea({
     const queimadura = resolveQueimadura({ attacker, defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
     const cargasAtuais = cargasAtuaisPorDefensor ? cargasAtuaisPorDefensor(defender) : 0;
     const carga = resolveCarga({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos, cargasAtuais });
-    const drenante = resolveDrenante({ descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
+    const drenante = resolveDrenante({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
     return {
       defender, limiar, sucessosAtaque, rolagemDefesa, sucessosLiquidos, letal, resistente,
       tipoFerimento, feridas: tipoFerimento ? feridas : 0, queimadura, carga, drenante,

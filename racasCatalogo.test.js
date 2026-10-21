@@ -349,6 +349,76 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   });
 });
 
+// Equipamento defensivo (21/10, docs/ATUALIZACAO_21-10.md seção 7 — ver
+// data/armaduras.js). comGrausEfetivos é o único ponto que transforma
+// character.equipamento em descritores/bônus de verdade — testado aqui em
+// vez de duplicar a cobertura de data/armaduras.test.js.
+describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => {
+  it("soma os descritores da armadura equipada em character.descritores", () => {
+    const { character } = comGrausEfetivos({ equipamento: { armaduraId: "armadura_media" } });
+    assert.deepEqual(character.descritores, ["resistente", "blindado"]);
+  });
+
+  it("não duplica um descritor que o personagem já tinha (dedupe)", () => {
+    const { character } = comGrausEfetivos({ descritores: ["resistente"], equipamento: { armaduraId: "armadura_media" } });
+    assert.deepEqual(character.descritores, ["resistente", "blindado"]);
+  });
+
+  it("Potente Força (armadura de poder base): +1 grau em Força, teto C", () => {
+    const { character, bonusAplicado } = comGrausEfetivos({
+      atributosGerais: { forca: "D" }, equipamento: { armaduraId: "armadura_de_poder_base" },
+    });
+    assert.equal(character.atributosGerais.forca, "C");
+    assert.equal(bonusAplicado.atributos.forca, 1);
+  });
+
+  it("Potente Força não sobe além de C", () => {
+    const { character } = comGrausEfetivos({
+      atributosGerais: { forca: "C" }, equipamento: { armaduraId: "armadura_de_poder_base" },
+    });
+    assert.equal(character.atributosGerais.forca, "C");
+  });
+
+  it("Potente Destreza (exoesqueleto): +1 grau em Destreza, teto C", () => {
+    const { character } = comGrausEfetivos({
+      atributosGerais: { destreza: "D" }, equipamento: { armaduraId: "exoesqueleto" },
+    });
+    assert.equal(character.atributosGerais.destreza, "C");
+  });
+
+  it("Potente ofício mágico (armadura catalisadora): +1 em disciplinaMagica.oficiosExtras, soma com o Conduíte", () => {
+    const { character } = comGrausEfetivos({
+      conduiteAtivo: true, disciplinaMagica: {}, equipamento: { armaduraId: "armadura_catalisadora" },
+    });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 2); // 1 Conduíte + 1 armadura
+  });
+
+  it("bonusDefesaEquipamento e penalidadeDefesaSemPericia ficam anexados no character efetivo", () => {
+    const { character } = comGrausEfetivos({
+      equipamento: { armaduraId: "armadura_de_placas_completa", temPericiaArmadura: false },
+    });
+    assert.equal(character.penalidadeDefesaSemPericia, 1); // placas sem perícia
+    assert.equal(character.bonusDefesaEquipamento, 0); // placas não dá bônus de Defesa
+  });
+  it("bonusDefesaEquipamento soma o +1 de peças que dão bônus (ex. Vestimenta rúnica)", () => {
+    const { character } = comGrausEfetivos({ equipamento: { armaduraId: "vestimenta_runica" } });
+    assert.equal(character.bonusDefesaEquipamento, 1);
+  });
+
+  it("sem equipamento nenhum, penalidadeDefesaSemPericia e bonusDefesaEquipamento são 0", () => {
+    const { character } = comGrausEfetivos({});
+    assert.equal(character.penalidadeDefesaSemPericia, 0);
+    assert.equal(character.bonusDefesaEquipamento, 0);
+  });
+
+  it("mana ativa condicional: Campo de Mana da Armadura de mana só entra com manaAtivaArmadura", () => {
+    const semMana = comGrausEfetivos({ equipamento: { armaduraId: "armadura_de_mana" } }).character;
+    assert.ok(!(semMana.descritores || []).includes("campo_de_mana"));
+    const comMana = comGrausEfetivos({ equipamento: { armaduraId: "armadura_de_mana", manaAtivaArmadura: true } }).character;
+    assert.ok((comMana.descritores || []).includes("campo_de_mana"));
+  });
+});
+
 describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () => {
   it("disciplinasDoPersonagem filtra slots vazios (null)", () => {
     const ch = { disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: ["shin"] }, null, null] };

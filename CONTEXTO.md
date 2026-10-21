@@ -571,6 +571,28 @@ A pedido do Pedro, todo o descritor "Abrangente" (criado no pacote acima, mesmo 
 
 Suíte: continua **960 testes**, todos passando (rename não mudou contagem).
 
+### Catálogo de armaduras: 12 tipos, descritores defensivos novos, SP quebrado (21/10, mesmo dia, pedido seguinte)
+
+O Pedro mandou `docs/ATUALIZACAO_21-10.md` seções 7-8 (atualizado) + `docs/armaduras.xlsx` e pediu o catálogo de armaduras como dados editáveis, os 7 descritores defensivos novos, SP quebrado de verdade, o limite de 1 armadura+1 escudo+1 acessório e a penalidade de -1 dado sem perícia da família — e pra remover a frase de que o Texoni não gosta de armadura.
+
+**O que já existia**: nada mecânico — `itens.armadura` (character.itens) sempre foi um campo de TEXTO livre (até 1 item), sem nenhum efeito no motor. A frase do Texoni estava em `catalogo-racas.json` (`descricao` da sub-raça), removida (ficou só "Escamas metálicas e pele extremamente resistente.").
+
+**O que implementei**:
+- `data/armaduras.js` (novo): catálogo `ARMADURAS` com os 12 tipos da planilha (9 armadura, 2 escudo, 1 acessório — campo `slot`, separado de `familia`, porque a planilha não os faz coincidir: Escudo de mana é família "Mágica" mas ocupa o slot escudo). Cada tipo tem `bonusDefesa` (dados), `descritoresConcedidos`, `custoSpEquipar`, `custoManaAtivar` (só 3 peças — Armadura de mana/Escudo de mana/Chifre de Mana — exigem mana ATIVA pro efeito valer; Vestimenta rúnica é mágica mas não exige, "pode ser sempre ativa" por nota do Pedro), `periciaFamilia`. Funções: `descritoresDeEquipamentoDefensivo`, `bonusDefesaDeEquipamento`, `penalidadeDefesaSemPericiaDoPersonagem` (-1 por peça sem perícia, armadura e escudo podem somar -2).
+- `engine.js`: `grauFirme`/`grauSelado`/`grauLento` (mesma convenção de `grauDescritorNumerico`); `diceAtaqueFisico` desconta Lento N do atacante; `resolveRolagemDefesa` ganhou Firme N (só ao bloquear — tira N dados E soma N sucessos garantidos, `firmeGarantidos` no retorno), Lento N (só na esquiva), `defensor.bonusDefesaEquipamento`/`defensor.penalidadeDefesaSemPericia` (lidos diretos do character, sem engine.js conhecer armadura nenhuma); `resolveQueimadura`/`resolveEnvenenamento` descontam Selado N do grau antes de rolar; `resolveDrenante` ganhou `defender` e verifica Selado (anula por completo) — **e uma correção de regra que achei ao reler a seção 5 pra implementar Selado**: a versão nova do documento fechou o que antes era provisório ("se o alvo não tiver mana, o atacante recupera mesmo assim") para "o atacante NÃO recupera nada" — `resolveDrenante` agora lê `defender.mp.current` de verdade em vez de sempre devolver 1 (fora do pedido original de armaduras, mas achado relendo a mesma seção).
+- `quebrarSP`/`repararSP` (engine.js): idênticas a quebrarMana/repararMana — a diferença ("só recupera no descanso longo") é de QUANDO a UI chama `repararSP`, não da função em si.
+- `racasCatalogo.js:comGrausEfetivos`: soma os descritores do equipamento (igual já fazia com Encantamentos), aplica Potente Força/Potente Destreza (+1 grau, teto C, no mesmo mecanismo de bônus racial) e Potente ofício mágico (+1 em oficiosExtras, soma com Conduíte), e anexa `bonusDefesaEquipamento`/`penalidadeDefesaSemPericia` no character efetivo.
+- `point-amaranth-app.jsx`: seção "Catálogo de Armaduras" na aba Regras (igual às armas); painel novo "Equipamento Defensivo" na ficha (3 selects por slot + checkbox de perícia quando a peça exige + checkbox "Ativa" quando exige mana, quebrando/reparando MP de verdade); equipar uma peça com `custoSpEquipar` quebra o SP na hora (`quebrarSP`); indicador "SP quebrado" ao lado do de mana quebrada; botão "Restaurar MP e SP" passou a zerar `sp.quebrada` também (ver decisão abaixo).
+
+**Constantes/decisões provisórias desta rodada**:
+- **"Descanso longo" não existe como mecânica no app** (nunca existiu — nem pro limite de Envenenamento/Carga, que também zeram nele). Decisão minha: o botão "Restaurar MP e SP" (reset manual completo, já zerava `mp.quebrada`) passou a zerar `sp.quebrada` também — é o único lugar do app que já reseta tudo de uma vez, tratado como equivalente de descanso longo pra esse fim.
+- O "Extra" bespoke da Armadura de placas completa ("1 sucesso garantido em qualquer defesa, esquiva e bloqueio; rola defesa com 1 dado a menos") **não foi mecanizado** — só o Lento 1 dela (via `descritoresConcedidos`) é real. É um texto único que não corresponde a nenhum dos 7 descritores genéricos pedidos; mecanizá-lo exigiria uma regra à parte (sucesso garantido fora do bloqueio, que hoje só Firme N cobre). Fica como texto `extra` descritivo, igual ao catálogo de armas.
+- Potente Força/Destreza usam teto "C" por padrão (mesmo default do resto do sistema) — não testei contra uma raça que já tivesse um teto expandido especificamente em Força/Destreza (não existe nenhuma hoje).
+
+**Conflitos/itens fora do pedido**: nenhum novo além da correção do Drenante acima (já fora de escopo, mas na mesma seção lida).
+
+Suíte: 960 → **1005 testes** (`data/armaduras.test.js` novo — 18 testes; extensões em `engine.test.js`/`racasCatalogo.test.js` pros descritores novos e pra correção do Drenante). Verificado também no navegador via Playwright: selecionar uma armadura quebra o SP na hora, o checkbox de perícia aparece só quando a peça exige, "Ativa" quebra mana de verdade, e "Restaurar MP e SP" zera o SP quebrado — sem erros de console.
+
 ### Vigor define HP; os outros atributos gerais são narrativos
 HP = 2 + bônus de Vigor (E=2 a A=6). Carisma, Manipulação, Compostura, Inteligência, Perspicácia e Resolução **não têm função de combate por design** — servem para testes interpretativos.
 

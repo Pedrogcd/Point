@@ -4,6 +4,7 @@
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
 import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos } from "./data/magias.js";
+import { descritoresDeEquipamentoDefensivo, penalidadeDefesaSemPericiaDoPersonagem, bonusDefesaDeEquipamento } from "./data/armaduras.js";
 
 export const CATALOGO_RACAS = catalogo;
 
@@ -481,28 +482,53 @@ export function comGrausEfetivos(character) {
   // de 3 habilidades por ofício mágico implementado nem pra Encantamentos
   // (ver CONTEXTO.md).
   const bonusConduite = character.conduiteAtivo ? 1 : 0;
-  const disciplinaMagica = {
-    ...(character.disciplinaMagica || {}),
-    oficiosMagicos: oficiosMagicosDoPersonagem(character),
-    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais + bonusConduite,
-    magiaInata: temMagiaInataDoPersonagem(character),
-    magiasAtivas: magiasAtivasDoPersonagem(character),
-  };
   // Encantamento Flamejante e qualquer outro encantamento futuro (19/10, ver
   // data/magias.js:ENCANTAMENTOS/descritoresDeEncantamentosAtivos): soma os
   // descritores concedidos pelos encantamentos ATIVOS do personagem
   // (character.encantamentosAtivos) nos descritores de PERSONAGEM, de onde
   // engine.js:descritoresEfetivosDoAtaque lê pra aplicar o efeito (ex.:
-  // Queimadura 1) em qualquer ataque dele, físico ou mágico. Sem clonar
-  // quando não há nenhum encantamento ativo (igual ao resto da função).
+  // Queimadura 1) em qualquer ataque dele, físico ou mágico.
+  // Equipamento defensivo (21/10, docs/ATUALIZACAO_21-10.md seção 7 — ver
+  // data/armaduras.js:descritoresDeEquipamentoDefensivo): soma os
+  // descritores da armadura/escudo/acessório EQUIPADOS (Resistente,
+  // Blindado, Firme N, Selado N, Lento N, Campo de Mana, Potente Força/
+  // Destreza/ofício mágico) do mesmo jeito. Sem clonar quando não há nada
+  // ativo/equipado (igual ao resto da função).
   const descritoresEncantamentos = descritoresDeEncantamentosAtivos(character);
-  const descritores = descritoresEncantamentos.length
-    ? [...new Set([...(character.descritores || []), ...descritoresEncantamentos])]
+  const descritoresEquipamento = descritoresDeEquipamentoDefensivo(character);
+  const descritoresExtras = [...descritoresEncantamentos, ...descritoresEquipamento];
+  const descritores = descritoresExtras.length
+    ? [...new Set([...(character.descritores || []), ...descritoresExtras])]
     : character.descritores;
+  // Potente Força/Potente Destreza (armadura, seção 7.2): "+1 grau, até C"
+  // — lidos do character JÁ com os descritores do equipamento mesclados
+  // (senão a própria armadura equipada nunca veria o bônus que ela dá).
+  // Potente ofício mágico: "+1 ofício, soma com o Conduíte" — mesmo
+  // mecanismo de oficiosExtras que o Conduíte já usava.
+  const descritoresSet = new Set(descritores || []);
+  const bonusArmaduraOficioMagico = descritoresSet.has("potente_oficio_magico") ? 1 : 0;
+  if (descritoresSet.has("potente_forca")) bonus.atributos.forca = (bonus.atributos.forca || 0) + 1;
+  if (descritoresSet.has("potente_destreza")) bonus.atributos.destreza = (bonus.atributos.destreza || 0) + 1;
+  const disciplinaMagica = {
+    ...(character.disciplinaMagica || {}),
+    oficiosMagicos: oficiosMagicosDoPersonagem(character),
+    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais + bonusConduite + bonusArmaduraOficioMagico,
+    magiaInata: temMagiaInataDoPersonagem(character),
+    magiasAtivas: magiasAtivasDoPersonagem(character),
+  };
+  // Penalidade de Defesa por falta de perícia de armadura/escudo (Regra 4,
+  // seção 7.1) — anexada direto no character efetivo, pra
+  // engine.js:resolveRolagemDefesa ler o número sem precisar conhecer
+  // armadura nenhuma (ver data/armaduras.js:penalidadeDefesaSemPericiaDoPersonagem).
+  const penalidadeDefesaSemPericia = penalidadeDefesaSemPericiaDoPersonagem(character);
+  // Bônus de Defesa em dados da armadura/escudo/acessório equipados (Regra
+  // 2, seção 7.1) — mesmo princípio: anexado direto, engine.js só soma o
+  // número.
+  const bonusDefesaEquipamento = bonusDefesaDeEquipamento(character);
   const bonusAplicado = { proficiencias: {}, atributos: {} };
   const semBonusDeGrau = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0;
   if (semBonusDeGrau) {
-    return { character: { ...character, disciplinaMagica, descritores }, bonusAplicado };
+    return { character: { ...character, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento }, bonusAplicado };
   }
   const tetos = tetoGrauDoPersonagem(character);
   const proficiencias = { ...character.proficiencias };
@@ -519,5 +545,5 @@ export function comGrausEfetivos(character) {
     atributosGerais[chave] = novoGrau;
     bonusAplicado.atributos[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
   }
-  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, descritores }, bonusAplicado };
+  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento }, bonusAplicado };
 }

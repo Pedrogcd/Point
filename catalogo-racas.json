@@ -611,7 +611,7 @@
           "papel": "principal",
           "icone": "escama-metalica",
           "cor": "#6C7A89",
-          "descricao": "Escamas metálicas e pele extremamente resistente; não gostam de armadura por já terem uma natural forte.",
+          "descricao": "Escamas metálicas e pele extremamente resistente.",
           "efeito": "Ganha o descritor Blindado: dados de ataque físico contra você precisam de no mínimo 6, em vez de 5, para dar sucesso.",
           "bonus": [
             "Blindado"

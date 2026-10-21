@@ -91,6 +91,49 @@ describe("migrarPersonagem", () => {
     assert.equal("manipulacaoManaProf" in migrado.proficiencias, false);
   });
 
+  // Defesa substitui Resistência Física (21/10, docs/ATUALIZACAO_21-10.md
+  // item 1): migração não-destrutiva — a nova Defesa recebe o grau que
+  // estava em Resistência Física, só na primeira vez; o grau antigo fica
+  // preservado em proficienciasLegado.resistFisicaProf (não apaga).
+  describe("21/10: Defesa substitui Resistência Física", () => {
+    it("resistFisicaProf não existe mais depois da migração", () => {
+      const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { resistFisicaProf: "C" } });
+      assert.equal("resistFisicaProf" in migrado.proficiencias, false);
+    });
+
+    it("a nova Defesa recebe o grau que estava em Resistência Física", () => {
+      const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { resistFisicaProf: "C" } });
+      assert.equal(migrado.proficiencias.defesaProf, "C");
+    });
+
+    it("o grau antigo fica preservado em proficienciasLegado.resistFisicaProf (não apaga)", () => {
+      const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { resistFisicaProf: "C" } });
+      assert.equal(migrado.proficienciasLegado.resistFisicaProf, "C");
+    });
+
+    it("sem resistFisicaProf salvo, não mexe em nada (defesaProf fica no padrão 'E')", () => {
+      const migrado = migrarPersonagem({ id: "x", name: "X" });
+      assert.equal(migrado.proficiencias.defesaProf, "E");
+      assert.equal(migrado.proficienciasLegado.resistFisicaProf, undefined);
+    });
+
+    it("idempotente: migrar duas vezes não sobrescreve uma Defesa editada manualmente depois da 1ª migração", () => {
+      const primeiraVez = migrarPersonagem({ id: "x", name: "X", proficiencias: { resistFisicaProf: "C" } });
+      assert.equal(primeiraVez.proficiencias.defesaProf, "C");
+      // jogador edita a Defesa manualmente depois da migração
+      const editado = { ...primeiraVez, proficiencias: { ...primeiraVez.proficiencias, defesaProf: "A" } };
+      const segundaVez = migrarPersonagem(editado);
+      assert.equal(segundaVez.proficiencias.defesaProf, "A"); // não volta pro "C" antigo
+      assert.equal(segundaVez.proficienciasLegado.resistFisicaProf, "C"); // continua preservado
+    });
+
+    it("preserva proficienciasLegado já existente de outras migrações", () => {
+      const migrado = migrarPersonagem({ id: "x", name: "X", proficienciasLegado: { outraCoisa: "D" }, proficiencias: { resistFisicaProf: "B" } });
+      assert.equal(migrado.proficienciasLegado.outraCoisa, "D");
+      assert.equal(migrado.proficienciasLegado.resistFisicaProf, "B");
+    });
+  });
+
   it("14/10 (docs/DISCIPLINAS_MAGIA.md): disciplinas nasce [null,null,null] pra quem não tinha nada", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X" });
     assert.deepEqual(migrado.disciplinas, [null, null, null]);

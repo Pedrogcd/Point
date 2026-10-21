@@ -14,14 +14,18 @@ import {
   ACERTOS_POR_TIPO, computeAcertoTipo,
   PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS, MAX_PROCS,
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
-  attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, parseFlatBonus,
+  attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, parseFlatBonus, quebrarMana, repararMana,
   limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
   contagemOficiosMagicos,
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
-import { MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS } from "./data/magias.js";
+import {
+  MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
+  ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO,
+} from "./data/magias.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, ALCANCE_LABEL } from "./data/armas.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import {
   criarEncontro, criarCombatentePersonagem, criarCombatenteAvulso,
@@ -183,11 +187,22 @@ const DESCRITOR_INFO = {
   sortudo_fisico: { label: "Sortudo (físico)", cor: "#E0A800", descricao: "Como o Sortudo, mas só vale em rolagens de ATAQUE FÍSICO (não mágico): o primeiro dado que sair 1 ou 2 é re-rolado automaticamente, uma vez. (Descendentes de Sabato, 14/10.)" },
   magia: { label: "Magia", cor: PURPLE, descricao: "Toda magia tem este descritor — identifica o ataque como mágico." },
   em_area: { label: "Em área", cor: "#5C86B0", descricao: "Atinge todos os alvos da zona; cada um rola a própria defesa; o conjurador rola uma vez; aliados na zona também são atingidos." },
-  saturante: { label: "Saturante", cor: "#B0784F", descricao: "Se o defensor usar Destreza como base da defesa, rola 2 dados a menos (mínimo 0)." },
   perfurante: { label: "Perfurante", cor: BRASS_BRIGHT, descricao: "Ignora o Blindado do alvo." },
   letal: { label: "Letal", cor: EMBER, descricao: "Reduz em 1 (mínimo 1) o Vigor necessário para o ferimento virar agravante." },
   atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
   queimadura: { label: "Queimadura", cor: EMBER, descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola 1 d10 extra (separado do pool) contra 8+ (9+ se o alvo tiver Blindado; Perfurante ignora). Cada sucesso é 1 ferimento à parte, superficial — ou agravante se os sucessos de queimadura chegarem ao Vigor do alvo." },
+  // 21/10 (docs/ATUALIZACAO_21-10.md, seção 5) — glossário novo. "Saturante"
+  // foi RETIRADO (equivale a Abrangente 2; não tem mais efeito nenhum no
+  // motor, ver engine.js:resolveRolagemDefesa — nunca selecione "saturante"
+  // à toa, use "abrangente"/"abrangente_2").
+  abrangente: { label: "Abrangente", cor: "#B0784F", descricao: "Difícil de esquivar (nome provisório). Se o defensor usar Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Substitui o antigo Saturante (Saturante = Abrangente 2)." },
+  esmagador: { label: "Esmagador", cor: "#8B5A2B", descricao: "Difícil de bloquear (nome provisório). Se o defensor usar Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Contrapartida do Abrangente." },
+  resistente: { label: "Resistente", cor: "#4A9A6E", descricao: "Soma +1 ao Vigor necessário pro ferimento virar agravante. Não acumula (mais de uma fonte não soma mais que +1). Anula Letal (os dois juntos voltam pro Vigor normal)." },
+  pesado: { label: "Pesado", cor: EMBER, descricao: "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com ele — nunca sobe pra 8+). Em troca, a arma causa 2 ferimentos por ataque que acerta (ambos seguem a regra do Vigor — provisório)." },
+  envenenamento: { label: "Envenenamento", cor: "#4A9A2E", descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (sucesso 7+, ignora defesa e Blindado). Com pelo menos 1 sucesso, sempre exatamente 1 ferimento superficial. O total de ferimentos de veneno do alvo é limitado ao maior N já recebido — zera na cura ou no descanso longo." },
+  carga: { label: "Carga", cor: "#5C86B0", descricao: "Cada sucesso líquido do ataque deixa 1 carga no alvo. Ao chegar no N do ataque que acabou de carregar, descarrega: N dados extras (6+, sem defesa), cada sucesso é 1 ferimento (agravante se >= Vigor). As cargas ficam no alvo até a descarga ou o descanso longo." },
+  drenante: { label: "Drenante", cor: PURPLE, descricao: "Se o ataque causar ao menos 1 sucesso líquido, o alvo perde 1 mana disponível e o atacante recupera 1 mana gasta (nunca quebrada). Uma vez por ataque." },
+  hp_maximo_1: { label: "+1 HP máximo", cor: EMBER, descricao: "Soma +1 ao HP máximo do personagem." },
 };
 
 // Listas curadas pro modo Ataque livre do painel Teste (14/10, mais tarde,
@@ -195,8 +210,14 @@ const DESCRITOR_INFO = {
 // de um ataque catalogado, e escolher a característica do ALVO em vez de
 // atributo de defesa + Resistência Física) — ver CharacterSheet, `rollAtaque`/
 // `ataqueAlvoSintetico`. Reaproveitam os labels/cores de DESCRITOR_INFO.
-const CARACTERISTICAS_ATAQUE = ["letal", "saturante", "perfurante", "sortudo", "em_area", "queimadura"];
-const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia"];
+// 21/10: ganhou os descritores novos do glossário — todos aqui entram como
+// grau 1 fixo (sem campo pra digitar N nessa UI simplificada; pra N maior,
+// use um ataque catalogado ou a aba Magia).
+const CARACTERISTICAS_ATAQUE = [
+  "letal", "abrangente", "esmagador", "perfurante", "sortudo", "em_area",
+  "queimadura", "pesado", "envenenamento", "carga", "drenante",
+];
+const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente"];
 
 
 
@@ -615,7 +636,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "D", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "C", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "C",
+      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "C",
       intuicao: "C", percepcao: "C", ocultismo: "D", financas: "D", persuasao: "D",
     },
     procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
@@ -665,7 +686,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "C", destreza: "D", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "D",
+      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "D",
       atletismo: "D", intuicao: "D", ocultismo: "D", intimidacao: "D", percepcao: "D",
     },
     procs: ["persistente", "instinto_selvagem", "furia_crescente"],
@@ -710,7 +731,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "C", destreza: "E", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "D", manipulacaoManaProf: "D",
+      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistMagicaProf: "D", manipulacaoManaProf: "D",
       atuacao: "C", sobrevivencia: "D", intimidacao: "D",
     },
     procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
@@ -763,7 +784,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "D", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "D",
+      combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "D",
       ciencia: "C", magiasGerais: "C", furtividade: "D", subterfugio: "D", medicina: "D", etiqueta: "D",
     },
     procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
@@ -810,7 +831,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "D", inteligencia: "E", perspicacia: "D", resolucao: "E" },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistFisicaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "D",
+      combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "D",
       furtividade: "C", percepcao: "D", sobrevivencia: "D",
     },
     procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
@@ -857,7 +878,7 @@ const SIDEPOINT_CHARACTERS_RAW = [
     attributes: {},
     atributosGerais: { forca: "D", destreza: "E", vigor: "D", carisma: "C", manipulacao: "E", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "D" },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "E",
+      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "E",
       lideranca: "B", medicina: "C", magiasGerais: "C", ocultismo: "C", persuasao: "D",
     },
     procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
@@ -938,7 +959,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "D",
       "defesaProf": "C",
-      "resistFisicaProf": "D",
       "resistMagicaProf": "C",
       "manipulacaoManaProf": "C",
       "lideranca": "A",
@@ -1067,7 +1087,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "E",
-      "resistFisicaProf": "E",
       "resistMagicaProf": "E",
       "manipulacaoManaProf": "E"
     },
@@ -1166,7 +1185,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "E",
-      "resistFisicaProf": "B",
       "resistMagicaProf": "E",
       "manipulacaoManaProf": "C",
       "lideranca": "B",
@@ -1302,7 +1320,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "D",
       "defesaProf": "C",
-      "resistFisicaProf": "C",
       "resistMagicaProf": "B",
       "manipulacaoManaProf": "C",
       "lideranca": "B",
@@ -1418,7 +1435,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "D",
       "defesaProf": "B",
-      "resistFisicaProf": "B",
       "resistMagicaProf": "C",
       "manipulacaoManaProf": "C",
       "atletismo": "C"
@@ -1551,7 +1567,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "A",
       "defesaProf": "D",
-      "resistFisicaProf": "C",
       "resistMagicaProf": "B",
       "manipulacaoManaProf": "C",
       "ciencia": "A",
@@ -1680,7 +1695,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "B",
-      "resistFisicaProf": "C",
       "resistMagicaProf": "E",
       "manipulacaoManaProf": "B",
       "sobrevivencia": "D"
@@ -1813,7 +1827,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "C",
-      "resistFisicaProf": "A",
       "resistMagicaProf": "D",
       "manipulacaoManaProf": "B",
       "lideranca": "C"
@@ -1929,7 +1942,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "A",
-      "resistFisicaProf": "D",
       "resistMagicaProf": "C",
       "manipulacaoManaProf": "A",
       "furtividade": "B",
@@ -2047,7 +2059,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "C",
-      "resistFisicaProf": "A",
       "resistMagicaProf": "C",
       "manipulacaoManaProf": "B"
     },
@@ -2168,7 +2179,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "B",
-      "resistFisicaProf": "C",
       "resistMagicaProf": "C",
       "manipulacaoManaProf": "B",
       "lideranca": "B",
@@ -2294,7 +2304,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "B",
       "defesaProf": "C",
-      "resistFisicaProf": "C",
       "resistMagicaProf": "A",
       "manipulacaoManaProf": "C",
       "lideranca": "D",
@@ -2412,7 +2421,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "C",
       "defesaProf": "C",
-      "resistFisicaProf": "D",
       "resistMagicaProf": "D",
       "manipulacaoManaProf": "B",
       "lideranca": "D"
@@ -2550,7 +2558,6 @@ const SUTH_CHARACTERS_RAW = [
       "armasDeFogo": "E",
       "magiasOfensivas": "E",
       "defesaProf": "B",
-      "resistFisicaProf": "D",
       "resistMagicaProf": "C",
       "manipulacaoManaProf": "C",
       "persuasao": "C",
@@ -2709,7 +2716,6 @@ const FICHA_NOVA_FATE = {
     "armasDeFogo": "E",
     "magiasOfensivas": "E",
     "defesaProf": "A",
-    "resistFisicaProf": "C",
     "resistMagicaProf": "D",
     "manipulacaoManaProf": "A",
     "intimidacao": "B",
@@ -3106,7 +3112,7 @@ const HETALION_CHARACTERS_RAW = [
       { name: "Mago da Associação de Magia", description: "Magias de combate e utilidade de um mago habilidoso; estilo de suporte à distância, sem entrar em combate corpo a corpo." },
     ],
     atributosGerais: { forca: "E", destreza: "C", vigor: "D", carisma: "C", manipulacao: "B", compostura: "B", inteligencia: "A", perspicacia: "B", resolucao: "B" },
-    proficiencias: { armasDeFogo: "E", combateCorpoACorpo: "E", magiasOfensivas: "A", defesaProf: "D", resistFisicaProf: "D", resistMagicaProf: "B", manipulacaoManaProf: "A" },
+    proficiencias: { armasDeFogo: "E", combateCorpoACorpo: "E", magiasOfensivas: "A", defesaProf: "D", resistMagicaProf: "B", manipulacaoManaProf: "A" },
     procs: ["reflexo_agil", "surto_arcano", "escudo_de_mana"],
     hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
     history: "A família de Valefor segue Kronos há gerações; ele cresceu cumprindo o que se esperava dele, virando sacerdote de Kronos e mago da Associação de Magia porque era o esperado, não por escolha. Para ele, a Prime e a tradição eram tudo — foi zeloso e fiel, cegamente, por boa parte do tempo, e via Hoshon como seu superior e como tudo o que precisava ser. Foi ao conhecer Hetalion Seguintes que passou a pensar fora do molde que lhe deram; hoje se dedica a ela e procura decidir o próprio destino. Recentemente soube do plano secreto de Yurity e Crikon (ampliar a influência de Seguintes para derrubar o governo atual de Hetalion). Não sabe o que pensar, mas está disposto a ver aonde vai e quer decidir por conta própria. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade, o 'poder de alma' e as magias de combate específicas ainda não foram definidos; ver notas do mestre do reino.]",
@@ -3126,7 +3132,7 @@ const HETALION_CHARACTERS_RAW = [
       { name: "Conspiradora política", description: "Usa a posição para ampliar influência junto de Hetalion Seguintes, com o objetivo de derrubar o governo atual de Hetalion e enfrentar Amaranth." },
     ],
     atributosGerais: { forca: "D", destreza: "B", vigor: "C", carisma: "B", manipulacao: "A", compostura: "C", inteligencia: "B", perspicacia: "A", resolucao: "A" },
-    proficiencias: { armasDeFogo: "B", combateCorpoACorpo: "D", magiasOfensivas: "A", defesaProf: "C", resistFisicaProf: "D", resistMagicaProf: "B", manipulacaoManaProf: "B" },
+    proficiencias: { armasDeFogo: "B", combateCorpoACorpo: "D", magiasOfensivas: "A", defesaProf: "C", resistMagicaProf: "B", manipulacaoManaProf: "B" },
     procs: ["toque_flamejante", "surto_arcano", "escudo_de_mana"],
     hp: { current: 4, max: 4 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
     history: "Yurity é filha da antiga general do Partido Vermelho, que morreu em serviço durante a guerra em Amaranth, há cerca de 20 anos. Para o povo, a mãe morreu como heroína; para Yurity, a morte foi desnecessária, causada pela negligência de Amaranth. O ódio por Amaranth mudou a forma como ela vê o mundo — pra ela, o continente inteiro está preso nas garras de Karphel e de um status quo que ninguém questiona. Seu plano é crescer no Exército Vermelho, ampliar a influência junto de Hetalion Seguintes e ter poder pra derrubar o governo atual de Hetalion, enfrentar Amaranth e se libertar desses grilhões. No início usava Seguintes como degrau; hoje a vê como aliada próxima — foi Yurity quem acendeu a centelha revolucionária de Seguintes, e Seguintes disse que não sacrificaria Yurity nem Crikon. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade e as regras do Elo (limite de conectados, alcance, custo) ainda não foram definidos; ver notas do mestre do reino.]",
@@ -5177,7 +5183,10 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
 // Disciplina" do Humano (character.disciplinaExtraHumano) — quem chama lê e
 // grava onde for certo (gravarSlotDisciplina em CharacterSheet) e passa só
 // o valor atual + callbacks; este componente não sabe mais onde o dado mora.
-function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose, encantamentosAtivos, onToggleEncantamento }) {
+function DisciplinaSlotPicker({
+  titulo, legenda, atual, excluirIds, mpAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose,
+  encantamentosAtivos, onToggleEncantamento, conduiteAtivo, onToggleConduite, itensAlquimicosAtivos, onToggleItemAlquimico,
+}) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
   const [trocaRemover, setTrocaRemover] = useState("");
@@ -5285,14 +5294,14 @@ function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onE
             </div>
           )}
 
-          {/* Encantamentos (Pedro, 19/10): "quebra 1 de mana; enquanto
-              estiver quebrada, os ataques do usuário ganham o descritor".
-              A economia de mana quebrada (descontar/restaurar MP,
-              "desquebrar" fora de combate) NÃO existe no motor ainda — este
-              checkbox só liga/desliga o EFEITO (vira character.
-              encantamentosAtivos, que racasCatalogo.js:comGrausEfetivos lê
-              pra somar o descritor concedido), sem gastar MP nenhum. TODO
-              no relatório final. */}
+          {/* Encantamentos (Pedro, 19/10, economia de mana quebrada de
+              verdade desde 21/10 — docs/ATUALIZACAO_21-10.md item 3):
+              "quebra 1 de mana; enquanto estiver quebrada, os ataques do
+              usuário ganham o descritor". Ativar QUEBRA a mana de verdade
+              (desconta de mp.current, soma em mp.quebrada — ver
+              engine.js:quebrarMana); desativar REPARA (devolve, de graça —
+              "fora de combate" é confiança de mesa, o app não modela
+              combate/turnos como estado pra travar isso). */}
           {atual && def?.id === "oficio-encantamentos" && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
@@ -5301,17 +5310,73 @@ function DisciplinaSlotPicker({ titulo, legenda, atual, excluirIds, mpAtual, onE
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {ENCANTAMENTOS.map((enc) => {
                   const ativo = (encantamentosAtivos || []).includes(enc.id);
+                  const semManaPraAtivar = !ativo && (mpAtual || 0) < enc.custoManaQuebrada;
                   return (
-                    <label key={enc.id} title={enc.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: PARCHMENT }}>
-                      <input type="checkbox" checked={ativo} onChange={() => onToggleEncantamento(enc.id)} />
+                    <label
+                      key={enc.id} title={enc.descricao}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: semManaPraAtivar ? MUTED : PARCHMENT, opacity: semManaPraAtivar ? 0.5 : 1 }}
+                    >
+                      <input type="checkbox" checked={ativo} disabled={semManaPraAtivar} onChange={() => onToggleEncantamento(enc.id)} />
                       {enc.nome} ({enc.custoManaQuebrada} mana quebrada)
                     </label>
                   );
                 })}
               </div>
               <div style={{ fontSize: 9.5, color: MUTED, marginTop: 6, fontStyle: "italic" }}>
-                TODO: a economia de mana quebrada (descontar/restaurar MP) ainda não existe no motor — este botão só liga/desliga o efeito, sem gastar MP.
+                Ativar desconta a mana de verdade (fica quebrada, não volta sozinha); desativar repara de graça.
               </div>
+            </div>
+          )}
+
+          {/* Itens de Alquimia (21/10, docs/ATUALIZACAO_21-10.md item 4 +
+              seção 4.1): mesmo mecanismo de mana quebrada dos Encantamentos
+              (quebrarMana/repararMana) — "preparar" um item quebra 1 mana,
+              "despreparar" repara. Diferente de Encantamentos, um item
+              preparado NÃO concede descritor nenhum ao dono automaticamente
+              (ele é usável por QUALQUER pessoa depois, com os parâmetros de
+              quem criou) — por isso não entra em `character.descritores`,
+              só fica registrado em `character.itensAlquimicosAtivos`. TODO:
+              "1 item grátis por ofício mágico" e o fluxo de "usar o item
+              num alvo" não existem ainda — ver data/magias.js:ALQUIMIA. */}
+          {atual && def?.id === "oficio-alquimia" && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
+                Itens preparados (mana quebrada)
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+                {ALQUIMIA.map((item) => {
+                  const ativo = (itensAlquimicosAtivos || []).includes(item.id);
+                  const semManaPraPreparar = !ativo && (mpAtual || 0) < item.custoManaQuebrada;
+                  return (
+                    <label
+                      key={item.id} title={item.efeito}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: semManaPraPreparar ? MUTED : PARCHMENT, opacity: semManaPraPreparar ? 0.5 : 1, width: "100%" }}
+                    >
+                      <input type="checkbox" checked={ativo} disabled={semManaPraPreparar} onChange={() => onToggleItemAlquimico(item.id)} />
+                      {item.nome}
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 9.5, color: MUTED, marginTop: 6, fontStyle: "italic" }}>
+                Preparar desconta 1 mana de verdade (fica quebrada, não volta sozinha); despreparar repara de graça. "1 item grátis por ofício" ainda não implementado.
+              </div>
+            </div>
+          )}
+
+          {/* Conduíte mágico (21/10, docs/ATUALIZACAO_21-10.md item 4):
+              "existe em todo ofício, ocupa 1 dos 3 espaços, conta +1
+              ofício. Só um funciona por vez" — flag ÚNICO e GLOBAL do
+              personagem (não por disciplina), por isso aparece em
+              QUALQUER disciplina de ofício mágico, não só Encantamentos.
+              "Só um por vez" é automático: desmarcar aqui ou marcar em
+              outra disciplina sempre mexe no MESMO character.conduiteAtivo. */}
+          {atual && def?.tipo === "oficio-magico" && (
+            <div style={{ marginTop: 16 }}>
+              <label title={CONDUITE_MAGICO.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: PARCHMENT }}>
+                <input type="checkbox" checked={!!conduiteAtivo} onChange={onToggleConduite} />
+                {CONDUITE_MAGICO.nome} (+1 ofício mágico, só um por vez)
+              </label>
             </div>
           )}
         </div>
@@ -5676,8 +5741,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     if (!onUpdateCharacter) return;
     const mpAtual = character.mp || { current: 0, max: 3 };
     const max = computeMaxMana(character);
+    // Mana quebrada (21/10): o teto que a mana recupera é max - quebrada,
+    // nunca max sozinho — mana quebrada só volta reparando (fora de
+    // combate), não no início de turno.
+    const teto = Math.max(0, max - (mpAtual.quebrada || 0));
     onUpdateCharacter(character.id, {
-      mp: { ...mpAtual, current: Math.min(max, mpAtual.current + (mpAtual.recuperarPendente || 0)), recuperarPendente: 0 },
+      mp: { ...mpAtual, current: Math.min(teto, mpAtual.current + (mpAtual.recuperarPendente || 0)), recuperarPendente: 0 },
     });
   }
 
@@ -5685,7 +5754,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     if (!onUpdateCharacter) return;
     const mpAtual = character.mp || { current: 0, max: 3 };
     const max = computeMaxMana(character);
-    onUpdateCharacter(character.id, { mp: { ...mpAtual, current: max, recuperarPendente: 0 } });
+    // Mana quebrada (21/10): mesmo no fim de cena, só a mana GASTA normal
+    // volta ao máximo — a quebrada continua quebrada até reparar.
+    const teto = Math.max(0, max - (mpAtual.quebrada || 0));
+    onUpdateCharacter(character.id, { mp: { ...mpAtual, current: teto, recuperarPendente: 0 } });
   }
 
   // Grava a habilidade escolhida num dos espaços da tabela. A lista `procs`
@@ -5857,11 +5929,22 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 +{character.mp.recuperarPendente} mana a recuperar (aplica no "Início de turno")
               </div>
             )}
+            {/* Mana quebrada (21/10): não volta no fim de cena/início de
+                turno — só reparando, de graça, fora de combate (botão na
+                disciplina Encantamentos, ver "Raça e Disciplinas"). */}
+            {(character.mp?.quebrada || 0) > 0 && (
+              <div style={{ fontSize: 10.5, color: EMBER, marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
+                {character.mp.quebrada} mana quebrada (não volta sozinha — repare fora de combate)
+              </div>
+            )}
             {onUpdateCharacter && (
               <>
                 <Btn
                   onClick={() => onUpdateCharacter(character.id, {
-                    mp: { ...character.mp, current: computeMaxMana(character), recuperarPendente: 0 },
+                    // Reset manual completo — também zera mana quebrada (21/10),
+                    // diferente de Início de turno/Fim de cena (que preservam a
+                    // mana quebrada até o jogador reparar de propósito).
+                    mp: { ...character.mp, current: computeMaxMana(character), recuperarPendente: 0, quebrada: 0 },
                     sp: { ...character.sp, current: computeMaxSP(character) },
                   })}
                   style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
@@ -6550,10 +6633,46 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               gravar({ ...atual, habilidadesAtivas }, gratis ? {} : { mp: { ...character.mp, current: (character.mp?.current || 0) - 1 } });
             }}
             encantamentosAtivos={character.encantamentosAtivos}
+            // 21/10 (docs/ATUALIZACAO_21-10.md item 3): ativar um encantamento
+            // QUEBRA de verdade a mana dele (quebrarMana); desativar REPARA
+            // (repararMana) — antes (19/10) isso só ligava/desligava o efeito
+            // sem mexer no MP. A mana quebrada fica indisponível até reparar
+            // de novo aqui (ou até o botão "Restaurar MP e SP", reset manual
+            // completo).
             onToggleEncantamento={(encantamentoId) => {
               const ativos = character.encantamentosAtivos || [];
-              const novos = ativos.includes(encantamentoId) ? ativos.filter((e) => e !== encantamentoId) : [...ativos, encantamentoId];
-              onUpdateCharacter(character.id, { encantamentosAtivos: novos });
+              const jaAtivo = ativos.includes(encantamentoId);
+              const encantamento = getEncantamentoPorId(encantamentoId);
+              const custo = encantamento?.custoManaQuebrada || 1;
+              const mpAtual = character.mp || { current: 0, max: 3, quebrada: 0 };
+              if (jaAtivo) {
+                const novos = ativos.filter((e) => e !== encantamentoId);
+                onUpdateCharacter(character.id, { encantamentosAtivos: novos, mp: repararMana(mpAtual, custo) });
+              } else {
+                const novos = [...ativos, encantamentoId];
+                onUpdateCharacter(character.id, { encantamentosAtivos: novos, mp: quebrarMana(mpAtual, custo) });
+              }
+            }}
+            // 21/10 (item 4): Conduíte mágico é um flag booleano único por
+            // personagem (não é magia, não custa mana) — liga/desliga +1 ofício.
+            conduiteAtivo={character.conduiteAtivo}
+            onToggleConduite={() => onUpdateCharacter(character.id, { conduiteAtivo: !character.conduiteAtivo })}
+            // Itens alquímicos preparados seguem o mesmo padrão de mana
+            // quebrada dos encantamentos (quebra ao preparar, repara ao desfazer).
+            itensAlquimicosAtivos={character.itensAlquimicosAtivos}
+            onToggleItemAlquimico={(itemId) => {
+              const ativos = character.itensAlquimicosAtivos || [];
+              const jaAtivo = ativos.includes(itemId);
+              const item = getItemAlquimicoPorId(itemId);
+              const custo = item?.custoManaQuebrada || 1;
+              const mpAtual = character.mp || { current: 0, max: 3, quebrada: 0 };
+              if (jaAtivo) {
+                const novos = ativos.filter((i) => i !== itemId);
+                onUpdateCharacter(character.id, { itensAlquimicosAtivos: novos, mp: repararMana(mpAtual, custo) });
+              } else {
+                const novos = [...ativos, itemId];
+                onUpdateCharacter(character.id, { itensAlquimicosAtivos: novos, mp: quebrarMana(mpAtual, custo) });
+              }
             }}
             onClose={() => setDisciplinaSlotAberto(null)}
           />
@@ -7103,9 +7222,9 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo por tipo de ataque físico, e Defesa/Resistência Física reforçando a stat equivalente. Ataques mágicos usam Ofícios Mágicos ou Inteligência, não uma proficiência fixa (ver docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
+        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo por tipo de ataque físico, e Defesa (Destreza pra esquivar ou Força pra bloquear, 21/10 — substitui Resistência Física). Ataques mágicos usam Ofícios Mágicos ou Inteligência, não uma proficiência fixa (ver docs/ATUALIZACAO_21-10.md).
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
           <Field key={p.key} label={p.label}>
             <AttrBar label="" grade={c.proficiencias?.[p.key] || "E"} onChangeGrade={(g) => set(["proficiencias", p.key], g)} />
@@ -7495,7 +7614,7 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
       </div>
     );
   }
-  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal, queimadura } = result;
+  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal, queimadura, envenenamento, carga, drenante } = result;
   const tudoRevelado = ataqueRevelado && defesaRevelado;
   return (
     <>
@@ -7547,6 +7666,28 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
                 : "sem ferimento"}
             </div>
           )}
+          {/* Envenenamento/Carga/Drenante (21/10, docs/ATUALIZACAO_21-10.md
+              seção 5) — mesmo espírito da linha de Queimadura: rolagem/efeito
+              à parte, só aparece quando o descritor dispara. */}
+          {envenenamento && (
+            <div style={{ marginTop: 6, fontSize: 11, color: "#4A9A2E", fontFamily: "'IBM Plex Mono', monospace" }}>
+              Envenenamento: {envenenamento.dados}d10, {envenenamento.sucessos} sucesso{envenenamento.sucessos === 1 ? "" : "s"}, {envenenamento.aplicouFerimento
+                ? `1 ferimento superficial (limite de veneno: ${envenenamento.feridasDepois}/${envenenamento.limiteDepois})`
+                : (envenenamento.sucessos >= 1 ? `já no limite de veneno (${envenenamento.feridasDepois}/${envenenamento.limiteDepois}) — nada acontece` : "sem ferimento")}
+            </div>
+          )}
+          {carga && (
+            <div style={{ marginTop: 6, fontSize: 11, color: "#5C86B0", fontFamily: "'IBM Plex Mono', monospace" }}>
+              {carga.descarregou
+                ? `Carga: descarregou! ${carga.descarga.dados}d10, ${carga.descarga.sucessos} sucesso${carga.descarga.sucessos === 1 ? "" : "s"}, ${carga.descarga.tipoFerimento ? `ferimento ${carga.descarga.tipoFerimento === "agravante" ? "AGRAVANTE" : "superficial"} ×${carga.descarga.feridas}` : "sem ferimento"}`
+                : `Carga: ${carga.cargasAntes} → ${carga.cargasDepois} (precisa de ${carga.grauAtaque} pra descarregar)`}
+            </div>
+          )}
+          {drenante && (
+            <div style={{ marginTop: 6, fontSize: 11, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace" }}>
+              Drenante: alvo perde 1 mana disponível, atacante recupera 1 mana gasta (nunca quebrada)
+            </div>
+          )}
         </div>
       )}
     </>
@@ -7554,9 +7695,11 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
 }
 
 // Rolagem de Confronto 1v1 (docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10): ataca com
-// um dos ataques físicos de `a`, `b` defende sempre com Resistência Física +
-// o Atributo Geral escolhido abaixo (Resistência Mágica não existe mais
-// separada). Substitui o antigo modelo Acerto/Confirmação em duas fases (e a
+// um dos ataques físicos de `a`, `b` defende sempre com a proficiência
+// Defesa + Destreza (esquivar) ou Força (bloquear), escolhido abaixo (21/10,
+// docs/ATUALIZACAO_21-10.md — substitui Resistência Física; Resistência
+// Mágica não existe mais separada). Substitui o antigo modelo Acerto/
+// Confirmação em duas fases (e a
 // re-rolagem de dado a dado via MP/SP, que dependia dele) — ver nota
 // "simplificação" no relatório final da PR.
 function DuelRoller({ a, b, onUpdateCharacter }) {
@@ -7565,7 +7708,12 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     : [{ nome: "(ataque genérico)", tipo: "marcial", atributoKey: "destreza", profKey: "combateCorpoACorpo", ajusteDados: 0, feridas: 1, descritores: [] }];
   const [attackIdx, setAttackIdx] = useState(0);
   const [result, setResult] = useState(null);
-  const [defesaAtributo, setDefesaAtributo] = useState("vigor");
+  // 21/10 (docs/ATUALIZACAO_21-10.md item 1): Defesa = Destreza (esquivar) ou
+  // Força (bloquear) + proficiência Defesa — só esses dois atributos valem
+  // como base agora (um terceiro tipo, tipo "Resistir com Vigor sem
+  // penalidade", está em aberto no documento, seção 7 item 3 — não
+  // implementado).
+  const [defesaAtributo, setDefesaAtributo] = useState("destreza");
   const attack = attacksA[attackIdx] || attacksA[0];
   const vigorGrauB = GRADE_VALUE[getAttrGrade(b, "vigor")] ?? 1;
   const reducedMotion = usePrefersReducedMotion();
@@ -7586,13 +7734,14 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     <div style={{ marginTop: 24 }}>
       <SectionTitle icon={Dices}>Rolagem de Confronto — Ataque × Defesa</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado, exceto ataque Perfurante). Defesa: Resistência Física de {b.name} + o Atributo Geral escolhido abaixo, mesmo limiar — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1) = ferimento agravante; senão, superficial.
+        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa: proficiência Defesa de {b.name} + Destreza (esquivar) ou Força (bloquear), mesmo limiar — Abrangente N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
       </p>
 
       <div style={{ maxWidth: 260, marginBottom: 14 }}>
-        <Field label={`Atributo de defesa de ${b.name}`}>
+        <Field label={`Defesa de ${b.name}`}>
           <select style={inputStyle} value={defesaAtributo} onChange={(e) => { setDefesaAtributo(e.target.value); setResult(null); }}>
-            {ATRIBUTOS_GERAIS_LIST.map((at) => <option key={at.key} value={at.key}>{at.label} ({getAttrGrade(b, at.key) || "E"})</option>)}
+            <option value="destreza">Esquivar — Destreza ({getAttrGrade(b, "destreza") || "E"})</option>
+            <option value="forca">Bloquear — Força ({getAttrGrade(b, "forca") || "E"})</option>
           </select>
         </Field>
       </div>
@@ -7660,12 +7809,12 @@ function makeEditableOpponent(stats) {
 export function resolveFichaAtaque({
   character, attack,
   targetVigorGrau = "E", targetDefesaAtributo = "vigor", targetDefesaAtributoGrau = "E",
-  targetResistFisicaGrau = "E",
+  targetDefesaProfGrau = "E",
   targetBlindado = false, targetResisteAMagia = false,
 }) {
   const defender = {
     atributosGerais: { vigor: targetVigorGrau, [targetDefesaAtributo]: targetDefesaAtributo === "vigor" ? targetVigorGrau : targetDefesaAtributoGrau },
-    proficiencias: { resistFisicaProf: targetResistFisicaGrau },
+    proficiencias: { defesaProf: targetDefesaProfGrau },
     descritores: [...(targetBlindado ? ["blindado"] : []), ...(targetResisteAMagia ? ["resiste_a_magia"] : [])],
   };
   const descritoresAtaque = descritoresEfetivosDoAtaque(character, attack);
@@ -7770,7 +7919,7 @@ export function CompareView({ characters, onUpdateCharacter, gm, askConfirm, enc
             Valores do oponente Editável
           </div>
           <div style={{ fontSize: 10, color: MUTED, margin: "0 0 8px", fontStyle: "italic" }}>
-            Vigor e Resistência Física já são editáveis abaixo, nos Atributos Gerais e Proficiências de Combate — a defesa contra qualquer ataque (físico ou mágico) é sempre a rolagem ativa de Resistência Física (ver docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
+            Vigor, Destreza, Força e Defesa já são editáveis abaixo, nos Atributos Gerais e Proficiências de Combate — a defesa contra qualquer ataque (físico ou mágico) é sempre a rolagem ativa de Defesa + Destreza (esquivar) ou Força (bloquear) (21/10, docs/ATUALIZACAO_21-10.md — substitui Resistência Física).
           </div>
           <div style={{ display: "flex", gap: 14 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: PARCHMENT }}>
@@ -7937,22 +8086,23 @@ function recursoDoCombatente(combatente, characters, chave) {
   return { current, max };
 }
 
+// 21/10 (docs/ATUALIZACAO_21-10.md item 1): a antiga estatística "Defesa"
+// (computeStat(p,"defesa"), fórmula "8+bônus") foi removida de vez — pra
+// combatente do tipo "personagem", mostra o grau de verdade da proficiência
+// Defesa (defesaProf), que agora é a Defesa mecânica real (ver
+// resolveRolagemDefesa). Pra "avulso" continua sendo o número livre que o
+// GM digita na criação (campo "Defesa" do formulário, só referência — o
+// painel Encontro não rola ataque nenhum, é tracker de HP/MP/SP/estados).
 function defesaDoCombatente(combatente, characters) {
   if (combatente.tipo === "avulso") return combatente.defesa;
   const p = personagemDoCombatente(combatente, characters);
-  return p ? computeStat(p, "defesa") : null;
+  return p?.proficiencias?.defesaProf || null;
 }
 
 function armaduraDoCombatente(combatente, characters) {
   if (combatente.tipo === "avulso") return null;
   const p = personagemDoCombatente(combatente, characters);
   return p ? computeStat(p, "resistArmadura") : null;
-}
-
-function rnFisicaDoCombatente(combatente, characters) {
-  if (combatente.tipo === "avulso") return null;
-  const p = personagemDoCombatente(combatente, characters);
-  return p?.proficiencias?.resistFisicaProf || "E";
 }
 
 const ACOES_TURNO = [
@@ -7982,7 +8132,6 @@ function CombatenteCard({ combatente, characters, ehAVez, selecionado, onSelecio
   const mp = recursoDoCombatente(combatente, characters, "mp");
   const sp = recursoDoCombatente(combatente, characters, "sp");
   const defesa = defesaDoCombatente(combatente, characters);
-  const rnFis = rnFisicaDoCombatente(combatente, characters);
   return (
     <div
       role="button" tabIndex={0} aria-pressed={selecionado}
@@ -8016,7 +8165,7 @@ function CombatenteCard({ combatente, characters, ehAVez, selecionado, onSelecio
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: "'Cinzel', serif", fontSize: 13, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nome}</div>
           <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
-            Def {defesa ?? "—"} / RN Fís {rnFis ?? "—"}
+            Def {defesa ?? "—"}
           </div>
         </div>
       </div>
@@ -8068,7 +8217,6 @@ function GavetaCombatente({ combatente, characters, onUpdateCharacter, encontro,
   const nome = nomeDoCombatente(combatente, characters);
   const defesa = defesaDoCombatente(combatente, characters);
   const armadura = armaduraDoCombatente(combatente, characters);
-  const rnFis = rnFisicaDoCombatente(combatente, characters);
 
   function aplicarRecurso(chave, novoCurrent) {
     if (combatente.tipo === "avulso") {
@@ -8090,10 +8238,9 @@ function GavetaCombatente({ combatente, characters, onUpdateCharacter, encontro,
   return (
     <div style={{ ...cardBox, marginBottom: 12 }}>
       <div style={{ fontFamily: "'Cinzel', serif", fontSize: 14, color: PARCHMENT, marginBottom: 8 }}>{nome}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 10, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6, marginBottom: 10, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>
         <div>Defesa<br /><span style={{ color: BRASS_BRIGHT, fontSize: 14 }}>{defesa ?? "—"}</span></div>
         <div>Armadura<br /><span style={{ color: BRASS_BRIGHT, fontSize: 14 }}>{armadura ?? "—"}</span></div>
-        <div>RN Fís<br /><span style={{ color: BRASS_BRIGHT, fontSize: 14 }}>{rnFis ?? "—"}</span></div>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
@@ -12289,6 +12436,33 @@ function RulesView() {
           {t.cargaTest && (
             <p style={{ fontSize: 11, color: BRASS_BRIGHT, margin: "6px 0 0", fontStyle: "italic" }}>⚡ Carga: {t.cargaTest}</p>
           )}
+        </div>
+      ))}
+
+      <SectionTitle icon={Swords}>Catálogo de Armas (tipos)</SectionTitle>
+      <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 10px" }}>
+        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Descritor 1 vale pra qualquer pessoa; Descritor 2 só vale com perícia (campo manual provisório na arma da ficha — a disciplina de perícia em armas ainda não existe). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas.
+      </p>
+      {ARMAS.map((a) => (
+        <div key={a.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT }}>{a.nome}</span>
+            <span style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{a.familia} · {ALCANCE_LABEL[a.alcance]}</span>
+          </div>
+          <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", margin: "4px 0" }}>
+            Exemplos: {a.exemplos} · Feridas {a.feridas}{a.superficial ? " (superficial)" : ""}{a.extra === "pesado" ? " · Pesado" : ""}
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+            {[a.descritor1, a.extra === "pesado" ? "pesado" : null].filter(Boolean).map((id) => {
+              const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
+              return <span key={id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
+            })}
+            {a.descritor2 && (() => {
+              const info = DESCRITOR_INFO[a.descritor2] || { label: a.descritor2, cor: MUTED };
+              return <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px dashed ${info.cor}`, color: info.cor }}>{info.label} (com perícia)</span>;
+            })()}
+          </div>
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Perícia: {a.periciaFamilia}</div>
         </div>
       ))}
 

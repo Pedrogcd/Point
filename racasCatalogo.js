@@ -142,7 +142,11 @@ export function migrarSelecaoRacaLegado(ch) {
 // checagem automática pedir essa habilidade de volta nesta tabela) — ele
 // ainda tem o bônus, só que herdado da raça, não mais próprio dele.
 export const BONUS_GRAU_POR_HABILIDADE = {
-  goethiano: [{ tipo: "atributo", chave: "vigor", teto: "A" }],
+  // "goethiano" SAIU daqui em 21/10 (pedido do Pedro): o +1 grau em Vigor
+  // (sem teto) foi removido de vez — Goethiano virou +1 HP máximo (ver
+  // engine.js:computeMaxHP, descritor "hp_maximo_1") + os descritores
+  // "resistente" e "blindado" (ver catalogo-racas.json, campo `descritores`
+  // — "blindado" já existia, "resistente" é novo). Nenhum bônus de grau.
   homunculo: [{ tipo: "proficiencia", chave: "atletismo" }],
   "coelho-bode": [{ tipo: "proficiencia", chave: "sobrevivencia" }],
   leonino: [{ tipo: "proficiencia", chave: "investigacao" }],
@@ -166,11 +170,16 @@ export const BONUS_GRAU_POR_HABILIDADE = {
   // MUDANCAS_RACAS_E_MAGIA.md) — as habilidades que bonificavam essas chaves
   // perderam essa parte do bônus (ver tabela "Raças" do documento). Goethiano
   // e Pele Grossa ganharam `teto: "A"` (sem teto C) nesse mesmo documento.
-  "mana-estatica": [
-    { tipo: "proficiencia", chave: "resistFisicaProf" },
-  ],
+  //
+  // 21/10 (docs/ATUALIZACAO_21-10.md item 1 + pedido do Pedro sobre o
+  // descritor Resistente): "mana-estatica" PERDEU o bônus de grau em
+  // Resistência Física/Defesa de vez — virou só o descritor "resistente"
+  // (ver catalogo-racas.json, campo `descritores`), sem bônus de grau
+  // nenhum. "pele-grossa" trocou de Resistência Física pra Defesa (a
+  // proficiência nova que assume o papel dela, ver engine.js:
+  // PROFICIENCIAS_LIST), mantendo o teto A.
   "pele-grossa": [
-    { tipo: "proficiencia", chave: "resistFisicaProf", teto: "A" },
+    { tipo: "proficiencia", chave: "defesaProf", teto: "A" },
   ],
   "cla-radiante": [{ tipo: "atributo", chave: "carisma" }],
   "cla-noctis": [{ tipo: "atributo", chave: "manipulacao" }],
@@ -461,10 +470,21 @@ export function comGrausEfetivos(character) {
   if (!character) return { character, bonusAplicado: { proficiencias: {}, atributos: {} } };
   const bonus = bonusGrauDoPersonagem(character);
   const oficiosExtrasRaciais = oficiosExtrasDoPersonagem(character);
+  // Conduíte mágico (21/10, docs/ATUALIZACAO_21-10.md item 4): "existe em
+  // todo ofício, ocupa 1 dos 3 espaços, conta +1 ofício. Só um Conduíte
+  // funciona por vez" — por isso é um único flag GLOBAL do personagem
+  // (`character.conduiteAtivo`), não um por disciplina: ligar o Conduíte de
+  // uma disciplina "desliga" automaticamente o de qualquer outra, porque só
+  // existe esse um booleano. Soma +1 ofício do mesmo jeito que os ofícios
+  // extras raciais (Clã Corvus/Seasus/Natrus) já somavam. TODO: "ocupa 1 dos
+  // 3 espaços de habilidade do ofício" não é validado — hoje não há limite
+  // de 3 habilidades por ofício mágico implementado nem pra Encantamentos
+  // (ver CONTEXTO.md).
+  const bonusConduite = character.conduiteAtivo ? 1 : 0;
   const disciplinaMagica = {
     ...(character.disciplinaMagica || {}),
     oficiosMagicos: oficiosMagicosDoPersonagem(character),
-    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais,
+    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais + bonusConduite,
     magiaInata: temMagiaInataDoPersonagem(character),
     magiasAtivas: magiasAtivasDoPersonagem(character),
   };

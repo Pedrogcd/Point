@@ -457,7 +457,7 @@ export function defaultAttacksForCharacter() {
 // `descritoresAtaque` pro resolveAtaque/resolveAtaqueEmArea.
 // Descritores de PERSONAGEM que, quando presentes, valem pra TODOS os
 // ataques dele, físicos e mágicos (21/10: generaliza o que antes só cobria
-// Queimadura — Encantamentos dão Letal/Perfurante/Abrangente N/Carga N/
+// Queimadura — Encantamentos dão Letal/Perfurante/Preciso N/Carga N/
 // Drenante/Sortudo do mesmo jeito, ver data/magias.js:ENCANTAMENTOS). Só os
 // descritores que fazem sentido DENTRO de um ataque entram aqui — Blindado,
 // Resiste a Magia e Sortudo (já tratado à parte, ver resolveAtaque) são
@@ -465,10 +465,10 @@ export function defaultAttacksForCharacter() {
 // nunca deveriam "vazar" pro ataque em si (poluiria os chips de exibição
 // à toa, mesmo sendo inofensivo pro motor — nada checa descritoresAtaque
 // por "blindado"). Esmagador não entra na lista de propósito: nenhum
-// Encantamento dá Esmagador a um personagem no guia (só Abrangente), e
+// Encantamento dá Esmagador a um personagem no guia (só Preciso), e
 // Esmagador descreve o ATAQUE sendo difícil de bloquear, não uma
 // característica do atacante — mantido fora até existir uma fonte real.
-const DESCRITORES_DE_ATAQUE_DO_PERSONAGEM = /^(letal|perfurante|sortudo|drenante|abrangente(_\d+)?|queimadura(_\d+)?|carga(_\d+)?|envenenamento(_\d+)?)$/;
+const DESCRITORES_DE_ATAQUE_DO_PERSONAGEM = /^(letal|perfurante|sortudo|drenante|preciso(_\d+)?|queimadura(_\d+)?|carga(_\d+)?|envenenamento(_\d+)?)$/;
 
 export function descritoresEfetivosDoAtaque(attacker, attack) {
   const base = attack?.descritores || [];
@@ -677,7 +677,7 @@ export function temDescritor(entidade, nome) {
 // TODAS as ocorrências encontradas (ex.: duas fontes do mesmo descritor no
 // mesmo ataque somam) — não é uma regra confirmada pelo Pedro, é a leitura
 // mais direta de "ganha X" empilhando com o que já houver; listada no
-// relatório final como decisão minha. Usada por Queimadura, Abrangente,
+// relatório final como decisão minha. Usada por Queimadura, Preciso,
 // Esmagador, Envenenamento e Carga (todos "Descritor N" do glossário de
 // docs/ATUALIZACAO_21-10.md, seção 5).
 export function grauDescritorNumerico(descritores, nome) {
@@ -690,7 +690,7 @@ export function grauDescritorNumerico(descritores, nome) {
   }, 0);
 }
 export function grauQueimadura(descritores) { return grauDescritorNumerico(descritores, "queimadura"); }
-export function grauAbrangente(descritores) { return grauDescritorNumerico(descritores, "abrangente"); }
+export function grauPreciso(descritores) { return grauDescritorNumerico(descritores, "preciso"); }
 export function grauEsmagador(descritores) { return grauDescritorNumerico(descritores, "esmagador"); }
 export function grauEnvenenamento(descritores) { return grauDescritorNumerico(descritores, "envenenamento"); }
 export function grauCarga(descritores) { return grauDescritorNumerico(descritores, "carga"); }
@@ -817,21 +817,22 @@ export function diceAtaqueConstructo(dono, ajusteDados = 0) {
 // ou Força pra bloquear (só esses dois são regra fechada — um terceiro
 // tipo, tipo "Resistir com Vigor sem penalidade", está em aberto no
 // documento, seção 7 item 3, então não é aceito aqui; quem chama decide
-// isso na UI). Abrangente N penaliza quem esquiva (defesaAtributo
+// isso na UI). Preciso N penaliza quem esquiva (defesaAtributo
 // "destreza"): rola N dados a menos. Esmagador N penaliza quem bloqueia
 // (defesaAtributo "forca"): rola N dados a menos. Nenhum dos dois penaliza
 // quem usa o outro atributo como base — contrapartida um do outro,
-// substituem o antigo Saturante (Saturante = Abrangente 2, docs/
-// ATUALIZACAO_21-10.md seção 5). `ehMagia`: true quando o ataque tem o
-// descritor "magia" — ativa o Resiste a Magia (Descendentes de Arcani, ver
-// abaixo). `totalDiceManual` (14/10, ainda mais tarde, pedido do Pedro —
-// painel Teste "Ataque"/"Magia": "em vez de perguntar o vigor e atributo de
-// defesa do alvo, apenas dê a opção de quantos dados o jogador defensor
-// rola"): quando informado, pula o cálculo por atributo+proficiência (e o
-// desconto de Abrangente/Esmagador, que não fazem mais sentido sem um
-// "atributo de defesa" pra checar) e usa esse número direto — Resiste a
-// Magia (se o alvo tiver o descritor) continua descontando 1 dado por cima,
-// igual no cálculo normal.
+// substituem o antigo Saturante (Saturante = Preciso 2, docs/
+// ATUALIZACAO_21-10.md seção 5 — renomeado de "Abrangente" pra "Preciso" a
+// pedido do Pedro, 21/10, mesma rodada). `ehMagia`: true quando o ataque
+// tem o descritor "magia" — ativa o Resiste a Magia (Descendentes de
+// Arcani, ver abaixo). `totalDiceManual` (14/10, ainda mais tarde, pedido
+// do Pedro — painel Teste "Ataque"/"Magia": "em vez de perguntar o vigor e
+// atributo de defesa do alvo, apenas dê a opção de quantos dados o jogador
+// defensor rola"): quando informado, pula o cálculo por atributo+
+// proficiência (e o desconto de Preciso/Esmagador, que não fazem mais
+// sentido sem um "atributo de defesa" pra checar) e usa esse número direto
+// — Resiste a Magia (se o alvo tiver o descritor) continua descontando 1
+// dado por cima, igual no cálculo normal.
 export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaque = [], ehMagia, limiar = LIMIAR_SUCESSO, totalDiceManual }) {
   const profKey = "defesaProf";
   let totalDice;
@@ -839,8 +840,8 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
     totalDice = Math.max(0, totalDiceManual);
   } else {
     totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] ?? 1);
-    const abrangente = grauAbrangente(descritoresAtaque);
-    if (abrangente && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - abrangente);
+    const preciso = grauPreciso(descritoresAtaque);
+    if (preciso && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - preciso);
     const esmagador = grauEsmagador(descritoresAtaque);
     if (esmagador && defesaAtributo === "forca") totalDice = Math.max(0, totalDice - esmagador);
   }

@@ -192,11 +192,11 @@ const DESCRITOR_INFO = {
   atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
   queimadura: { label: "Queimadura", cor: EMBER, descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola 1 d10 extra (separado do pool) contra 8+ (9+ se o alvo tiver Blindado; Perfurante ignora). Cada sucesso é 1 ferimento à parte, superficial — ou agravante se os sucessos de queimadura chegarem ao Vigor do alvo." },
   // 21/10 (docs/ATUALIZACAO_21-10.md, seção 5) — glossário novo. "Saturante"
-  // foi RETIRADO (equivale a Abrangente 2; não tem mais efeito nenhum no
+  // foi RETIRADO (equivale a Preciso 2; não tem mais efeito nenhum no
   // motor, ver engine.js:resolveRolagemDefesa — nunca selecione "saturante"
-  // à toa, use "abrangente"/"abrangente_2").
-  abrangente: { label: "Abrangente", cor: "#B0784F", descricao: "Difícil de esquivar (nome provisório). Se o defensor usar Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Substitui o antigo Saturante (Saturante = Abrangente 2)." },
-  esmagador: { label: "Esmagador", cor: "#8B5A2B", descricao: "Difícil de bloquear (nome provisório). Se o defensor usar Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Contrapartida do Abrangente." },
+  // à toa, use "preciso"/"preciso_2").
+  preciso: { label: "Preciso", cor: "#B0784F", descricao: "Difícil de esquivar (nome provisório). Se o defensor usar Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Substitui o antigo Saturante (Saturante = Preciso 2)." },
+  esmagador: { label: "Esmagador", cor: "#8B5A2B", descricao: "Difícil de bloquear (nome provisório). Se o defensor usar Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Contrapartida do Preciso." },
   resistente: { label: "Resistente", cor: "#4A9A6E", descricao: "Soma +1 ao Vigor necessário pro ferimento virar agravante. Não acumula (mais de uma fonte não soma mais que +1). Anula Letal (os dois juntos voltam pro Vigor normal)." },
   pesado: { label: "Pesado", cor: EMBER, descricao: "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com ele — nunca sobe pra 8+). Em troca, a arma causa 2 ferimentos por ataque que acerta (ambos seguem a regra do Vigor — provisório)." },
   envenenamento: { label: "Envenenamento", cor: "#4A9A2E", descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (sucesso 7+, ignora defesa e Blindado). Com pelo menos 1 sucesso, sempre exatamente 1 ferimento superficial. O total de ferimentos de veneno do alvo é limitado ao maior N já recebido — zera na cura ou no descanso longo." },
@@ -214,7 +214,7 @@ const DESCRITOR_INFO = {
 // grau 1 fixo (sem campo pra digitar N nessa UI simplificada; pra N maior,
 // use um ataque catalogado ou a aba Magia).
 const CARACTERISTICAS_ATAQUE = [
-  "letal", "abrangente", "esmagador", "perfurante", "sortudo", "em_area",
+  "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
   "queimadura", "pesado", "envenenamento", "carga", "drenante",
 ];
 const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente"];
@@ -7734,7 +7734,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     <div style={{ marginTop: 24 }}>
       <SectionTitle icon={Dices}>Rolagem de Confronto — Ataque × Defesa</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa: proficiência Defesa de {b.name} + Destreza (esquivar) ou Força (bloquear), mesmo limiar — Abrangente N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
+        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa: proficiência Defesa de {b.name} + Destreza (esquivar) ou Força (bloquear), mesmo limiar — Preciso N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
       </p>
 
       <div style={{ maxWidth: 260, marginBottom: 14 }}>

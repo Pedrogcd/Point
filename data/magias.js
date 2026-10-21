@@ -115,7 +115,7 @@ export const MAGIAS = [
   {
     id: "bombardeio_de_mana",
     nome: "Bombardeio de Mana",
-    descritores: ["magia", "em_area", "abrangente_2"],
+    descritores: ["magia", "em_area", "preciso_2"],
     custoMp: 2,
     ajusteDados: 0,
     feridas: 1,
@@ -137,7 +137,7 @@ export const MAGIAS = [
   {
     id: "shin",
     nome: "Shin",
-    descritores: ["magia", "em_area", "abrangente_2"],
+    descritores: ["magia", "em_area", "preciso_2"],
     custoMp: 1,
     ajusteDados: 0,
     feridas: 1,
@@ -147,7 +147,7 @@ export const MAGIAS = [
   {
     id: "misseis_magicos",
     nome: "Mísseis Mágicos",
-    descritores: ["magia", "abrangente_2", "sortudo"],
+    descritores: ["magia", "preciso_2", "sortudo"],
     custoMp: 1,
     ajusteDados: 1,
     feridas: 1,
@@ -197,7 +197,7 @@ export const MAGIAS = [
   {
     id: "magia_de_guerra_suth",
     nome: "Magia de guerra Suth",
-    descritores: ["magia", "abrangente_2", "sortudo", "atrasada_1"],
+    descritores: ["magia", "preciso_2", "sortudo", "atrasada_1"],
     custoMp: 2,
     ajusteDados: 0,
     feridas: 1,
@@ -338,12 +338,12 @@ export const ENCANTAMENTOS = [
     descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Perfurante. (Placeholder)",
   },
   {
-    id: "golpe_abrangente",
-    nome: "Golpe Abrangente",
+    id: "golpe_preciso",
+    nome: "Golpe Preciso",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
-    descritoresConcedidos: ["abrangente_2"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Abrangente 2. (Placeholder)",
+    descritoresConcedidos: ["preciso_2"],
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Preciso 2. (Placeholder)",
   },
   {
     id: "pele_encantada",
@@ -491,7 +491,7 @@ export const ALQUIMIA = [
     disciplinaId: "oficio-alquimia",
     tipo: "Ataque",
     custoManaQuebrada: 1,
-    descritores: ["magia", "em_area", "abrangente_2"],
+    descritores: ["magia", "em_area", "preciso_2"],
     feridas: 1,
     superficial: true,
     emArea: true,
@@ -507,7 +507,7 @@ export const ALQUIMIA = [
     feridas: 1,
     superficial: false,
     emArea: true,
-    efeito: "Versão pior do Bombardeio de Mana: atinge a zona alvo, mas sem Abrangente.",
+    efeito: "Versão pior do Bombardeio de Mana: atinge a zona alvo, mas sem Preciso.",
   },
   {
     id: "bomba_perfurante",
@@ -708,7 +708,7 @@ export const CONSTRUCTO = [
     descritoresConcedidos: ["magia"],
     integridade: 2,
     funcoes: ["Disparo: ataque mágico a cada turno do dono, 1 ferimento superficial.", "Ponto de conjuração: magias do dono lançadas a partir dela custam 1 MP a menos."],
-    magiaUnica: "Salva da Torre (2 MP): ataque em área com Abrangente 2.",
+    magiaUnica: "Salva da Torre (2 MP): ataque em área com Preciso 2.",
   },
   {
     id: "armadilha_runica",
@@ -716,9 +716,9 @@ export const CONSTRUCTO = [
     disciplinaId: "oficio-constructo",
     tipo: "Armadilha",
     custoManaQuebrada: 2,
-    descritoresConcedidos: ["magia", "abrangente_2"],
+    descritoresConcedidos: ["magia", "preciso_2"],
     integridade: 1,
-    funcoes: ["Disparo: ataque mágico Abrangente 2, 1 ferimento, único quando um inimigo entra na zona dela (rearma na próxima cena).", "Alarme: avisa o dono quando algo passa."],
+    funcoes: ["Disparo: ataque mágico Preciso 2, 1 ferimento, único quando um inimigo entra na zona dela (rearma na próxima cena).", "Alarme: avisa o dono quando algo passa."],
     magiaUnica: "Rede Rúnica (1 MP): o alvo age com prioridade -1 por uma rodada (só etiqueta).",
   },
   {
@@ -797,7 +797,7 @@ export const HABILIDADES_CONJUNTAS = [
     nome: "Frasco Rúnico",
     oficiosExigidos: ["oficio-alquimia", "oficio-encantamentos"],
     custoManaQuebrada: 1,
-    efeito: "Ao preparar um item alquímico, grava nele um descritor de encantamento (Letal, Perfurante, Abrangente 2, Queimadura 1...). O descritor vale quando o item for usado.",
+    efeito: "Ao preparar um item alquímico, grava nele um descritor de encantamento (Letal, Perfurante, Preciso 2, Queimadura 1...). O descritor vale quando o item for usado.",
   },
   {
     id: "pocao_encantada",

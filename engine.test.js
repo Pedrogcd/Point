@@ -19,8 +19,9 @@ import {
   resolveRolagemDefesa, determinarFerimento, aplicarFerimentos, resolveAtaque,
   resolveAtaqueEmArea, descritoresEfetivosDoAtaque,
   grauQueimadura, resolveQueimadura, LIMIAR_QUEIMADURA, LIMIAR_QUEIMADURA_BLINDADO,
-  grauDescritorNumerico, grauAbrangente, grauEsmagador, grauEnvenenamento, grauCarga,
+  grauDescritorNumerico, grauPreciso, grauEsmagador, grauEnvenenamento, grauCarga,
   LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveCarga, resolveDrenante,
+  grauFirme, grauSelado, grauLento, quebrarSP, repararSP,
 } from "./engine.js";
 
 const SOCO = BASE_ATTACK_TYPES.find((a) => a.id === "soco");
@@ -166,6 +167,30 @@ describe("quebrarMana / repararMana", () => {
   it("quebrar e depois reparar tudo volta ao estado original", () => {
     const quebrado = quebrarMana({ current: 3, max: 3, quebrada: 0 }, 2);
     const reparado = repararMana(quebrado, 2);
+    assert.deepEqual(reparado, { current: 3, max: 3, quebrada: 0 });
+  });
+});
+
+// quebrarSP/repararSP (21/10, docs/ATUALIZACAO_21-10.md seção 7.1, Regra 6):
+// mesma matemática de quebrarMana/repararMana — a diferença ("só recupera
+// no descanso longo") é de QUANDO repararSP é chamada na UI, não da função
+// em si, que não sabe nada sobre "quando" é permitido.
+describe("quebrarSP / repararSP", () => {
+  it("quebrarSP tira de current e soma em quebrada", () => {
+    const sp = quebrarSP({ current: 3, max: 3, quebrada: 0 }, 1);
+    assert.deepEqual(sp, { current: 2, max: 3, quebrada: 1 });
+  });
+  it("quebrarSP satura em vez de deixar current negativo", () => {
+    const sp = quebrarSP({ current: 0, max: 3, quebrada: 0 }, 1);
+    assert.deepEqual(sp, { current: 0, max: 3, quebrada: 0 });
+  });
+  it("repararSP devolve pra current e tira de quebrada", () => {
+    const sp = repararSP({ current: 1, max: 3, quebrada: 2 }, 2);
+    assert.deepEqual(sp, { current: 3, max: 3, quebrada: 0 });
+  });
+  it("quebrar e depois reparar tudo volta ao estado original", () => {
+    const quebrado = quebrarSP({ current: 3, max: 3, quebrada: 0 }, 1);
+    const reparado = repararSP(quebrado, 1);
     assert.deepEqual(reparado, { current: 3, max: 3, quebrada: 0 });
   });
 });
@@ -520,24 +545,46 @@ describe("resolveQueimadura", () => {
     const r = resolveQueimadura({ attacker: makeCharacter(), defender: makeCharacter(), descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 1 });
     assert.equal(r.sucessos, 1);
   });
+  // Selado N (armadura, 21/10 — docs/ATUALIZACAO_21-10.md seção 7.2): "a
+  // Queimadura... contra você rolam N dados a menos".
+  it("Selado N reduz o grau da Queimadura em N dados", (t) => {
+    const defenderSelado = withDescritores(makeCharacter(), ["selado_1"]);
+    mockDice(t, [9, 7]); // queimadura_2 - selado_1 = 1 dado só
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: defenderSelado, descritoresAtaque: ["queimadura_2"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.dados, 1);
+    assert.equal(r.sucessos, 1);
+  });
+  it("Selado N pode zerar a Queimadura por completo (grau <= 0 vira null)", (t) => {
+    const defenderSelado = withDescritores(makeCharacter(), ["selado_2"]);
+    const r = resolveQueimadura({ attacker: makeCharacter(), defender: defenderSelado, descritoresAtaque: ["queimadura"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r, null);
+  });
 });
 
 // ---------------------------------------------------------------------------
-// Descritores novos (21/10, docs/ATUALIZACAO_21-10.md seção 5): Abrangente N,
+// Descritores novos (21/10, docs/ATUALIZACAO_21-10.md seção 5): Preciso N,
 // Esmagador N, Envenenamento N, Carga N, Drenante.
 // ---------------------------------------------------------------------------
 
 describe("grauDescritorNumerico (generaliza grauQueimadura)", () => {
-  it("grauAbrangente/grauEsmagador/grauEnvenenamento/grauCarga seguem a mesma convenção", () => {
-    assert.equal(grauAbrangente(["abrangente"]), 1);
-    assert.equal(grauAbrangente(["abrangente_2"]), 2);
+  it("grauPreciso/grauEsmagador/grauEnvenenamento/grauCarga seguem a mesma convenção", () => {
+    assert.equal(grauPreciso(["preciso"]), 1);
+    assert.equal(grauPreciso(["preciso_2"]), 2);
     assert.equal(grauEsmagador(["esmagador_3"]), 3);
     assert.equal(grauEnvenenamento(["envenenamento_2"]), 2);
     assert.equal(grauCarga(["carga_2"]), 2);
   });
+  it("grauFirme/grauSelado/grauLento (armadura, 21/10) seguem a mesma convenção", () => {
+    assert.equal(grauFirme(["firme_1"]), 1);
+    assert.equal(grauFirme(["firme_2"]), 2);
+    assert.equal(grauSelado(["selado_1"]), 1);
+    assert.equal(grauLento(["lento_1"]), 1);
+    assert.equal(grauFirme([]), 0);
+    assert.equal(grauFirme(undefined), 0);
+  });
   it("cada descritor só soma as próprias ocorrências, ignora os outros", () => {
-    const ds = ["abrangente_2", "esmagador_1", "queimadura", "carga_3"];
-    assert.equal(grauAbrangente(ds), 2);
+    const ds = ["preciso_2", "esmagador_1", "queimadura", "carga_3"];
+    assert.equal(grauPreciso(ds), 2);
     assert.equal(grauEsmagador(ds), 1);
     assert.equal(grauQueimadura(ds), 1);
     assert.equal(grauCarga(ds), 3);
@@ -559,11 +606,24 @@ describe("resolveEnvenenamento", () => {
     const r = resolveEnvenenamento({ descritoresAtaque: ["envenenamento_2"], sucessosLiquidosAtaque: 0 });
     assert.equal(r, null);
   });
-  it("rola N d10 a 7+, ignora Blindado e defesa — não recebe `defender` nem checa limiar elevado", (t) => {
+  it("rola N d10 a 7+, ignora Blindado e defesa — `defender` só entra pra checar Selado, nunca pro limiar", (t) => {
     mockDice(t, [7, 6]); // envenenamento_2: 7 bate 7+, 6 não
     const r = resolveEnvenenamento({ descritoresAtaque: ["envenenamento_2"], sucessosLiquidosAtaque: 1 });
     assert.equal(r.dados, 2);
     assert.equal(r.sucessos, 1);
+  });
+  // Selado N (armadura, 21/10): "o Envenenamento... contra você rolam N
+  // dados a menos" — mesmo desconto de resolveQueimadura.
+  it("Selado N reduz o grau do Envenenamento em N dados", (t) => {
+    const defenderSelado = withDescritores(makeCharacter(), ["selado_1"]);
+    mockDice(t, [10]); // envenenamento_2 - selado_1 = 1 dado só
+    const r = resolveEnvenenamento({ defender: defenderSelado, descritoresAtaque: ["envenenamento_2"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.dados, 1);
+  });
+  it("Selado N pode zerar o Envenenamento por completo (grau <= 0 vira null)", (t) => {
+    const defenderSelado = withDescritores(makeCharacter(), ["selado_3"]);
+    const r = resolveEnvenenamento({ defender: defenderSelado, descritoresAtaque: ["envenenamento_2"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r, null);
   });
   it("com >=1 sucesso, aplica EXATAMENTE 1 ferimento (nunca mais, não importa quantos sucessos)", (t) => {
     mockDice(t, [10, 10, 10]); // envenenamento_3: 3 sucessos
@@ -643,9 +703,28 @@ describe("resolveDrenante", () => {
   it("sem sucesso líquido, devolve null", () => {
     assert.equal(resolveDrenante({ descritoresAtaque: ["drenante"], sucessosLiquidosAtaque: 0 }), null);
   });
-  it("com >=1 sucesso líquido, sinaliza 1 mana roubada do alvo e 1 recuperada pelo atacante", () => {
-    const r = resolveDrenante({ descritoresAtaque: ["drenante"], sucessosLiquidosAtaque: 1 });
+  it("com >=1 sucesso líquido e o alvo com mana, sinaliza 1 mana roubada do alvo e 1 recuperada pelo atacante", () => {
+    const defender = { mp: { current: 2, max: 3 } };
+    const r = resolveDrenante({ defender, descritoresAtaque: ["drenante"], sucessosLiquidosAtaque: 1 });
     assert.deepEqual(r, { aplicou: true, manaRoubadaDoAlvo: 1, manaRecuperadaPeloAtacante: 1 });
+  });
+  // 21/10 (armadura, docs/ATUALIZACAO_21-10.md): decisão anterior
+  // ("provisório: atacante recupera mesmo assim") foi substituída — agora
+  // sem mana no alvo, o atacante não recupera nada.
+  it("com o alvo sem mana (mp.current=0), o atacante não recupera nada", () => {
+    const defender = { mp: { current: 0, max: 3 } };
+    const r = resolveDrenante({ defender, descritoresAtaque: ["drenante"], sucessosLiquidosAtaque: 1 });
+    assert.deepEqual(r, { aplicou: true, manaRoubadaDoAlvo: 0, manaRecuperadaPeloAtacante: 0 });
+  });
+  it("sem defender nenhum (mp ausente), trata como sem mana — não recupera nada", () => {
+    const r = resolveDrenante({ descritoresAtaque: ["drenante"], sucessosLiquidosAtaque: 1 });
+    assert.deepEqual(r, { aplicou: true, manaRoubadaDoAlvo: 0, manaRecuperadaPeloAtacante: 0 });
+  });
+  // Selado N (armadura, seção 7.2): "o Drenante não funciona contra você".
+  it("com o alvo Selado, o Drenante não funciona nem um pouco (mesmo com mana)", () => {
+    const defender = { mp: { current: 2, max: 3 }, descritores: ["selado_1"] };
+    const r = resolveDrenante({ defender, descritoresAtaque: ["drenante"], sucessosLiquidosAtaque: 1 });
+    assert.deepEqual(r, { aplicou: false, bloqueadoPorSelado: true, manaRoubadaDoAlvo: 0, manaRecuperadaPeloAtacante: 0 });
   });
 });
 
@@ -757,27 +836,27 @@ describe("resolveRolagemDefesa", () => {
     assert.equal(r.profKey, "defesaProf");
     assert.equal(r.totalDice, 6);
   });
-  // Abrangente N (21/10, substitui o antigo Saturante — Saturante = Abrangente 2):
+  // Preciso N (21/10, substitui o antigo Saturante — Saturante = Preciso 2):
   // penaliza quem esquiva (defesaAtributo "destreza").
-  it("Abrangente N: -N dados (mín. 0) só quando a defesa usa Destreza como base (esquivar)", (t) => {
+  it("Preciso N: -N dados (mín. 0) só quando a defesa usa Destreza como base (esquivar)", (t) => {
     const defensor = withAttrs(makeCharacter(), { destreza: "D" }); // destreza D(2) + defesaProf E(1) = 3
     mockDice(t, [1]); // 3-2=1 dado
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["abrangente_2"] });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["preciso_2"] });
     assert.equal(r.totalDice, 1);
   });
-  it("Abrangente N não reduz nada se a defesa não usar Destreza", (t) => {
+  it("Preciso N não reduz nada se a defesa não usar Destreza", (t) => {
     const defensor = withAttrs(makeCharacter(), { vigor: "D" });
     mockDice(t, [1, 1, 1]);
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", descritoresAtaque: ["abrangente_2"] });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", descritoresAtaque: ["preciso_2"] });
     assert.equal(r.totalDice, 3); // vigor D(2) + defesaProf E(1), sem redução
   });
-  it("Abrangente N nunca deixa o pool negativo", (t) => {
+  it("Preciso N nunca deixa o pool negativo", (t) => {
     const defensor = makeCharacter(); // destreza E(1) + defesaProf E(1) = 2
     mockDice(t, [1]); // rollSuccessDice sempre rola ao menos 1 dado, mesmo com totalDice=0
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["abrangente_2"] });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["preciso_2"] });
     assert.equal(r.totalDice, 0);
   });
-  // Esmagador N (21/10, contrapartida do Abrangente): penaliza quem bloqueia
+  // Esmagador N (21/10, contrapartida do Preciso): penaliza quem bloqueia
   // (defesaAtributo "forca"), e só quem bloqueia.
   it("Esmagador N: -N dados (mín. 0) só quando a defesa usa Força como base (bloquear)", (t) => {
     const defensor = withAttrs(makeCharacter(), { forca: "D" }); // forca D(2) + defesaProf E(1) = 3
@@ -791,9 +870,9 @@ describe("resolveRolagemDefesa", () => {
     const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["esmagador_2"] });
     assert.equal(r.totalDice, 3);
   });
-  it("Abrangente e Esmagador no mesmo ataque: cada um só penaliza a defesa que combina com ele, nunca os dois juntos", (t) => {
-    const descritoresAtaque = ["abrangente_1", "esmagador_3"];
-    const defensorDestreza = withAttrs(makeCharacter(), { destreza: "D" }); // destreza D(2)+defesaProf E(1)=3, -1 (abrangente_1) = 2
+  it("Preciso e Esmagador no mesmo ataque: cada um só penaliza a defesa que combina com ele, nunca os dois juntos", (t) => {
+    const descritoresAtaque = ["preciso_1", "esmagador_3"];
+    const defensorDestreza = withAttrs(makeCharacter(), { destreza: "D" }); // destreza D(2)+defesaProf E(1)=3, -1 (preciso_1) = 2
     mockDice(t, [1, 1]);
     const rEsquiva = resolveRolagemDefesa({ defensor: defensorDestreza, defesaAtributo: "destreza", descritoresAtaque });
     assert.equal(rEsquiva.totalDice, 2);
@@ -801,6 +880,51 @@ describe("resolveRolagemDefesa", () => {
     mockDice(t, [1]);
     const rBloqueio = resolveRolagemDefesa({ defensor: defensorForca, defesaAtributo: "forca", descritoresAtaque });
     assert.equal(rBloqueio.totalDice, 0);
+  });
+  // Firme N (escudo, 21/10, docs/ATUALIZACAO_21-10.md seção 7.2): "só ao
+  // bloquear. Tira N dados... e considera N sucessos como garantidos."
+  // Descritor do DEFENSOR (equipamento), não do ataque.
+  it("Firme N: tira N dados e soma N sucessos garantidos, só ao bloquear (Força)", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { forca: "C" }), ["firme_1"]); // forca C(3)+defesaProf E(1)=4, -1=3
+    mockDice(t, [1, 1, 1]); // nenhum sucesso natural
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "forca" });
+    assert.equal(r.totalDice, 3);
+    assert.equal(r.firmeGarantidos, 1);
+    assert.equal(r.successes, 1); // 0 naturais + 1 garantido
+  });
+  it("Firme N não se aplica ao esquivar (Destreza)", (t) => {
+    const defensor = withDescritores(withAttrs(makeCharacter(), { destreza: "C" }), ["firme_2"]);
+    mockDice(t, [1, 1, 1, 1]); // forca... digo destreza C(3)+defesaProf E(1)=4, sem redução
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" });
+    assert.equal(r.totalDice, 4);
+    assert.equal(r.firmeGarantidos, 0);
+  });
+  // Lento N (armadura Pesada, 21/10): "-N dados em ações físicas (ataque
+  // físico e esquiva)" — aqui só a esquiva; bloqueio não é afetado.
+  it("Lento N: -N dados só na esquiva (Destreza), não no bloqueio", (t) => {
+    const defensorEsquiva = withDescritores(withAttrs(makeCharacter(), { destreza: "C" }), ["lento_1"]); // 3+1=4, -1=3
+    mockDice(t, [1, 1, 1]);
+    const rEsquiva = resolveRolagemDefesa({ defensor: defensorEsquiva, defesaAtributo: "destreza" });
+    assert.equal(rEsquiva.totalDice, 3);
+    const defensorBloqueio = withDescritores(withAttrs(makeCharacter(), { forca: "C" }), ["lento_1"]); // sem redução
+    mockDice(t, [1, 1, 1, 1]);
+    const rBloqueio = resolveRolagemDefesa({ defensor: defensorBloqueio, defesaAtributo: "forca" });
+    assert.equal(rBloqueio.totalDice, 4);
+  });
+  // Bônus de Defesa da armadura equipada (21/10, Regra 2) e penalidade por
+  // falta de perícia (21/10, Regra 4) — ambos já vêm somados/anexados no
+  // defensor por racasCatalogo.js:comGrausEfetivos; engine.js só consome.
+  it("bonusDefesaEquipamento soma dados na defesa, qualquer atributo", (t) => {
+    const defensor = { ...makeCharacter(), bonusDefesaEquipamento: 1 }; // destreza E(1)+defesaProf E(1)+1=3
+    mockDice(t, [1, 1, 1]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" });
+    assert.equal(r.totalDice, 3);
+  });
+  it("penalidadeDefesaSemPericia tira dados na defesa, qualquer atributo", (t) => {
+    const defensor = { ...makeCharacter(), penalidadeDefesaSemPericia: 1 }; // destreza E(1)+defesaProf E(1)-1=1
+    mockDice(t, [1]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" });
+    assert.equal(r.totalDice, 1);
   });
   it("defensor Sortudo aplica o re-roll na própria rolagem de defesa", (t) => {
     const defensor = withDescritores(withAttrs(makeCharacter(), { vigor: "C" }), ["sortudo"]); // 3+1=4 dados
@@ -833,10 +957,10 @@ describe("resolveRolagemDefesa", () => {
   // Pedro: "em vez de perguntar o vigor e atributo de defesa do alvo,
   // apenas dê a opção de quantos dados o jogador defensor rola") — pula o
   // cálculo por atributo+proficiência quando informado.
-  it("totalDiceManual ignora atributo/proficiência/Abrangente e usa o número direto", (t) => {
+  it("totalDiceManual ignora atributo/proficiência/Preciso e usa o número direto", (t) => {
     const defensor = withAttrs(makeCharacter(), { vigor: "A", destreza: "A" }); // ignorado
     mockDice(t, [1, 1, 1]);
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["abrangente_2"], totalDiceManual: 3 });
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["preciso_2"], totalDiceManual: 3 });
     assert.equal(r.totalDice, 3);
   });
   it("totalDiceManual negativo clampa em 0 (rollSuccessDice ainda rola 1 dado)", (t) => {
@@ -1171,10 +1295,11 @@ describe("resolveAtaque", () => {
     assert.equal(r.carga, null);
     assert.equal(r.drenante, null);
   });
-  it("Drenante: wired no resultado quando o ataque tem o descritor e houve sucesso líquido", (t) => {
+  it("Drenante: wired no resultado quando o ataque tem o descritor, houve sucesso líquido e o alvo tem mana", (t) => {
     mockDice(t, [7, /*defesa*/ 1, 1]);
+    const defender = { ...makeCharacter(), mp: { current: 2, max: 3 } };
     const r = resolveAtaque({
-      attacker: makeCharacter(), defender: makeCharacter(), totalDiceAtaque: 1,
+      attacker: makeCharacter(), defender, totalDiceAtaque: 1,
       descritoresAtaque: ["drenante"], defesaAtributo: "vigor",
     });
     assert.deepEqual(r.drenante, { aplicou: true, manaRoubadaDoAlvo: 1, manaRecuperadaPeloAtacante: 1 });

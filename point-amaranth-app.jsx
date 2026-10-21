@@ -15,6 +15,7 @@ import {
   PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS, MAX_PROCS,
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
   attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, parseFlatBonus, quebrarMana, repararMana,
+  quebrarSP,
   limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
@@ -26,6 +27,9 @@ import {
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO,
 } from "./data/magias.js";
 import { ARMAS, getArmaPorId, descritoresEfetivosArma, ALCANCE_LABEL } from "./data/armas.js";
+import {
+  ARMADURAS, getArmaduraPorId, armadurasDoSlot,
+} from "./data/armaduras.js";
 import { grupoDoPersonagem, reporSidepoint } from "./sidepoint.js";
 import {
   criarEncontro, criarCombatentePersonagem, criarCombatenteAvulso,
@@ -192,11 +196,11 @@ const DESCRITOR_INFO = {
   atrasada_1: { label: "Atrasada 1", cor: MUTED, descricao: "Etiqueta — ainda sem efeito no motor (rodadas fora do escopo atual)." },
   queimadura: { label: "Queimadura", cor: EMBER, descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola 1 d10 extra (separado do pool) contra 8+ (9+ se o alvo tiver Blindado; Perfurante ignora). Cada sucesso é 1 ferimento à parte, superficial — ou agravante se os sucessos de queimadura chegarem ao Vigor do alvo." },
   // 21/10 (docs/ATUALIZACAO_21-10.md, seção 5) — glossário novo. "Saturante"
-  // foi RETIRADO (equivale a Abrangente 2; não tem mais efeito nenhum no
+  // foi RETIRADO (equivale a Preciso 2; não tem mais efeito nenhum no
   // motor, ver engine.js:resolveRolagemDefesa — nunca selecione "saturante"
-  // à toa, use "abrangente"/"abrangente_2").
-  abrangente: { label: "Abrangente", cor: "#B0784F", descricao: "Difícil de esquivar (nome provisório). Se o defensor usar Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Substitui o antigo Saturante (Saturante = Abrangente 2)." },
-  esmagador: { label: "Esmagador", cor: "#8B5A2B", descricao: "Difícil de bloquear (nome provisório). Se o defensor usar Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Contrapartida do Abrangente." },
+  // à toa, use "preciso"/"preciso_2").
+  preciso: { label: "Preciso", cor: "#B0784F", descricao: "Difícil de esquivar (nome provisório). Se o defensor usar Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Substitui o antigo Saturante (Saturante = Preciso 2)." },
+  esmagador: { label: "Esmagador", cor: "#8B5A2B", descricao: "Difícil de bloquear (nome provisório). Se o defensor usar Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Contrapartida do Preciso." },
   resistente: { label: "Resistente", cor: "#4A9A6E", descricao: "Soma +1 ao Vigor necessário pro ferimento virar agravante. Não acumula (mais de uma fonte não soma mais que +1). Anula Letal (os dois juntos voltam pro Vigor normal)." },
   pesado: { label: "Pesado", cor: EMBER, descricao: "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com ele — nunca sobe pra 8+). Em troca, a arma causa 2 ferimentos por ataque que acerta (ambos seguem a regra do Vigor — provisório)." },
   envenenamento: { label: "Envenenamento", cor: "#4A9A2E", descricao: "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (sucesso 7+, ignora defesa e Blindado). Com pelo menos 1 sucesso, sempre exatamente 1 ferimento superficial. O total de ferimentos de veneno do alvo é limitado ao maior N já recebido — zera na cura ou no descanso longo." },
@@ -214,7 +218,7 @@ const DESCRITOR_INFO = {
 // grau 1 fixo (sem campo pra digitar N nessa UI simplificada; pra N maior,
 // use um ataque catalogado ou a aba Magia).
 const CARACTERISTICAS_ATAQUE = [
-  "letal", "abrangente", "esmagador", "perfurante", "sortudo", "em_area",
+  "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
   "queimadura", "pesado", "envenenamento", "carga", "drenante",
 ];
 const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente"];
@@ -5937,15 +5941,27 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 {character.mp.quebrada} mana quebrada (não volta sozinha — repare fora de combate)
               </div>
             )}
+            {/* SP quebrado (21/10, armaduras, docs/ATUALIZACAO_21-10.md
+                seção 7.1): diferente da mana quebrada, NÃO existe um
+                "reparar fora de combate" de graça — só volta no descanso
+                longo. O app não modela descanso longo como mecânica própria
+                (decisão provisória, ver CONTEXTO.md): tratamos o botão
+                "Restaurar MP e SP" abaixo como o equivalente disso. */}
+            {(character.sp?.quebrada || 0) > 0 && (
+              <div style={{ fontSize: 10.5, color: EMBER, marginTop: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
+                {character.sp.quebrada} SP quebrado (só volta no descanso longo)
+              </div>
+            )}
             {onUpdateCharacter && (
               <>
                 <Btn
                   onClick={() => onUpdateCharacter(character.id, {
-                    // Reset manual completo — também zera mana quebrada (21/10),
-                    // diferente de Início de turno/Fim de cena (que preservam a
-                    // mana quebrada até o jogador reparar de propósito).
+                    // Reset manual completo — também zera mana quebrada (21/10)
+                    // e SP quebrado (21/10, tratado como "descanso longo" pra
+                    // esse fim), diferente de Início de turno/Fim de cena (que
+                    // preservam os dois até o jogador reparar de propósito).
                     mp: { ...character.mp, current: computeMaxMana(character), recuperarPendente: 0, quebrada: 0 },
-                    sp: { ...character.sp, current: computeMaxSP(character) },
+                    sp: { ...character.sp, current: computeMaxSP(character), quebrada: 0 },
                   })}
                   style={{ width: "100%", justifyContent: "center", marginTop: 10 }}
                 >
@@ -5980,6 +5996,85 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 </Btn>
               );
             })()}
+          </div>
+
+          {/* Equipamento defensivo (21/10, docs/ATUALIZACAO_21-10.md seção
+              7): até 1 armadura + 1 escudo + 1 acessório (Regra 5). Equipar
+              uma peça com custoSpEquipar>0 quebra o SP na hora (Regra 6,
+              "equipar já consome o SP, mesmo que o item não seja ativado").
+              temPericia<Slot> é campo manual provisório (a disciplina de
+              perícia ainda não existe, igual às armas) — sem ele, Regra 4
+              tira 1 dado da Defesa (ver racasCatalogo.js:comGrausEfetivos/
+              engine.js:resolveRolagemDefesa). manaAtiva<Slot> só existe nas 3
+              peças "mágicas" com custoManaAtivar>0 (Armadura de mana,
+              Escudo de mana, Chifre de Mana) — liga/desliga o descritor
+              delas (Campo de Mana/Firme 2) quebrando/reparando mana de
+              verdade, mesmo padrão dos Encantamentos. */}
+          <div style={panelStyle}>
+            <div style={panelHeadStyle}>Equipamento Defensivo</div>
+            {(() => {
+              const eq = character.equipamento || {};
+              function equiparPeca(slotKey, idKey, periciaKey, manaKey, novoId) {
+                if (!onUpdateCharacter) return;
+                const novaPeca = getArmaduraPorId(novoId);
+                const custoSp = novaPeca?.custoSpEquipar || 0;
+                const spAtual = character.sp || { current: computeMaxSP(character), max: computeMaxSP(character), quebrada: 0 };
+                const novoSp = custoSp > 0 ? quebrarSP(spAtual, custoSp) : spAtual;
+                onUpdateCharacter(character.id, {
+                  equipamento: { ...eq, [idKey]: novoId || null, [periciaKey]: false, [manaKey]: false },
+                  sp: novoSp,
+                });
+              }
+              function alternarMana(manaKey, peca, ativoAgora) {
+                if (!onUpdateCharacter) return;
+                const mpAtual = character.mp || { current: 0, max: 3, quebrada: 0 };
+                const custo = peca?.custoManaAtivar || 1;
+                onUpdateCharacter(character.id, {
+                  equipamento: { ...eq, [manaKey]: !ativoAgora },
+                  mp: ativoAgora ? repararMana(mpAtual, custo) : quebrarMana(mpAtual, custo),
+                });
+              }
+              const slots = [
+                { label: "Armadura", slot: "armadura", idKey: "armaduraId", periciaKey: "temPericiaArmadura", manaKey: "manaAtivaArmadura" },
+                { label: "Escudo", slot: "escudo", idKey: "escudoId", periciaKey: "temPericiaEscudo", manaKey: "manaAtivaEscudo" },
+                { label: "Acessório", slot: "acessorio", idKey: "acessorioId", periciaKey: null, manaKey: "manaAtivaAcessorio" },
+              ];
+              return slots.map(({ label, slot, idKey, periciaKey, manaKey }) => {
+                const peca = getArmaduraPorId(eq[idKey]);
+                return (
+                  <div key={slot} style={{ marginBottom: 10 }}>
+                    <Field label={label}>
+                      <select
+                        style={inputStyle} value={eq[idKey] || ""} disabled={!onUpdateCharacter}
+                        onChange={(e) => equiparPeca(slot, idKey, periciaKey, manaKey, e.target.value || null)}
+                      >
+                        <option value="">(nenhuma)</option>
+                        {armadurasDoSlot(slot).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                      </select>
+                    </Field>
+                    {peca && periciaKey && peca.periciaFamilia && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
+                        <input
+                          type="checkbox" checked={!!eq[periciaKey]} disabled={!onUpdateCharacter}
+                          onChange={() => onUpdateCharacter(character.id, { equipamento: { ...eq, [periciaKey]: !eq[periciaKey] } })}
+                        />
+                        Tem perícia em {peca.periciaFamilia} (sem isso, -1 dado na Defesa)
+                      </label>
+                    )}
+                    {peca && peca.custoManaAtivar > 0 && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
+                        <input
+                          type="checkbox" checked={!!eq[manaKey]} disabled={!onUpdateCharacter}
+                          onChange={() => alternarMana(manaKey, peca, !!eq[manaKey])}
+                        />
+                        Ativa ({peca.custoManaAtivar} mana quebrada) — concede {(peca.descritoresConcedidos || []).map((id) => DESCRITOR_INFO[id]?.label || id).join(", ")}
+                      </label>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 2, fontStyle: "italic" }}>Ver "Catálogo de Armaduras" na aba Sistema pros detalhes de cada tipo.</div>
           </div>
         </div>
 
@@ -7734,7 +7829,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     <div style={{ marginTop: 24 }}>
       <SectionTitle icon={Dices}>Rolagem de Confronto — Ataque × Defesa</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa: proficiência Defesa de {b.name} + Destreza (esquivar) ou Força (bloquear), mesmo limiar — Abrangente N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
+        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa: proficiência Defesa de {b.name} + Destreza (esquivar) ou Força (bloquear), mesmo limiar — Preciso N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
       </p>
 
       <div style={{ maxWidth: 260, marginBottom: 14 }}>
@@ -12463,6 +12558,32 @@ function RulesView() {
             })()}
           </div>
           <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Perícia: {a.periciaFamilia}</div>
+        </div>
+      ))}
+
+      <SectionTitle icon={ShieldHalf}>Catálogo de Armaduras (tipos)</SectionTitle>
+      <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 10px" }}>
+        12 tipos genéricos de armadura (docs/ATUALIZACAO_21-10.md item 7). Na ficha, escolha o tipo e digite o nome — os exemplos são só referência. Até 1 armadura + 1 escudo + 1 acessório ao mesmo tempo. Sem a perícia da família, a defesa rola com 1 dado a menos (campo manual provisório, igual às armas — a disciplina de perícia ainda não existe). Equipar uma peça marcada "SP ao equipar" quebra 1 SP na hora, mesmo sem usar — SP quebrado só volta no descanso longo (botão "Restaurar MP e SP").
+      </p>
+      {ARMADURAS.map((a) => (
+        <div key={a.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT }}>{a.nome}</span>
+            <span style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{a.familia} · slot {a.slot}</span>
+          </div>
+          <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", margin: "4px 0" }}>
+            Exemplos: {a.exemplos} · Defesa {a.bonusDefesa > 0 ? `+${a.bonusDefesa}` : "0"}
+            {a.custoSpEquipar > 0 && ` · ${a.custoSpEquipar} SP ao equipar`}
+            {a.custoManaAtivar > 0 && ` · ${a.custoManaAtivar} mana quebrada (ativa)`}
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+            {a.descritoresConcedidos.map((id) => {
+              const info = DESCRITOR_INFO[id] || { label: id, cor: MUTED };
+              return <span key={id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 20, border: `1px solid ${info.cor}`, color: info.cor }}>{info.label}</span>;
+            })}
+          </div>
+          {a.extra && <p style={{ fontSize: 10.5, color: MUTED, margin: "6px 0 0", fontStyle: "italic" }}>{a.extra}</p>}
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Perícia: {a.periciaFamilia || "não exige"}</div>
         </div>
       ))}
 

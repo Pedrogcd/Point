@@ -31,7 +31,7 @@
 // ataque (0 por padrão)").
 //
 // Todos os descritores usados aqui (letal, perfurante, sortudo, esmagador_N,
-// abrangente_N) já são mecânicos em engine.js (resolveAtaque lê
+// preciso_N) já são mecânicos em engine.js (resolveAtaque lê
 // `descritoresAtaque`); "veloz" é só etiqueta de prioridade — a planilha
 // marca como "Etiqueta" porque a iniciativa ainda não existe no sistema, não
 // faz nada aqui. "em_area" no Descritor2 de "Arma de fogo de dispersão"
@@ -61,11 +61,11 @@ export const ARMAS = [
   { id: "haste_pesada", nome: "Haste pesada", familia: "Haste", exemplos: "Alabarda, glaive", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "letal", descritor2: "perfurante", extra: "pesado", ajusteDados: 0, periciaFamilia: "Hastes" },
   { id: "arma_de_fogo_curta", nome: "Arma de fogo curta", familia: "Arma de fogo", exemplos: "Pistola, revólver", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "veloz", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Armas de fogo" },
   { id: "arma_de_fogo_longa", nome: "Arma de fogo longa", familia: "Arma de fogo", exemplos: "Rifle, fuzil", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: "pesado", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
-  { id: "arma_de_fogo_dispersao", nome: "Arma de fogo de dispersão", familia: "Arma de fogo", exemplos: "Espingarda", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "abrangente_1", descritor2: "em_area", extra: null, ajusteDados: 0, periciaFamilia: "Armas de fogo" },
+  { id: "arma_de_fogo_dispersao", nome: "Arma de fogo de dispersão", familia: "Arma de fogo", exemplos: "Espingarda", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "preciso_1", descritor2: "em_area", extra: null, ajusteDados: 0, periciaFamilia: "Armas de fogo" },
   { id: "arma_de_arco", nome: "Arma de arco", familia: "Distância", exemplos: "Arco curto, arco longo", alcance: "longo", feridas: 1, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Distância" },
   { id: "arma_de_mecanismo", nome: "Arma de mecanismo", familia: "Distância", exemplos: "Besta", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "letal", extra: "pesado", ajusteDados: 0, periciaFamilia: "Distância" },
   { id: "arma_de_arremesso", nome: "Arma de arremesso", familia: "Distância", exemplos: "Facas de arremesso, machadinha", alcance: "uma_zona_adiante", feridas: 1, superficial: true, descritor1: "veloz", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Distância" },
-  { id: "arma_flexivel", nome: "Arma flexível", familia: "Flexível", exemplos: "Corrente, mangual, chicote", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "abrangente_1", descritor2: "veloz", extra: null, ajusteDados: 0, periciaFamilia: "Flexíveis" },
+  { id: "arma_flexivel", nome: "Arma flexível", familia: "Flexível", exemplos: "Corrente, mangual, chicote", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "preciso_1", descritor2: "veloz", extra: null, ajusteDados: 0, periciaFamilia: "Flexíveis" },
 ];
 
 export function getArmaPorId(id) {

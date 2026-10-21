@@ -69,7 +69,7 @@ describe("ENCANTAMENTOS", () => {
   });
 
   // 21/10 (docs/ATUALIZACAO_21-10.md item 4): 8 encantamentos no total —
-  // Flamejante (19/10) + Lâmina Letal/Ponta Perfurante/Golpe Abrangente/
+  // Flamejante (19/10) + Lâmina Letal/Ponta Perfurante/Golpe Preciso/
   // Pele Encantada/Sorte Encantada/Encantamento Elétrico/Encantamento
   // Drenante.
   it("tem 8 encantamentos, todos do ofício Encantamentos, custando 1 mana quebrada", () => {

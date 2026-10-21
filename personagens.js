@@ -220,6 +220,24 @@ export function migrarPersonagem(ch) {
   delete proficiencias.magiasOfensivas;
   delete proficiencias.resistMagicaProf;
   delete proficiencias.manipulacaoManaProf;
+  // 14) Defesa substitui Resistência Física (21/10, docs/ATUALIZACAO_21-10.md
+  // item 1): a nova Defesa (defesaProf) recebe o grau que estava salvo em
+  // Resistência Física — só na PRIMEIRA migração (idempotente: se
+  // `proficienciasLegado.resistFisicaProf` já existe, é porque essa ficha já
+  // migrou antes, e não sobrescreve uma Defesa que o jogador tenha editado
+  // manualmente depois). O grau antigo fica preservado em
+  // `proficienciasLegado.resistFisicaProf` (não apaga) mesmo saindo do
+  // catálogo mecânico. "Os pontos gastos na Defesa antiga voltam ao
+  // orçamento" (texto do Pedro) é orientação de mesa — o app não tem um
+  // sistema de orçamento pra devolver automaticamente.
+  const proficienciasLegado = { ...(ch.proficienciasLegado || {}) };
+  const resistFisicaSalva = ch.proficiencias?.resistFisicaProf;
+  const aindaNaoMigradoDefesa = proficienciasLegado.resistFisicaProf === undefined;
+  if (resistFisicaSalva !== undefined && aindaNaoMigradoDefesa) {
+    proficienciasLegado.resistFisicaProf = resistFisicaSalva;
+    proficiencias.defesaProf = resistFisicaSalva;
+  }
+  delete proficiencias.resistFisicaProf;
   // Disciplinas (item 13 acima) — ver migrarDisciplinas.
   const disciplinas = migrarDisciplinas(ch);
   const grupo = ch.grupo || grupoDoPersonagem(ch);
@@ -237,8 +255,10 @@ export function migrarPersonagem(ch) {
   // quebrava com tela branca ("Cannot read properties of undefined (reading
   // 'max')") ao tentar ler hp.max. Máximo calculado igual a uma ficha nova
   // (computeMaxHP/computeMaxSP, que já dependem de atributosGerais/procs
-  // migrados acima); MP é sempre fixo em 3, igual toda ficha semente.
-  const hpBase = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs }); return { current: max, max }; })();
+  // migrados acima — e de `descritores`, desde 21/10: Goethiano dá +1 HP
+  // máximo via o descritor "hp_maximo_1", ver engine.js:computeMaxHP);
+  // MP é sempre fixo em 3, igual toda ficha semente.
+  const hpBase = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs, descritores }); return { current: max, max }; })();
   const hp = { ...hpBase, superficiais: hpBase.superficiais ?? 0 };
   const mp = (ch.mp && typeof ch.mp.max === "number") ? ch.mp : { current: 3, max: 3 };
   const sp = (ch.sp && typeof ch.sp.max === "number") ? ch.sp : (() => { const max = computeMaxSP({ sp: ch.sp, procs }); return { current: max, max }; })();
@@ -258,7 +278,7 @@ export function migrarPersonagem(ch) {
   const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
   return {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
-    abilities, atributosGerais, proficiencias, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
+    abilities, atributosGerais, proficiencias, proficienciasLegado, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, disciplinaExtraHumano, descritores, bonusGrauEscolha,
   };
 }

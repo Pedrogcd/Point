@@ -58,11 +58,11 @@
           "icone": "losango-solido",
           "cor": "#D23B3B",
           "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano.",
-          "efeito": "+1 grau em Resistência Física (até o teto C). Todo tipo de humano ganha +1 grau (até o teto C) em uma proficiência à escolha que não seja de Combate.",
+          "efeito": "Ganha o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal). Todo tipo de humano sobe um grau (até o teto C) numa proficiência à escolha que não seja de Combate.",
           "bonus": [
-            "Resistência Física +1 grau"
+            "Resistente"
           ],
-          "descritores": []
+          "descritores": ["resistente"]
         }
       ],
       "secundarias": [
@@ -99,12 +99,15 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Humanos nascidos em Goethia e abençoados pelo sangue dos Primals.",
-          "efeito": "+1 grau em Vigor (sem teto, até A). Ganha o descritor Blindado: dados de ataque contra você (físico ou mágico) precisam de no mínimo 7, em vez de 6, para dar sucesso.",
+          "efeito": "Ganha +1 HP máximo, o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal) e o descritor Blindado: dados de ataque contra você (físico ou mágico) precisam de no mínimo 7, em vez de 6, para dar sucesso.",
           "bonus": [
-            "Vigor +1 grau (até A)",
+            "+1 HP máximo",
+            "Resistente",
             "Blindado"
           ],
           "descritores": [
+            "hp_maximo_1",
+            "resistente",
             "blindado"
           ]
         }
@@ -212,9 +215,9 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Pele grossa de Oni; remove a proibição racial de armadura pesada.",
-          "efeito": "+1 grau em Resistência Física (sem teto, até A). Remove a restrição de armadura pesada do Niosh.",
+          "efeito": "+1 grau em Defesa (sem teto, até A — Defesa substitui Resistência Física, 21/10). Remove a restrição de armadura pesada do Niosh.",
           "bonus": [
-            "Resistência Física +1 grau (até A)",
+            "Defesa +1 grau (até A)",
             "Sem restrição de armadura"
           ],
           "descritores": []
@@ -548,11 +551,12 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "O texto antigo diz que elfos são bastante resistentes à dor.",
-          "efeito": "+1 grau em Resolução.",
+          "efeito": "+1 grau em Resolução. Ganha o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal).",
           "bonus": [
-            "Resolução +1 grau"
+            "Resolução +1 grau",
+            "Resistente"
           ],
-          "descritores": []
+          "descritores": ["resistente"]
         },
         {
           "id": "arte-e-tradicao",

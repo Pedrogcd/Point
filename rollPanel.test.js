@@ -64,25 +64,25 @@ function mockDice(t, sequence) {
 describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtaque", () => {
   it("defaults do painel (alvo tudo em grau E, defesa por Vigor) viram o defensor esperado", (t) => {
     // Ataque: destreza E(1) + combateCorpoACorpo E(1) + ajusteDados(soco)=1 = 3 dados.
-    // Defesa: vigor E(1) + resistFisicaProf E(1) = 2 dados.
+    // Defesa: vigor E(1) + defesaProf E(1) = 2 dados.
     mockDice(t, [7, 1, 1, /*defesa*/ 1, 1]);
     const r = resolveFichaAtaque({ character: makeAttacker(), attack: SOCO });
     assert.equal(r.rolagemAtaque.dice.length, 3);
     assert.equal(r.rolagemDefesa.dice.length, 2);
-    assert.equal(r.rolagemDefesa.profKey, "resistFisicaProf"); // SOCO é marcial
+    assert.equal(r.rolagemDefesa.profKey, "defesaProf"); // SOCO é marcial
   });
 
   it("graus diferentes no alvo mudam o pool de dados da defesa", (t) => {
-    mockDice(t, [7, 1, 1, /*defesa: vigor C(3)+resistFisicaProf B(4)=7*/ 1, 1, 1, 1, 1, 1, 1]);
+    mockDice(t, [7, 1, 1, /*defesa: vigor C(3)+defesaProf B(4)=7*/ 1, 1, 1, 1, 1, 1, 1]);
     const r = resolveFichaAtaque({
       character: makeAttacker(), attack: SOCO,
-      targetVigorGrau: "C", targetResistFisicaGrau: "B",
+      targetVigorGrau: "C", targetDefesaProfGrau: "B",
     });
     assert.equal(r.rolagemDefesa.dice.length, 7);
   });
 
   it("targetDefesaAtributo diferente de Vigor usa o grau escolhido pra defesa, mas Vigor continua valendo pro ferimento", (t) => {
-    // Defesa usa Destreza B(4) em vez de Vigor; resistFisicaProf E(1) = 5 dados.
+    // Defesa usa Destreza B(4) em vez de Vigor; defesaProf E(1) = 5 dados.
     mockDice(t, [7, 1, 1, /*defesa*/ 1, 1, 1, 1, 1]);
     const r = resolveFichaAtaque({
       character: makeAttacker(), attack: SOCO,
@@ -98,7 +98,7 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtaq
   });
 
   it("14/10: Resiste a Magia não afeta ataque marcial (só reduz dados/garante sucesso contra ataque com descritor Magia)", (t) => {
-    mockDice(t, [7, 1, 1, /*defesa: vigor E(1)+resistFisicaProf E(1)=2, sem redução*/ 1, 1]);
+    mockDice(t, [7, 1, 1, /*defesa: vigor E(1)+defesaProf E(1)=2, sem redução*/ 1, 1]);
     const r = resolveFichaAtaque({ character: makeAttacker(), attack: SOCO, targetResisteAMagia: true });
     assert.equal(r.rolagemDefesa.dice.length, 2);
   });
@@ -118,7 +118,7 @@ describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtaq
 
   it("desarmado_letal (descritor de personagem) torna o soco letal mesmo sem a arma ter o descritor", (t) => {
     const atacanteLetal = makeAttacker({ descritores: ["desarmado_letal"] });
-    // defesa: vigor D(2) + resistFisicaProf E(1) = 3 dados
+    // defesa: vigor D(2) + defesaProf E(1) = 3 dados
     mockDice(t, [7, 1, 1, /*defesa*/ 1, 1, 1]);
     const r = resolveFichaAtaque({ character: atacanteLetal, attack: SOCO, targetVigorGrau: "D" });
     assert.equal(r.letal, true);

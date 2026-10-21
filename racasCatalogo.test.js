@@ -140,9 +140,9 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
     }
   });
 
-  it("cobertura esperada: 21 habilidades distintas (20 com bônus fixo, 2 à escolha, Homúnculo nas duas — 14/10: Descendentes de Sabato saiu, virou bônus de raça — ver BONUS_GRAU_FIXO_POR_RACA)", () => {
-    assert.equal(idsMapeados.size, 21);
-    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 20);
+  it("cobertura esperada: 19 habilidades distintas (18 com bônus fixo, 2 à escolha, Homúnculo nas duas — 14/10: Descendentes de Sabato saiu, virou bônus de raça — ver BONUS_GRAU_FIXO_POR_RACA; 21/10: Goethiano e Mana Estática saíram — viraram descritor Resistente/+1 HP/Blindado, sem bônus de grau, ver docs/ATUALIZACAO_21-10.md)", () => {
+    assert.equal(idsMapeados.size, 19);
+    assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 18);
     assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 2);
   });
 });
@@ -220,15 +220,19 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { forca: 1 } });
   });
 
-  it("Goethiano (secundária humana) dá +1 em Vigor", () => {
+  // 21/10 (docs/ATUALIZACAO_21-10.md + pedido do Pedro): Goethiano perdeu o
+  // +1 grau em Vigor de vez — virou +1 HP máximo (descritor "hp_maximo_1",
+  // ver engine.test.js:computeMaxHP) + descritores "resistente"/"blindado".
+  // Sem bônus de grau nenhum.
+  it("Goethiano não dá mais bônus de grau nenhum (21/10)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "goethiano" });
-    assert.deepEqual(bonus, { proficiencias: {}, atributos: { vigor: 1 } });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
-  it("Goethiano sobe Vigor até A, sem teto C (14/10)", () => {
+  it("Goethiano não altera mais o Vigor (nem bonusAplicado)", () => {
     const { character, bonusAplicado } = comGrausEfetivos({ raca: "humano", habilidadeSecundaria: "goethiano", atributosGerais: { vigor: "C" } });
-    assert.equal(character.atributosGerais.vigor, "B");
-    assert.equal(bonusAplicado.atributos.vigor, 1);
+    assert.equal(character.atributosGerais.vigor, "C");
+    assert.equal(bonusAplicado.atributos.vigor, undefined);
   });
 
   it("Homúnculo dá +1 fixo em Atletismo mesmo sem escolha de Força/Destreza feita", () => {
@@ -261,18 +265,24 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
   });
 
-  it("Mana Estática (humano) dá +1 em Resistência Física, teto C (14/10: Resistência Mágica saiu)", () => {
+  // 21/10: Mana Estática perdeu o bônus de grau de vez — virou só o
+  // descritor "resistente" (ver racasCatalogo — descritoresDeSelecao /
+  // catalogo-racas.json). "Todo tipo de humano ganha +1 grau numa
+  // proficiência à escolha" continua existindo, mas é um bônus da RAÇA
+  // Humano (BONUS_GRAU_ESCOLHA_POR_RACA), não desta habilidade específica.
+  it("Mana Estática (humano) não dá mais bônus de grau nenhum (21/10) — virou o descritor Resistente", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "humano", habilidadePrincipal: "mana-estatica" });
-    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1 }, atributos: {} });
-    const { character } = comGrausEfetivos({ raca: "humano", habilidadePrincipal: "mana-estatica", proficiencias: { resistFisicaProf: "C" } });
-    assert.equal(character.proficiencias.resistFisicaProf, "C"); // teto C, não sobe mais
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
-  it("Pele Grossa (niosh) dá +1 em Resistência Física sem teto C, até A (14/10: Resistência Mágica saiu) — mais o +1 Força de todo Niosh (14/10, mais tarde)", () => {
+  // Pele Grossa trocou de Resistência Física pra Defesa (21/10, docs/
+  // ATUALIZACAO_21-10.md item 1) — mesmo teto A (sem teto C). O +1 Força de
+  // todo Niosh continua intocado (BONUS_GRAU_FIXO_POR_RACA).
+  it("Pele Grossa (niosh) dá +1 em Defesa sem teto C, até A — mais o +1 Força de todo Niosh (14/10, mais tarde)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
-    assert.deepEqual(bonus, { proficiencias: { resistFisicaProf: 1 }, atributos: { forca: 1 } });
-    const { character } = comGrausEfetivos({ raca: "niosh", habilidadeSecundaria: "pele-grossa", proficiencias: { resistFisicaProf: "C" } });
-    assert.equal(character.proficiencias.resistFisicaProf, "B"); // sem teto C
+    assert.deepEqual(bonus, { proficiencias: { defesaProf: 1 }, atributos: { forca: 1 } });
+    const { character } = comGrausEfetivos({ raca: "niosh", habilidadeSecundaria: "pele-grossa", proficiencias: { defesaProf: "C" } });
+    assert.equal(character.proficiencias.defesaProf, "B"); // sem teto C
   });
 
   it("Clã Radiante (elfo) dá +1 em Carisma", () => {
@@ -316,6 +326,26 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   it("comGrausEfetivos soma o ofício extra racial em cima de um oficiosExtras já salvo na ficha", () => {
     const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: { oficiosExtras: 2 } });
     assert.equal(character.disciplinaMagica.oficiosExtras, 3);
+  });
+
+  // Conduíte mágico (21/10, docs/ATUALIZACAO_21-10.md item 4): flag global
+  // (character.conduiteAtivo) soma +1 ofício, igual os ofícios extras
+  // raciais — "só um Conduíte funciona por vez" é automático porque é um
+  // único booleano, não uma lista.
+  it("conduiteAtivo soma +1 em disciplinaMagica.oficiosExtras", () => {
+    const { character } = comGrausEfetivos({ conduiteAtivo: true, disciplinaMagica: {} });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 1);
+  });
+  it("sem conduiteAtivo, não soma nada", () => {
+    const { character } = comGrausEfetivos({ disciplinaMagica: {} });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 0);
+  });
+  it("conduiteAtivo soma em cima de ofícios extras raciais e já salvos", () => {
+    const { character } = comGrausEfetivos({
+      raca: "elfo", habilidadePrincipal: "cla-corvus", conduiteAtivo: true,
+      disciplinaMagica: { oficiosExtras: 2 },
+    });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 4); // 2 salvo + 1 Corvus + 1 Conduíte
   });
 });
 
@@ -493,14 +523,14 @@ describe("racasCatalogo — tetoGrauDoPersonagem", () => {
     assert.deepEqual(tetos, { proficiencias: {}, atributos: {} });
   });
 
-  it("Goethiano (teto A) aparece no atributos.vigor", () => {
+  it("Goethiano não tem mais teto nenhum (21/10: não dá bônus de grau, virou +1 HP + Resistente + Blindado)", () => {
     const tetos = tetoGrauDoPersonagem({ raca: "humano", habilidadeSecundaria: "goethiano" });
-    assert.deepEqual(tetos, { proficiencias: {}, atributos: { vigor: "A" } });
+    assert.deepEqual(tetos, { proficiencias: {}, atributos: {} });
   });
 
-  it("Pele Grossa (teto A) aparece em proficiencias.resistFisicaProf", () => {
+  it("Pele Grossa (teto A) aparece em proficiencias.defesaProf (21/10: trocou de Resistência Física pra Defesa)", () => {
     const tetos = tetoGrauDoPersonagem({ raca: "niosh", habilidadeSecundaria: "pele-grossa" });
-    assert.deepEqual(tetos, { proficiencias: { resistFisicaProf: "A" }, atributos: {} });
+    assert.deepEqual(tetos, { proficiencias: { defesaProf: "A" }, atributos: {} });
   });
 });
 

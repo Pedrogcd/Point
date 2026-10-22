@@ -151,6 +151,44 @@ describe("racasCatalogo — inferirRacaEHabilidadesDeTextoLivre (22/10, migraç�
     assert.deepEqual(migrado.bonusGrauFixoSuprimido, [{ tipo: "atributo", chave: "forca" }]);
   });
 
+  it("backfill retroativo (22/10, 2ª correção): ficha da Raiko já migrada ANTES de bonusGrauFixoSuprimido existir (raca/principal salvos, sem esse campo) ainda assim fica suprimida — mesmo com a secundária trocada depois pela UI (ex.: pra Pele Grossa)", () => {
+    const raikoJaMigradaAntes = {
+      race: "Niosh (Oni, descendente de Arcani)",
+      racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "" },
+      raca: "niosh",
+      habilidadePrincipal: "descendentes-de-arcani",
+      habilidadeSecundaria: "pele-grossa", // trocada manualmente depois, ver escolherSecundaria
+      // bonusGrauFixoSuprimido: ausente de propósito — simula dado salvo
+      // ANTES desse campo existir no app.
+    };
+    const migrado = migrarSelecaoRacaLegado(raikoJaMigradaAntes);
+    assert.equal(migrado.raca, "niosh");
+    assert.equal(migrado.habilidadeSecundaria, "pele-grossa"); // não mexe na escolha feita
+    assert.deepEqual(migrado.bonusGrauFixoSuprimido, [{ tipo: "atributo", chave: "forca" }]);
+  });
+
+  it("backfill retroativo NÃO suprime quando a raça/principal salvos não batem mais com o texto livre (sinal de escolha manual pela UI, não de inferência antiga)", () => {
+    const escolhidaPelaUi = {
+      race: "Niosh (Oni, descendente de Arcani)",
+      racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "" },
+      raca: "niosh",
+      habilidadePrincipal: "descendentes-de-sabato", // diferente do que o texto livre infere
+    };
+    const migrado = migrarSelecaoRacaLegado(escolhidaPelaUi);
+    assert.deepEqual(migrado.bonusGrauFixoSuprimido, []);
+  });
+
+  it("backfill retroativo NÃO suprime ficha do esquema antigo explícito (racaId/habilidadePrincipalId, PR #30/#31)", () => {
+    const esquemaAntigo = {
+      race: "Niosh (Oni, descendente de Arcani)",
+      racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "" },
+      raca: "niosh", racaId: "niosh",
+      habilidadePrincipal: "descendentes-de-arcani",
+    };
+    const migrado = migrarSelecaoRacaLegado(esquemaAntigo);
+    assert.deepEqual(migrado.bonusGrauFixoSuprimido, []);
+  });
+
   it("'Ningen Kitsune' infere Raposa/Kitsune (apelido bate por qualquer metade do nome com /)", () => {
     const ookami = { race: "Ningen Kitsune" };
     assert.deepEqual(inferirRacaEHabilidadesDeTextoLivre(ookami), { raca: "ningen", habilidadePrincipal: "raposa-kitsune", habilidadeSecundaria: null });

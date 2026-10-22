@@ -164,6 +164,27 @@ export function inferirRacaEHabilidadesDeTextoLivre(ch) {
 // inferência pra sempre (fica "migrada" com tudo vazio). `null`/`undefined`
 // tratam igual: tenta de novo; só uma raça de verdade escolhida (string)
 // trava o resultado.
+// Backfill de `bonusGrauFixoSuprimido` pra ficha que já tinha `raca`/
+// `habilidadePrincipal` salvos ANTES desse campo existir — ver nota em
+// migrarSelecaoRacaLegado. Só suprime quando a raça/principal GRAVADOS ainda
+// batem exatamente com o que `inferirRacaEHabilidadesDeTextoLivre` produziria
+// agora a partir do `race`/`racialAbility` da própria ficha (prova forte de
+// que vieram da inferência, não de uma escolha manual pela UI depois —
+// `escolherRaca` sempre zera principal/secundária, então um principal que
+// ainda bate com a inferência original não foi re-escolhido). A secundária
+// NÃO entra nessa comparação de propósito: `escolherSecundaria` (trocar só a
+// secundária) nunca mexe em `bonusGrauFixoSuprimido`, então o jogador pode
+// ter trocado só ela sem isso significar "aceitei o bônus de raça de
+// verdade" — o bônus fixo da SECUNDÁRIA atual (se houver) ainda entra na
+// supressão, calculado com `bonusGrauFixoQueSeriamNovosPorInferencia`.
+function bonusGrauFixoSuprimidoRetroativo(ch) {
+  if (ch.racaId) return []; // esquema antigo explícito (PR #30/#31) — nunca suprime.
+  const inferido = inferirRacaEHabilidadesDeTextoLivre(ch);
+  const principalAtual = ch.habilidadePrincipal ?? null;
+  if (!inferido || inferido.raca !== ch.raca || inferido.habilidadePrincipal !== principalAtual) return [];
+  return bonusGrauFixoQueSeriamNovosPorInferencia(ch.raca, principalAtual, ch.habilidadeSecundaria ?? null);
+}
+
 export function migrarSelecaoRacaLegado(ch) {
   if (ch.raca) {
     return {
@@ -173,8 +194,20 @@ export function migrarSelecaoRacaLegado(ch) {
       disciplinaHumano: ch.disciplinaHumano ?? null,
       descritores: ch.descritores ?? [],
       bonusGrauEscolha: ch.bonusGrauEscolha ?? {},
-      // Persistido (não recalculado) — ver bonusGrauFixoQueSeriamNovosPorInferencia.
-      bonusGrauFixoSuprimido: ch.bonusGrauFixoSuprimido ?? [],
+      // Persistido, não recalculado — ver bonusGrauFixoQueSeriamNovosPorInferencia
+      // — EXCETO quando é `undefined` de verdade (22/10, correção no mesmo dia:
+      // ficha já migrada no navegador do Pedro ANTES de `bonusGrauFixoSuprimido`
+      // existir — a migração por texto livre já tinha setado `raca`/habilidades
+      // antes de hoje, e sem esse backfill ela ficava travada com o bônus
+      // visível pra sempre, já que esse branch nunca mais roda a inferência de
+      // novo). Só faz esse backfill quando dá pra confirmar que a raça/principal
+      // vieram mesmo da inferência (batem com o que `race`/`racialAbility`
+      // ainda produziriam agora) — nunca de uma ficha que passou pelo esquema
+      // antigo explícito (`racaId`) ou cuja raça/principal não batem mais com o
+      // texto livre (sinal de escolha manual pela UI, que deve dar o bônus de
+      // verdade — ver escolherRaca em point-amaranth-app.jsx, que limpa esse
+      // campo ao trocar de raça pela UI).
+      bonusGrauFixoSuprimido: ch.bonusGrauFixoSuprimido ?? bonusGrauFixoSuprimidoRetroativo(ch),
     };
   }
   const racaId = ch.racaId ?? null;

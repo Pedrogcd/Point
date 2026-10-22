@@ -7294,6 +7294,11 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       descritores: [],
       bonusGrauEscolha: {},
       bonusGrauEscolhaRaca: null,
+      // 22/10: escolher raça pela UI é sempre uma decisão explícita — zera
+      // qualquer supressão herdada de uma migração antiga por texto livre
+      // (ver racasCatalogo.js:bonusGrauFixoSuprimido). O bônus fixo da nova
+      // raça (ex.: +1 Força de toda Niosh) passa a valer de verdade.
+      bonusGrauFixoSuprimido: [],
     }));
   }
   function escolherPrincipal(principalId) {

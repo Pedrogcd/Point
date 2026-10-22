@@ -42,6 +42,8 @@ export const DESCRITORES_INTERNOS = {
   ignora_blindado: { label: "Ignora Blindado", descricao: "Seus ataques físicos ignoram o efeito Blindado do alvo (retrocompatibilidade — nenhuma raça concede isso hoje)." },
   hp_maximo_1: { label: "+1 HP máximo", descricao: "Soma +1 ao HP máximo do personagem." },
   sp_maximo_menos_1: { label: "-1 SP máximo", descricao: "Subtrai 1 do SP máximo do personagem." },
+  sp_maximo_1: { label: "+1 SP máximo", descricao: "Soma +1 ao SP máximo do personagem." },
+  mp_maximo_1: { label: "+1 MP máximo", descricao: "Soma +1 ao MP máximo do personagem (até o teto de 6)." },
 };
 
 // Recebe um token interno (ex. "preciso_2", "em_area", "hp_maximo_1") e

@@ -37,7 +37,7 @@
             "SP +1",
             "Proficiência +1 grau (x2, podem repetir)"
           ],
-          "descritores": ["veloz"]
+          "descritores": ["veloz", "sp_maximo_1"]
         },
         {
           "id": "mana-fluida",
@@ -52,7 +52,7 @@
             "MP +1",
             "Proficiência +1 grau"
           ],
-          "descritores": ["reabastecer"]
+          "descritores": ["reabastecer", "mp_maximo_1"]
         },
         {
           "id": "mana-estatica",
@@ -167,7 +167,8 @@
           ],
           "descritores": [
             "resistente",
-            "reabastecer"
+            "reabastecer",
+            "mp_maximo_1"
           ]
         },
         {
@@ -281,7 +282,7 @@
             "Sortudo (só ao esquivar)",
             "SP +1"
           ],
-          "descritores": ["sortudo_esquiva"]
+          "descritores": ["sortudo_esquiva", "sp_maximo_1"]
         },
         {
           "id": "leonino",
@@ -297,7 +298,8 @@
             "SP +1"
           ],
           "descritores": [
-            "letal"
+            "letal",
+            "sp_maximo_1"
           ]
         },
         {
@@ -333,7 +335,8 @@
             "SP +1"
           ],
           "descritores": [
-            "letal"
+            "letal",
+            "sp_maximo_1"
           ]
         },
         {
@@ -350,7 +353,7 @@
             "Azarado 1x/cena (não mecanizado)",
             "SP +1"
           ],
-          "descritores": []
+          "descritores": ["sp_maximo_1"]
         }
       ],
       "secundarias": [
@@ -555,7 +558,7 @@
           "bonus": [
             "MP +1"
           ],
-          "descritores": []
+          "descritores": ["mp_maximo_1"]
         },
         {
           "id": "resistencia-a-dor",

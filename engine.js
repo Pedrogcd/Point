@@ -525,11 +525,17 @@ export function computeMaxHP(character) {
 // personagem, booleano — não soma por fonte), só que SUBTRAI em vez de
 // somar. Math.max(0, ...) pra nunca ficar negativo (defensivo — na prática
 // a base já é 3, nunca chegaria a isso).
+// "sp_maximo_1" (22/10, docs/revisao/racas-site.json — Mana Concentrada,
+// Coelho/Bode, Leonino, Lobo/Canino, Raposa/Kitsune: "+1 SP máximo"): mesmo
+// mecanismo de "sp_maximo_menos_1", só que soma em vez de subtrair. Com o
+// Homúnculo (penalidade) no mesmo personagem (não acontece hoje — nenhuma
+// raça combina as duas), os dois se cancelam naturalmente pela soma.
 export function computeMaxSP(character) {
   const base = character?.sp?.max ?? 3;
   const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
+  const bonusDescritor = temDescritor(character, "sp_maximo_1") ? 1 : 0;
   const penalidadeHomunculo = temDescritor(character, "sp_maximo_menos_1") ? 1 : 0;
-  return Math.max(0, base + bonusPersistente - penalidadeHomunculo);
+  return Math.max(0, base + bonusPersistente + bonusDescritor - penalidadeHomunculo);
 }
 
 // MP (mana) máximo: 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Magia Inata (+1 MP
@@ -537,13 +543,17 @@ export function computeMaxSP(character) {
 // flag independente (`disciplinaMagica.magiaInata`, 14/10 docs/MUDANCAS_
 // RACAS_E_MAGIA.md) — não é mais um "tipo" de disciplina exclusivo com
 // Ofício Mágico: um personagem pode ter Ofícios Mágicos E Magia Inata ao
-// mesmo tempo.
+// mesmo tempo. "mp_maximo_1" (22/10, docs/revisao/racas-site.json — Mana
+// Fluida, Descendentes de Arcani, Reservatório de Mana: "+1 MP máximo"):
+// mesmo mecanismo de "hp_maximo_1"/"sp_maximo_1" (descritor de personagem,
+// booleano — não soma por fonte).
 export const MANA_MIN = 1;
 export const MANA_MAX = 6;
 export function computeMaxMana(character) {
   const bonusMagiaInata = character?.disciplinaMagica?.magiaInata ? 1 : 0;
+  const bonusDescritor = temDescritor(character, "mp_maximo_1") ? 1 : 0;
   const base = character?.mp?.max ?? 3;
-  return Math.max(MANA_MIN, Math.min(MANA_MAX, base + bonusMagiaInata));
+  return Math.max(MANA_MIN, Math.min(MANA_MAX, base + bonusMagiaInata + bonusDescritor));
 }
 
 // Mana quebrada (21/10, docs/ATUALIZACAO_21-10.md item 3): mana gasta pra

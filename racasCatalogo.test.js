@@ -2,7 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria,
-  descritoresDeSelecao, migrarSelecaoRacaLegado, temDescritor,
+  descritoresDeSelecao, migrarSelecaoRacaLegado, inferirRacaEHabilidadesDeTextoLivre, temDescritor,
   CATALOGO_RACAS, BONUS_GRAU_POR_HABILIDADE, BONUS_GRAU_ESCOLHA_POR_HABILIDADE,
   DESCRITOR_ESCOLHA_POR_HABILIDADE, BONUS_OFICIO_EXTRA_POR_HABILIDADE,
   descritorEscolhidoDoPersonagem,
@@ -57,12 +57,14 @@ describe("racasCatalogo — descritoresDeSelecao", () => {
   // Leonino agora dá "letal" (geral), Garras e Presas dá "desarmado_perfurante"
   // (não mais "desarmado_letal"/"ignora_blindado") — não há mais duplicata
   // real entre os dois, mas o teste continua valendo com os ids novos.
+  // 22/10 (docs/revisao/racas-site.json): Leonino também ganhou "+1 SP
+  // máximo" (sp_maximo_1).
   it("combina descritores de principal e secundária de raças diferentes", () => {
     const ningen = encontrarRaca("ningen");
-    const principal = encontrarPrincipal(ningen, "leonino"); // descritores: ["letal"]
+    const principal = encontrarPrincipal(ningen, "leonino"); // descritores: ["letal", "sp_maximo_1"]
     const secundaria = encontrarSecundaria(ningen, "garras-e-presas"); // descritores: ["desarmado_perfurante"]
     const resultado = descritoresDeSelecao(principal, secundaria);
-    assert.deepEqual(resultado, ["letal", "desarmado_perfurante"]);
+    assert.deepEqual(resultado, ["letal", "sp_maximo_1", "desarmado_perfurante"]);
   });
 
   it("entradas null/undefined não quebram e não entram no resultado", () => {
@@ -77,9 +79,21 @@ describe("racasCatalogo — descritoresDeSelecao", () => {
 });
 
 describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
-  it("ficha sem nenhum dos dois esquemas (ex.: a Leona) fica toda null, sem inventar nada", () => {
+  // 22/10 (pedido do Pedro: "migre fichas existentes, ex. Raiko, pelo nome
+  // da habilidade"): ficha sem os dois esquemas estruturados, mas com
+  // `race`/`racialAbility` em texto livre, agora infere raça/habilidade em
+  // vez de ficar tudo null — ver inferirRacaEHabilidadesDeTextoLivre.
+  it("ficha só com texto livre (ex.: a Leona, 'Ningen Leonino') infere raça e principal", () => {
     const leona = { id: "leona", name: "Leona", race: "Ningen Leonino" };
     const migrado = migrarSelecaoRacaLegado(leona);
+    assert.equal(migrado.raca, "ningen");
+    assert.equal(migrado.habilidadePrincipal, "leonino");
+    assert.equal(migrado.habilidadeSecundaria, null);
+    assert.deepEqual(migrado.descritores, ["letal", "sp_maximo_1"]);
+  });
+
+  it("ficha com texto realmente vazio continua tudo null (não inventa raça)", () => {
+    const migrado = migrarSelecaoRacaLegado({ id: "x", name: "X" });
     assert.deepEqual(migrado, { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} });
   });
 
@@ -115,6 +129,51 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
     const uma = migrarSelecaoRacaLegado(ch);
     const duas = migrarSelecaoRacaLegado(uma);
     assert.deepEqual(uma, duas);
+  });
+});
+
+describe("racasCatalogo — inferirRacaEHabilidadesDeTextoLivre (22/10, migração por texto livre)", () => {
+  it("Raiko: 'Niosh (Oni, descendente de Arcani)' + racialAbility 'Niosh — Agressividade Oni · Descendente de Arcani' infere principal E secundária", () => {
+    const raiko = {
+      race: "Niosh (Oni, descendente de Arcani)",
+      racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "" },
+    };
+    const inferido = inferirRacaEHabilidadesDeTextoLivre(raiko);
+    assert.deepEqual(inferido, { raca: "niosh", habilidadePrincipal: "descendentes-de-arcani", habilidadeSecundaria: "agressividade-oni" });
+    const migrado = migrarSelecaoRacaLegado(raiko);
+    assert.equal(migrado.raca, "niosh");
+    assert.equal(migrado.habilidadePrincipal, "descendentes-de-arcani");
+    assert.equal(migrado.habilidadeSecundaria, "agressividade-oni");
+    assert.deepEqual(migrado.descritores, ["resistente", "reabastecer", "mp_maximo_1", "letal"]);
+  });
+
+  it("'Ningen Kitsune' infere Raposa/Kitsune (apelido bate por qualquer metade do nome com /)", () => {
+    const ookami = { race: "Ningen Kitsune" };
+    assert.deepEqual(inferirRacaEHabilidadesDeTextoLivre(ookami), { raca: "ningen", habilidadePrincipal: "raposa-kitsune", habilidadeSecundaria: null });
+  });
+
+  it("'Elfa Radiante' infere Clã Radiante (apelido sem o prefixo 'Clã')", () => {
+    const rena = { race: "Elfa Radiante" };
+    assert.deepEqual(inferirRacaEHabilidadesDeTextoLivre(rena), { raca: "elfo", habilidadePrincipal: "cla-radiante", habilidadeSecundaria: null });
+  });
+
+  it("'Humana (Goethiana)' infere Humano + secundária Goethiano (tolera gênero o/a)", () => {
+    const erin = { race: "Humana (Goethiana)" };
+    assert.deepEqual(inferirRacaEHabilidadesDeTextoLivre(erin), { raca: "humano", habilidadePrincipal: null, habilidadeSecundaria: "goethiano" });
+  });
+
+  it("raça ambígua (duas palavras-chave, ex. 'Niosh (Oni/Elfo)') não migra — devolve null", () => {
+    assert.equal(inferirRacaEHabilidadesDeTextoLivre({ race: "Niosh (Oni/Elfo)" }), null);
+  });
+
+  it("Dragonato e Tengou nunca batem (a palavra-chave não existe pra eles)", () => {
+    assert.equal(inferirRacaEHabilidadesDeTextoLivre({ race: "Dragonato Texoni" }), null);
+    assert.equal(inferirRacaEHabilidadesDeTextoLivre({ race: "Demônio (Tengou)" }), null);
+  });
+
+  it("texto sem nenhuma palavra-chave de raça devolve null", () => {
+    assert.equal(inferirRacaEHabilidadesDeTextoLivre({ race: "Suthence (criada em laboratório)" }), null);
+    assert.equal(inferirRacaEHabilidadesDeTextoLivre({}), null);
   });
 });
 
@@ -827,9 +886,9 @@ describe("Seção 8 — Niosh revisado (21/10)", () => {
     assert.ok(character.descritores.includes("imune_envenenamento"));
     assert.equal(character.proficiencias.atletismo, "D");
   });
-  it("Descendentes de Arcani: Resistente + Reabastecer, sem Resiste a Magia (21/10)", () => {
+  it("Descendentes de Arcani: Resistente + Reabastecer + mp_maximo_1, sem Resiste a Magia (21/10, 22/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("niosh", "descendentes-de-arcani", null));
-    assert.deepEqual(character.descritores, ["resistente", "reabastecer"]);
+    assert.deepEqual(character.descritores, ["resistente", "reabastecer", "mp_maximo_1"]);
   });
   it("Descendentes de Sabato: Resistente + Potente Força + hp_maximo_1, sem sortudo_fisico (21/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("niosh", "descendentes-de-sabato", null));
@@ -853,17 +912,17 @@ describe("Seção 8 — Niosh revisado (21/10)", () => {
 });
 
 describe("Seção 8 — Ningen revisado (21/10)", () => {
-  it("Coelho/Bode: sortudo_esquiva (não mais salto/faro)", () => {
+  it("Coelho/Bode: sortudo_esquiva + sp_maximo_1 (não mais salto/faro, 21/10, 22/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("ningen", "coelho-bode", null));
-    assert.deepEqual(character.descritores, ["sortudo_esquiva"]);
+    assert.deepEqual(character.descritores, ["sortudo_esquiva", "sp_maximo_1"]);
   });
-  it("Leonino/Reptiliano/Lobo-Canino: Letal geral (não mais desarmado_letal)", () => {
+  it("Leonino/Reptiliano/Lobo-Canino: Letal geral (não mais desarmado_letal); Leonino e Lobo também ganharam +1 SP (22/10)", () => {
     const leonino = comGrausEfetivos(comHabilidade("ningen", "leonino", null)).character;
-    assert.deepEqual(leonino.descritores, ["letal"]);
+    assert.deepEqual(leonino.descritores, ["letal", "sp_maximo_1"]);
     const reptiliano = comGrausEfetivos(comHabilidade("ningen", "reptiliano", null)).character;
     assert.deepEqual(reptiliano.descritores, ["resistente", "letal"]);
     const lobo = comGrausEfetivos(comHabilidade("ningen", "lobo-canino", null)).character;
-    assert.deepEqual(lobo.descritores, ["letal"]);
+    assert.deepEqual(lobo.descritores, ["letal", "sp_maximo_1"]);
   });
   it("Garras e Presas: desarmado_perfurante (não mais desarmado_letal/ignora_blindado)", () => {
     const { character } = comGrausEfetivos(comHabilidade("ningen", null, "garras-e-presas"));

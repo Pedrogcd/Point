@@ -67,6 +67,7 @@ import {
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
+import { migrarPersonagens } from "./personagens.js";
 import { mesclarCidadeComOverride, normalizarItemLista, paraItemLista } from "./cidadeOverrides.js";
 import { mesclarNpcComOverride } from "./npcOverrides.js";
 import { uploadPortrait, removePortrait } from "./imageUpload.js";
@@ -3182,10 +3183,21 @@ const HETALION_CHARACTERS = HETALION_CHARACTERS_RAW.map((c) => withFichaDefaults
 // Exportado (além do default App) só pro teste de smoke de render
 // (characterForm.render.test.js) — garante que os personagens semente (Grupo
 // C + Aurora + Suth + Goethia + Hetalion) renderizam sem lançar exceção.
-export const SEED_CHARACTERS = aplicarFichaSuthDoFate(
+//
+// migrarPersonagens (22/10, diagnóstico do site publicado "mostrando texto
+// antigo de raça" e painel "Descritores ativos" vazio): o estado inicial do
+// app (`useState(SEED_CHARACTERS)`, antes de qualquer storage.get resolver)
+// usava os personagens semente CRUS, sem passar por migrarPersonagem — só
+// quem já tinha algo salvo em storage via normalizarEstado (abertura
+// seguinte, ou depois de qualquer edição) via essa migração. Resultado:
+// a primeira renderização de qualquer sessão nova (ou de um banco Supabase
+// vazio) mostrava raça/habilidade/descritores sem a inferência por texto
+// livre (ver racasCatalogo.js:inferirRacaEHabilidadesDeTextoLivre). Envolver
+// aqui faz a semente nascer já migrada, igual ao que volta de storage.
+export const SEED_CHARACTERS = migrarPersonagens(aplicarFichaSuthDoFate(
   [...SEED_CHARACTERS_RAW.map(withFichaDefaults), ...SIDEPOINT_CHARACTERS, ...SUTH_CHARACTERS, ...GOETHIA_CHARACTERS, ...HETALION_CHARACTERS],
   FICHA_NOVA_FATE
-);
+));
 
 const SEED_KINGDOMS_RAW = [
   { id: "hetalion", name: "Hetalion",

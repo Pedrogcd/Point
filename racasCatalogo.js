@@ -90,12 +90,82 @@ export const REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO = {
   fada: "fada",
 };
 
+// Inferência de raça/habilidades a partir de texto livre (21/10, pedido do
+// Pedro: "migre fichas existentes, ex. Raiko, pelo nome da habilidade") —
+// pra fichas de ANTES até do esquema racaId/habilidadePrincipalId (PR #30/
+// #31): só têm `character.race` (string livre, ex. "Ningen Leonino") e/ou
+// `character.racialAbility.name`/`description` (texto solto, ex. "Niosh —
+// Agressividade Oni · Descendente de Arcani", caso da Raiko). Só migra
+// quando dá pra ter certeza: exatamente 1 raça (Humano/Niosh/Ningen/Elfo)
+// citada pela palavra-chave, e no máximo 1 habilidade principal e 1
+// secundária batendo por nome — ambíguo ou sem nenhuma pista vira `null`
+// (não force uma raça errada). Dragonato/Tengou nunca batem aqui porque a
+// palavra-chave não existe pra eles (não precisa de bloqueio explícito).
+const PALAVRA_CHAVE_RACA = { niosh: "niosh", ningen: "ningen", elfo: "elf", humano: "human" };
+
+function normalizarTextoBusca(s) {
+  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
+
+// "Coelho / Bode" -> ["Coelho","Bode"]; "Clã Radiante" -> ["Radiante"];
+// "Descendentes de Arcani" -> ["Arcani"]; "Leonino (felinos)" -> ["Leonino"].
+function apelidosDeHabilidade(nome) {
+  const semParenteses = nome.replace(/\([^)]*\)/g, "").trim();
+  const semPrefixo = semParenteses.replace(/^Clã\s+/i, "").replace(/^Descendentes?\s+de\s+/i, "");
+  const partes = semPrefixo.split("/").map((p) => p.trim()).filter(Boolean);
+  return partes.length ? partes : [semPrefixo];
+}
+
+// Compara tolerando gênero (Goethiano/Goethiana) via um stem leve (tira só
+// a última vogal o/a antes de comparar) — sem isso "Humana (Goethiana)"
+// nunca bateria com o nome "Goethiano" do catálogo.
+function stemLeve(s) {
+  return /[oa]$/.test(s) ? s.slice(0, -1) : s;
+}
+
+function habilidadeCitadaNoTexto(habilidadeNome, textoNormalizado) {
+  return apelidosDeHabilidade(habilidadeNome).some((apelido) => {
+    const stem = stemLeve(normalizarTextoBusca(apelido));
+    return stem.length >= 4 && textoNormalizado.includes(stem);
+  });
+}
+
+export function inferirRacaEHabilidadesDeTextoLivre(ch) {
+  const textoRaca = normalizarTextoBusca(ch.race || "");
+  const textoCompleto = normalizarTextoBusca(
+    `${ch.race || ""} ${ch.racialAbility?.name || ""} ${ch.racialAbility?.description || ""}`,
+  );
+  const racasCitadas = Object.entries(PALAVRA_CHAVE_RACA).filter(([, chave]) => textoRaca.includes(chave));
+  if (racasCitadas.length !== 1) return null;
+  const racaId = racasCitadas[0][0];
+  const racaInfo = encontrarRaca(racaId);
+  if (!racaInfo) return null;
+  function melhorMatch(lista) {
+    const candidatos = lista.filter((h) => habilidadeCitadaNoTexto(h.nome, textoCompleto));
+    return candidatos.length === 1 ? candidatos[0].id : null;
+  }
+  return {
+    raca: racaId,
+    habilidadePrincipal: melhorMatch(racaInfo.principais),
+    habilidadeSecundaria: melhorMatch(racaInfo.secundarias),
+  };
+}
+
 // Resolve os 6 campos novos (raca/habilidadePrincipal/habilidadeSecundaria/
 // disciplinaHumano/descritores/bonusGrauEscolha) a partir de uma ficha que pode
 // já estar no esquema novo, no esquema antigo (racaId/...Id), ou em nenhum dos
-// dois (ficha anterior a qualquer um dos dois sistemas).
+// dois (ficha anterior a qualquer um dos dois sistemas — tenta inferir do
+// texto livre, ver inferirRacaEHabilidadesDeTextoLivre).
+//
+// 22/10: o gate do esquema novo checa `ch.raca` (truthy), não só
+// `!== undefined` — uma ficha migrada ANTES de existir a inferência por
+// texto livre já tinha sido salva de volta com `raca: null` (o resultado
+// antigo de "não deu pra migrar"), e esse `null` persistido bloquearia a
+// inferência pra sempre (fica "migrada" com tudo vazio). `null`/`undefined`
+// tratam igual: tenta de novo; só uma raça de verdade escolhida (string)
+// trava o resultado.
 export function migrarSelecaoRacaLegado(ch) {
-  if (ch.raca !== undefined) {
+  if (ch.raca) {
     return {
       raca: ch.raca,
       habilidadePrincipal: ch.habilidadePrincipal ?? null,
@@ -106,11 +176,28 @@ export function migrarSelecaoRacaLegado(ch) {
     };
   }
   const racaId = ch.racaId ?? null;
-  const principalIdLegado = ch.habilidadePrincipalId ?? null;
-  const habilidadePrincipal = principalIdLegado
-    ? (REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO[principalIdLegado] || null)
-    : null;
-  return { raca: racaId, habilidadePrincipal, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} };
+  if (racaId) {
+    const principalIdLegado = ch.habilidadePrincipalId ?? null;
+    const habilidadePrincipal = principalIdLegado
+      ? (REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO[principalIdLegado] || null)
+      : null;
+    return { raca: racaId, habilidadePrincipal, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} };
+  }
+  const inferido = inferirRacaEHabilidadesDeTextoLivre(ch);
+  if (inferido) {
+    const racaInfo = encontrarRaca(inferido.raca);
+    const principal = inferido.habilidadePrincipal ? encontrarPrincipal(racaInfo, inferido.habilidadePrincipal) : null;
+    const secundaria = inferido.habilidadeSecundaria ? encontrarSecundaria(racaInfo, inferido.habilidadeSecundaria) : null;
+    return {
+      raca: inferido.raca,
+      habilidadePrincipal: inferido.habilidadePrincipal,
+      habilidadeSecundaria: inferido.habilidadeSecundaria,
+      disciplinaHumano: null,
+      descritores: descritoresDeSelecao(principal, secundaria),
+      bonusGrauEscolha: {},
+    };
+  }
+  return { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} };
 }
 
 // Mapeamento manual (não vem do catalogo-racas.json) de quais habilidades dão

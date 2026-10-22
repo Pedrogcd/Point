@@ -106,6 +106,18 @@ describe("computeMaxHP / computeMaxSP", () => {
     assert.equal(computeMaxHP(comPersistente), computeMaxHP(semPersistente) + 1);
     assert.equal(computeMaxSP(comPersistente), computeMaxSP(semPersistente) + 1);
   });
+  // "sp_maximo_1" (22/10, docs/revisao/racas-site.json — Mana Concentrada,
+  // Coelho/Bode, Leonino, Lobo/Canino, Raposa/Kitsune: "+1 SP máximo").
+  it("descritor sp_maximo_1 soma +1 no SP máximo", () => {
+    const sem = makeCharacter();
+    const com = withDescritores(makeCharacter(), ["sp_maximo_1"]);
+    assert.equal(computeMaxSP(com), computeMaxSP(sem) + 1);
+  });
+  it("sp_maximo_1 e sp_maximo_menos_1 juntos se cancelam", () => {
+    const base = computeMaxSP(makeCharacter());
+    const comOsDois = withDescritores(makeCharacter(), ["sp_maximo_1", "sp_maximo_menos_1"]);
+    assert.equal(computeMaxSP(comOsDois), base);
+  });
 });
 
 describe("computeMaxMana", () => {
@@ -124,6 +136,12 @@ describe("computeMaxMana", () => {
   it("Magia Inata não ultrapassa MANA_MAX", () => {
     const c = { mp: { max: 6 }, disciplinaMagica: { magiaInata: true } };
     assert.equal(computeMaxMana(c), MANA_MAX);
+  });
+  // "mp_maximo_1" (22/10, docs/revisao/racas-site.json — Mana Fluida,
+  // Descendentes de Arcani, Reservatório de Mana: "+1 MP máximo").
+  it("descritor mp_maximo_1 soma +1 no MP máximo, sem ultrapassar MANA_MAX", () => {
+    assert.equal(computeMaxMana(withDescritores({ mp: { max: 3 } }, ["mp_maximo_1"])), 4);
+    assert.equal(computeMaxMana(withDescritores({ mp: { max: 6 } }, ["mp_maximo_1"])), MANA_MAX);
   });
 });
 

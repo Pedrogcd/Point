@@ -261,7 +261,7 @@ export function migrarPersonagem(ch) {
   const hpBase = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs, descritores }); return { current: max, max }; })();
   const hp = { ...hpBase, superficiais: hpBase.superficiais ?? 0 };
   const mp = (ch.mp && typeof ch.mp.max === "number") ? ch.mp : { current: 3, max: 3 };
-  const sp = (ch.sp && typeof ch.sp.max === "number") ? ch.sp : (() => { const max = computeMaxSP({ sp: ch.sp, procs }); return { current: max, max }; })();
+  const sp = (ch.sp && typeof ch.sp.max === "number") ? ch.sp : (() => { const max = computeMaxSP({ sp: ch.sp, procs, descritores }); return { current: max, max }; })();
   // Enquadramento do retrato (y/zoom): fichas salvas antes desse campo existir
   // (ou um backup de formato antigo) ganham o padrão centralizado/sem zoom —
   // sem sobrescrever quem já tiver um valor customizado.

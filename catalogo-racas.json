@@ -3,7 +3,7 @@
   "regras": [
     "Habilidade racial é inteira: efeito fixo, sem grau E/D/C.",
     "Bônus somam dados (+1 dado), nunca +N no valor do dado.",
-    "Blindado vale contra qualquer ataque, físico ou mágico: dados de ataque contra o personagem precisam de no mínimo 7, em vez de 6 (14/10 — substitui o Blindado/Blindado Mágico separados). Perfurante ignora Blindado."
+    "Blindado vale contra qualquer ataque, físico ou mágico: dados de ataque contra o personagem precisam de no mínimo 7, em vez de 6. Perfurante ignora Blindado."
   ],
   "racas": [
     {
@@ -37,7 +37,10 @@
             "SP +1",
             "Proficiência +1 grau (x2, podem repetir)"
           ],
-          "descritores": ["veloz", "sp_maximo_1"]
+          "descritores": [
+            "veloz",
+            "sp_maximo_1"
+          ]
         },
         {
           "id": "mana-fluida",
@@ -52,7 +55,10 @@
             "MP +1",
             "Proficiência +1 grau"
           ],
-          "descritores": ["reabastecer", "mp_maximo_1"]
+          "descritores": [
+            "reabastecer",
+            "mp_maximo_1"
+          ]
         },
         {
           "id": "mana-estatica",
@@ -67,7 +73,10 @@
             "+1 HP máximo",
             "Proficiência +1 grau"
           ],
-          "descritores": ["resistente", "hp_maximo_1"]
+          "descritores": [
+            "resistente",
+            "hp_maximo_1"
+          ]
         }
       ],
       "secundarias": [
@@ -78,7 +87,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "No lugar da habilidade secundária, o humano coloca uma Disciplina (Ofício Mágico, Encantamentos, Alquimia, Constructo, Invocação — ou Artes Marciais/Maestria de Armas/Engenharia, ainda a reescrever). Dá um 4º encaixe de Disciplina, independente dos outros 3.",
-          "efeito": "A disciplina escolhida vale inteira e ocupa 1 encaixe — não há mais escada E/D/C (21/10): nenhuma disciplina tem grau, orçamento de pontos ou efeito parcial por tier.",
+          "efeito": "A disciplina escolhida vale inteira e ocupa 1 encaixe — não há mais escada E/D/C: nenhuma disciplina tem grau, orçamento de pontos ou efeito parcial por tier.",
           "bonus": [],
           "descritores": [],
           "disciplina": true
@@ -97,7 +106,10 @@
             "Atletismo +1 grau",
             "SP -1"
           ],
-          "descritores": ["resistente", "sp_maximo_menos_1"]
+          "descritores": [
+            "resistente",
+            "sp_maximo_menos_1"
+          ]
         },
         {
           "id": "goethiano",
@@ -106,7 +118,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Humanos nascidos em Goethia e abençoados pelo sangue dos Primals.",
-          "efeito": "Ganha o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal) e o descritor Blindado: dados de ataque contra você (físico ou mágico) precisam de no mínimo 7, em vez de 6, para dar sucesso. Sem bônus de HP (21/10).",
+          "efeito": "Ganha o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal) e o descritor Blindado: dados de ataque contra você (físico ou mágico) precisam de no mínimo 7, em vez de 6, para dar sucesso. Sem bônus de HP.",
           "bonus": [
             "Resistente",
             "Blindado"
@@ -127,8 +139,8 @@
       "anatomia": "Humanoide de até 2,3 m. A pele varia, sendo vermelho e azul comuns; a cada cerca de 5 anos trocam de pele e podem mudar de cor.",
       "divindade": "Umbra, Dulahand ou Arcanis.",
       "fixos": [
-        "+1 grau em Força para toda a raça, até o teto C (14/10, mais tarde: vale pra qualquer Niosh, não só quem escolhe Descendentes de Sabato como principal).",
-        "O +1 HP máximo que valia pra toda a raça foi removido (21/10) — só o Descendente de Sabato tem +1 HP agora."
+        "+1 grau em Força para toda a raça, até o teto C.",
+        "O +1 HP máximo que valia pra toda a raça foi removido — só o Descendente de Sabato tem +1 HP agora."
       ],
       "fraquezas": [
         "Não usam armadura pesada nem mágica."
@@ -150,7 +162,10 @@
             "Imune a Envenenamento",
             "Proficiência Física +1 grau"
           ],
-          "descritores": ["resistente", "imune_envenenamento"]
+          "descritores": [
+            "resistente",
+            "imune_envenenamento"
+          ]
         },
         {
           "id": "descendentes-de-arcani",
@@ -159,7 +174,7 @@
           "icone": "olho-espiral",
           "cor": "#C0309B",
           "descricao": "Poderes psiônicos que simulam magia; obsessivos, acumuladores naturais e avarentos.",
-          "efeito": "Ganha os descritores Resistente e Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 MP máximo. (21/10: perdeu o antigo Resiste a Magia.)",
+          "efeito": "Ganha os descritores Resistente e Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 MP máximo.",
           "bonus": [
             "Resistente",
             "Reabastecer",
@@ -178,7 +193,7 @@
           "icone": "garra-tres-riscos",
           "cor": "#8E1F3A",
           "descricao": "Agressivos, buscam o prazer na violência: sangue ou prazer carnal.",
-          "efeito": "Já tem a Força elevada de todo Niosh (bônus da raça). Ganha os descritores Resistente e Potente Força (mesmo descritor da armadura — soma com a Força já elevada da raça). +1 HP máximo. (21/10: perdeu o antigo Sortudo em ataques físicos.)",
+          "efeito": "Já tem a Força elevada de todo Niosh (bônus da raça). Ganha os descritores Resistente e Potente Força (mesmo descritor da armadura — soma com a Força já elevada da raça). +1 HP máximo.",
           "bonus": [
             "Resistente",
             "Potente Força",
@@ -199,7 +214,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Niosh são naturalmente fortes.",
-          "efeito": "Todos os seus ataques, físicos e mágicos, ganham o descritor Letal (reduz em 1, mínimo 1, o Vigor necessário pro ferimento virar agravante). (21/10: antes só ignorava Blindado em ataques físicos.)",
+          "efeito": "Todos os seus ataques, físicos e mágicos, ganham o descritor Letal (reduz em 1, mínimo 1, o Vigor necessário pro ferimento virar agravante).",
           "bonus": [
             "Letal (todos os ataques)"
           ],
@@ -214,7 +229,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Quanto mais ferido, mais perigoso.",
-          "efeito": "Uma vez por cena, o primeiro ferimento agravante que receberia vira superficial. Gastando 1 SP, reativa (pode valer de novo na mesma cena). (21/10: antes era uma vez por descanso longo, não por cena.)",
+          "efeito": "Uma vez por cena, o primeiro ferimento agravante que receberia vira superficial. Gastando 1 SP, reativa (pode valer de novo na mesma cena).",
           "bonus": [
             "1º agravante da cena vira superficial"
           ],
@@ -227,12 +242,14 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Pele grossa de Oni; remove a proibição racial de armadura pesada.",
-          "efeito": "Ganha o descritor Blindado — se você já tiver Blindado de outra fonte, este não pode ser ignorado (mesma convenção de Pelagem e Couro do Ningen). Remove a restrição de armadura pesada do Niosh. (21/10: a proficiência Defesa parou de subir de grau por causa desta habilidade.)",
+          "efeito": "Ganha o descritor Blindado — se você já tiver Blindado de outra fonte, este não pode ser ignorado (mesma convenção de Pelagem e Couro do Ningen). Remove a restrição de armadura pesada do Niosh.",
           "bonus": [
             "Blindado",
             "Sem restrição de armadura"
           ],
-          "descritores": ["blindado"]
+          "descritores": [
+            "blindado"
+          ]
         },
         {
           "id": "adaptado",
@@ -276,13 +293,16 @@
           "icone": "orelhas-longas",
           "cor": "#B88A3E",
           "descricao": "Orelhas longas e pernas fortes.",
-          "efeito": "+1 grau em Sobrevivência. Ganha o descritor Sortudo, mas só ao esquivar (defesa por Destreza): re-rola automaticamente o primeiro 1 ou 2, mostrando o dado original e o novo. +1 SP máximo. (21/10: perdeu os bônus de salto e faro.)",
+          "efeito": "+1 grau em Sobrevivência. Ganha o descritor Sortudo, mas só ao esquivar (defesa por Destreza): re-rola automaticamente o primeiro 1 ou 2, mostrando o dado original e o novo. +1 SP máximo.",
           "bonus": [
             "Sobrevivência +1 grau",
             "Sortudo (só ao esquivar)",
             "SP +1"
           ],
-          "descritores": ["sortudo_esquiva", "sp_maximo_1"]
+          "descritores": [
+            "sortudo_esquiva",
+            "sp_maximo_1"
+          ]
         },
         {
           "id": "leonino",
@@ -291,7 +311,7 @@
           "icone": "juba",
           "cor": "#D08B1E",
           "descricao": "Orelhas e cauda de felinos.",
-          "efeito": "+1 grau em Investigação. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. +1 SP máximo. (21/10: antes só os ataques desarmados eram letais; perdeu o bônus de faro.)",
+          "efeito": "+1 grau em Investigação. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. +1 SP máximo.",
           "bonus": [
             "Investigação +1 grau",
             "Letal (todos os ataques)",
@@ -309,7 +329,7 @@
           "icone": "olho-pupila-fendida",
           "cor": "#1F8A70",
           "descricao": "Escamas, cauda e rosto longo com muitos dentes.",
-          "efeito": "+1 grau em Intimidação. Ganha o descritor Resistente. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. (21/10: perdeu Blindado e o +1 HP; antes só os ataques desarmados eram letais.)",
+          "efeito": "+1 grau em Intimidação. Ganha o descritor Resistente. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal.",
           "bonus": [
             "Intimidação +1 grau",
             "Resistente",
@@ -353,7 +373,9 @@
             "Azarado 1x/cena (não mecanizado)",
             "SP +1"
           ],
-          "descritores": ["sp_maximo_1"]
+          "descritores": [
+            "sp_maximo_1"
+          ]
         }
       ],
       "secundarias": [
@@ -363,7 +385,7 @@
           "papel": "secundaria",
           "icone": "neutro",
           "cor": null,
-          "descricao": "Alternar entre a forma humanoide e a bestial, como definido por Pedro em 08/10, revisado 21/10.",
+          "descricao": "Alternar entre a forma humanoide e a bestial.",
           "efeito": "Só o Ningen que escolhe esta habilidade secundária se transforma. Gastar 1 SP para se transformar na forma bestial: ganha Potente Força e Potente Destreza (mesmos descritores da armadura) e −1 dado em testes mentais (o dado a menos não é mecanizado no app — não há pool genérico de teste mental no motor). A forma dura até o Ningen escolher se destransformar (de graça, sem custo de SP). Enquanto estiver transformado, não pode fazer descanso longo.",
           "bonus": [
             "Transformado: Potente Força + Potente Destreza"
@@ -393,7 +415,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Olfato, audição e visão acima do humano.",
-          "efeito": "+1 grau em Perspicácia e em Intuição (até o teto C). No primeiro turno de uma cena, +1 dado em ataque e em defesa — não mecanizado no app (o motor não rastreia turnos). (21/10: perdeu o bônus de +1d10 em sentidos.)",
+          "efeito": "+1 grau em Perspicácia e em Intuição (até o teto C). No primeiro turno de uma cena, +1 dado em ataque e em defesa — não mecanizado no app (o motor não rastreia turnos).",
           "bonus": [
             "Perspicácia +1 grau",
             "Intuição +1 grau",
@@ -423,7 +445,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Armas naturais.",
-          "efeito": "Ataques desarmados ganham o descritor Perfurante. À escolha na hora do ataque, ganham também Esmagador 1 ou Preciso 1 — a escolha por ataque não é mecanizada no app (não existe esse tipo de seletor pra ataques catalogados, só no painel \"Ataque livre\"). (21/10: perdeu Letal e Ignora Blindado.)",
+          "efeito": "Ataques desarmados ganham o descritor Perfurante. À escolha na hora do ataque, ganham também Esmagador 1 ou Preciso 1 — a escolha por ataque não é mecanizada no app (não existe esse tipo de seletor pra ataques catalogados, só no painel \"Ataque livre\").",
           "bonus": [
             "Desarmado perfurante",
             "+ Esmagador 1 ou Preciso 1 à escolha (não mecanizado)"
@@ -474,7 +496,7 @@
           "icone": "sol",
           "cor": "#E0A800",
           "descricao": "Poder de Dulahand, do sol; sorte, e geram mana da matéria.",
-          "efeito": "No primeiro turno de uma cena, ganha o descritor Sortudo — não mecanizado no app (o motor não rastreia turnos; deixar o Sortudo sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 grau em Carisma (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate. (21/10: Sortudo deixou de ser incondicional.)",
+          "efeito": "No primeiro turno de uma cena, ganha o descritor Sortudo — não mecanizado no app (o motor não rastreia turnos; deixar o Sortudo sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 grau em Carisma (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Sortudo no 1º turno (não mecanizado)",
             "Reabastecer",
@@ -492,7 +514,7 @@
           "icone": "lua-crescente",
           "cor": "#4B4FC4",
           "descricao": "Poder de Umbra, da lua; sua bênção; geram mana da matéria.",
-          "efeito": "No primeiro turno de uma cena, quem faz teste contra o elfo ganha o descritor Azarado — não mecanizado no app (o motor não rastreia turnos; deixar sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer. +1 grau em Manipulação (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate. (21/10: perdeu o Sortudo incondicional.)",
+          "efeito": "No primeiro turno de uma cena, quem faz teste contra o elfo ganha o descritor Azarado — não mecanizado no app (o motor não rastreia turnos; deixar sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer. +1 grau em Manipulação (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Azarado no inimigo no 1º turno (não mecanizado)",
             "Reabastecer",
@@ -510,7 +532,7 @@
           "icone": "gota-sangue-pena",
           "cor": "#A1122B",
           "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
-          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 ofício mágico extra. Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate. (22/10: corrigido — essa proficiência à escolha é regra geral da raça, vale pros 5 clãs; o Corvus nunca deveria ter perdido ela numa revisão anterior.)",
+          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 ofício mágico extra. Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "1 ferimento superficial = +1 MP (até 2x/cena)",
             "Furtividade +1 grau",
@@ -549,7 +571,9 @@
             "Reabastecer",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
-          "descritores": ["reabastecer"]
+          "descritores": [
+            "reabastecer"
+          ]
         }
       ],
       "secundarias": [
@@ -564,7 +588,9 @@
           "bonus": [
             "MP +1"
           ],
-          "descritores": ["mp_maximo_1"]
+          "descritores": [
+            "mp_maximo_1"
+          ]
         },
         {
           "id": "resistencia-a-dor",
@@ -578,7 +604,9 @@
             "Resolução +1 grau",
             "Resistente"
           ],
-          "descritores": ["resistente"]
+          "descritores": [
+            "resistente"
+          ]
         },
         {
           "id": "arte-e-tradicao",

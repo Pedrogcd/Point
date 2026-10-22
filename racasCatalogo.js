@@ -173,6 +173,8 @@ export function migrarSelecaoRacaLegado(ch) {
       disciplinaHumano: ch.disciplinaHumano ?? null,
       descritores: ch.descritores ?? [],
       bonusGrauEscolha: ch.bonusGrauEscolha ?? {},
+      // Persistido (não recalculado) — ver bonusGrauFixoQueSeriamNovosPorInferencia.
+      bonusGrauFixoSuprimido: ch.bonusGrauFixoSuprimido ?? [],
     };
   }
   const racaId = ch.racaId ?? null;
@@ -181,7 +183,10 @@ export function migrarSelecaoRacaLegado(ch) {
     const habilidadePrincipal = principalIdLegado
       ? (REMAPEAMENTO_HABILIDADE_PRINCIPAL_LEGADO[principalIdLegado] || null)
       : null;
-    return { raca: racaId, habilidadePrincipal, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} };
+    return {
+      raca: racaId, habilidadePrincipal, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [],
+      bonusGrauEscolha: {}, bonusGrauFixoSuprimido: [],
+    };
   }
   const inferido = inferirRacaEHabilidadesDeTextoLivre(ch);
   if (inferido) {
@@ -195,9 +200,19 @@ export function migrarSelecaoRacaLegado(ch) {
       disciplinaHumano: null,
       descritores: descritoresDeSelecao(principal, secundaria),
       bonusGrauEscolha: {},
+      // Snapshot tirado SÓ aqui, na primeira vez que a raça/habilidades
+      // deixam de ser `null` por inferência de texto livre — qualquer bônus
+      // fixo (sem escolha do jogador) que essa raça/habilidade concederia
+      // fica suprimido pra sempre nesta ficha (até o jogador trocar pela UI
+      // de verdade, que não passa por aqui) — ver bonusGrauDoPersonagem/
+      // tetoGrauDoPersonagem.
+      bonusGrauFixoSuprimido: bonusGrauFixoQueSeriamNovosPorInferencia(inferido.raca, inferido.habilidadePrincipal, inferido.habilidadeSecundaria),
     };
   }
-  return { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} };
+  return {
+    raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [],
+    bonusGrauEscolha: {}, bonusGrauFixoSuprimido: [],
+  };
 }
 
 // Mapeamento manual (não vem do catalogo-racas.json) de quais habilidades dão
@@ -387,6 +402,42 @@ export const BONUS_GRAU_FIXO_POR_RACA = {
   niosh: [{ tipo: "atributo", chave: "forca" }],
 };
 
+// 22/10 (bug reportado pelo Pedro com a ficha da Raiko: "força está com um
+// azul aumentando sendo que não era pra ter mais nada aumentando a força") —
+// quando `migrarSelecaoRacaLegado` infere raça/habilidades de uma ficha bem
+// antiga (texto livre, ver inferirRacaEHabilidadesDeTextoLivre), `raca` passa
+// a ter um valor de verdade PELA PRIMEIRA VEZ. Isso ativa, de uma hora pra
+// outra, qualquer BONUS_GRAU_FIXO_POR_RACA/BONUS_GRAU_POR_HABILIDADE (fixo,
+// sem escolha do jogador) ligado a essa raça/habilidade — ex.: toda Niosh
+// ganha +1 Força (ver acima) — um bônus mecânico que a ficha hand-authored
+// nunca modelou. Uma primeira tentativa (compensar o valor BASE pra baixo 1
+// grau, mantendo o EFETIVO igual) ainda deixava a barra da ficha com o selo
+// azul "Bônus de habilidade de raça" — o pedido do Pedro era que NADA
+// aparecesse aumentando a Força, não só que o número final batesse. Por
+// isso: o bônus fica SUPRIMIDO de vez pra essa ficha (nem soma, nem aparece),
+// até o jogador trocar a raça/habilidade pela UI de verdade (escolha
+// explícita, aí o bônus vale normal, sem supressão).
+//
+// Snapshot tirado SÓ na primeira migração por texto livre (nunca na seleção
+// explícita de raça pela UI) e persistido em `character.bonusGrauFixoSuprimido`
+// (mesmo padrão não-destrutivo de `bonusGrauEscolha`) — ver
+// migrarSelecaoRacaLegado. Escolhas (BONUS_GRAU_ESCOLHA_POR_HABILIDADE) nunca
+// entram aqui: exigem `character.bonusGrauEscolha` explícito, que uma ficha
+// migrada nunca tem — não têm como silenciosamente ativar.
+export function bonusGrauFixoQueSeriamNovosPorInferencia(raca, habilidadePrincipal, habilidadeSecundaria) {
+  const entradas = [];
+  for (const b of BONUS_GRAU_FIXO_POR_RACA[raca] || []) entradas.push(b);
+  for (const habId of [habilidadePrincipal, habilidadeSecundaria]) {
+    for (const b of BONUS_GRAU_POR_HABILIDADE[habId] || []) entradas.push(b);
+  }
+  return entradas;
+}
+
+// Checa se um bônus { tipo, chave } está na lista suprimida da ficha.
+function bonusEstaSuprimido(suprimidos, b) {
+  return (suprimidos || []).some((s) => s.tipo === b.tipo && s.chave === b.chave);
+}
+
 // Habilidades que concedem "ofícios mágicos extras" (docs/MUDANCAS_RACAS_E_
 // MAGIA.md: "Campo 'ofícios extras' para raças e habilidades") — soma na
 // contagem de Ofícios Mágicos (engine.js:contagemOficiosMagicos) SEM contar
@@ -525,7 +576,7 @@ export function tetoGrauDoPersonagem(character) {
     const bonus = BONUS_GRAU_POR_HABILIDADE[hab.id];
     if (!bonus) continue;
     for (const b of bonus) {
-      if (!b.teto) continue;
+      if (!b.teto || bonusEstaSuprimido(character?.bonusGrauFixoSuprimido, b)) continue;
       const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
       const atualIdx = GRADE_ORDER.indexOf(alvo[b.chave] || "C");
       const novoIdx = GRADE_ORDER.indexOf(b.teto);
@@ -537,7 +588,7 @@ export function tetoGrauDoPersonagem(character) {
   const fixoRaca = BONUS_GRAU_FIXO_POR_RACA[character?.raca];
   if (fixoRaca) {
     for (const b of fixoRaca) {
-      if (!b.teto) continue;
+      if (!b.teto || bonusEstaSuprimido(character?.bonusGrauFixoSuprimido, b)) continue;
       const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
       const atualIdx = GRADE_ORDER.indexOf(alvo[b.chave] || "C");
       const novoIdx = GRADE_ORDER.indexOf(b.teto);
@@ -564,6 +615,7 @@ export function bonusGrauDoPersonagem(character) {
     const bonus = BONUS_GRAU_POR_HABILIDADE[hab.id];
     if (bonus) {
       for (const b of bonus) {
+        if (bonusEstaSuprimido(character?.bonusGrauFixoSuprimido, b)) continue;
         const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
         alvo[b.chave] = (alvo[b.chave] || 0) + 1;
       }
@@ -593,6 +645,7 @@ export function bonusGrauDoPersonagem(character) {
   const fixoRaca = BONUS_GRAU_FIXO_POR_RACA[character?.raca];
   if (fixoRaca) {
     for (const b of fixoRaca) {
+      if (bonusEstaSuprimido(character?.bonusGrauFixoSuprimido, b)) continue;
       const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
       alvo[b.chave] = (alvo[b.chave] || 0) + 1;
     }

@@ -7,6 +7,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { migrarPersonagem, migrarPersonagens } from "./personagens.js";
+import { bonusGrauDoPersonagem, grauComBonus } from "./racasCatalogo.js";
 
 describe("migrarPersonagem", () => {
   it("ficha salva antes do campo `abilities` existir ganha array vazio, não undefined", () => {
@@ -310,6 +311,48 @@ describe("migrarPersonagem — imagemPos (enquadramento do retrato)", () => {
   it("completa campos parciais de um imagemPos salvo incompleto (ex: só y)", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X", imagemPos: { y: 30 } });
     assert.deepEqual(migrado.imagemPos, { y: 30, zoom: 1 });
+  });
+});
+
+describe("migrarPersonagem — supressão do bônus de grau fixo na inferência por texto livre (22/10, bug da Raiko)", () => {
+  it("Raiko (Niosh/Arcani por texto livre): o +1 Força fixo de toda Niosh fica suprimido — base continua C, sem nenhum bônus de grau somando (nada 'aumentando a Força', como pedido)", () => {
+    const raiko = {
+      id: "raiko", name: "Raiko",
+      race: "Niosh (Oni, descendente de Arcani)",
+      racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "" },
+      atributosGerais: { forca: "C" },
+    };
+    const migrado = migrarPersonagem(raiko);
+    assert.equal(migrado.raca, "niosh");
+    assert.equal(migrado.habilidadePrincipal, "descendentes-de-arcani");
+    // Base salva não muda...
+    assert.equal(migrado.atributosGerais.forca, "C");
+    // ...e o bônus de grau em Força fica zerado (suprimido), não só no teto.
+    const bonus = bonusGrauDoPersonagem(migrado);
+    assert.equal(bonus.atributos.forca || 0, 0);
+    assert.equal(grauComBonus(migrado.atributosGerais.forca, bonus.atributos.forca || 0), "C");
+  });
+
+  it("a supressão persiste (fica salva na ficha) e a segunda migração é idempotente", () => {
+    const primeira = migrarPersonagem({
+      id: "raiko", name: "Raiko",
+      race: "Niosh (Oni, descendente de Arcani)",
+      racialAbility: { name: "Niosh — Agressividade Oni · Descendente de Arcani", description: "" },
+      atributosGerais: { forca: "C" },
+    });
+    assert.deepEqual(primeira.bonusGrauFixoSuprimido, [{ tipo: "atributo", chave: "forca" }]);
+    const segunda = migrarPersonagem(primeira);
+    assert.deepEqual(segunda, primeira);
+    assert.equal(bonusGrauDoPersonagem(segunda).atributos.forca || 0, 0);
+  });
+
+  it("não suprime raça escolhida explicitamente pela UI (character.raca já vem preenchido, não é inferência) — o +1 Força vale normal", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X", raca: "niosh", habilidadePrincipal: "descendentes-de-arcani",
+      atributosGerais: { forca: "C" },
+    });
+    assert.equal(migrado.atributosGerais.forca, "C");
+    assert.equal(bonusGrauDoPersonagem(migrado).atributos.forca, 1);
   });
 });
 

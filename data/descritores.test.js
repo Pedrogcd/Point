@@ -132,7 +132,12 @@ describe("marcarDescritoresNoTexto — detecção em texto corrido", () => {
   });
   it("descritores com linkEmTextoLivre:false não são marcados em texto corrido, mesmo com inicial maiúscula", () => {
     assert.deepEqual(marcarDescritoresNoTexto("Esse ataque é Magia e também é Em área."), ["Esse ataque é Magia e também é Em área."]);
-    assert.deepEqual(marcarDescritoresNoTexto("O alvo fica Pesado e bem Veloz, mas Resistente."), ["O alvo fica Pesado e bem Veloz, mas Resistente."]);
+    assert.deepEqual(marcarDescritoresNoTexto("O alvo fica Pesado e bem Veloz."), ["O alvo fica Pesado e bem Veloz."]);
+  });
+  it("Resistente agora tem linkEmTextoLivre:true e é marcado em texto corrido", () => {
+    assert.deepEqual(marcarDescritoresNoTexto("O alvo fica Pesado e bem Veloz, mas Resistente."), [
+      "O alvo fica Pesado e bem Veloz, mas ", { descritorId: "resistente", n: null, texto: "Resistente" }, ".",
+    ]);
   });
   it("não deixa dois achados que se sobrepõem colidirem", () => {
     const partes = marcarDescritoresNoTexto("Ganha Letal e Preciso 2 ao mesmo tempo.");

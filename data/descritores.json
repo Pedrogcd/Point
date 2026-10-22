@@ -165,7 +165,7 @@
       "resumo": "Seu Vigor conta +1 para o agravante.",
       "regra": "Para decidir se o ferimento é agravante, o Vigor do defensor conta como +1 (vale para qualquer comparação com o Vigor, inclusive a Queimadura). Não acumula nem muda HP ou dados. Letal e Resistente se anulam.",
       "usadoEm": "Humanos, Niosh, Reptiliano, Goethiano, armaduras",
-      "linkEmTextoLivre": false
+      "linkEmTextoLivre": true
     },
     {
       "id": "firme",

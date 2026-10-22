@@ -94,11 +94,11 @@ describe("racasCatalogo — migrarSelecaoRacaLegado", () => {
 
   it("ficha com texto realmente vazio continua tudo null (não inventa raça)", () => {
     const migrado = migrarSelecaoRacaLegado({ id: "x", name: "X" });
-    assert.deepEqual(migrado, { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {} });
+    assert.deepEqual(migrado, { raca: null, habilidadePrincipal: null, habilidadeSecundaria: null, disciplinaHumano: null, descritores: [], bonusGrauEscolha: {}, bonusGrauFixoSuprimido: [] });
   });
 
   it("esquema novo já presente (mesmo com valores null) não é tocado", () => {
-    const ch = { raca: "humano", habilidadePrincipal: "mana-concentrada", habilidadeSecundaria: null, disciplinaHumano: { nome: "Alquimia", grau: "D" }, descritores: [], bonusGrauEscolha: { "mana-concentrada": "investigacao" } };
+    const ch = { raca: "humano", habilidadePrincipal: "mana-concentrada", habilidadeSecundaria: null, disciplinaHumano: { nome: "Alquimia", grau: "D" }, descritores: [], bonusGrauEscolha: { "mana-concentrada": "investigacao" }, bonusGrauFixoSuprimido: [] };
     assert.deepEqual(migrarSelecaoRacaLegado(ch), ch);
   });
 
@@ -145,6 +145,10 @@ describe("racasCatalogo — inferirRacaEHabilidadesDeTextoLivre (22/10, migraç�
     assert.equal(migrado.habilidadePrincipal, "descendentes-de-arcani");
     assert.equal(migrado.habilidadeSecundaria, "agressividade-oni");
     assert.deepEqual(migrado.descritores, ["resistente", "reabastecer", "mp_maximo_1", "letal"]);
+    // 22/10 (bug da Raiko): o +1 Força fixo de toda Niosh (BONUS_GRAU_FIXO_
+    // POR_RACA) fica suprimido nesta migração — a ficha salva não ganha um
+    // bônus que nunca modelou antes.
+    assert.deepEqual(migrado.bonusGrauFixoSuprimido, [{ tipo: "atributo", chave: "forca" }]);
   });
 
   it("'Ningen Kitsune' infere Raposa/Kitsune (apelido bate por qualquer metade do nome com /)", () => {

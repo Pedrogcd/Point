@@ -208,15 +208,24 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
   // 21/10 (seção 8): "pele-grossa" saiu do bônus fixo (não dá mais +1 grau em
   // Defesa) e "adaptado" entrou (antes "+1 dado" solto, virou bônus de grau
   // de verdade) — fixo continua em 18, só trocou de membro. "homunculo"
-  // saiu da tabela de ESCOLHA (o Potente virou descritor, não grau) — agora
-  // as duas tabelas não têm mais overlap nenhum. "mana-fluida"/"mana-
-  // estatica"/"descendentes-de-sharkan" entraram na escolha (cada uma com
-  // sua própria proficiência à escolha, seção 8.3/8.4) — escolha vai de 2
-  // pra 4. União: 18 + 4 = 22 (sem overlap).
-  it("cobertura esperada: 22 habilidades distintas (18 com bônus fixo, 4 à escolha, sem overlap entre as duas tabelas)", () => {
+  // saiu da tabela de ESCOLHA (o Potente virou descritor, não grau). "mana-
+  // fluida"/"mana-estatica"/"descendentes-de-sharkan" entraram na escolha
+  // (cada uma com sua própria proficiência à escolha, seção 8.3/8.4).
+  // 22/10 (correção confirmada pelo Pedro: a "proficiência à escolha, não-
+  // Combate" do racas-site.json é regra geral do Elfo, não só do Clã
+  // Corvus — tinha sido perdida numa revisão anterior): os 5 clãs (cla-
+  // radiante/noctis/corvus/seasus/natrus) entraram na tabela de ESCOLHA —
+  // escolha vai de 4 pra 9. Os 5 clãs JÁ estavam na tabela FIXA (cada um
+  // com seu próprio atributo/proficiência fixo) — agora aparecem nas DUAS
+  // tabelas de propósito (um bônus fixo do clã + o bônus à escolha de toda
+  // a raça), então a união não é mais a soma simples: 18 + 9 − 5 de
+  // overlap (os 5 clãs) = 22.
+  it("cobertura esperada: 22 habilidades distintas (18 com bônus fixo, 9 à escolha, 5 clãs élficos nas duas tabelas)", () => {
     assert.equal(idsMapeados.size, 22);
     assert.equal(Object.keys(BONUS_GRAU_POR_HABILIDADE).length, 18);
-    assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 4);
+    assert.equal(Object.keys(BONUS_GRAU_ESCOLHA_POR_HABILIDADE).length, 9);
+    const overlap = Object.keys(BONUS_GRAU_POR_HABILIDADE).filter((id) => id in BONUS_GRAU_ESCOLHA_POR_HABILIDADE);
+    assert.deepEqual(overlap.sort(), ["cla-corvus", "cla-natrus", "cla-noctis", "cla-radiante", "cla-seasus"]);
   });
 });
 
@@ -941,9 +950,22 @@ describe("Seção 8 — Elfo revisado (21/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("elfo", "cla-natrus", null));
     assert.deepEqual(character.descritores, ["reabastecer"]);
   });
-  it("Clã Corvus não tem mais o bônus racial de proficiência à escolha", () => {
+  // 22/10, correção: a proficiência à escolha é regra GERAL do Elfo (vale
+  // pros 5 clãs, não só o Corvus) — ver BONUS_GRAU_ESCOLHA_POR_HABILIDADE.
+  // O campo antigo `bonusGrauEscolhaRaca` (bônus racial solto, fora de
+  // qualquer habilidade) continua um no-op legado; o bônus de verdade
+  // agora é por habilidade, em `character.bonusGrauEscolha["cla-corvus"]`,
+  // igual qualquer outra escolha de habilidade.
+  it("bonusGrauEscolhaRaca (campo antigo) continua um no-op legado", () => {
     const { character } = comGrausEfetivos(comHabilidade("elfo", "cla-corvus", null, { bonusGrauEscolhaRaca: "medicina" }));
     assert.equal(character.proficiencias?.medicina, undefined);
+  });
+  it("Clã Corvus (e os outros 4 clãs) tem +1 grau numa proficiência à escolha, não-Combate (regra geral do Elfo)", () => {
+    const { character } = comGrausEfetivos(comHabilidade("elfo", "cla-corvus", null, {
+      bonusGrauEscolha: { "cla-corvus": ["medicina"] },
+    }));
+    assert.equal(character.proficiencias?.medicina, "D"); // E -> D
+    assert.ok(character.proficiencias?.furtividade); // bônus fixo do Corvus continua valendo junto
   });
   it("Resistência à Dor continua igual (mantido, 21/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("elfo", null, "resistencia-a-dor"));

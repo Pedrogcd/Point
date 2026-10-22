@@ -327,6 +327,27 @@ export const BONUS_GRAU_ESCOLHA_POR_HABILIDADE = {
   "descendentes-de-sharkan": [
     { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria === "fisica").map((p) => p.key) },
   ],
+  // Regra geral do Elfo (22/10, confirmado pelo Pedro: a frase "regra de
+  // todos os tipos de elfo" em docs/revisao/racas-site.json, dentro do
+  // texto do Clã Corvus, vale pros 5 clãs — não só o Corvus, que CHEGOU A
+  // PERDER esse bônus numa revisão anterior da seção 8. Corrigido: todo
+  // clã (a habilidade PRINCIPAL do Elfo) dá +1 grau numa proficiência à
+  // escolha, não-Combate — além do que cada clã já tem de próprio.
+  "cla-radiante": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  "cla-noctis": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  "cla-corvus": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  "cla-seasus": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
+  "cla-natrus": [
+    { tipo: "proficiencia", opcoes: PROFICIENCIAS_LIST.filter((p) => p.categoria !== "combate").map((p) => p.key) },
+  ],
 };
 
 // Habilidades cujo bônus é um DESCRITOR à escolha do jogador (21/10, novo —

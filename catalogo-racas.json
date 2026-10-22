@@ -457,7 +457,8 @@
       "anatomia": "Humanoides de orelhas alongadas, de 1,8 m a 2,4 m.",
       "divindade": "Dragoalma; por clã, Dulahand ou Umbra.",
       "fixos": [
-        "Cada elfo tem um clã e um dom genérico."
+        "Cada elfo tem um clã e um dom genérico.",
+        "Todo elfo ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate — regra geral da raça, vale pros 5 clãs (Radiante, Noctis, Corvus, Seasus, Natrus), além do que cada clã já dá de próprio."
       ],
       "fraquezas": [
         "Só expressam emoção pela arte (narrativo)."
@@ -473,11 +474,12 @@
           "icone": "sol",
           "cor": "#E0A800",
           "descricao": "Poder de Dulahand, do sol; sorte, e geram mana da matéria.",
-          "efeito": "No primeiro turno de uma cena, ganha o descritor Sortudo — não mecanizado no app (o motor não rastreia turnos; deixar o Sortudo sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 grau em Carisma (até o teto C). (21/10: Sortudo deixou de ser incondicional.)",
+          "efeito": "No primeiro turno de uma cena, ganha o descritor Sortudo — não mecanizado no app (o motor não rastreia turnos; deixar o Sortudo sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 grau em Carisma (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate. (21/10: Sortudo deixou de ser incondicional.)",
           "bonus": [
             "Sortudo no 1º turno (não mecanizado)",
             "Reabastecer",
-            "Carisma +1 grau"
+            "Carisma +1 grau",
+            "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": [
             "reabastecer"
@@ -490,11 +492,12 @@
           "icone": "lua-crescente",
           "cor": "#4B4FC4",
           "descricao": "Poder de Umbra, da lua; sua bênção; geram mana da matéria.",
-          "efeito": "No primeiro turno de uma cena, quem faz teste contra o elfo ganha o descritor Azarado — não mecanizado no app (o motor não rastreia turnos; deixar sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer. +1 grau em Manipulação (até o teto C). (21/10: perdeu o Sortudo incondicional.)",
+          "efeito": "No primeiro turno de uma cena, quem faz teste contra o elfo ganha o descritor Azarado — não mecanizado no app (o motor não rastreia turnos; deixar sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer. +1 grau em Manipulação (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate. (21/10: perdeu o Sortudo incondicional.)",
           "bonus": [
             "Azarado no inimigo no 1º turno (não mecanizado)",
             "Reabastecer",
-            "Manipulação +1 grau"
+            "Manipulação +1 grau",
+            "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": [
             "reabastecer"
@@ -507,11 +510,12 @@
           "icone": "gota-sangue-pena",
           "cor": "#A1122B",
           "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
-          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 ofício mágico extra. (21/10: perdeu o bônus racial de +1 grau à escolha que todo elfo tinha; ganhou o limite de 2x por cena.)",
+          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 ofício mágico extra. Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate. (22/10: corrigido — essa proficiência à escolha é regra geral da raça, vale pros 5 clãs; o Corvus nunca deveria ter perdido ela numa revisão anterior.)",
           "bonus": [
             "1 ferimento superficial = +1 MP (até 2x/cena)",
             "Furtividade +1 grau",
-            "+1 ofício mágico extra"
+            "+1 ofício mágico extra",
+            "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": []
         },
@@ -522,11 +526,12 @@
           "icone": "circulo-quatro",
           "cor": "#14A3A8",
           "descricao": "Poder dos conhecimentos dos primordiais e das estações.",
-          "efeito": "+1 grau em Magias Gerais. +1 ofício mágico extra. Durante o dia (narração do mestre), suas magias ganham o descritor Queimadura 1 — não mecanizado no app (não há estado de dia/noite no motor; é adjudicado pelo mestre em mesa).",
+          "efeito": "+1 grau em Magias Gerais. +1 ofício mágico extra. Durante o dia (narração do mestre), suas magias ganham o descritor Queimadura 1 — não mecanizado no app (não há estado de dia/noite no motor; é adjudicado pelo mestre em mesa). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Magias Gerais +1 grau",
             "+1 ofício mágico extra",
-            "Queimadura 1 de dia (não mecanizado)"
+            "Queimadura 1 de dia (não mecanizado)",
+            "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": []
         },
@@ -537,11 +542,12 @@
           "icone": "folha",
           "cor": "#3F8F3A",
           "descricao": "Elfos nobres, ligados aos elementos da natureza e do mundo material.",
-          "efeito": "+1 ofício mágico extra. +1 grau em Sobrevivência. Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais).",
+          "efeito": "+1 ofício mágico extra. +1 grau em Sobrevivência. Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "+1 ofício mágico extra",
             "Sobrevivência +1 grau",
-            "Reabastecer"
+            "Reabastecer",
+            "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": ["reabastecer"]
         }

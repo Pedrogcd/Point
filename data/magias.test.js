@@ -1,20 +1,25 @@
-// Testes do catálogo de magias (data/magias.js) — ver docs/SISTEMA_MAGIA.md,
-// seção "Catálogo de magias". Roda com `node --test` ou `npm test`.
+// Testes do catálogo de magias (data/magias.js) — ver docs/ATUALIZACAO_23-
+// 10.md (complementa docs/ATUALIZACAO_21-10.md). Roda com `node --test` ou
+// `npm test`.
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   MAGIAS, getMagiaPorId, ENCANTAMENTOS, getEncantamentoPorId, descritoresDeEncantamentosAtivos,
   CONDUITE_MAGICO, ALQUIMIA, getItemAlquimicoPorId, CONSTRUCTO, getConstructoPorId,
+  INVOCACAO, getInvocacaoPorId, descritoresDeInvocacoesAtivas,
   HABILIDADES_CONJUNTAS, getHabilidadeConjuntaPorId, DISCIPLINAS,
+  BONUS_GRAU_POR_OFICIO, PASSIVA_POR_OFICIO, getPassivaDoOficio,
 } from "./magias.js";
 
-describe("MAGIAS", () => {
-  it("tem as 11 magias do guia + o placeholder Sensor + Chama Mágica (19/10) + Descarga Elétrica/Dreno de Mana (21/10) = 15 entradas", () => {
-    assert.equal(MAGIAS.length, 15);
+describe("MAGIAS (23/10, docs/ATUALIZACAO_23-10.md seção 3/4/7)", () => {
+  it("tem as 12 magias de guerra + Sensor (compartilhado) + Dreno de Mana (Encantamentos) + 3 de Invocação (Lança Longínqua/Chuva de Lâminas/Chama Mágica) = 17 entradas", () => {
+    assert.equal(MAGIAS.length, 17);
   });
-  it("toda magia tem o descritor 'magia'", () => {
+  it("toda magia tem o descritor 'magia', exceto Lança Longínqua e Chuva de Lâminas (o documento não lista 'Magia' pra elas, só Invocação)", () => {
+    const semMagiaExplicita = new Set(["lanca_longinqua", "chuva_de_laminas"]);
     for (const m of MAGIAS) {
+      if (semMagiaExplicita.has(m.id)) continue;
       assert.ok(m.descritores.includes("magia"), `${m.nome} deveria ter o descritor "magia"`);
     }
   });
@@ -24,10 +29,11 @@ describe("MAGIAS", () => {
     assert.equal(typeof escudo.efeito, "string");
     assert.ok(escudo.efeito.length > 0);
   });
-  it("Sensor é placeholder, sem custo/pool fechados no guia", () => {
+  it("Sensor (23/10) tem custo definido (1 MP), não é mais placeholder, e não pertence a um ofício específico", () => {
     const sensor = getMagiaPorId("sensor");
-    assert.equal(sensor.placeholder, true);
-    assert.equal(sensor.custoMp, null);
+    assert.equal(sensor.placeholder, undefined);
+    assert.equal(sensor.custoMp, 1);
+    assert.equal(sensor.disciplinaId, undefined);
   });
   it("Mísseis Mágicos tem ajusteDados +1 (Base mágica + 1 + Ofícios/Inteligência)", () => {
     assert.equal(getMagiaPorId("misseis_magicos").ajusteDados, 1);
@@ -39,7 +45,7 @@ describe("MAGIAS", () => {
     assert.equal(getMagiaPorId("bombardeio_de_mana").superficial, false);
   });
   it("magias 'Em área' têm emArea=true", () => {
-    for (const id of ["bombardeio_de_mana", "shin", "magia_de_guerra_maxis"]) {
+    for (const id of ["bombardeio_de_mana", "shin", "magia_de_guerra_maxis", "chuva_de_laminas"]) {
       assert.equal(getMagiaPorId(id).emArea, true, id);
     }
   });
@@ -47,37 +53,62 @@ describe("MAGIAS", () => {
     assert.equal(getMagiaPorId("inexistente"), null);
   });
 
-  // Chama Mágica (Pedro, 19/10): primeira magia com o descritor Queimadura.
-  it("Chama Mágica tem o descritor 'queimadura' (grau 1, sem N explícito)", () => {
+  // 23/10: Torrente Mágica ganhou Pesado e baixou de 3 pra 2 MP.
+  it("Torrente Mágica: Letal + Pesado, custa 2 MP, 2 ferimentos", () => {
+    const t = getMagiaPorId("torrente_magica");
+    assert.deepEqual(t.descritores, ["magia", "letal", "pesado"]);
+    assert.equal(t.custoMp, 2);
+    assert.equal(t.feridas, 2);
+  });
+  it("Shin: Esmagador 1 (não mais Preciso 2)", () => {
+    assert.deepEqual(getMagiaPorId("shin").descritores, ["magia", "em_area", "esmagador_1"]);
+  });
+  it("Shin-kay: ganhou Esmagador 1", () => {
+    assert.deepEqual(getMagiaPorId("shin_kay").descritores, ["magia", "letal", "esmagador_1"]);
+  });
+  it("Magia de guerra Suth: sem Atrasada 1 (iniciativa não é acompanhada)", () => {
+    assert.deepEqual(getMagiaPorId("magia_de_guerra_suth").descritores, ["magia", "preciso_2", "sortudo"]);
+  });
+  it("Magia de guerra Maxis: ganhou Lento 1", () => {
+    assert.ok(getMagiaPorId("magia_de_guerra_maxis").descritores.includes("lento_1"));
+  });
+  it("Magia de guerra Katalão: sem Sortudo", () => {
+    assert.deepEqual(getMagiaPorId("magia_de_guerra_katalao").descritores, ["magia", "perfurante", "letal"]);
+  });
+
+  // Chama Mágica (23/10): veio de Magias de guerra pra Invocação.
+  it("Chama Mágica pertence a Invocação, tem Queimadura 2 e nenhum ferimento próprio", () => {
     const chama = getMagiaPorId("chama_magica");
     assert.ok(chama, "Chama Mágica deveria existir no catálogo");
-    assert.deepEqual(chama.descritores, ["magia", "queimadura"]);
-    assert.equal(chama.feridas, 1);
+    assert.equal(chama.disciplinaId, "oficio-invocacao");
+    assert.deepEqual(chama.descritores, ["magia", "queimadura_2"]);
+    assert.equal(chama.feridas, 0);
+  });
+  it("Dreno de Mana pertence a Encantamentos (saiu de Magias de guerra)", () => {
+    const dreno = getMagiaPorId("dreno_de_mana");
+    assert.equal(dreno.disciplinaId, "oficio-encantamentos");
+    assert.deepEqual(dreno.descritores, ["magia", "drenante"]);
+  });
+  it("Lança Longínqua e Chuva de Lâminas pertencem a Invocação", () => {
+    assert.equal(getMagiaPorId("lanca_longinqua").disciplinaId, "oficio-invocacao");
+    assert.equal(getMagiaPorId("chuva_de_laminas").disciplinaId, "oficio-invocacao");
   });
 });
 
-describe("ENCANTAMENTOS", () => {
-  it("Encantamento Flamejante concede 'queimadura' e pertence ao ofício Encantamentos", () => {
-    const enc = getEncantamentoPorId("encantamento_flamejante");
-    assert.ok(enc);
-    assert.equal(enc.disciplinaId, "oficio-encantamentos");
-    assert.deepEqual(enc.descritoresConcedidos, ["queimadura"]);
-  });
-
+describe("ENCANTAMENTOS (23/10, docs/ATUALIZACAO_23-10.md seção 4)", () => {
   it("getEncantamentoPorId retorna null pra id desconhecido", () => {
     assert.equal(getEncantamentoPorId("inexistente"), null);
   });
 
-  // 21/10 (docs/ATUALIZACAO_21-10.md item 4): 8 encantamentos no total —
-  // Flamejante (19/10) + Lâmina Letal/Ponta Perfurante/Golpe Preciso/
-  // Pele Encantada/Sorte Encantada/Encantamento Elétrico/Encantamento
-  // Drenante.
-  it("tem 8 encantamentos, todos do ofício Encantamentos, custando 1 mana quebrada", () => {
-    assert.equal(ENCANTAMENTOS.length, 8);
+  // 14 encantamentos: Letal/Perfurante/Preciso 1/Esmagador 1/Queimadura 1/
+  // Carga 2/Drenante/Sortudo/Resistente/Firme 1/Selado 1/Potente Força/
+  // Potente Destreza/Veloz. Perícia Encantada fica à parte (não concede
+  // descritor).
+  it("tem 14 'Encantamento: X' + Perícia Encantada = 15 entradas, todos do ofício Encantamentos, custando 1 mana quebrada", () => {
+    assert.equal(ENCANTAMENTOS.length, 15);
     for (const enc of ENCANTAMENTOS) {
       assert.equal(enc.disciplinaId, "oficio-encantamentos", enc.id);
       assert.equal(enc.custoManaQuebrada, 1, enc.id);
-      assert.ok(enc.descritoresConcedidos.length > 0, enc.id);
     }
   });
 
@@ -86,21 +117,49 @@ describe("ENCANTAMENTOS", () => {
     assert.equal(new Set(ids).size, ids.length);
   });
 
-  it("Pele Encantada concede 'blindado' (único que afeta o usuário como DEFENSOR, não os ataques dele)", () => {
-    assert.deepEqual(getEncantamentoPorId("pele_encantada").descritoresConcedidos, ["blindado"]);
+  it("Encantamento: Resistente (era Pele Encantada/Blindado) concede 'resistente', não 'blindado'", () => {
+    const enc = getEncantamentoPorId("encantamento_resistente");
+    assert.ok(enc);
+    assert.deepEqual(enc.descritoresConcedidos, ["resistente"]);
+  });
+
+  it("Encantamento: Preciso 1 (era Golpe Preciso/Preciso 2) concede 'preciso_1'", () => {
+    assert.deepEqual(getEncantamentoPorId("encantamento_preciso_1").descritoresConcedidos, ["preciso_1"]);
+  });
+
+  it("os 6 encantamentos 'fortes' (Resistente, Potente Força, Potente Destreza, Selado, Sortudo, Drenante) têm custoSpQuebrado:true; os demais não", () => {
+    const fortes = ["encantamento_resistente", "encantamento_potente_forca", "encantamento_potente_destreza", "encantamento_selado_1", "encantamento_sortudo", "encantamento_drenante"];
+    for (const id of fortes) assert.equal(getEncantamentoPorId(id).custoSpQuebrado, true, id);
+    for (const enc of ENCANTAMENTOS) {
+      if (!fortes.includes(enc.id)) assert.notEqual(enc.custoSpQuebrado, true, enc.id);
+    }
+  });
+
+  it("Perícia Encantada não concede descritor (dá perícia, não mecanizado)", () => {
+    const pericia = getEncantamentoPorId("pericia_encantada");
+    assert.ok(pericia);
+    assert.equal(pericia.descritoresConcedidos, undefined);
+  });
+
+  it("novos encantamentos 23/10 existem: Esmagador 1, Firme 1, Selado 1, Potente Força, Potente Destreza, Veloz", () => {
+    assert.deepEqual(getEncantamentoPorId("encantamento_esmagador_1").descritoresConcedidos, ["esmagador_1"]);
+    assert.deepEqual(getEncantamentoPorId("encantamento_firme_1").descritoresConcedidos, ["firme_1"]);
+    assert.deepEqual(getEncantamentoPorId("encantamento_selado_1").descritoresConcedidos, ["selado_1"]);
+    assert.deepEqual(getEncantamentoPorId("encantamento_potente_forca").descritoresConcedidos, ["potente_forca"]);
+    assert.deepEqual(getEncantamentoPorId("encantamento_potente_destreza").descritoresConcedidos, ["potente_destreza"]);
+    assert.deepEqual(getEncantamentoPorId("encantamento_veloz").descritoresConcedidos, ["veloz"]);
   });
 
   describe("descritoresDeEncantamentosAtivos", () => {
     it("sem encantamentosAtivos, devolve []", () => {
       assert.deepEqual(descritoresDeEncantamentosAtivos({}), []);
     });
-    it("com Encantamento Flamejante ativo, devolve ['queimadura']", () => {
-      assert.deepEqual(descritoresDeEncantamentosAtivos({ encantamentosAtivos: ["encantamento_flamejante"] }), ["queimadura"]);
+    it("com Encantamento: Queimadura 1 ativo, devolve ['queimadura_1']", () => {
+      assert.deepEqual(descritoresDeEncantamentosAtivos({ encantamentosAtivos: ["encantamento_queimadura_1"] }), ["queimadura_1"]);
     });
     it("dedupe quando dois encantamentos ativos dessem o mesmo descritor", () => {
-      // Não há dois ainda no catálogo, mas a função precisa deduplicar se um dia houver.
-      const resultado = descritoresDeEncantamentosAtivos({ encantamentosAtivos: ["encantamento_flamejante", "encantamento_flamejante"] });
-      assert.deepEqual(resultado, ["queimadura"]);
+      const resultado = descritoresDeEncantamentosAtivos({ encantamentosAtivos: ["encantamento_queimadura_1", "encantamento_queimadura_1"] });
+      assert.deepEqual(resultado, ["queimadura_1"]);
     });
     it("id desconhecido não quebra e não soma nada", () => {
       assert.deepEqual(descritoresDeEncantamentosAtivos({ encantamentosAtivos: ["inexistente"] }), []);
@@ -108,16 +167,19 @@ describe("ENCANTAMENTOS", () => {
   });
 });
 
-describe("CONDUITE_MAGICO (21/10)", () => {
+describe("CONDUITE_MAGICO", () => {
   it("existe como objeto de exibição único (sem instâncias — o estado é character.conduiteAtivo)", () => {
     assert.equal(CONDUITE_MAGICO.id, "conduite_magico");
     assert.equal(typeof CONDUITE_MAGICO.descricao, "string");
   });
 });
 
-describe("ALQUIMIA (21/10, docs/ATUALIZACAO_21-10.md seção 4.1)", () => {
-  it("tem as 20 habilidades da planilha (sem contar Conduíte, compartilhado)", () => {
-    assert.equal(ALQUIMIA.length, 20);
+describe("ALQUIMIA (23/10, docs/ATUALIZACAO_23-10.md seção 5)", () => {
+  // 20 - Antídoto (apagado) - Elixir Drenante (foi pra Habilidades Conjuntas) = 18
+  it("tem 18 habilidades (Antídoto saiu, Elixir Drenante virou conjunta)", () => {
+    assert.equal(ALQUIMIA.length, 18);
+    assert.equal(getItemAlquimicoPorId("antidoto"), null);
+    assert.equal(getItemAlquimicoPorId("elixir_drenante"), null);
   });
   it("ids são únicos", () => {
     const ids = ALQUIMIA.map((i) => i.id);
@@ -149,12 +211,27 @@ describe("ALQUIMIA (21/10, docs/ATUALIZACAO_21-10.md seção 4.1)", () => {
   it("Bomba Tóxica tem Envenenamento 2", () => {
     assert.ok(getItemAlquimicoPorId("bomba_toxica").descritores.includes("envenenamento_2"));
   });
+  it("Bomba de Fumaça concede Azarado (não mais Blindado)", () => {
+    assert.deepEqual(getItemAlquimicoPorId("bomba_de_fumaca").descritoresConcedidos, ["azarado"]);
+  });
+  it("Elixir de Mana concede Reabastecer", () => {
+    assert.deepEqual(getItemAlquimicoPorId("elixir_de_mana").descritoresConcedidos, ["reabastecer"]);
+  });
+  it("Elixir de Vigor concede Resistente (não mais 'próximo ferimento vira superficial')", () => {
+    assert.deepEqual(getItemAlquimicoPorId("elixir_de_vigor").descritoresConcedidos, ["resistente"]);
+  });
+  it("Frasco de Gosma concede Lento 1 (não mais 'prioridade -1')", () => {
+    assert.deepEqual(getItemAlquimicoPorId("frasco_de_gosma").descritoresConcedidos, ["lento_1"]);
+  });
+  it("Ácido Corrosivo concede o descritor Corrosivo (pro selo/pop-up; efeito em terceiros, não mecanizado)", () => {
+    assert.deepEqual(getItemAlquimicoPorId("acido_corrosivo").descritoresConcedidos, ["corrosivo"]);
+  });
   it("getItemAlquimicoPorId retorna null pra id desconhecido", () => {
     assert.equal(getItemAlquimicoPorId("inexistente"), null);
   });
 });
 
-describe("CONSTRUCTO (21/10, docs/ATUALIZACAO_21-10.md seção 4.2)", () => {
+describe("CONSTRUCTO (23/10, docs/ATUALIZACAO_23-10.md seção 6)", () => {
   it("tem os 7 constructos da planilha (sem contar Conduíte, compartilhado)", () => {
     assert.equal(CONSTRUCTO.length, 7);
   });
@@ -171,14 +248,56 @@ describe("CONSTRUCTO (21/10, docs/ATUALIZACAO_21-10.md seção 4.2)", () => {
       assert.ok(c.integridade >= 1, c.id);
     }
   });
+  it("Golem Guardião e Armadura Animada têm Contínuo Blindado + Resistente (23/10, ganharam Resistente)", () => {
+    assert.deepEqual(getConstructoPorId("golem_guardiao").descritoresConcedidos, ["blindado", "resistente"]);
+    assert.deepEqual(getConstructoPorId("armadura_animada").descritoresConcedidos, ["blindado", "resistente"]);
+  });
+  it("Arma Viva: só Letal (não mais Letal+Perfurante)", () => {
+    assert.deepEqual(getConstructoPorId("arma_viva").descritoresConcedidos, ["letal"]);
+  });
   it("getConstructoPorId retorna null pra id desconhecido", () => {
     assert.equal(getConstructoPorId("inexistente"), null);
   });
 });
 
-describe("HABILIDADES_CONJUNTAS (21/10, docs/ATUALIZACAO_21-10.md item 4)", () => {
-  it("tem as 6 habilidades da planilha, cada uma exigindo exatamente 2 ofícios", () => {
-    assert.equal(HABILIDADES_CONJUNTAS.length, 6);
+describe("INVOCACAO (23/10, docs/ATUALIZACAO_23-10.md seção 7, novo)", () => {
+  it("tem as 3 habilidades de invocação (toggle, mana quebrada) — Invocar Arma, Escudo Invocado, Arma de Brasa", () => {
+    assert.equal(INVOCACAO.length, 3);
+    for (const i of INVOCACAO) {
+      assert.equal(i.disciplinaId, "oficio-invocacao", i.id);
+      assert.equal(i.custoManaQuebrada, 1, i.id);
+    }
+  });
+  it("ids são únicos", () => {
+    const ids = INVOCACAO.map((i) => i.id);
+    assert.equal(new Set(ids).size, ids.length);
+  });
+  it("Escudo Invocado concede Firme 1", () => {
+    assert.deepEqual(getInvocacaoPorId("escudo_invocado").descritoresConcedidos, ["firme_1"]);
+  });
+  it("Arma de Brasa concede Queimadura 1", () => {
+    assert.deepEqual(getInvocacaoPorId("arma_de_brasa").descritoresConcedidos, ["queimadura_1"]);
+  });
+  it("getInvocacaoPorId retorna null pra id desconhecido", () => {
+    assert.equal(getInvocacaoPorId("inexistente"), null);
+  });
+
+  describe("descritoresDeInvocacoesAtivas", () => {
+    it("sem invocacoesAtivas, devolve []", () => {
+      assert.deepEqual(descritoresDeInvocacoesAtivas({}), []);
+    });
+    it("com Escudo Invocado ativo, devolve ['firme_1']", () => {
+      assert.deepEqual(descritoresDeInvocacoesAtivas({ invocacoesAtivas: ["escudo_invocado"] }), ["firme_1"]);
+    });
+    it("Invocar Arma (sem descritoresConcedidos) não soma nada", () => {
+      assert.deepEqual(descritoresDeInvocacoesAtivas({ invocacoesAtivas: ["invocar_arma"] }), []);
+    });
+  });
+});
+
+describe("HABILIDADES_CONJUNTAS (23/10, docs/ATUALIZACAO_23-10.md seção 8)", () => {
+  it("tem 7 habilidades (Elixir Drenante entrou, veio de Alquimia), cada uma exigindo exatamente 2 ofícios", () => {
+    assert.equal(HABILIDADES_CONJUNTAS.length, 7);
     for (const h of HABILIDADES_CONJUNTAS) {
       assert.equal(h.oficiosExigidos.length, 2, h.id);
       assert.equal(h.custoManaQuebrada, 1, h.id);
@@ -188,19 +307,77 @@ describe("HABILIDADES_CONJUNTAS (21/10, docs/ATUALIZACAO_21-10.md item 4)", () =
     const ids = HABILIDADES_CONJUNTAS.map((h) => h.id);
     assert.equal(new Set(ids).size, ids.length);
   });
+  it("Elixir Drenante exige Alquimia + Encantamentos e concede Drenante", () => {
+    const elixir = getHabilidadeConjuntaPorId("elixir_drenante");
+    assert.ok(elixir);
+    assert.deepEqual(elixir.oficiosExigidos.slice().sort(), ["oficio-alquimia", "oficio-encantamentos"]);
+    assert.deepEqual(elixir.descritoresConcedidos, ["drenante"]);
+  });
+  it("Círculo mágico só existe aqui (não duplicado em MAGIAS nem ENCANTAMENTOS)", () => {
+    assert.ok(getHabilidadeConjuntaPorId("circulo_magico"));
+    assert.equal(getMagiaPorId("circulo_magico"), null);
+    assert.equal(getEncantamentoPorId("circulo_magico"), null);
+  });
   it("getHabilidadeConjuntaPorId retorna null pra id desconhecido", () => {
     assert.equal(getHabilidadeConjuntaPorId("inexistente"), null);
   });
 });
 
-// 21/10: Encantamentos/Alquimia/Constructo deixaram de ser disciplinas
-// vazias (continuam sem bônus de grau, mas já têm habilidades de verdade).
-describe("DISCIPLINAS — Encantamentos/Alquimia/Constructo não são mais vazias (21/10)", () => {
-  it("nenhuma das 3 tem mais o campo 'vazia'", () => {
-    for (const id of ["oficio-encantamentos", "oficio-alquimia", "oficio-constructo"]) {
+describe("DISCIPLINAS", () => {
+  it("nenhuma das 5 de ofício mágico tem mais o campo 'vazia'", () => {
+    for (const id of ["oficio-encantamentos", "oficio-alquimia", "oficio-constructo", "oficio-invocacao", "oficio-magias-de-guerra"]) {
       const d = DISCIPLINAS.find((x) => x.id === id);
       assert.ok(d, id);
       assert.equal("vazia" in d, false, id);
     }
+  });
+  it("tem as 6 disciplinas (5 ofícios mágicos + Magia Inata), incluindo a nova Invocação", () => {
+    assert.equal(DISCIPLINAS.length, 6);
+    assert.ok(DISCIPLINAS.find((d) => d.id === "oficio-invocacao"));
+  });
+});
+
+// 23/10 (docs/ATUALIZACAO_23-10.md seção 2b): 3 proficiências fixas por
+// ofício (+1 grau cada, sem escolha) + a passiva de Invocação (que também é
+// um +1 grau, teto C, sempre ativa).
+describe("BONUS_GRAU_POR_OFICIO (23/10, proficiências dos ofícios)", () => {
+  it("cada um dos 5 ofícios mágicos tem exatamente 3 proficiências, exceto Invocação (3 + a passiva mecanizada)", () => {
+    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-magias-de-guerra"].length, 3);
+    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-encantamentos"].length, 3);
+    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-alquimia"].length, 3);
+    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-constructo"].length, 3);
+    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-invocacao"].length, 4);
+  });
+  it("Magias de guerra: Magias Gerais, Política, Tecnologia (não mais Acadêmicos)", () => {
+    const chaves = BONUS_GRAU_POR_OFICIO["oficio-magias-de-guerra"].map((b) => b.chave).sort();
+    assert.deepEqual(chaves, ["magiasGerais", "politica", "tecnologia"]);
+  });
+  it("Invocação inclui Combate Corpo a Corpo (a passiva) além das 3 proficiências", () => {
+    const chaves = BONUS_GRAU_POR_OFICIO["oficio-invocacao"].map((b) => b.chave).sort();
+    assert.deepEqual(chaves, ["atletismo", "combateCorpoACorpo", "magiasGerais", "percepcao"]);
+  });
+  it("Conduíte e Magia Inata não têm entrada (não dão proficiências)", () => {
+    assert.equal(BONUS_GRAU_POR_OFICIO["magia-inata"], undefined);
+    assert.equal(BONUS_GRAU_POR_OFICIO["conduite_magico"], undefined);
+  });
+});
+
+describe("PASSIVA_POR_OFICIO / getPassivaDoOficio", () => {
+  it("as 5 passivas existem, com texto não-vazio", () => {
+    for (const id of ["oficio-magias-de-guerra", "oficio-encantamentos", "oficio-alquimia", "oficio-constructo", "oficio-invocacao"]) {
+      const p = getPassivaDoOficio(id);
+      assert.ok(p, id);
+      assert.ok(p.texto.length > 0, id);
+    }
+  });
+  it("só a de Invocação está marcada como mecanizada", () => {
+    assert.equal(PASSIVA_POR_OFICIO["oficio-invocacao"].mecanizada, true);
+    assert.equal(PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].mecanizada, false);
+    assert.equal(PASSIVA_POR_OFICIO["oficio-encantamentos"].mecanizada, false);
+    assert.equal(PASSIVA_POR_OFICIO["oficio-alquimia"].mecanizada, false);
+    assert.equal(PASSIVA_POR_OFICIO["oficio-constructo"].mecanizada, false);
+  });
+  it("getPassivaDoOficio retorna null pra id desconhecido", () => {
+    assert.equal(getPassivaDoOficio("inexistente"), null);
   });
 });

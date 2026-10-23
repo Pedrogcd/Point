@@ -16,7 +16,7 @@ import {
   PROC_ABILITIES, categoriaDaHabilidade, CATEGORIA_ORDEM, PROC_ABILITIES_AGRUPADAS, MAX_PROCS,
   TIPOS_ATAQUE, BASE_ATTACK_TYPES,
   attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, parseFlatBonus, quebrarMana, repararMana,
-  quebrarSP,
+  quebrarSP, repararSP,
   limiarDaHabilidade, attrLabelDaHabilidade, findTriggeredProc, computeStat, rollSuccessDice,
   defaultAttacksForCharacter, temDescritor, rolarComSortudo, resolveAtaque, resolveRolagemDefesa,
   diceAtaqueFisico, diceAtaqueMagico, diceBaseMagica, extraDeManaMagica, aplicarFerimentos,
@@ -25,7 +25,7 @@ import {
 } from "./engine.js";
 import {
   MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
-  ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO,
+  ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
 } from "./data/magias.js";
 import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
@@ -5408,8 +5408,9 @@ function ProcSlotPicker({ character, slotIndex, onPick, onClear, onClose }) {
 // grava onde for certo (gravarSlotDisciplina em CharacterSheet) e passa só
 // o valor atual + callbacks; este componente não sabe mais onde o dado mora.
 function DisciplinaSlotPicker({
-  titulo, legenda, atual, excluirIds, mpAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose,
+  titulo, legenda, atual, excluirIds, mpAtual, spAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose,
   encantamentosAtivos, onToggleEncantamento, conduiteAtivo, onToggleConduite, itensAlquimicosAtivos, onToggleItemAlquimico,
+  invocacoesAtivas, onToggleInvocacao, sensorAtivo, onToggleSensor,
 }) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
@@ -5474,18 +5475,23 @@ function DisciplinaSlotPicker({
             })}
           </div>
 
-          {atual && def?.temMagias && (
+          {atual && def?.temMagias && (() => {
+            // 23/10: filtra pela própria disciplina (Sensor, sem disciplinaId,
+            // continua aparecendo em qualquer uma — ver data/magias.js:MAGIAS).
+            const magiasDoOficio = MAGIAS.filter((m) => !m.placeholder && (!m.disciplinaId || m.disciplinaId === def.id));
+            return (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
                 Magias equipadas (até {def.magiasAtivasMax} — o resto fica na reserva)
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                {MAGIAS.filter((m) => !m.placeholder).map((m) => {
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                {magiasDoOficio.map((m) => {
                   const ativa = habilidadesAtivas.includes(m.id);
                   const travada = !ativa && habilidadesAtivas.length >= def.magiasAtivasMax;
                   return (
-                    <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1 }}>
+                    <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1, flexWrap: "wrap" }}>
                       <input type="checkbox" checked={ativa} disabled={travada} onChange={() => toggleMagia(m.id)} /> {m.nome}
+                      {m.descritores?.map((id) => <Descritor key={id} token={id} />)}
                     </label>
                   );
                 })}
@@ -5498,7 +5504,7 @@ function DisciplinaSlotPicker({
                   </select>
                   <select value={trocaAdicionar} onChange={(e) => setTrocaAdicionar(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
                     <option value="">Adicionar...</option>
-                    {MAGIAS.filter((m) => !m.placeholder && !habilidadesAtivas.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
+                    {magiasDoOficio.filter((m) => !habilidadesAtivas.includes(m.id)).map((m) => <option key={m.id} value={m.id}>{m.nome}</option>)}
                   </select>
                   <Btn onClick={() => confirmarTroca(false)} disabled={!trocaRemover || !trocaAdicionar || (mpAtual || 0) <= 0}>
                     Trocar (1 MP)
@@ -5516,7 +5522,8 @@ function DisciplinaSlotPicker({
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* Encantamentos (Pedro, 19/10, economia de mana quebrada de
               verdade desde 21/10 — docs/ATUALIZACAO_21-10.md item 3):
@@ -5531,23 +5538,24 @@ function DisciplinaSlotPicker({
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
                 Encantamentos ativos (mana quebrada)
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {ENCANTAMENTOS.map((enc) => {
                   const ativo = (encantamentosAtivos || []).includes(enc.id);
-                  const semManaPraAtivar = !ativo && (mpAtual || 0) < enc.custoManaQuebrada;
+                  const semManaPraAtivar = !ativo && ((mpAtual || 0) < enc.custoManaQuebrada || (enc.custoSpQuebrado && (spAtual || 0) < 1));
                   return (
                     <label
                       key={enc.id} title={enc.descricao}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: semManaPraAtivar ? MUTED : PARCHMENT, opacity: semManaPraAtivar ? 0.5 : 1 }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: semManaPraAtivar ? MUTED : PARCHMENT, opacity: semManaPraAtivar ? 0.5 : 1, flexWrap: "wrap" }}
                     >
                       <input type="checkbox" checked={ativo} disabled={semManaPraAtivar} onChange={() => onToggleEncantamento(enc.id)} />
-                      {enc.nome} ({enc.custoManaQuebrada} mana quebrada)
+                      {enc.nome} ({enc.custoManaQuebrada} mana{enc.custoSpQuebrado ? " + 1 SP" : ""} quebrada{enc.custoSpQuebrado ? "s" : ""})
+                      {enc.descritoresConcedidos?.map((id) => <Descritor key={id} token={id} />)}
                     </label>
                   );
                 })}
               </div>
               <div style={{ fontSize: 9.5, color: MUTED, marginTop: 6, fontStyle: "italic" }}>
-                Ativar desconta a mana de verdade (fica quebrada, não volta sozinha); desativar repara de graça.
+                Ativar desconta a mana (e o SP, nos 6 mais fortes) de verdade; desativar repara de graça. SP só volta de verdade no "Restaurar MP e SP" (equivalente provisório do descanso longo).
               </div>
             </div>
           )}
@@ -5567,23 +5575,58 @@ function DisciplinaSlotPicker({
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
                 Itens preparados (mana quebrada)
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
                 {ALQUIMIA.map((item) => {
                   const ativo = (itensAlquimicosAtivos || []).includes(item.id);
                   const semManaPraPreparar = !ativo && (mpAtual || 0) < item.custoManaQuebrada;
+                  const chipsIds = item.descritores || item.descritoresConcedidos || [];
                   return (
                     <label
                       key={item.id} title={item.efeito}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: semManaPraPreparar ? MUTED : PARCHMENT, opacity: semManaPraPreparar ? 0.5 : 1, width: "100%" }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: semManaPraPreparar ? MUTED : PARCHMENT, opacity: semManaPraPreparar ? 0.5 : 1, width: "100%", flexWrap: "wrap" }}
                     >
                       <input type="checkbox" checked={ativo} disabled={semManaPraPreparar} onChange={() => onToggleItemAlquimico(item.id)} />
                       {item.nome}
+                      {chipsIds.map((id) => <Descritor key={id} token={id} />)}
                     </label>
                   );
                 })}
               </div>
               <div style={{ fontSize: 9.5, color: MUTED, marginTop: 6, fontStyle: "italic" }}>
-                Preparar desconta 1 mana de verdade (fica quebrada, não volta sozinha); despreparar repara de graça. "1 item grátis por ofício" ainda não implementado.
+                Preparar desconta 1 mana de verdade (fica quebrada, não volta sozinha); despreparar repara de graça. A passiva do ofício (itens de graça no descanso longo) ainda não implementada.
+              </div>
+            </div>
+          )}
+
+          {/* Invocação (23/10, docs/ATUALIZACAO_23-10.md seção 7, ofício novo):
+              mesmo mecanismo de mana quebrada de Encantamentos/Alquimia —
+              "invocar" quebra 1 mana, dura enquanto ela estiver quebrada.
+              Invocar Arma não concede descritor (não mecanizado — escolha do
+              tipo de arma fica a cargo da mesa); Escudo Invocado/Arma de
+              Brasa concedem Firme 1/Queimadura 1 de verdade. */}
+          {atual && def?.id === "oficio-invocacao" && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
+                Invocações ativas (mana quebrada)
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {INVOCACAO.map((inv) => {
+                  const ativo = (invocacoesAtivas || []).includes(inv.id);
+                  const semManaPraAtivar = !ativo && (mpAtual || 0) < inv.custoManaQuebrada;
+                  return (
+                    <label
+                      key={inv.id} title={inv.efeito}
+                      style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: semManaPraAtivar ? MUTED : PARCHMENT, opacity: semManaPraAtivar ? 0.5 : 1, flexWrap: "wrap" }}
+                    >
+                      <input type="checkbox" checked={ativo} disabled={semManaPraAtivar} onChange={() => onToggleInvocacao(inv.id)} />
+                      {inv.nome} ({inv.custoManaQuebrada} mana quebrada)
+                      {inv.descritoresConcedidos?.map((id) => <Descritor key={id} token={id} />)}
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 9.5, color: MUTED, marginTop: 6, fontStyle: "italic" }}>
+                Ativar desconta a mana de verdade (fica quebrada, não volta sozinha); desativar repara de graça. Invocar Arma não gera uma linha de ataque derivada — use o slot Arma do painel Equipamento pra isso.
               </div>
             </div>
           )}
@@ -5596,10 +5639,20 @@ function DisciplinaSlotPicker({
               "Só um por vez" é automático: desmarcar aqui ou marcar em
               outra disciplina sempre mexe no MESMO character.conduiteAtivo. */}
           {atual && def?.tipo === "oficio-magico" && (
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 6 }}>
               <label title={CONDUITE_MAGICO.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: PARCHMENT }}>
                 <input type="checkbox" checked={!!conduiteAtivo} onChange={onToggleConduite} />
                 {CONDUITE_MAGICO.nome} (+1 ofício mágico, só um por vez)
+              </label>
+              {/* Sensor (23/10, docs/ATUALIZACAO_23-10.md seção 1): "qualquer
+                  ofício pode pegar Sensor" — flag simples, igual Conduíte
+                  (sem checagem de slot/custo em MP automática, mesma
+                  simplificação já aceita pro Conduíte). Também aparece como
+                  magia equipável dentro de Magias de guerra (ver bloco
+                  temMagias acima), pra quem preferir conjurar por lá. */}
+              <label title={getMagiaPorId("sensor")?.efeito} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: PARCHMENT }}>
+                <input type="checkbox" checked={!!sensorAtivo} onChange={onToggleSensor} />
+                Sensor (1 MP ao marcar, disponível em qualquer ofício)
               </label>
             </div>
           )}
@@ -5832,7 +5885,22 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   const disciplinasPersonagem = character.disciplinas || [];
   const disciplinaMagica = characterEfetivo.disciplinaMagica || { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] };
   const temDisciplina = disciplinaMagica.oficiosMagicos.length > 0 || !!disciplinaMagica.magiaInata;
-  const magiasDisponiveis = (temDisciplina && disciplinaMagica.magiasAtivas.length > 0) ? MAGIAS.filter((m) => disciplinaMagica.magiasAtivas.includes(m.id)) : MAGIAS;
+  // 23/10 (docs/ATUALIZACAO_23-10.md): magias de OUTROS ofícios (Dreno de
+  // Mana em Encantamentos; Lança Longínqua/Chuva de Lâminas/Chama Mágica em
+  // Invocação) ficam disponíveis pra conjurar automaticamente assim que o
+  // ofício dono está equipado, sem precisar "equipar" (os 3 slots só
+  // existem de verdade pra Magias de guerra/Magia Inata — ver nota em
+  // data/magias.js:DISCIPLINAS). Sensor, sem disciplinaId, fica disponível
+  // com qualquer ofício mágico equipado ("qualquer ofício pode pegar").
+  const magiasEquipadasDeGuerra = (temDisciplina && disciplinaMagica.magiasAtivas.length > 0)
+    ? MAGIAS.filter((m) => disciplinaMagica.magiasAtivas.includes(m.id))
+    : MAGIAS;
+  const magiasAutomaticasDeOutrosOficios = MAGIAS.filter((m) => {
+    if (magiasEquipadasDeGuerra.some((x) => x.id === m.id)) return false;
+    if (m.id === "sensor") return disciplinaMagica.oficiosMagicos.length > 0;
+    return m.disciplinaId && m.disciplinaId !== "oficio-magias-de-guerra" && disciplinaMagica.oficiosMagicos.includes(m.disciplinaId);
+  });
+  const magiasDisponiveis = [...magiasEquipadasDeGuerra, ...magiasAutomaticasDeOutrosOficios];
   // Fonte do pool de ataque mágico (docs/MUDANCAS_RACAS_E_MAGIA.md): o
   // jogador escolhe, a cada conjuração, entre a contagem de Ofícios Mágicos
   // ou o grau de Inteligência — ver diceAtaqueMagico(..., fonte, ...).
@@ -7039,6 +7107,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             atual={atual}
             excluirIds={excluirIds}
             mpAtual={character.mp?.current}
+            spAtual={character.sp?.current}
             onEscolher={(id) => gravar({ disciplinaId: id, habilidadesAtivas: [] })}
             onEsvaziar={() => gravar(null)}
             onToggleMagia={(magiaId) => {
@@ -7056,19 +7125,30 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             // (repararMana) — antes (19/10) isso só ligava/desligava o efeito
             // sem mexer no MP. A mana quebrada fica indisponível até reparar
             // de novo aqui (ou até o botão "Restaurar MP e SP", reset manual
-            // completo).
+            // completo). 23/10 (docs/ATUALIZACAO_23-10.md seção 1): os 6
+            // encantamentos "fortes" (custoSpQuebrado:true — Resistente,
+            // Potente Força, Potente Destreza, Selado, Sortudo, Drenante)
+            // TAMBÉM quebram/reparam 1 SP junto (mesmo mecanismo da mana,
+            // via quebrarSP/repararSP) — SP só volta de verdade no botão
+            // "Restaurar MP e SP" (equivalente provisório do descanso longo).
             onToggleEncantamento={(encantamentoId) => {
               const ativos = character.encantamentosAtivos || [];
               const jaAtivo = ativos.includes(encantamentoId);
               const encantamento = getEncantamentoPorId(encantamentoId);
               const custo = encantamento?.custoManaQuebrada || 1;
+              const custoSp = encantamento?.custoSpQuebrado ? 1 : 0;
               const mpAtual = character.mp || { current: 0, max: 3, quebrada: 0 };
+              const spAtual = character.sp || { current: 0, max: 3, quebrada: 0 };
               if (jaAtivo) {
                 const novos = ativos.filter((e) => e !== encantamentoId);
-                onUpdateCharacter(character.id, { encantamentosAtivos: novos, mp: repararMana(mpAtual, custo) });
+                const patch = { encantamentosAtivos: novos, mp: repararMana(mpAtual, custo) };
+                if (custoSp) patch.sp = repararSP(spAtual, custoSp);
+                onUpdateCharacter(character.id, patch);
               } else {
                 const novos = [...ativos, encantamentoId];
-                onUpdateCharacter(character.id, { encantamentosAtivos: novos, mp: quebrarMana(mpAtual, custo) });
+                const patch = { encantamentosAtivos: novos, mp: quebrarMana(mpAtual, custo) };
+                if (custoSp) patch.sp = quebrarSP(spAtual, custoSp);
+                onUpdateCharacter(character.id, patch);
               }
             }}
             // 21/10 (item 4): Conduíte mágico é um flag booleano único por
@@ -7092,6 +7172,27 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 onUpdateCharacter(character.id, { itensAlquimicosAtivos: novos, mp: quebrarMana(mpAtual, custo) });
               }
             }}
+            // Invocações (23/10, docs/ATUALIZACAO_23-10.md seção 7): mesmo
+            // padrão de mana quebrada de Encantamentos/Alquimia.
+            invocacoesAtivas={character.invocacoesAtivas}
+            onToggleInvocacao={(invocacaoId) => {
+              const ativos = character.invocacoesAtivas || [];
+              const jaAtivo = ativos.includes(invocacaoId);
+              const inv = getInvocacaoPorId(invocacaoId);
+              const custo = inv?.custoManaQuebrada || 1;
+              const mpAtual = character.mp || { current: 0, max: 3, quebrada: 0 };
+              if (jaAtivo) {
+                const novos = ativos.filter((i) => i !== invocacaoId);
+                onUpdateCharacter(character.id, { invocacoesAtivas: novos, mp: repararMana(mpAtual, custo) });
+              } else {
+                const novos = [...ativos, invocacaoId];
+                onUpdateCharacter(character.id, { invocacoesAtivas: novos, mp: quebrarMana(mpAtual, custo) });
+              }
+            }}
+            // Sensor (23/10, seção 1): flag booleano único, igual Conduíte —
+            // "qualquer ofício pode pegar", sem desconto automático de MP.
+            sensorAtivo={character.sensorAtivo}
+            onToggleSensor={() => onUpdateCharacter(character.id, { sensorAtivo: !character.sensorAtivo })}
             onClose={() => setDisciplinaSlotAberto(null)}
           />
         );

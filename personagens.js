@@ -7,12 +7,39 @@
 import {
   BASE_ATTACK_TYPES, STAT_BASE_DEFAULTS, ATRIBUTOS_GERAIS_DEFAULT, PROFICIENCIAS_DEFAULT,
   migrateBrigaProfKey, defaultAttacksForCharacter, MAX_PROCS, computeMaxHP, computeMaxSP,
+  repararMana,
 } from "./engine.js";
 import { grupoDoPersonagem } from "./sidepoint.js";
 import { migrarSelecaoRacaLegado } from "./racasCatalogo.js";
 import { DISCIPLINAS, MAX_DISCIPLINAS } from "./data/magias.js";
 
 const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
+// 23/10 (docs/ATUALIZACAO_23-10.md seção 4): vários ENCANTAMENTOS renomeados
+// pro formato "Encantamento: Descritor" — fichas salvas com os ids antigos
+// em `character.encantamentosAtivos` precisam migrar pelo nome, senão o
+// encantamento fica "invisível" (data/magias.js:getEncantamentoPorId não
+// acha mais o id, a UI nova nunca mostra o checkbox marcado) mas a mana que
+// ele tinha quebrado fica presa pra sempre (sem jeito de desquebrar — a UI
+// só oferece desquebrar clicando no checkbox do catálogo atual). Pele
+// Encantada também trocou de EFEITO (Blindado -> Resistente), não só de
+// nome/id — ver data/magias.js:ENCANTAMENTOS.
+const REMAPEAMENTO_ENCANTAMENTO_23_10 = {
+  lamina_letal: "encantamento_letal",
+  ponta_perfurante: "encantamento_perfurante",
+  golpe_preciso: "encantamento_preciso_1",
+  encantamento_flamejante: "encantamento_queimadura_1",
+  pele_encantada: "encantamento_resistente",
+  sorte_encantada: "encantamento_sortudo",
+  encantamento_eletrico: "encantamento_carga_2",
+};
+// Ids de ALQUIMIA que saíram do catálogo (23/10): Antídoto foi apagado;
+// Elixir Drenante virou Habilidade Conjunta (exige Alquimia + Encantamentos
+// — ver data/magias.js:HABILIDADES_CONJUNTAS), que ainda não tem campo
+// próprio na ficha pra ficar "ativo". Fichas com qualquer um dos dois em
+// `itensAlquimicosAtivos` perdem a entrada (não tem mais catálogo que a
+// resolva) — a mana que ela tinha quebrado é devolvida, 1 por entrada
+// removida, pra não ficar presa pra sempre sem jeito de desquebrar pela UI.
+const ITENS_ALQUIMICOS_REMOVIDOS_23_10 = new Set(["antidoto", "elixir_drenante"]);
 const REMOVED_NAMES = new Set(["chute"]);
 const OLD_DEFAULT_DEFESA = new Set([0, 5, undefined]);
 const OLD_DEFAULT_RESIST_ARMADURA = new Set([7, undefined]);
@@ -263,7 +290,21 @@ export function migrarPersonagem(ch) {
   // MP é sempre fixo em 3, igual toda ficha semente.
   const hpBase = (ch.hp && typeof ch.hp.max === "number") ? ch.hp : (() => { const max = computeMaxHP({ atributosGerais, procs, descritores }); return { current: max, max }; })();
   const hp = { ...hpBase, superficiais: hpBase.superficiais ?? 0 };
-  const mp = (ch.mp && typeof ch.mp.max === "number") ? ch.mp : { current: 3, max: 3 };
+  const mpBase = (ch.mp && typeof ch.mp.max === "number") ? ch.mp : { current: 3, max: 3 };
+  // 23/10: remapeia ids de ENCANTAMENTOS renomeados (ver
+  // REMAPEAMENTO_ENCANTAMENTO_23_10) — preserva o encantamento ativo (e a
+  // mana/SP que ele já tinha quebrado) sob o novo id, em vez de deixá-lo
+  // "invisível" pro catálogo atual.
+  const encantamentosAtivosSalvos = Array.isArray(ch.encantamentosAtivos) ? ch.encantamentosAtivos : [];
+  const encantamentosAtivos = encantamentosAtivosSalvos.map((id) => REMAPEAMENTO_ENCANTAMENTO_23_10[id] || id);
+  // Ids de Alquimia que saíram do catálogo (ver ITENS_ALQUIMICOS_REMOVIDOS_
+  // 23_10) — removidos de itensAlquimicosAtivos; a mana que cada um tinha
+  // quebrado é devolvida (não tem mais catálogo que resolva o id pra
+  // desquebrar pela UI).
+  const itensAlquimicosAtivosSalvos = Array.isArray(ch.itensAlquimicosAtivos) ? ch.itensAlquimicosAtivos : [];
+  const itensAlquimicosRemovidosCount = itensAlquimicosAtivosSalvos.filter((id) => ITENS_ALQUIMICOS_REMOVIDOS_23_10.has(id)).length;
+  const itensAlquimicosAtivos = itensAlquimicosAtivosSalvos.filter((id) => !ITENS_ALQUIMICOS_REMOVIDOS_23_10.has(id));
+  const mp = itensAlquimicosRemovidosCount > 0 ? repararMana(mpBase, itensAlquimicosRemovidosCount) : mpBase;
   const sp = (ch.sp && typeof ch.sp.max === "number") ? ch.sp : (() => { const max = computeMaxSP({ sp: ch.sp, procs, descritores }); return { current: max, max }; })();
   // Enquadramento do retrato (y/zoom): fichas salvas antes desse campo existir
   // (ou um backup de formato antigo) ganham o padrão centralizado/sem zoom —
@@ -283,7 +324,7 @@ export function migrarPersonagem(ch) {
     ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
     abilities, atributosGerais, proficiencias, proficienciasLegado, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, disciplinaExtraHumano, descritores, bonusGrauEscolha,
-    bonusGrauFixoSuprimido,
+    bonusGrauFixoSuprimido, encantamentosAtivos, itensAlquimicosAtivos,
   };
 }
 

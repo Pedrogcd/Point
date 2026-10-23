@@ -755,37 +755,43 @@ export function temDescritor(entidade, nome) {
   return (entidade?.descritores || []).includes(nome);
 }
 
-// Grau de um descritor NUMÉRICO genérico (21/10, generaliza a função que já
-// existia só pra Queimadura): "nome" sozinho no array vale grau 1, "nome_N"
-// vale grau N — mesma convenção de "atrasada_1" (ver data/magias.js). Soma
-// TODAS as ocorrências encontradas (ex.: duas fontes do mesmo descritor no
-// mesmo ataque somam) — não é uma regra confirmada pelo Pedro, é a leitura
-// mais direta de "ganha X" empilhando com o que já houver; listada no
-// relatório final como decisão minha. Usada por Queimadura, Preciso,
-// Esmagador, Envenenamento e Carga (todos "Descritor N" do glossário de
-// docs/ATUALIZACAO_21-10.md, seção 5).
-export function grauDescritorNumerico(descritores, nome) {
+// Grau de um descritor NUMÉRICO genérico: "nome" sozinho no array vale grau
+// 1, "nome_N" vale grau N — mesma convenção de "atrasada_1" (ver
+// data/magias.js). 23/10 (docs/ATUALIZACAO_23-10.md seção 1, "Acúmulo de
+// descritores"): regra de acúmulo de verdade, substitui a soma cega de
+// 21/10 — Queimadura/Envenenamento/Carga de fontes diferentes SOMAM os N
+// (`modo: "soma"`); Preciso e Lento valem só o MAIOR N entre as fontes
+// (`modo: "maior"`), e o documento sugere o mesmo pro Esmagador (ainda "não
+// decidido" oficialmente — seção 9 "Abertas" — mas é a leitura adotada
+// aqui, mesmo tratamento de Firme/Selado por serem a mesma categoria de
+// descritor defensivo de armadura com N, mesmo sem entrar explicitamente na
+// lista do documento — decisão minha, ver relatório final).
+export function grauDescritorNumerico(descritores, nome, modo = "soma") {
   const ds = descritores || [];
   const regexN = new RegExp(`^${nome}_(\\d+)$`);
-  return ds.reduce((total, d) => {
-    if (d === nome) return total + 1;
+  const ocorrencias = ds.reduce((lista, d) => {
+    if (d === nome) return [...lista, 1];
     const m = regexN.exec(d);
-    return m ? total + parseInt(m[1], 10) : total;
-  }, 0);
+    return m ? [...lista, parseInt(m[1], 10)] : lista;
+  }, []);
+  if (ocorrencias.length === 0) return 0;
+  return modo === "maior" ? Math.max(...ocorrencias) : ocorrencias.reduce((a, b) => a + b, 0);
 }
-export function grauQueimadura(descritores) { return grauDescritorNumerico(descritores, "queimadura"); }
-export function grauPreciso(descritores) { return grauDescritorNumerico(descritores, "preciso"); }
-export function grauEsmagador(descritores) { return grauDescritorNumerico(descritores, "esmagador"); }
-export function grauEnvenenamento(descritores) { return grauDescritorNumerico(descritores, "envenenamento"); }
-export function grauCarga(descritores) { return grauDescritorNumerico(descritores, "carga"); }
+export function grauQueimadura(descritores) { return grauDescritorNumerico(descritores, "queimadura", "soma"); }
+export function grauPreciso(descritores) { return grauDescritorNumerico(descritores, "preciso", "maior"); }
+export function grauEsmagador(descritores) { return grauDescritorNumerico(descritores, "esmagador", "maior"); }
+export function grauEnvenenamento(descritores) { return grauDescritorNumerico(descritores, "envenenamento", "soma"); }
+export function grauCarga(descritores) { return grauDescritorNumerico(descritores, "carga", "soma"); }
 // Descritores defensivos de ARMADURA (21/10, docs/ATUALIZACAO_21-10.md
 // seção 7.2, planilha armaduras.xlsx) — diferente dos acima, estes vêm do
 // character.descritores do PRÓPRIO DEFENSOR (via data/armaduras.js:
 // descritoresDeEquipamentoDefensivo + racasCatalogo.js:comGrausEfetivos),
-// nunca de descritoresAtaque. Mesma convenção "nome"/"nome_N".
-export function grauFirme(descritores) { return grauDescritorNumerico(descritores, "firme"); }
-export function grauSelado(descritores) { return grauDescritorNumerico(descritores, "selado"); }
-export function grauLento(descritores) { return grauDescritorNumerico(descritores, "lento"); }
+// nunca de descritoresAtaque. Mesma convenção "nome"/"nome_N". Firme não
+// acumula (23/10, lista explícita); Selado segue o mesmo tratamento por
+// categoria (ver nota acima).
+export function grauFirme(descritores) { return grauDescritorNumerico(descritores, "firme", "maior"); }
+export function grauSelado(descritores) { return grauDescritorNumerico(descritores, "selado", "maior"); }
+export function grauLento(descritores) { return grauDescritorNumerico(descritores, "lento", "maior"); }
 
 export const LIMIAR_SUCESSO = 5; // dado > 5 => 6+ é sucesso
 export const LIMIAR_BLINDADO = 6; // dado > 6 => 7+ é sucesso contra Blindado

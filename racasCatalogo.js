@@ -3,7 +3,7 @@
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
-import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos } from "./data/magias.js";
+import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO } from "./data/magias.js";
 import { descritoresDeEquipamentoDefensivo, penalidadeDefesaSemPericiaDoPersonagem, bonusDefesaDeEquipamento } from "./data/armaduras.js";
 
 export const CATALOGO_RACAS = catalogo;
@@ -683,23 +683,24 @@ export function bonusGrauDoPersonagem(character) {
       alvo[b.chave] = (alvo[b.chave] || 0) + 1;
     }
   }
-  // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): ter "Ofício Mágico:
-  // Magias de guerra" entre os até 3 slots de disciplina mantém o +1 grau em
-  // Magias Gerais que o antigo "Ofício Mágico" já dava, e TAMBÉM +1 grau
-  // (teto C) em Acadêmicos e Tecnologia — confirmado pelo Pedro (14/10, mais
-  // tarde ainda) como o valor real, encerrando a pendência 2 do guia ("valor
-  // a confirmar, suposto +1 grau teto C" — ver docs/DISCIPLINAS_MAGIA.md e o
-  // item 2 da seção "Pendências" em CONTEXTO.md). Até então isso era só
-  // `bonusTexto` descritivo em data/magias.js, sem efeito numérico nenhum.
-  // As outras disciplinas vazias (Encantamentos, Alquimia, Constructo — ver
-  // data/magias.js:DISCIPLINAS) não dão bônus de grau nenhum, só contam como
-  // dado no pool mágico (ver engine.js:contagemOficiosMagicos). Magia Inata
-  // não dá bônus de grau nenhum — vira +1d10 fixo nas rolagens de magia e +1
-  // MP (ver engine.js:diceAtaqueMagico/computeMaxMana).
-  if (oficiosMagicosDoPersonagem(character).includes("oficio-magias-de-guerra")) {
-    resultado.proficiencias.magiasGerais = (resultado.proficiencias.magiasGerais || 0) + 1;
-    resultado.proficiencias.academicos = (resultado.proficiencias.academicos || 0) + 1;
-    resultado.proficiencias.tecnologia = (resultado.proficiencias.tecnologia || 0) + 1;
+  // 23/10 (docs/ATUALIZACAO_23-10.md seção 2b): cada ofício mágico EQUIPADO
+  // dá 3 proficiências fixas (+1 grau cada) — ver BONUS_GRAU_POR_OFICIO em
+  // data/magias.js. Substitui o bloco hard-coded de antes (14/10, só pra
+  // Magias de guerra: Magias Gerais/Acadêmicos/Tecnologia) — a tabela nova
+  // generaliza pros 5 ofícios e corrige Magias de guerra pra Política no
+  // lugar de Acadêmicos. "Os bônus de disciplinas diferentes somam até o
+  // teto C" é automático: se dois ofícios diferentes derem +1 na mesma
+  // chave, os passos somam aqui (`(alvo[chave]||0)+1` por ofício) antes do
+  // teto ser aplicado em comGrausEfetivos, mesmo mecanismo de
+  // BONUS_GRAU_POR_HABILIDADE. Conduíte e Magia Inata não têm entrada na
+  // tabela (não dão proficiências — Magia Inata vira +1d10 fixo nas
+  // rolagens de magia e +1 MP, ver engine.js:diceAtaqueMagico/
+  // computeMaxMana).
+  for (const oficioId of oficiosMagicosDoPersonagem(character)) {
+    for (const b of BONUS_GRAU_POR_OFICIO[oficioId] || []) {
+      const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+      alvo[b.chave] = (alvo[b.chave] || 0) + 1;
+    }
   }
   return resultado;
 }
@@ -764,12 +765,18 @@ export function comGrausEfetivos(character) {
   // Destreza/ofício mágico) do mesmo jeito. Sem clonar quando não há nada
   // ativo/equipado (igual ao resto da função).
   const descritoresEncantamentos = descritoresDeEncantamentosAtivos(character);
+  // Invocações ativas (23/10, docs/ATUALIZACAO_23-10.md seção 7, ver
+  // data/magias.js:INVOCACAO/descritoresDeInvocacoesAtivas) — mesmo
+  // mecanismo de ENCANTAMENTOS (toggle de mana quebrada, soma descritores
+  // em character.descritores): Escudo Invocado dá Firme 1, Arma de Brasa dá
+  // Queimadura 1. Invocar Arma não concede descritor (não mecanizado).
+  const descritoresInvocacoes = descritoresDeInvocacoesAtivas(character);
   const descritoresEquipamento = descritoresDeEquipamentoDefensivo(character);
   // Descritor à escolha de habilidade racial (21/10 — hoje só Homúnculo,
   // "um Potente à escolha"; ver DESCRITOR_ESCOLHA_POR_HABILIDADE acima).
   const descritoresEscolhidos = descritorEscolhidoDoPersonagem(character);
   const descritoresTransformacao = descritoresDeTransformacaoAtiva(character);
-  const descritoresExtras = [...descritoresEncantamentos, ...descritoresEquipamento, ...descritoresEscolhidos, ...descritoresTransformacao];
+  const descritoresExtras = [...descritoresEncantamentos, ...descritoresInvocacoes, ...descritoresEquipamento, ...descritoresEscolhidos, ...descritoresTransformacao];
   const descritores = descritoresExtras.length
     ? [...new Set([...(character.descritores || []), ...descritoresExtras])]
     : character.descritores;

@@ -356,6 +356,49 @@ describe("migrarPersonagem — supressão do bônus de grau fixo na inferência 
   });
 });
 
+describe("migrarPersonagem — migração dos Encantamentos/Alquimia renomeados (23/10)", () => {
+  it("remapeia os 7 ids antigos de encantamentosAtivos pros novos, preservando a mana quebrada", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      encantamentosAtivos: ["lamina_letal", "ponta_perfurante", "golpe_preciso", "encantamento_flamejante", "pele_encantada", "sorte_encantada", "encantamento_eletrico"],
+      mp: { current: 0, max: 3, quebrada: 7 },
+    });
+    assert.deepEqual(migrado.encantamentosAtivos, [
+      "encantamento_letal", "encantamento_perfurante", "encantamento_preciso_1", "encantamento_queimadura_1",
+      "encantamento_resistente", "encantamento_sortudo", "encantamento_carga_2",
+    ]);
+    // mana quebrada não mexe nessa migração (só os ids de ENCANTAMENTOS mudam).
+    assert.equal(migrado.mp.quebrada, 7);
+  });
+
+  it("um id já no formato novo (ex.: encantamento_drenante) passa intocado", () => {
+    const migrado = migrarPersonagem({ id: "x", name: "X", encantamentosAtivos: ["encantamento_drenante"] });
+    assert.deepEqual(migrado.encantamentosAtivos, ["encantamento_drenante"]);
+  });
+
+  it("remove Antídoto/Elixir Drenante de itensAlquimicosAtivos e devolve a mana que eles tinham quebrado", () => {
+    const migrado = migrarPersonagem({
+      id: "x", name: "X",
+      itensAlquimicosAtivos: ["antidoto", "poção_de_cura", "elixir_drenante"],
+      mp: { current: 0, max: 3, quebrada: 2 },
+    });
+    assert.deepEqual(migrado.itensAlquimicosAtivos, ["poção_de_cura"]);
+    assert.equal(migrado.mp.quebrada, 0);
+    assert.equal(migrado.mp.current, 2);
+  });
+
+  it("é idempotente: migrar duas vezes não muda o resultado", () => {
+    const uma = migrarPersonagem({
+      id: "x", name: "X",
+      encantamentosAtivos: ["pele_encantada"],
+      itensAlquimicosAtivos: ["antidoto"],
+      mp: { current: 2, max: 3, quebrada: 1 },
+    });
+    const duas = migrarPersonagem(uma);
+    assert.deepEqual(duas, uma);
+  });
+});
+
 describe("migrarPersonagens", () => {
   it("migra uma lista inteira", () => {
     const migrados = migrarPersonagens([{ id: "a", name: "A" }, { id: "b", name: "B" }]);

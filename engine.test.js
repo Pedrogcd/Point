@@ -663,6 +663,27 @@ describe("grauDescritorNumerico (generaliza grauQueimadura)", () => {
     assert.equal(grauDescritorNumerico(["foo"], "foo"), 1);
     assert.equal(grauDescritorNumerico([], "foo"), 0);
   });
+
+  // 23/10 (docs/ATUALIZACAO_23-10.md seção 1, "Acúmulo de descritores"):
+  // regra de acúmulo de verdade por descritor — substitui a soma cega de
+  // 21/10 que valia pra todos.
+  it("Queimadura/Envenenamento/Carga de fontes diferentes SOMAM os N (23/10)", () => {
+    assert.equal(grauQueimadura(["queimadura_1", "queimadura_2"]), 3);
+    assert.equal(grauEnvenenamento(["envenenamento_1", "envenenamento_2"]), 3);
+    assert.equal(grauCarga(["carga_2", "carga_1"]), 3);
+  });
+  it("Preciso/Lento/Esmagador de fontes diferentes valem só o MAIOR N (23/10)", () => {
+    assert.equal(grauPreciso(["preciso_2", "preciso_1"]), 2);
+    assert.equal(grauPreciso(["preciso", "preciso_2"]), 2); // "preciso" sozinho = grau 1
+    assert.equal(grauLento(["lento_1", "lento_2"]), 2);
+    // Esmagador: "ainda não foi decidido" no documento, mas a sugestão dele
+    // é tratar como Preciso (maior) — decisão adotada aqui.
+    assert.equal(grauEsmagador(["esmagador_1", "esmagador_3"]), 3);
+  });
+  it("Firme/Selado (armadura) de fontes diferentes NÃO acumulam — só o maior N conta (23/10)", () => {
+    assert.equal(grauFirme(["firme_1", "firme_2"]), 2);
+    assert.equal(grauSelado(["selado_1", "selado_1"]), 1);
+  });
 });
 
 describe("resolveEnvenenamento", () => {

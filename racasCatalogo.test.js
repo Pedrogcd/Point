@@ -303,12 +303,12 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
   });
 
-  it("Disciplina 'Ofício Mágico: Magias de guerra' dá +1 em Magias Gerais, Acadêmicos e Tecnologia (pendência 2 de DISCIPLINAS_MAGIA.md, confirmada 14/10)", () => {
+  it("Disciplina 'Ofício Mágico: Magias de guerra' dá +1 em Magias Gerais, Política e Tecnologia (23/10, docs/ATUALIZACAO_23-10.md seção 2b — Política no lugar de Acadêmicos)", () => {
     const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }] });
-    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, academicos: 1, tecnologia: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, politica: 1, tecnologia: 1 }, atributos: {} });
   });
 
-  it("Disciplinas que não são Magias de guerra não dão bônus de grau nenhum (só contam no pool mágico)", () => {
+  it("23/10: Encantamentos/Alquimia/Constructo também dão 3 proficiências cada — e somam entre si até o teto (seção 2b)", () => {
     const bonus = bonusGrauDoPersonagem({
       disciplinas: [
         { disciplinaId: "oficio-encantamentos", habilidadesAtivas: [] },
@@ -316,7 +316,18 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
         { disciplinaId: "oficio-constructo", habilidadesAtivas: [] },
       ],
     });
-    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+    // Encantamentos: Magias Gerais, Ofício, Investigação. Alquimia: Medicina,
+    // Ofício, Acadêmicos. Constructo: Tecnologia, Ofício, Liderança.
+    // "Ofício" se repete nos 3 ofícios -> soma 3.
+    assert.deepEqual(bonus, {
+      proficiencias: { magiasGerais: 1, investigacao: 1, medicina: 1, academicos: 1, tecnologia: 1, lideranca: 1, oficio: 3 },
+      atributos: {},
+    });
+  });
+
+  it("23/10: Invocação dá as 3 proficiências (Magias Gerais, Atletismo, Percepção) + a passiva mecanizada (Combate Corpo a Corpo)", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-invocacao", habilidadesAtivas: [] }] });
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, atletismo: 1, percepcao: 1, combateCorpoACorpo: 1 }, atributos: {} });
   });
 
   it("Magia Inata não dá bônus de grau nenhum (virou só +1d10 fixo e +1 MP, ver engine.js)", () => {
@@ -825,21 +836,21 @@ describe("racasCatalogo — comGrausEfetivos", () => {
     assert.equal(character.descritores, ch.descritores);
   });
 
-  it("Encantamento Flamejante ativo soma 'queimadura' em character.descritores", () => {
-    const ch = { descritores: ["sortudo"], encantamentosAtivos: ["encantamento_flamejante"], proficiencias: {}, atributosGerais: {} };
+  it("Encantamento: Queimadura 1 ativo soma 'queimadura_1' em character.descritores", () => {
+    const ch = { descritores: ["sortudo"], encantamentosAtivos: ["encantamento_queimadura_1"], proficiencias: {}, atributosGerais: {} };
     const { character } = comGrausEfetivos(ch);
-    assert.deepEqual(character.descritores, ["sortudo", "queimadura"]);
+    assert.deepEqual(character.descritores, ["sortudo", "queimadura_1"]);
   });
 
-  it("Encantamento Flamejante ativo também soma com bônus de grau de raça presentes", () => {
+  it("Encantamento: Queimadura 1 ativo também soma com bônus de grau de raça presentes", () => {
     const ch = {
       raca: "ningen", habilidadePrincipal: "leonino",
-      descritores: [], encantamentosAtivos: ["encantamento_flamejante"],
+      descritores: [], encantamentosAtivos: ["encantamento_queimadura_1"],
       proficiencias: { investigacao: "E" }, atributosGerais: {},
     };
     const { character } = comGrausEfetivos(ch);
     assert.equal(character.proficiencias.investigacao, "D");
-    assert.deepEqual(character.descritores, ["queimadura"]);
+    assert.deepEqual(character.descritores, ["queimadura_1"]);
   });
 
   it("encantamentoId desconhecido não quebra e não soma nada", () => {

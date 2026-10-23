@@ -1,41 +1,39 @@
-// Catálogo de magias — dados editáveis, fonte de verdade: docs/SISTEMA_MAGIA.md
-// (seção "Catálogo de magias"), atualizado em 14/10 por
-// docs/MUDANCAS_RACAS_E_MAGIA.md (onde os dois divergirem, vale o de 14/10).
-// Mantido fora do engine.js de propósito (o
-// motor não deve ter magia nenhuma hard-coded — ver item 9 do pedido do
-// Pedro). Cada entrada descreve uma magia OFENSIVA pronta pra alimentar
-// engine.diceAtaqueMagico/resolveAtaque/resolveAtaqueEmArea, exceto Escudo de
-// Mana (não rola, só concede descritores por uma cena) e Sensor (placeholder,
-// ainda sem pool/custo definidos no guia — "a definir").
+// Catálogo de magias e ofícios mágicos — dados editáveis, fonte de verdade:
+// docs/ATUALIZACAO_23-10.md (complementa docs/ATUALIZACAO_21-10.md; em caso
+// de conflito, vale o de 23/10). Mantido fora do engine.js de propósito (o
+// motor não deve ter magia nenhuma hard-coded).
 //
-// Campos:
+// Campos comuns das magias (catálogo "Ataque", usado por Magias de guerra,
+// Dreno de Mana e os ataques de Invocação):
 // - id: chave estável (usada pra salvar qual magia tá "ativa" na ficha).
 // - nome: nome de exibição.
-// - descritores: array de strings minúsculas — as que o motor entende
-//   ("perfurante", "saturante", "letal", "sortudo", "queimadura"/
-//   "queimadura_N" — ver engine.js:grauQueimadura) mais as que são só
-//   etiqueta por enquanto ("magia", "em_area", "atrasada_1" — ver
-//   docs/SISTEMA_MAGIA.md, "Veloz/prioridade -1/atrasada 1: só etiquetas").
-// - custoMp: custo em mana pra conjurar (null = "a definir", caso do Sensor).
+// - disciplinaId: a disciplina (DISCIPLINAS, abaixo) "dona" da magia — filtra
+//   qual ofício mostra a magia no seletor de equipar (ver point-amaranth-
+//   app.jsx:DisciplinaSlotPicker). Ausente = Sensor, que qualquer ofício
+//   mágico pode pegar (23/10, seção 1).
+// - descritores: array de strings minúsculas que o motor entende.
+// - custoMp: custo em mana pra conjurar.
 // - ajusteDados: ajuste no pool de dados ALÉM de Base mágica + Ofícios
-//   Mágicos/Inteligência (ex.: Mísseis Mágicos é "Base mágica + 1 +
-//   Ofícios/Inteligência" — docs/MUDANCAS_RACAS_E_MAGIA.md, 14/10).
+//   Mágicos/Inteligência.
 // - feridas: nº de ferimentos causados num acerto (sucessos líquidos > 0).
 // - superficial: true força ferimento superficial mesmo com sucessos líquidos
-//   altos (docs/SISTEMA_MAGIA.md — "Magia marcada 'superficial' causa sempre
-//   ferimento superficial").
+//   altos.
 // - emArea: true = usar resolveAtaqueEmArea (um alvo por vez é resolveAtaque).
-// - semRolagem / efeito: magias especiais sem pool de ataque (Escudo de Mana).
-// - placeholder: magia ainda sem regra fechada no guia (Sensor).
+// - semRolagem / efeito: magias especiais sem pool de ataque (Escudo de Mana,
+//   Sensor).
 
-// Disciplinas — dados editáveis, fonte de verdade: docs/DISCIPLINAS_MAGIA.md
-// (14/10, complementa docs/MUDANCAS_RACAS_E_MAGIA.md). Substitui o antigo
-// OFICIOS_MAGICOS (checkbox solto, 13/10-14/10): agora uma disciplina é um
-// dos até 3 "slots" da ficha (ver point-amaranth-app.jsx:DisciplinaSlotPicker
-// — troca o antigo painel "Classes"), e só as de tipo "oficio-magico" ou
-// "magia-inata" oferecem magias equipáveis (até 3 cada, próprias da
-// disciplina — não é mais um pool só compartilhado entre todas as
-// disciplinas do personagem).
+// Disciplinas — até 3 slots por personagem (character.disciplinas, array de
+// até 3 `{ disciplinaId, habilidadesAtivas }` ou `null`). Só as de tipo
+// "oficio-magico" ou "magia-inata" oferecem magias equipáveis.
+//
+// 23/10 (docs/ATUALIZACAO_23-10.md seção 2b): cada ofício agora dá 3
+// proficiências reais (+1 grau cada, teto C — ver BONUS_GRAU_POR_OFICIO
+// abaixo, consumido por racasCatalogo.js:bonusGrauDoPersonagem) e 1 passiva
+// própria (ver PASSIVA_POR_OFICIO). Conduíte e Magia Inata não dão
+// proficiências. `bonusTexto` resume as duas coisas pra exibir no seletor de
+// disciplina (point-amaranth-app.jsx:DisciplinaSlotPicker, cartão de cada
+// ofício) — ver "mecanizada" em PASSIVA_POR_OFICIO pra saber se a passiva
+// realmente faz algo no motor ou só aparece como texto.
 //
 // Campos:
 // - id: chave estável (character.disciplinas[i].disciplinaId).
@@ -43,23 +41,18 @@
 // - tipo: "oficio-magico" (conta 1 no pool de ataque mágico/recuperação de
 //   mana — ver engine.contagemOficiosMagicos) ou "magia-inata" (NÃO conta
 //   como ofício, dá bônus próprio).
-// - vazia: true = ainda sem bônus nem magias definidos no guia (Encantamentos/
-//   Alquimia/Constructo — "Cadastre-os como disciplinas vazias", pendência 4
-//   de docs/DISCIPLINAS_MAGIA.md). Só ocupa 1 dos 3 slots e conta como ofício
-//   (se for do tipo oficio-magico); sem acesso a magias.
-// - temMagias: true = a disciplina oferece o catálogo de MAGIAS pra equipar
-//   (até magiasAtivasMax, mesmo catálogo pras duas: Magias de guerra e Magia
-//   Inata).
-// - magiasIniciais: nº de magias escolhidas de graça ao adquirir a disciplina
-//   (como o jogador chega além disso — a "reserva" — é pendência 3 do guia,
-//   não implementada; a UI deixa equipar livremente até magiasAtivasMax).
-// - magiasAtivasMax: nº máximo de magias equipadas ao mesmo tempo (3).
-// - temTelaDeMana: só Magias de guerra — acesso extra "que permite analisar
-//   magias" (sem mecânica numérica definida no guia; ver UI).
-// - trocaGratisComAcao: só Magias de guerra — trocar uma magia equipada por
-//   uma da reserva é de graça gastando uma ação (o app não modela ações/
-//   turnos, então o botão correspondente só não desconta MP).
-// - bonusTexto: texto do bônus base pra exibir na ficha.
+// - temMagias: true = a disciplina oferece o catálogo de MAGIAS (filtrado por
+//   disciplinaId) pra equipar (até magiasAtivasMax). Só Magias de guerra e
+//   Magia Inata usam esse mecanismo de "equipar até N, trocar com ação/MP" —
+//   as magias de Encantamentos (Dreno de Mana) e Invocação (Lança Longínqua,
+//   Chuva de Lâminas, Chama Mágica) ficam disponíveis automaticamente assim
+//   que o ofício dono está equipado, sem precisar escolher entre elas (mesma
+//   simplificação que Encantamentos/Alquimia já tinham — "ocupa 1 dos 3
+//   espaços do ofício" não é validado em nenhum desses catálogos ainda, ver
+//   relatório).
+// - magiasIniciais/magiasAtivasMax/temTelaDeMana/trocaGratisComAcao: só
+//   Magias de guerra/Magia Inata (ver point-amaranth-app.jsx).
+// - bonusTexto: texto do bônus (proficiências + passiva) pra exibir na ficha.
 export const DISCIPLINAS = [
   {
     id: "oficio-magias-de-guerra",
@@ -70,7 +63,7 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: true,
     trocaGratisComAcao: true,
-    bonusTexto: "Magias Gerais +1 grau (teto C). Dá também +1 grau (teto C) em Acadêmicos e Tecnologia (confirmado 14/10).",
+    bonusTexto: "Magias Gerais, Política e Tecnologia +1 grau cada (teto C). Passiva: a primeira magia que a pessoa lança em um combate custa 1 MP a menos (mínimo 0) — vale pra qualquer magia, de qualquer ofício (não mecanizada: o app não acompanha início de combate).",
     descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
   },
   {
@@ -82,23 +75,28 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: false,
     trocaGratisComAcao: false,
-    bonusTexto: "+1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico).",
+    bonusTexto: "+1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico, não dá proficiências nem passiva de ofício).",
     descricao: "Magia que vem de dentro, sem estudo formal.",
   },
   {
     id: "oficio-encantamentos", nome: "Ofício Mágico: Encantamentos", tipo: "oficio-magico",
-    bonusTexto: "Bônus de grau ainda não definido. 8 encantamentos (21/10) — cada um quebra 1 mana e concede um descritor enquanto ela estiver quebrada.",
-    descricao: "Disciplina de ofício mágico. Habilidades que, ao quebrar 1 mana, dão um descritor ao usuário ou aos ataques dele, físicos e mágicos.",
+    bonusTexto: "Magias Gerais, Ofício e Investigação +1 grau cada (teto C). Passiva: a cada descanso longo, escolhe uma proficiência qualquer (inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, teto C (não mecanizada: o app não tem descanso longo nem essa escolha).",
+    descricao: "Disciplina de ofício mágico. Cada encantamento quebra 1 mana e concede um descritor ao usuário (ou aos ataques dele, físicos e mágicos) enquanto ela estiver quebrada. Nomes no formato 'Encantamento: Descritor'.",
   },
   {
     id: "oficio-alquimia", nome: "Ofício Mágico: Alquimia", tipo: "oficio-magico",
-    bonusTexto: "Bônus de grau ainda não definido. 19 itens preparáveis (21/10) — cada um quebra 1 mana, fora de combate, pra existir; qualquer pessoa pode usá-lo depois.",
-    descricao: "Disciplina de ofício mágico. Itens preparados que quebram mana pra existir — ver engine.js:diceAtaqueAlquimia.",
+    bonusTexto: "Medicina, Ofício e Acadêmicos +1 grau cada (teto C). Passiva: no descanso longo, prepara qualquer habilidade de Alquimia em quantidade igual à Inteligência ou ao número de ofícios (o maior), sem quebrar mana (não mecanizada: o app não tem descanso longo nem contagem de itens de graça).",
+    descricao: "Disciplina de ofício mágico. Itens preparados que quebram mana pra existir, fora de combate — qualquer pessoa pode usá-los depois.",
   },
   {
     id: "oficio-constructo", nome: "Ofício Mágico: Constructo", tipo: "oficio-magico",
-    bonusTexto: "Bônus de grau ainda não definido. 7 constructos (21/10, catálogo de dados só — sem UI de invocar/gerenciar ainda, ver CONTEXTO.md). Cada um quebra 2 mana.",
-    descricao: "Disciplina de ofício mágico. Servos/torres/armadilhas/armas/armaduras criados, que agem só quando o dono manda — ver engine.js:diceAtaqueConstructo.",
+    bonusTexto: "Tecnologia, Ofício e Liderança +1 grau cada (teto C). Passiva: já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana (não mecanizada: não há UI de invocar/gerenciar constructo ainda).",
+    descricao: "Disciplina de ofício mágico. Servos/torres/armadilhas/armas/armaduras criados, que agem só quando o dono manda.",
+  },
+  {
+    id: "oficio-invocacao", nome: "Ofício Mágico: Invocação", tipo: "oficio-magico",
+    bonusTexto: "Magias Gerais, Atletismo e Percepção +1 grau cada (teto C). Passiva: +1 grau em Combate Corpo a Corpo (teto C), sempre, não só com armas invocadas — mecanizada.",
+    descricao: "Disciplina de ofício mágico (separado de Encantamentos e Constructo em 21/10). Invoca armas espectrais e algumas magias de invocação (Chama Mágica).",
   },
 ];
 
@@ -106,15 +104,98 @@ export function getDisciplinaPorId(id) {
   return DISCIPLINAS.find((d) => d.id === id) || null;
 }
 
-// Máximo de disciplinas por personagem (docs/DISCIPLINAS_MAGIA.md: "Cada
-// personagem escolhe até 3 disciplinas no total" — Magia Inata ocupa um dos
-// 3 slots também, mesmo não contando como ofício mágico).
+// Máximo de disciplinas por personagem — Magia Inata ocupa um dos 3 slots
+// também, mesmo não contando como ofício mágico.
 export const MAX_DISCIPLINAS = 3;
 
+// 23/10 (docs/ATUALIZACAO_23-10.md seção 2b): 3 proficiências fixas por
+// ofício equipado (+1 grau cada, sem escolha do jogador) — consumido por
+// racasCatalogo.js:bonusGrauDoPersonagem (soma com o resto dos bônus de
+// grau do personagem, teto C por padrão, igual qualquer outro bônus de
+// BONUS_GRAU_POR_HABILIDADE). "Os bônus de disciplinas diferentes somam até
+// o teto C": automático — se duas disciplinas diferentes derem +1 na mesma
+// chave (ex.: Encantamentos e Constructo nos dois dão "oficio"), os passos
+// somam antes do teto, mesmo mecanismo de BONUS_GRAU_POR_HABILIDADE.
+// Conduíte e Magia Inata não entram aqui (não dão proficiências).
+//
+// Invocação tem uma 4ª entrada (combateCorpoACorpo): não é uma das "3
+// proficiências" do ofício, é a PASSIVA dele ("+1 grau em Combate Corpo a
+// Corpo, sempre") — mecanicamente idêntica (mesmo +1 grau/teto C), por isso
+// cabe na mesma tabela sem precisar de um mecanismo à parte.
+export const BONUS_GRAU_POR_OFICIO = {
+  "oficio-magias-de-guerra": [
+    { tipo: "proficiencia", chave: "magiasGerais" },
+    { tipo: "proficiencia", chave: "politica" },
+    { tipo: "proficiencia", chave: "tecnologia" },
+  ],
+  "oficio-encantamentos": [
+    { tipo: "proficiencia", chave: "magiasGerais" },
+    { tipo: "proficiencia", chave: "oficio" },
+    { tipo: "proficiencia", chave: "investigacao" },
+  ],
+  "oficio-alquimia": [
+    { tipo: "proficiencia", chave: "medicina" },
+    { tipo: "proficiencia", chave: "oficio" },
+    { tipo: "proficiencia", chave: "academicos" },
+  ],
+  "oficio-constructo": [
+    { tipo: "proficiencia", chave: "tecnologia" },
+    { tipo: "proficiencia", chave: "oficio" },
+    { tipo: "proficiencia", chave: "lideranca" },
+  ],
+  "oficio-invocacao": [
+    { tipo: "proficiencia", chave: "magiasGerais" },
+    { tipo: "proficiencia", chave: "atletismo" },
+    { tipo: "proficiencia", chave: "percepcao" },
+    { tipo: "proficiencia", chave: "combateCorpoACorpo" }, // passiva do ofício, sempre ativa
+  ],
+};
+
+// 23/10 (seção 2b): texto da passiva de cada ofício, pra exibir e pro
+// relatório. `mecanizada` diz se o motor realmente aplica o efeito (hoje só
+// a de Invocação, via BONUS_GRAU_POR_OFICIO acima) — as outras quatro
+// dependem de conceitos que o app não modela (início de combate, descanso
+// longo, UI de constructo) e ficam só como texto, mostradas no bonusTexto
+// de cada disciplina.
+export const PASSIVA_POR_OFICIO = {
+  "oficio-magias-de-guerra": {
+    texto: "A primeira magia que a pessoa lança em um combate custa 1 MP a menos (mínimo 0). Vale para qualquer magia, de qualquer ofício. Combate não é o mesmo que cena.",
+    mecanizada: false,
+  },
+  "oficio-encantamentos": {
+    texto: "A cada descanso longo, escolhe uma proficiência (qualquer uma, inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, respeitando o teto C.",
+    mecanizada: false,
+  },
+  "oficio-alquimia": {
+    texto: "No descanso longo, prepara habilidades de Alquimia (poções, bombas e qualquer outro item) em quantidade igual à Inteligência ou ao número de ofícios (o que for maior). Os itens preparados assim não quebram mana, e podem ser de qualquer habilidade de Alquimia, não só das equipadas.",
+    mecanizada: false,
+  },
+  "oficio-constructo": {
+    texto: "Já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana. Se for destruído, só volta no descanso longo.",
+    mecanizada: false,
+  },
+  "oficio-invocacao": {
+    texto: "Ganha +1 grau em Combate Corpo a Corpo (teto C), sempre, não só com armas invocadas.",
+    mecanizada: true,
+  },
+};
+
+export function getPassivaDoOficio(disciplinaId) {
+  return PASSIVA_POR_OFICIO[disciplinaId] || null;
+}
+
+// Catálogo de MAGIAS (Tipo "Ataque"/"Defesa"/"Magia"/"Utilidade" — rolam com
+// Base mágica + Ofícios/Inteligência, exceto as semRolagem). 23/10: ficam 12
+// magias de Magias de guerra + Sensor (compartilhado) + Dreno de Mana (foi
+// pra Encantamentos) + os 3 ataques de Invocação (Lança Longínqua, Chuva de
+// Lâminas e Chama Mágica, que veio de Magias de guerra). `disciplinaId`
+// filtra o seletor de equipar; ausente = Sensor (qualquer ofício mágico).
 export const MAGIAS = [
+  // --- Magias de guerra (12) -------------------------------------------
   {
     id: "bombardeio_de_mana",
     nome: "Bombardeio de Mana",
+    disciplinaId: "oficio-magias-de-guerra",
     descritores: ["magia", "em_area", "preciso_2"],
     custoMp: 2,
     ajusteDados: 0,
@@ -125,19 +206,23 @@ export const MAGIAS = [
   {
     id: "escudo_de_mana",
     nome: "Escudo de Mana",
-    descritores: ["magia"],
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "blindado"],
     custoMp: 1,
     custoMpExtensaoAliado: 1,
     semRolagem: true,
     efeito:
-      "O conjurador ganha Blindado até o fim da cena (14/10: Blindado Mágico " +
-      "não existe mais separado, Blindado agora vale contra qualquer ataque). " +
-      "Gastando +1 MP, o escudo se estende também a um aliado escolhido.",
+      "O conjurador ganha Blindado até o fim da cena. Gastando +1 MP, o escudo se estende também a " +
+      "um aliado escolhido. Blindado não acumula com outras fontes.",
   },
   {
+    // 23/10: Esmagador 1 no lugar do Preciso 2 (docs/ATUALIZACAO_23-10.md
+    // seção 3 — "Quem bloqueia (Força) rola 1 dado a menos", não mais a
+    // esquiva).
     id: "shin",
     nome: "Shin",
-    descritores: ["magia", "em_area", "preciso_2"],
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "em_area", "esmagador_1"],
     custoMp: 1,
     ajusteDados: 0,
     feridas: 1,
@@ -147,6 +232,7 @@ export const MAGIAS = [
   {
     id: "misseis_magicos",
     nome: "Mísseis Mágicos",
+    disciplinaId: "oficio-magias-de-guerra",
     descritores: ["magia", "preciso_2", "sortudo"],
     custoMp: 1,
     ajusteDados: 1,
@@ -157,6 +243,7 @@ export const MAGIAS = [
   {
     id: "laser_magico",
     nome: "Laser Mágico",
+    disciplinaId: "oficio-magias-de-guerra",
     descritores: ["magia", "perfurante"],
     custoMp: 2,
     ajusteDados: 0,
@@ -165,10 +252,13 @@ export const MAGIAS = [
     emArea: false,
   },
   {
+    // 23/10: Pesado (dados precisam de 7+, 2 ferimentos) e custo caiu de 3
+    // pra 2 MP (docs/ATUALIZACAO_23-10.md seção 3 — "Torrente Pesada").
     id: "torrente_magica",
     nome: "Torrente Mágica",
-    descritores: ["magia", "letal"],
-    custoMp: 3,
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "letal", "pesado"],
+    custoMp: 2,
     ajusteDados: 0,
     feridas: 2,
     superficial: false,
@@ -177,6 +267,7 @@ export const MAGIAS = [
   {
     id: "tiro_magico",
     nome: "Tiro Mágico",
+    disciplinaId: "oficio-magias-de-guerra",
     descritores: ["magia"],
     custoMp: 1,
     ajusteDados: 0,
@@ -185,9 +276,11 @@ export const MAGIAS = [
     emArea: false,
   },
   {
+    // 23/10: ganhou Esmagador 1 (docs/ATUALIZACAO_23-10.md seção 3).
     id: "shin_kay",
     nome: "Shin-kay",
-    descritores: ["magia", "letal"],
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "letal", "esmagador_1"],
     custoMp: 2,
     ajusteDados: 0,
     feridas: 1,
@@ -195,9 +288,12 @@ export const MAGIAS = [
     emArea: false,
   },
   {
+    // 23/10: perdeu o Atrasada 1 — "a iniciativa não é acompanhada" (docs/
+    // ATUALIZACAO_23-10.md seção 3, "Suth sem Atrasada").
     id: "magia_de_guerra_suth",
     nome: "Magia de guerra Suth",
-    descritores: ["magia", "preciso_2", "sortudo", "atrasada_1"],
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "preciso_2", "sortudo"],
     custoMp: 2,
     ajusteDados: 0,
     feridas: 1,
@@ -205,9 +301,14 @@ export const MAGIAS = [
     emArea: false,
   },
   {
+    // 23/10: quem sofrer sucesso líquido fica Lento 1 até o fim do próximo
+    // turno dele — NÃO mecanizado (o motor não tem status temporário em
+    // quem é atingido; o descritor "lento_1" aqui só serve pra mostrar o
+    // selo/pop-up, ver relatório).
     id: "magia_de_guerra_maxis",
     nome: "Magia de guerra Maxis",
-    descritores: ["magia", "em_area"],
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "em_area", "lento_1"],
     custoMp: 2,
     ajusteDados: 0,
     feridas: 2,
@@ -215,9 +316,12 @@ export const MAGIAS = [
     emArea: true,
   },
   {
+    // 23/10: perdeu o Sortudo — "Katalão sem Sortudo" (docs/ATUALIZACAO_23-
+    // 10.md seção 3).
     id: "magia_de_guerra_katalao",
     nome: "Magia de guerra Katalão",
-    descritores: ["magia", "perfurante", "sortudo", "letal"],
+    disciplinaId: "oficio-magias-de-guerra",
+    descritores: ["magia", "perfurante", "letal"],
     custoMp: 3,
     ajusteDados: 0,
     feridas: 1,
@@ -225,33 +329,9 @@ export const MAGIAS = [
     emArea: false,
   },
   {
-    id: "sensor",
-    nome: "Sensor",
-    descritores: ["magia"],
-    custoMp: null, // TODO(docs/SISTEMA_MAGIA.md): pool e custo ainda "a definir" no guia.
-    placeholder: true,
-    efeito: "Marca até 5 pessoas numa rede de visão e comunicação compartilhada.",
-  },
-  // Chama Mágica (Pedro, 19/10): primeira magia a usar o descritor Queimadura
-  // (ver engine.js:grauQueimadura/resolveQueimadura). Nome e custo são
-  // placeholders do Pedro ("nomes e custos são placeholders") — ajuste aqui
-  // quando a planilha oficial tiver os valores finais.
-  {
-    id: "chama_magica",
-    nome: "Chama Mágica",
-    descritores: ["magia", "queimadura"],
-    custoMp: 2,
-    ajusteDados: 0,
-    feridas: 1,
-    superficial: false,
-    emArea: false,
-  },
-  // Descarga Elétrica e Dreno de Mana (21/10, docs/ATUALIZACAO_21-10.md
-  // seção 4, tabela "Magias de guerra" de oficios-por-aba.xlsx) —
-  // "(Placeholder)" no texto do Pedro, nome/custo ainda a confirmar.
-  {
     id: "descarga_eletrica",
     nome: "Descarga Elétrica",
+    disciplinaId: "oficio-magias-de-guerra",
     descritores: ["magia", "carga_2"],
     custoMp: 2,
     ajusteDados: 0,
@@ -259,15 +339,75 @@ export const MAGIAS = [
     superficial: true,
     emArea: false,
   },
+
+  // --- Compartilhada (qualquer ofício mágico) ---------------------------
+  {
+    // 23/10: custo definido (1 MP) — deixou de ser placeholder. "Qualquer
+    // ofício pode pegar esta habilidade" (docs/ATUALIZACAO_23-10.md seção
+    // 1/3): sem disciplinaId, aparece no seletor de Magias de guerra (fallback
+    // `!m.disciplinaId`) e fica disponível pra qualquer ofício equipado (ver
+    // point-amaranth-app.jsx, cálculo de magiasDisponiveis).
+    id: "sensor",
+    nome: "Sensor",
+    descritores: ["magia"],
+    custoMp: 1,
+    semRolagem: true,
+    efeito: "Marca 1 pessoa numa rede de visão: você sabe onde ela está. Dura até o descanso longo. Qualquer ofício pode pegar esta habilidade (ocupa 1 dos 3 espaços do ofício).",
+  },
+
+  // --- Encantamentos (Dreno de Mana, 23/10: saiu de Magias de guerra) ---
   {
     id: "dreno_de_mana",
     nome: "Dreno de Mana",
+    disciplinaId: "oficio-encantamentos",
     descritores: ["magia", "drenante"],
     custoMp: 1,
     ajusteDados: 0,
     feridas: 1,
     superficial: true,
     emArea: false,
+    efeito: "Ataque que cria, por um instante, um encantamento no alvo que o drena: se acertar, o alvo perde 1 mana e o conjurador recupera 1. O encantamento dura só aquele ataque. Só exige o ofício Encantamentos.",
+  },
+
+  // --- Invocação (Lança Longínqua/Chuva de Lâminas novas; Chama Mágica
+  //     veio de Magias de guerra, 23/10) ----------------------------------
+  {
+    id: "lanca_longinqua",
+    nome: "Lança Longínqua",
+    disciplinaId: "oficio-invocacao",
+    descritores: ["perfurante"],
+    custoMp: 1,
+    ajusteDados: 0,
+    feridas: 1,
+    superficial: false,
+    emArea: false,
+    efeito: "Cria uma lança espectral e a arremessa contra qualquer zona da cena, sem penalidade de alcance. A lança desaparece depois.",
+  },
+  {
+    id: "chuva_de_laminas",
+    nome: "Chuva de Lâminas",
+    disciplinaId: "oficio-invocacao",
+    descritores: ["em_area", "preciso_1", "letal"],
+    custoMp: 2,
+    ajusteDados: 0,
+    feridas: 1,
+    superficial: false,
+    emArea: true,
+    efeito: "Lâminas espectrais caem sobre uma zona. Cada alvo rola a própria defesa; aliados na zona também são atingidos.",
+  },
+  {
+    // 23/10: veio de Magias de guerra — "só Queimadura" (sem ferimento do
+    // ataque em si), igual Bomba Incendiária.
+    id: "chama_magica",
+    nome: "Chama Mágica",
+    disciplinaId: "oficio-invocacao",
+    descritores: ["magia", "queimadura_2"],
+    custoMp: 1,
+    ajusteDados: 0,
+    feridas: 0,
+    superficial: false,
+    emArea: false,
+    efeito: "Uma chama é arremessada no alvo. Se o ataque causar ao menos 1 sucesso líquido, não há ferimento do ataque e rola 2 dados de Queimadura (8+; ignora a defesa). Veio de Magias de guerra.",
   },
 ];
 
@@ -275,107 +415,181 @@ export function getMagiaPorId(id) {
   return MAGIAS.find((m) => m.id === id) || null;
 }
 
-// Catálogo de ENCANTAMENTOS (ofício mágico "Encantamentos", hoje `vazia:
-// true` em DISCIPLINAS — primeira entrada concreta dele, decidida pelo
-// Pedro em 19/10). Nome e custo são placeholders ("nomes e custos são
-// placeholders", pedido do Pedro).
+// Catálogo de ENCANTAMENTOS (ofício mágico "Encantamentos"). 23/10 (docs/
+// ATUALIZACAO_23-10.md seção 4): renomeados pro formato "Encantamento:
+// Descritor" (de-para completo no comentário de cada entrada renomeada, pra
+// a migração de fichas antigas em personagens.js); 6 novos (Esmagador 1,
+// Firme 1, Selado 1, Potente Força, Potente Destreza, Veloz); Perícia
+// Encantada é novo (não segue o formato "Encantamento: X" porque concede
+// uma PERÍCIA, não um descritor); Dreno de Mana saiu daqui — virou uma
+// MAGIA de verdade (rola ataque), ver MAGIAS acima. "Golpe Preciso" baixou
+// de Preciso 2 pra Preciso 1; "Pele Encantada" trocou Blindado por
+// Resistente.
 //
-// Regra de mana quebrada (01 - Sistema/Magias e Disciplinas.md do
-// Point-Vault, 15/10): "mana gasta que não regenera normalmente até o
-// jogador escolher desquebrar". NENHUMA PARTE dessa economia (descontar/
-// devolver MP, o botão de quebrar/desquebrar na ficha) existe no motor
-// ainda — só a etiqueta textual na nota do vault. Por isso esta entrada e
-// `descritoresDeEncantamentosAtivos` só modelam a CONSEQUÊNCIA do
-// encantamento estar ativo (quais descritores ele concede); a ativação em
-// si (campo `character.encantamentosAtivos`) é gravada por quem chama,
-// sem nenhum desconto de mana — ver TODO no relatório final.
+// Regra de mana quebrada: cada encantamento quebra 1 mana; o descritor vale
+// enquanto ela estiver quebrada (desquebrar só fora de combate). 23/10
+// (seção 1): os encantamentos MAIS FORTES (Resistente, Potente Força,
+// Potente Destreza, Selado, Sortudo, Drenante — `custoSpQuebrado: true`
+// abaixo) TAMBÉM quebram 1 SP; o SP só volta no descanso longo (provisório
+// — o app trata o botão "Restaurar MP e SP" como equivalente, não existe
+// descanso longo de verdade). Mecanizado: ativar/desativar um desses 6
+// agora quebra/repara 1 SP de verdade, igual já fazia com a mana (ver
+// point-amaranth-app.jsx, onToggleEncantamento).
 //
 // Campos:
 // - id: chave estável (usada em `character.encantamentosAtivos`).
 // - nome: nome de exibição.
-// - disciplinaId: a disciplina (DISCIPLINAS, acima) que dá acesso a este
-//   encantamento.
-// - custoManaQuebrada: quantos pontos de mana ficam quebrados enquanto
-//   este encantamento está ativo (hoje só documentado — não desconta MP).
-// - descritoresConcedidos: descritores que TODOS os ataques do usuário
-//   (físicos e mágicos) ganham enquanto o encantamento está ativo.
-// 21/10 (docs/ATUALIZACAO_21-10.md item 4 + planilha oficios-por-aba.xlsx,
-// aba "Encantamentos"): as 6 entradas novas seguem o mesmo molde do
-// Encantamento Flamejante — "(Placeholder)" no texto do Pedro pra todas,
-// nome/custo a confirmar. "Pele Encantada" é a ÚNICA que concede um
-// descritor ao USUÁRIO como defensor (Blindado), não aos ataques dele — por
-// isso não entra na lista `DESCRITORES_DE_ATAQUE_DO_PERSONAGEM` do
-// engine.js (ver descritoresEfetivosDoAtaque): o Blindado só precisa estar
-// em `character.descritores` pra já funcionar (limiarAtaque/resolveQueimadura
-// checam `temDescritor(defensor, "blindado")` direto), nada a mais a fazer
-// aqui — o mesmo mecanismo que já suportava Queimadura de ataque já cobre
-// Blindado de defesa, sem precisar de código novo.
+// - disciplinaId: sempre "oficio-encantamentos".
+// - custoManaQuebrada: quantos pontos de mana ficam quebrados enquanto este
+//   encantamento está ativo.
+// - custoSpQuebrado: true nos 6 "fortes" (23/10) — quebra 1 SP junto.
+// - descritoresConcedidos: descritores que o usuário (ou os ataques dele,
+//   físicos e mágicos) ganham enquanto o encantamento está ativo — somados
+//   em `character.descritores` por comGrausEfetivos, igual equipamento.
 export const ENCANTAMENTOS = [
   {
-    id: "encantamento_flamejante",
-    nome: "Encantamento Flamejante",
-    disciplinaId: "oficio-encantamentos",
-    custoManaQuebrada: 1,
-    descritoresConcedidos: ["queimadura"],
-    descricao:
-      "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do " +
-      "usuário — físicos e mágicos — ganham Queimadura 1.",
-  },
-  {
-    id: "lamina_letal",
-    nome: "Lâmina Letal",
+    // era "lamina_letal" / "Lâmina Letal".
+    id: "encantamento_letal",
+    nome: "Encantamento: Letal",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
     descritoresConcedidos: ["letal"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Letal. (Placeholder)",
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Letal.",
   },
   {
-    id: "ponta_perfurante",
-    nome: "Ponta Perfurante",
+    // era "ponta_perfurante" / "Ponta Perfurante".
+    id: "encantamento_perfurante",
+    nome: "Encantamento: Perfurante",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
     descritoresConcedidos: ["perfurante"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Perfurante. (Placeholder)",
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Perfurante.",
   },
   {
-    id: "golpe_preciso",
-    nome: "Golpe Preciso",
+    // era "golpe_preciso" / "Golpe Preciso", Preciso 2 -> Preciso 1 (23/10).
+    id: "encantamento_preciso_1",
+    nome: "Encantamento: Preciso 1",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
-    descritoresConcedidos: ["preciso_2"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Preciso 2. (Placeholder)",
+    descritoresConcedidos: ["preciso_1"],
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Preciso 1.",
   },
   {
-    id: "pele_encantada",
-    nome: "Pele Encantada",
+    // novo (23/10).
+    id: "encantamento_esmagador_1",
+    nome: "Encantamento: Esmagador 1",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
-    descritoresConcedidos: ["blindado"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o usuário ganha Blindado. (Placeholder)",
+    descritoresConcedidos: ["esmagador_1"],
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Esmagador 1.",
   },
   {
-    id: "sorte_encantada",
-    nome: "Sorte Encantada",
+    // era "encantamento_flamejante" / "Encantamento Flamejante".
+    id: "encantamento_queimadura_1",
+    nome: "Encantamento: Queimadura 1",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
-    descritoresConcedidos: ["sortudo"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o usuário ganha Sortudo. (Placeholder)",
+    descritoresConcedidos: ["queimadura_1"],
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Queimadura 1. Se o ataque causar ao menos 1 sucesso líquido, rola 1 dado de Queimadura.",
   },
   {
-    id: "encantamento_eletrico",
-    nome: "Encantamento Elétrico",
+    // era "encantamento_eletrico" / "Encantamento Elétrico".
+    id: "encantamento_carga_2",
+    nome: "Encantamento: Carga 2",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
     descritoresConcedidos: ["carga_2"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Carga 2. (Placeholder)",
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Carga 2.",
   },
   {
+    // id já existia com este nome — ganhou custoSpQuebrado (23/10).
     id: "encantamento_drenante",
-    nome: "Encantamento Drenante",
+    nome: "Encantamento: Drenante",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
+    custoSpQuebrado: true,
     descritoresConcedidos: ["drenante"],
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Drenante. (Placeholder)",
+    descricao: "Quebra 1 de mana e 1 SP. Enquanto a mana estiver quebrada, os ataques do usuário — físicos e mágicos — ganham Drenante.",
+  },
+  {
+    // era "sorte_encantada" / "Sorte Encantada" — ganhou custoSpQuebrado.
+    id: "encantamento_sortudo",
+    nome: "Encantamento: Sortudo",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    custoSpQuebrado: true,
+    descritoresConcedidos: ["sortudo"],
+    descricao: "Quebra 1 de mana e 1 SP. Enquanto a mana estiver quebrada, o usuário ganha Sortudo.",
+  },
+  {
+    // era "pele_encantada" / "Pele Encantada" — trocou Blindado por
+    // Resistente (23/10) e ganhou custoSpQuebrado.
+    id: "encantamento_resistente",
+    nome: "Encantamento: Resistente",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    custoSpQuebrado: true,
+    descritoresConcedidos: ["resistente"],
+    descricao: "Quebra 1 de mana e 1 SP. Enquanto a mana estiver quebrada, o usuário ganha Resistente. Não acumula com Resistente de outra fonte.",
+  },
+  {
+    // novo (23/10) — só vale ao bloquear (Força + Defesa).
+    id: "encantamento_firme_1",
+    nome: "Encantamento: Firme 1",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    descritoresConcedidos: ["firme_1"],
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o usuário ganha Firme 1. Só vale ao bloquear (Força + Defesa).",
+  },
+  {
+    // novo (23/10) — ganhou custoSpQuebrado.
+    id: "encantamento_selado_1",
+    nome: "Encantamento: Selado 1",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    custoSpQuebrado: true,
+    descritoresConcedidos: ["selado_1"],
+    descricao: "Quebra 1 de mana e 1 SP. Enquanto a mana estiver quebrada, o usuário ganha Selado 1.",
+  },
+  {
+    // novo (23/10) — +1 grau em Força até C, mesmo descritor que a
+    // armadura/Homúnculo já usam (comGrausEfetivos já aplica o bônus de
+    // grau quando "potente_forca" está em character.descritores).
+    id: "encantamento_potente_forca",
+    nome: "Encantamento: Potente Força",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    custoSpQuebrado: true,
+    descritoresConcedidos: ["potente_forca"],
+    descricao: "Quebra 1 de mana e 1 SP. Enquanto a mana estiver quebrada, o usuário ganha Potente Força (+1 grau em Força, até C).",
+  },
+  {
+    // novo (23/10).
+    id: "encantamento_potente_destreza",
+    nome: "Encantamento: Potente Destreza",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    custoSpQuebrado: true,
+    descritoresConcedidos: ["potente_destreza"],
+    descricao: "Quebra 1 de mana e 1 SP. Enquanto a mana estiver quebrada, o usuário ganha Potente Destreza (+1 grau em Destreza, até C).",
+  },
+  {
+    // novo (23/10) — etiqueta (iniciativa não é acompanhada no sistema).
+    id: "encantamento_veloz",
+    nome: "Encantamento: Veloz",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    descritoresConcedidos: ["veloz"],
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o usuário ganha Veloz. Veloz é etiqueta: a iniciativa existe mas não é acompanhada no sistema.",
+  },
+  {
+    // novo (23/10) — concede PERÍCIA, não descritor; por isso não vira
+    // `descritoresConcedidos` (não mecanizado, ver relatório).
+    id: "pericia_encantada",
+    nome: "Perícia Encantada",
+    disciplinaId: "oficio-encantamentos",
+    custoManaQuebrada: 1,
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o alvo usa o Descritor 2 de um tipo de arma à sua escolha, como se tivesse a perícia da família. Permite combinar Invocação + Encantamentos (um mago de invocação). Não mecanizado: a escolha do tipo de arma e o acesso ao Descritor 2 ficam a cargo da mesa.",
   },
 ];
 
@@ -384,11 +598,9 @@ export function getEncantamentoPorId(id) {
 }
 
 // União sem duplicar dos descritores concedidos pelos encantamentos ATIVOS
-// do personagem (`character.encantamentosAtivos`, lista de ids — ver
-// ENCANTAMENTOS acima). Mesmo padrão de racasCatalogo.js:descritoresDeSelecao.
-// Quem monta o personagem EFETIVO (racasCatalogo.js:comGrausEfetivos) soma
-// isto em `character.descritores`, de onde engine.js:descritoresEfetivosDoAtaque
-// lê pra aplicar a Queimadura em qualquer ataque do personagem.
+// do personagem (`character.encantamentosAtivos`, lista de ids). Quem monta
+// o personagem EFETIVO (racasCatalogo.js:comGrausEfetivos) soma isto em
+// `character.descritores`.
 export function descritoresDeEncantamentosAtivos(character) {
   const ativos = character?.encantamentosAtivos || [];
   const vistos = new Set();
@@ -405,14 +617,10 @@ export function descritoresDeEncantamentosAtivos(character) {
   return resultado;
 }
 
-// Conduíte mágico (21/10, docs/ATUALIZACAO_21-10.md item 4): "existe em
-// todo ofício mágico, ocupa 1 dos 3 espaços, conta +1 ofício. Só um
-// Conduíte funciona por vez." Não é magia nem encantamento — é uma
-// passiva, por isso não tem catálogo de instâncias (só este objeto de
-// exibição): o estado é um único flag global, `character.conduiteAtivo`
-// (ver racasCatalogo.js:comGrausEfetivos, que soma o +1 ofício em
-// disciplinaMagica.oficiosExtras). "Só um por vez" é automático — é um
-// booleano, não uma lista, então nunca existe mais de um ativo.
+// Conduíte mágico: "existe em todo ofício mágico, ocupa 1 dos 3 espaços,
+// conta +1 ofício. Só um Conduíte funciona por vez." Não é magia nem
+// encantamento — é uma passiva; o estado é um único flag global,
+// `character.conduiteAtivo` (ver racasCatalogo.js:comGrausEfetivos).
 export const CONDUITE_MAGICO = {
   id: "conduite_magico",
   nome: "Conduíte mágico",
@@ -424,33 +632,34 @@ export const CONDUITE_MAGICO = {
     "por vez.",
 };
 
-// Catálogo de ALQUIMIA (ofício mágico "Alquimia", 21/10, docs/
-// ATUALIZACAO_21-10.md seção 4.1 + planilha oficios-por-aba.xlsx, aba
-// "Alquimia"). Itens são PREPARADOS, só fora de combate: preparar quebra 1
-// mana (character.itensAlquimicosPreparados, mesmo mecanismo de
-// quebrarMana/repararMana de ENCANTAMENTOS — ver DisciplinaSlotPicker em
-// point-amaranth-app.jsx). Diferente de Encantamentos, um item preparado
-// NÃO concede descritor nenhum ao dono automaticamente — ele é um objeto
-// que QUALQUER UM pode usar depois, com os parâmetros de quem criou
-// (rolagem: engine.js:diceAtaqueAlquimia = Destreza + ofícios/Inteligência,
-// sem Base mágica nem mana extra).
+// Catálogo de ALQUIMIA (ofício mágico "Alquimia"). Itens são PREPARADOS, só
+// fora de combate: preparar quebra 1 mana (character.itensAlquimicosAtivos,
+// mesmo mecanismo de quebrarMana/repararMana de ENCANTAMENTOS). Diferente de
+// Encantamentos, um item preparado NÃO concede descritor nenhum ao dono
+// automaticamente — ele é um objeto que QUALQUER UM pode usar depois, com os
+// parâmetros de quem criou (rolagem: engine.js:diceAtaqueAlquimia = Destreza
+// + ofícios/Inteligência, sem Base mágica nem mana extra). Por isso
+// `descritores`/`descritoresConcedidos` aqui são só DECORATIVOS (pro selo/
+// pop-up aparecer na ficha) — nunca entram em character.descritores do dono,
+// mesmo quando o item afeta quem o usa (Tônico Veloz) e principalmente
+// quando afeta outro alvo (Ácido Corrosivo, Bomba de Fumaça).
 //
-// TODO (não implementado — ver relatório final): "1 item grátis por ofício
-// mágico" (hoje preparar sempre quebra mana, sem itens de graça), "usar o
-// item de quem criou" (não há fluxo de "usar item preparado num alvo" —
-// a UI só liga/desliga `itensAlquimicosPreparados`, documentando que o
-// item existe), efeitos específicos de cada item (Poção de Cura curar de
-// verdade, Elixir de Vigor proteger o próximo ferimento, etc.) e "válido
-// até o descanso longo" (não há conceito de descanso longo no app).
+// 23/10 (docs/ATUALIZACAO_23-10.md seção 5): Antídoto saiu (apagado). Elixir
+// Drenante foi pra Habilidades Conjuntas (exige Alquimia + Encantamentos,
+// ver HABILIDADES_CONJUNTAS). Vários efeitos reescritos: Elixir de Mana
+// (Reabastecer), Óleo Inflamável (efeito em arma OU alvo), Ácido Corrosivo
+// (interage com armadura de verdade — Corrosivo virou "Definido"), Frasco de
+// Gosma (era "prioridade -1", virou Lento 1), Elixir de Vigor (era "próximo
+// ferimento vira superficial", virou Resistente por uma cena), Catalisador
+// (ganhou +1d10), Bomba de Fumaça (era "ganha Blindado", virou Azarado pra
+// quem ataca/testa na zona — efeito em terceiros, não mecanizado).
 //
-// Campos:
-// - id/nome/disciplinaId: iguais aos de ENCANTAMENTOS.
-// - tipo: "Ataque" (rola, usa descritores/feridas) ou "Suporte" (semRolagem,
-//   efeito descrito em texto — mesmo padrão de MAGIAS:Escudo de Mana).
-// - descritores/feridas/superficial/emArea: só em itens tipo "Ataque",
-//   mesmos campos de MAGIAS (usam diceAtaqueAlquimia, não diceAtaqueMagico).
-// - custoManaQuebrada: sempre 1 em Alquimia (regra de desenho: máximo 1 por
-//   habilidade — só Constructo foge disso, com 2).
+// TODO (não implementado — ver relatório final): a passiva do ofício (itens
+// de graça no descanso longo) não existe (não há descanso longo no app);
+// não há fluxo de "usar item preparado num alvo"; efeitos que miram OUTRO
+// personagem (Ácido Corrosivo, Bomba de Fumaça, Frasco de Gosma, Óleo
+// Inflamável no modo "alvo") ficam só em texto — precisam de ação manual
+// de mesa.
 export const ALQUIMIA = [
   {
     id: "pocao_de_cura",
@@ -495,7 +704,7 @@ export const ALQUIMIA = [
     feridas: 1,
     superficial: true,
     emArea: true,
-    efeito: "Versão pior do Shin: onda de choque na zona alvo (não na do usuário). Aliados na zona também são atingidos.",
+    efeito: "Onda de choque na zona alvo (não na do usuário). Aliados na zona também são atingidos.",
   },
   {
     id: "bomba_de_fragmentacao",
@@ -531,16 +740,19 @@ export const ALQUIMIA = [
     feridas: 1,
     superficial: false,
     emArea: false,
-    efeito: "Versão pior da Torrente Mágica: mesmo descritor Letal, mas 1 ferimento em vez de 2.",
+    efeito: "Mesmo descritor Letal da Torrente Mágica, mas 1 ferimento em vez de 2 e sem o Pesado.",
   },
   {
+    // 23/10: era "ganha Blindado" — o descritor certo é Azarado, mirando
+    // quem ataca/testa na zona (não o usuário) — não mecanizado.
     id: "bomba_de_fumaca",
     nome: "Bomba de Fumaça",
     disciplinaId: "oficio-alquimia",
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    efeito: "Sem rolagem. A zona alvo fica encoberta por uma cena: quem estiver nela ganha Blindado.",
+    descritoresConcedidos: ["azarado"],
+    efeito: "Sem rolagem. A zona alvo fica encoberta por uma cena: quem atacar ou testar contra alguém na zona fica Azarado (re-rola o primeiro sucesso, sem escolha). Efeito em terceiros, não mecanizado.",
   },
   {
     id: "tonico_veloz",
@@ -550,44 +762,57 @@ export const ALQUIMIA = [
     custoManaQuebrada: 1,
     semRolagem: true,
     descritoresConcedidos: ["veloz"],
-    efeito: "Sem rolagem. Quem bebe ganha Veloz (prioridade +1) por uma cena. Qualquer pessoa pode usar, com os parâmetros de quem criou.",
+    efeito: "Sem rolagem. Quem bebe ganha Veloz por uma cena. Qualquer pessoa pode usar, com os parâmetros de quem criou.",
   },
   {
+    // 23/10: ganha Reabastecer (não acumula), em vez de "recuperar 1 mana
+    // gasta" solto.
     id: "elixir_de_mana",
     nome: "Elixir de Mana",
     disciplinaId: "oficio-alquimia",
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    efeito: "Sem rolagem. Quem bebe recupera 1 mana gasta (não quebrada). Uma vez por cena por pessoa. Provisório. Qualquer pessoa pode usar, com os parâmetros de quem criou.",
+    descritoresConcedidos: ["reabastecer"],
+    efeito: "Sem rolagem. Quem bebe recupera 1 MP gasto (não quebrado) e ganha Reabastecer por uma cena. Reabastecer de fontes diferentes não soma: vale um só. Uma vez por cena por pessoa.",
   },
   {
+    // 23/10: dois modos — na arma (Queimadura 1 à arma) ou no alvo (+2
+    // dados na próxima Queimadura recebida). Só o modo "arma" é
+    // mecanizável (descritoresConcedidos); o modo "alvo" fica em texto.
     id: "oleo_inflamavel",
     nome: "Óleo Inflamável",
     disciplinaId: "oficio-alquimia",
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    descritoresConcedidos: ["queimadura"],
-    efeito: "Sem rolagem. O próximo ataque do alvo (físico ou mágico) ganha Queimadura 1. Serve também para armas de aliados.",
+    descritoresConcedidos: ["queimadura_1"],
+    efeito: "Sem rolagem. Usado em uma arma (própria ou de aliado), dá Queimadura 1 à arma durante a cena. Usado em um alvo, a próxima Queimadura que ele receber rola +2 dados (vale até essa Queimadura ou o fim da cena) — efeito em terceiros, não mecanizado.",
   },
   {
+    // 23/10 (Corrosivo virou "Definido"): remove Blindado e cancela os
+    // descritores da armadura do alvo até o fim da cena, de verdade.
+    // Efeito em terceiros — não mecanizado (precisa editar a ficha do
+    // alvo manualmente).
     id: "acido_corrosivo",
     nome: "Ácido Corrosivo",
     disciplinaId: "oficio-alquimia",
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    efeito: "Sem rolagem. Um alvo perde o Blindado até o fim da cena (Goethiano inclusive). Pool do arremesso, se precisar acertar: Destreza + (ofícios ou Inteligência). LEMBRAR: quando existirem armaduras, esta habilidade deve interagir com elas também.",
+    descritoresConcedidos: ["corrosivo"],
+    efeito: "Sem rolagem. Um alvo perde o Blindado e tem os efeitos (descritores) da armadura cancelados até o fim da cena (Goethiano inclusive). Pool do arremesso, se precisar acertar: Destreza + (ofícios ou Inteligência). Efeito em terceiros, não mecanizado.",
   },
   {
+    // 23/10: era "prioridade -1" — virou Lento 1.
     id: "frasco_de_gosma",
     nome: "Frasco de Gosma",
     disciplinaId: "oficio-alquimia",
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    efeito: "Sem dano. Quem estiver na zona alvo fica com prioridade -1 durante a cena (só etiqueta por enquanto).",
+    descritoresConcedidos: ["lento_1"],
+    efeito: "Sem dano. Quem estiver na zona alvo fica Lento 1 durante a cena. Efeito em terceiros, não mecanizado.",
   },
   {
     id: "catalisador",
@@ -596,16 +821,19 @@ export const ALQUIMIA = [
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    efeito: "Sem rolagem. A próxima magia do alvo custa 1 MP a menos (mínimo 0). Não vale para itens e constructos.",
+    efeito: "Sem rolagem. A próxima magia do alvo custa 1 MP a menos (mínimo 0) e rola 1d10 a mais. Não vale para itens e constructos.",
   },
   {
+    // 23/10: era "próximo ferimento vira superficial" — virou Resistente
+    // por uma cena, não acumula com outra fonte.
     id: "elixir_de_vigor",
     nome: "Elixir de Vigor",
     disciplinaId: "oficio-alquimia",
     tipo: "Suporte",
     custoManaQuebrada: 1,
     semRolagem: true,
-    efeito: "Sem rolagem. O próximo ferimento que o alvo receber vira superficial, mesmo que passasse do Vigor. Uma vez por cena por pessoa.",
+    descritoresConcedidos: ["resistente"],
+    efeito: "Sem rolagem. Quem bebe ganha Resistente por uma cena. Não acumula com Resistente de outra fonte.",
   },
   {
     id: "bomba_toxica",
@@ -617,7 +845,7 @@ export const ALQUIMIA = [
     feridas: 0,
     superficial: false,
     emArea: true,
-    efeito: "Explode na zona alvo. Rola o ataque; se causar ao menos 1 sucesso líquido, cada alvo atingido rola 2 dados de Envenenamento (7+, ignora defesa e Blindado). Aliados na zona também são atingidos.",
+    efeito: "Explode na zona alvo. Rola o ataque; se causar ao menos 1 sucesso líquido, cada alvo atingido rola 2 dados de Envenenamento (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, recebe 1 ferimento superficial (limite 2). Aliados na zona também são atingidos.",
   },
   {
     id: "veneno_de_arma",
@@ -627,16 +855,7 @@ export const ALQUIMIA = [
     custoManaQuebrada: 1,
     semRolagem: true,
     descritoresConcedidos: ["envenenamento"],
-    efeito: "Sem rolagem. O próximo ataque do alvo (físico ou mágico) ganha Envenenamento 1. Serve também para armas de aliados.",
-  },
-  {
-    id: "antidoto",
-    nome: "Antídoto",
-    disciplinaId: "oficio-alquimia",
-    tipo: "Suporte",
-    custoManaQuebrada: 1,
-    semRolagem: true,
-    efeito: "Sem rolagem. Cura o veneno do alvo: zera o limite de veneno dele. Provisório: também cura os ferimentos superficiais de veneno que ele tinha?",
+    efeito: "Sem rolagem. A arma do alvo (própria ou de aliado) fica com Envenenamento 1 durante a cena. Efeito em terceiros, não mecanizado.",
   },
   {
     id: "bomba_eletrica",
@@ -648,17 +867,7 @@ export const ALQUIMIA = [
     feridas: 0,
     superficial: false,
     emArea: true,
-    efeito: "Explode na zona alvo. Rola o ataque; cada sucesso líquido deixa 1 carga em cada alvo atingido. Ao chegar a 2 cargas, o alvo descarrega. Aliados na zona também são atingidos. (Placeholder)",
-  },
-  {
-    id: "elixir_drenante",
-    nome: "Elixir Drenante",
-    disciplinaId: "oficio-alquimia",
-    tipo: "Suporte",
-    custoManaQuebrada: 1,
-    semRolagem: true,
-    descritoresConcedidos: ["drenante"],
-    efeito: "Sem rolagem. O próximo ataque do alvo (físico ou mágico) ganha Drenante. Serve também para armas de aliados. (Placeholder)",
+    efeito: "Explode na zona alvo. Rola o ataque; cada sucesso líquido deixa 1 carga em cada alvo atingido. Ao chegar a 2 cargas, o alvo descarrega um ataque extra de 2 dados. Aliados na zona também são atingidos.",
   },
 ];
 
@@ -666,27 +875,17 @@ export function getItemAlquimicoPorId(id) {
   return ALQUIMIA.find((i) => i.id === id) || null;
 }
 
-// Catálogo de CONSTRUCTO (ofício mágico "Constructo", 21/10, docs/
-// ATUALIZACAO_21-10.md seção 4.2 + planilha oficios-por-aba.xlsx, aba
-// "Constructo"). "Quebra 2 mana" (exceção à regra de 1 por habilidade); o
-// constructo fica com o personagem enquanto a mana estiver quebrada.
-// Magias feitas através dele custam 1 MP a menos. Quando destruído, só 1
-// das 2 manas quebradas volta. Pool: engine.js:diceAtaqueConstructo.
+// Catálogo de CONSTRUCTO (ofício mágico "Constructo"). "Quebra 2 mana"
+// (exceção à regra de 1 por habilidade); o constructo fica com o
+// personagem enquanto a mana estiver quebrada. Magias feitas através dele
+// custam 1 MP a menos. Quando destruído, só 1 das 2 manas quebradas volta.
+// Pool: engine.js:diceAtaqueConstructo = Base mágica + ofícios do dono.
 //
 // TODO (não implementado — ver relatório final): não há "invocar
-// constructo" na UI nem tracking de Integridade (HP próprio do
-// constructo), nem as "funções" como ações separadas, nem a magia única de
-// cada um, nem o desconto de 1 MP em magias conjuradas através dele. Só o
-// catálogo de dados e a fórmula de pool (diceAtaqueConstructo) existem —
-// o resto fica pra quando o Pedro decidir a UI (o guia marca "tudo aqui é
-// provisório").
-//
-// Campos: id/nome/disciplinaId iguais aos de ALQUIMIA; `tipo` é o tipo de
-// constructo (Servo/Torre/Armadilha/Arma criada/Armadura criada);
-// `descritoresConcedidos` é o efeito "Contínuo" (constante, não uma
-// função); `integridade` é quantos ferimentos o constructo aguenta antes
-// de ser destruído; `funcoes` e `magiaUnica` ficam como texto de
-// referência (não viram ações separadas na UI ainda).
+// constructo" na UI nem tracking de Integridade, nem as "funções" como
+// ações separadas, nem a magia única de cada um, nem o desconto de 1 MP em
+// magias conjuradas através dele. Só o catálogo de dados e a fórmula de
+// pool existem.
 export const CONSTRUCTO = [
   {
     id: "golem_guardiao",
@@ -694,7 +893,7 @@ export const CONSTRUCTO = [
     disciplinaId: "oficio-constructo",
     tipo: "Servo",
     custoManaQuebrada: 2,
-    descritoresConcedidos: ["blindado"],
+    descritoresConcedidos: ["blindado", "resistente"],
     integridade: 3,
     funcoes: ["Golpe: ataque corpo a corpo, Letal, 1 ferimento.", "Proteger: assume o ataque dirigido a um aliado na zona dele."],
     magiaUnica: "Muralha (1 MP): cria uma barreira na zona — ataques que a atravessam precisam de 7+.",
@@ -719,9 +918,11 @@ export const CONSTRUCTO = [
     descritoresConcedidos: ["magia", "preciso_2"],
     integridade: 1,
     funcoes: ["Disparo: ataque mágico Preciso 2, 1 ferimento, único quando um inimigo entra na zona dela (rearma na próxima cena).", "Alarme: avisa o dono quando algo passa."],
-    magiaUnica: "Rede Rúnica (1 MP): o alvo age com prioridade -1 por uma rodada (só etiqueta).",
+    magiaUnica: "Rede Rúnica (1 MP): o alvo fica Lento 1 por uma rodada.",
   },
   {
+    // 23/10: funcao "Golpe" era Letal e Perfurante — o documento só
+    // confirma Letal (igual o descritor contínuo da arma).
     id: "arma_viva",
     nome: "Arma Viva",
     disciplinaId: "oficio-constructo",
@@ -729,19 +930,21 @@ export const CONSTRUCTO = [
     custoManaQuebrada: 2,
     descritoresConcedidos: ["letal"],
     integridade: 1,
-    funcoes: ["Golpe: corpo a corpo ou arremesso, Letal e Perfurante, 1 ferimento.", "Defesa: o dono ganha +1 dado ao se defender."],
+    funcoes: ["Golpe: corpo a corpo ou arremesso, Letal, 1 ferimento.", "Defesa: o dono ganha +1 dado ao se defender."],
     magiaUnica: "Corte Conjurado (2 MP): ataque que atinge duas zonas.",
   },
   {
+    // 23/10: Contínuo ganhou Resistente, além do Blindado que já tinha.
     id: "armadura_animada",
     nome: "Armadura Animada",
     disciplinaId: "oficio-constructo",
     tipo: "Armadura criada",
     custoManaQuebrada: 2,
-    descritoresConcedidos: ["blindado"],
+    descritoresConcedidos: ["blindado", "resistente"],
     integridade: 3,
-    funcoes: ["Escudo: o dono ganha Blindado.", "Reflexo: reação 1 vez por cena, devolve ao atacante 1 sucesso líquido."],
+    funcoes: ["Escudo: o dono ganha Blindado e Resistente.", "Reflexo: reação 1 vez por cena, devolve ao atacante 1 sucesso líquido."],
     magiaUnica: "Aegis (1 MP): estende Blindado a um aliado por uma cena.",
+    observacao: "Descritores não acumulam com os de outra armadura.",
   },
   {
     id: "servo_familiar",
@@ -753,7 +956,7 @@ export const CONSTRUCTO = [
     integridade: 1,
     funcoes: ["Batedor: dá ao dono visão de outra zona.", "Mensageiro: carrega itens e recados."],
     magiaUnica: "Olho do Familiar (1 MP): marca até 2 alvos numa rede de visão.",
-    contínuoTexto: "Carrega a magia Sensor de graça (não custa MP).",
+    continuoTexto: "Carrega a habilidade Sensor de graça (não custa MP).",
   },
   {
     id: "torre_eletrica",
@@ -761,10 +964,10 @@ export const CONSTRUCTO = [
     disciplinaId: "oficio-constructo",
     tipo: "Torre",
     custoManaQuebrada: 2,
-    descritoresConcedidos: ["magia"],
+    descritoresConcedidos: ["magia", "carga_2"],
     integridade: 2,
     funcoes: ["Disparo carregado: ataque mágico que deixa Carga 2.", "Ponto de conjuração: magias do dono lançadas a partir dela custam 1 MP a menos."],
-    magiaUnica: "Corrente Elétrica (2 MP): atinge dois alvos na zona, ambos recebem Carga 1. (Placeholder)",
+    magiaUnica: "Corrente Elétrica (2 MP): atinge dois alvos na zona, ambos recebem Carga 1.",
   },
 ];
 
@@ -772,9 +975,73 @@ export function getConstructoPorId(id) {
   return CONSTRUCTO.find((c) => c.id === id) || null;
 }
 
-// Habilidades conjuntas (21/10, docs/ATUALIZACAO_21-10.md item 4 + planilha
-// oficios-por-aba.xlsx, aba "Habilidades conjuntas"): exigem MAIS DE UM
-// ofício mágico. Todas quebram 1 mana (máximo da regra de desenho).
+// Catálogo de INVOCAÇÃO (ofício mágico "Invocação", 23/10 — item novo:
+// antes só existiam os 3 ataques "Magia", agora em MAGIAS acima). Mesmo
+// padrão de mana quebrada de ENCANTAMENTOS/ALQUIMIA (toggle, quebra 1 mana
+// pra existir enquanto ativo). `character.invocacoesAtivas` guarda os ids
+// ativos.
+//
+// "Invocar Arma" não gera uma linha de ataque derivada (ao contrário do
+// slot "Arma" do painel Equipamento) nem modela a escolha do tipo do
+// catálogo de armas — fica como toggle + texto de referência, não
+// mecanizado (ver relatório).
+export const INVOCACAO = [
+  {
+    id: "invocar_arma",
+    nome: "Invocar Arma",
+    disciplinaId: "oficio-invocacao",
+    tipo: "Invocação",
+    custoManaQuebrada: 1,
+    efeito: "Invoca uma arma de qualquer tipo do catálogo de armas (escolha o tipo ao ativar — não modelado aqui, ver o slot Arma do painel Equipamento). Dura enquanto a mana estiver quebrada. Só o Descritor 1 do tipo vale (sem perícia, a menos que o usuário tenha a perícia da família ou o encantamento Perícia Encantada). O ataque usa Base mágica + ofícios mágicos (sem Destreza), com +1 de ajuste de acerto. Armas arremessadas voltam à mão ao fim do turno e, se soltas ou destruídas, podem ser re-invocadas de graça uma vez por cena.",
+  },
+  {
+    id: "escudo_invocado",
+    nome: "Escudo Invocado",
+    disciplinaId: "oficio-invocacao",
+    tipo: "Invocação",
+    custoManaQuebrada: 1,
+    descritoresConcedidos: ["firme_1"],
+    efeito: "Invoca um escudo espectral. Quem bloqueia (Força + Defesa) ganha Firme 1 enquanto a mana estiver quebrada.",
+  },
+  {
+    id: "arma_de_brasa",
+    nome: "Arma de Brasa",
+    disciplinaId: "oficio-invocacao",
+    tipo: "Invocação",
+    custoManaQuebrada: 1,
+    descritoresConcedidos: ["queimadura_1"],
+    efeito: "A arma invocada ganha Queimadura 1. Variações possíveis: Carga 2 (elétrica) ou Envenenamento 1 — escolha de texto, não modelada como opção separada.",
+  },
+];
+
+export function getInvocacaoPorId(id) {
+  return INVOCACAO.find((i) => i.id === id) || null;
+}
+
+// Mesmo padrão de descritoresDeEncantamentosAtivos, pras invocações ativas
+// (`character.invocacoesAtivas`).
+export function descritoresDeInvocacoesAtivas(character) {
+  const ativos = character?.invocacoesAtivas || [];
+  const vistos = new Set();
+  const resultado = [];
+  for (const id of ativos) {
+    const invocacao = getInvocacaoPorId(id);
+    for (const d of invocacao?.descritoresConcedidos || []) {
+      if (!vistos.has(d)) {
+        vistos.add(d);
+        resultado.push(d);
+      }
+    }
+  }
+  return resultado;
+}
+
+// Habilidades conjuntas: exigem MAIS DE UM ofício mágico. Todas quebram 1
+// mana (máximo da regra de desenho). 23/10 (docs/ATUALIZACAO_23-10.md seção
+// 8): Elixir Drenante entrou aqui (saiu de Alquimia sozinha — agora exige
+// Alquimia + Encantamentos, igual as outras habilidades conjuntas com
+// Alquimia). Círculo mágico só existe aqui (nunca esteve duplicado nas
+// listas de Magias de guerra/Encantamentos).
 // TODO: a checagem "o personagem tem os dois ofícios exigidos" NÃO é
 // validada na UI ainda — fica só documentado em `oficiosExigidos`.
 export const HABILIDADES_CONJUNTAS = [
@@ -783,7 +1050,7 @@ export const HABILIDADES_CONJUNTAS = [
     nome: "Círculo mágico",
     oficiosExigidos: ["oficio-magias-de-guerra", "oficio-encantamentos"],
     custoManaQuebrada: 1,
-    efeito: "Cria um círculo que armazena uma magia de guerra (gasta o MP normal dela); liberar a mana quebrada dispara a magia armazenada, a qualquer momento.",
+    efeito: "Cria um círculo que armazena uma magia de guerra: conjura a magia gastando o MP normal dela e quebra 1 mana pra sustentar o círculo. Liberar a mana quebrada dispara a magia armazenada, a qualquer momento. Só pode ser pega com os dois ofícios.",
   },
   {
     id: "frasco_armazenado",
@@ -797,14 +1064,14 @@ export const HABILIDADES_CONJUNTAS = [
     nome: "Frasco Rúnico",
     oficiosExigidos: ["oficio-alquimia", "oficio-encantamentos"],
     custoManaQuebrada: 1,
-    efeito: "Ao preparar um item alquímico, grava nele um descritor de encantamento (Letal, Perfurante, Preciso 2, Queimadura 1...). O descritor vale quando o item for usado.",
+    efeito: "Ao preparar um item alquímico, grava nele um descritor de encantamento (Letal, Perfurante, Preciso 1, Queimadura 1...). O descritor vale quando o item for usado.",
   },
   {
     id: "pocao_encantada",
     nome: "Poção Encantada",
     oficiosExigidos: ["oficio-alquimia", "oficio-encantamentos"],
     custoManaQuebrada: 1,
-    efeito: "Uma poção que, ao ser bebida, concede um encantamento do usuário (ex.: Pele Encantada) a quem bebeu por uma cena, sem que o beneficiário quebre mana.",
+    efeito: "Uma poção que, ao ser bebida, concede um encantamento do usuário (ex.: Encantamento: Resistente) a quem bebeu por uma cena, sem que o beneficiário quebre mana.",
   },
   {
     id: "bomba_de_guerra",
@@ -819,7 +1086,16 @@ export const HABILIDADES_CONJUNTAS = [
     oficiosExigidos: ["oficio-alquimia", "oficio-encantamentos"],
     custoManaQuebrada: 1,
     descritoresConcedidos: ["envenenamento_2"],
-    efeito: "Enquanto a mana estiver quebrada, os ataques do usuário (físicos e mágicos) ganham Envenenamento 2 — acima do Envenenamento 1 de um item comum, porque exige os dois ofícios. Provisório.",
+    efeito: "Enquanto a mana estiver quebrada, os ataques do usuário (físicos e mágicos) ganham Envenenamento 2 — acima do Envenenamento 1 de um item comum, porque exige os dois ofícios.",
+  },
+  {
+    // 23/10: entrou aqui (saiu de Alquimia sozinha).
+    id: "elixir_drenante",
+    nome: "Elixir Drenante",
+    oficiosExigidos: ["oficio-alquimia", "oficio-encantamentos"],
+    custoManaQuebrada: 1,
+    descritoresConcedidos: ["drenante"],
+    efeito: "Sem rolagem. Durante uma cena, os ataques de quem bebe (físicos e mágicos) ganham Drenante. Exige os dois ofícios. Qualquer pessoa pode usar.",
   },
 ];
 

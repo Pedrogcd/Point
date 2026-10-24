@@ -4,11 +4,8 @@
 // `exemplos` abaixo são só referência pro jogador, não aparecem como nome).
 //
 // Cada tipo tem 2 descritores: `descritor1` vale pra qualquer pessoa que use
-// a arma; `descritor2` só vale pra quem "tem perícia" — a disciplina real
-// de perícia em armas ainda não existe (planilha, aba "Disciplinas de
-// arma": 5 disciplinas placeholder, bônus/habilidades "a definir"), então
-// por enquanto `temPericia` é um campo MANUAL na arma da ficha (provisório,
-// decisão minha — o jogador/mestre marca à mão até a disciplina existir).
+// a arma; `descritor2` só vale pra quem é treinado na proficiência da arma
+// (24/10: grau 1+ ou Treino de ofício — ver treinadoNaArma).
 //
 // `extra: "pesado"` é um terceiro descritor à parte (não entra nos dois
 // normais): dados de ataque precisam de 7+ (não soma com Blindado — mesmo
@@ -73,9 +70,9 @@ export function getArmaPorId(id) {
 }
 
 // Descritores EFETIVOS de uma arma do catálogo pra quem a empunha: Descritor
-// 1 sempre vale; Descritor 2 só com `temPericia` (campo manual provisório na
-// arma da ficha, ver cabeçalho do arquivo); `pesado` (o extra) entra junto
-// quando presente, sempre, com ou sem perícia.
+// 1 sempre vale; Descritor 2 só com `treinado` (ver treinadoNaArma, abaixo —
+// 24/10); `pesado` (o extra) entra junto
+// quando presente, sempre, treinado ou não.
 export function descritoresEfetivosArma(arma, temPericia) {
   if (!arma) return [];
   const out = [arma.descritor1];
@@ -84,15 +81,27 @@ export function descritoresEfetivosArma(arma, temPericia) {
   return out.filter(Boolean);
 }
 
-// Proficiência de combate usada ao atacar com uma arma do catálogo (pra
-// equipar na ficha — 21/10). O sistema só tem 2 proficiências de combate
-// físico (Armas de Fogo / Combate Corpo a Corpo, engine.js), então toda
-// arma que não é de fogo (lâminas, contundentes, hastes, flexíveis e as
-// de "Distância" como arco/besta/arremesso, que não têm perícia própria)
-// usa Combate Corpo a Corpo — mesma simplificação que BASE_ATTACK_TYPES já
-// fazia pra arma_branca. Decisão provisória minha, listada no relatório.
+// Proficiência de combate usada ao atacar com uma arma do catálogo (24/10,
+// docs/ATUALIZACAO_24-10.md seção 0.1): Armas de Fogo pra família "Arma de
+// fogo", Armas à Distância pra "Distância" (arco, besta, arremesso) e
+// Armas Corpo a Corpo pro resto (lâminas, contundentes, hastes,
+// flexíveis — inclusive manoplas, que são família Contundente).
 export function profKeyDaArma(arma) {
-  return arma?.familia === "Arma de fogo" ? "armasDeFogo" : "combateCorpoACorpo";
+  if (arma?.familia === "Arma de fogo") return "armasDeFogo";
+  if (arma?.familia === "Distância") return "armasADistancia";
+  return "combateCorpoACorpo";
+}
+
+// Treinado na arma (24/10, seção 0.2): grau 1 ou mais (E pra cima) na
+// proficiência da arma, OU Treino vindo de habilidade de ofício
+// (`treinoPorOficio`, ver data/magias.js:periciaDeOficioCobreArma) — este
+// conta mesmo com grau 0. Só treinado usa o Descritor 2. Substitui o
+// antigo checkbox manual `temPericiaArma` (a proficiência é a progressão).
+export function treinadoNaArma(personagem, arma, treinoPorOficio = false) {
+  if (!arma) return false;
+  if (treinoPorOficio) return true;
+  const grau = personagem?.proficiencias?.[profKeyDaArma(arma)];
+  return !!grau && grau !== "F";
 }
 
 export const ALCANCE_LABEL = {

@@ -11,8 +11,9 @@ import {
   HABILIDADES_CONJUNTAS, getHabilidadeConjuntaPorId, DISCIPLINAS,
   BONUS_GRAU_POR_OFICIO, PASSIVA_POR_OFICIO, getPassivaDoOficio,
   PROFICIENCIAS_DE_OFICIO, getProficienciaDeOficioPorId, getHabilidadeDeOficioPorId,
-  periciasDeOficio, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura,
+  periciasDeOficio, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, escolhaCombateDoSlot,
 } from "./magias.js";
+import { PROFICIENCIAS_LIST } from "../engine.js";
 import { getArmaPorId } from "./armas.js";
 import { getArmaduraPorId } from "./armaduras.js";
 
@@ -345,20 +346,27 @@ describe("DISCIPLINAS", () => {
 // ofício (+1 grau cada, sem escolha) + a passiva de Invocação (que também é
 // um +1 grau, teto C, sempre ativa).
 describe("BONUS_GRAU_POR_OFICIO (23/10, proficiências dos ofícios)", () => {
-  it("cada um dos 5 ofícios mágicos tem exatamente 3 proficiências, exceto Invocação (3 + a passiva mecanizada)", () => {
-    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-magias-de-guerra"].length, 3);
-    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-encantamentos"].length, 3);
-    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-alquimia"].length, 3);
-    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-constructo"].length, 3);
-    assert.equal(BONUS_GRAU_POR_OFICIO["oficio-invocacao"].length, 4);
+  it("24/10: os 5 ofícios têm exatamente 3 fixas, a primeira de Combate", () => {
+    const combate = new Set(PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => p.key));
+    for (const id of ["oficio-magias-de-guerra", "oficio-encantamentos", "oficio-alquimia", "oficio-constructo", "oficio-invocacao"]) {
+      const lista = BONUS_GRAU_POR_OFICIO[id];
+      assert.equal(lista.length, 3, id);
+      assert.equal(lista.filter((b) => combate.has(b.chave)).length, 1, id);
+      assert.ok(combate.has(lista[0].chave), id);
+    }
   });
-  it("Magias de guerra: Magias Gerais, Política, Tecnologia (não mais Acadêmicos)", () => {
-    const chaves = BONUS_GRAU_POR_OFICIO["oficio-magias-de-guerra"].map((b) => b.chave).sort();
-    assert.deepEqual(chaves, ["magiasGerais", "politica", "tecnologia"]);
+  it("24/10: fixas de cada ofício (seção 2b)", () => {
+    const chaves = (id) => BONUS_GRAU_POR_OFICIO[id].map((b) => b.chave);
+    assert.deepEqual(chaves("oficio-magias-de-guerra"), ["magiaOfensiva", "magiasGerais", "politica"]);
+    assert.deepEqual(chaves("oficio-encantamentos"), ["vontade", "magiasGerais", "oficio"]);
+    assert.deepEqual(chaves("oficio-alquimia"), ["fortitude", "medicina", "oficio"]);
+    assert.deepEqual(chaves("oficio-constructo"), ["magiaOfensiva", "tecnologia", "oficio"]);
+    assert.deepEqual(chaves("oficio-invocacao"), ["combateCorpoACorpo", "magiasGerais", "atletismo"]);
   });
-  it("Invocação inclui Combate Corpo a Corpo (a passiva) além das 3 proficiências", () => {
-    const chaves = BONUS_GRAU_POR_OFICIO["oficio-invocacao"].map((b) => b.chave).sort();
-    assert.deepEqual(chaves, ["atletismo", "combateCorpoACorpo", "magiasGerais", "percepcao"]);
+  it("escolhaCombateDoSlot só aceita chave da lista válida", () => {
+    assert.equal(escolhaCombateDoSlot({ escolhaCombate: "esquiva" }, ["esquiva"]), "esquiva");
+    assert.equal(escolhaCombateDoSlot({ escolhaCombate: "atletismo" }, ["esquiva"]), null);
+    assert.equal(escolhaCombateDoSlot({}, ["esquiva"]), null);
   });
   it("Conduíte e Magia Inata não têm entrada (não dão proficiências)", () => {
     assert.equal(BONUS_GRAU_POR_OFICIO["magia-inata"], undefined);
@@ -374,8 +382,8 @@ describe("PASSIVA_POR_OFICIO / getPassivaDoOficio", () => {
       assert.ok(p.texto.length > 0, id);
     }
   });
-  it("Invocação e Magias de guerra (23/10, segunda parte: proficiência em todas as armas) são mecanizadas; a passiva anterior de Magias de guerra não", () => {
-    assert.equal(PASSIVA_POR_OFICIO["oficio-invocacao"].mecanizada, true);
+  it("só a de Magias de guerra (Treino em todas as armas) é mecanizada; 24/10: a de Invocação (armas invocadas treinadas) não", () => {
+    assert.equal(PASSIVA_POR_OFICIO["oficio-invocacao"].mecanizada, false);
     assert.equal(PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].mecanizada, true);
     assert.equal(PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].alternativa.mecanizada, false);
     assert.equal(PASSIVA_POR_OFICIO["oficio-encantamentos"].mecanizada, false);
@@ -404,7 +412,7 @@ describe("PROFICIENCIAS_DE_OFICIO / periciasDeOficio (23/10, segunda parte)", ()
   });
   it("getHabilidadeDeOficioPorId acha magia e habilidade de proficiência; ids não colidem com MAGIAS", () => {
     assert.equal(getHabilidadeDeOficioPorId("shin").nome, "Shin");
-    assert.equal(getHabilidadeDeOficioPorId("proficiencia_armas").nome, "Proficiência em Armas");
+    assert.equal(getHabilidadeDeOficioPorId("proficiencia_armas").nome, "Treino em Armas");
     for (const p of PROFICIENCIAS_DE_OFICIO) assert.equal(getMagiaPorId(p.id), null);
   });
   it("sem ofício nenhum, nenhuma perícia", () => {

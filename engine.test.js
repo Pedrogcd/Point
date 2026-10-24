@@ -244,9 +244,9 @@ describe("computeAcertoTipo", () => {
   const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
   const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
 
-  it("não tem mais entrada 'Mágico' (14/10: sem Proficiência fixa pro pool mágico)", () => {
+  it("não tem entrada 'Mágico'; 24/10: Corpo a corpo, Desarmado, À distância e Arma de fogo", () => {
     assert.equal(ACERTOS_POR_TIPO.find((e) => e.key === "magico"), undefined);
-    assert.equal(ACERTOS_POR_TIPO.length, 2);
+    assert.deepEqual(ACERTOS_POR_TIPO.map((e) => e.prof), ["combateCorpoACorpo", "desarmado", "armasADistancia", "armasDeFogo"]);
   });
   it("Corpo a corpo = Destreza + Combate Corpo a Corpo (bônus E=0..A=+4)", () => {
     const c = withProfs(withAttrs(makeCharacter(), { destreza: "C" }), { combateCorpoACorpo: "B" });
@@ -878,55 +878,49 @@ describe("diceRecuperacaoMana", () => {
   });
 });
 
-describe("diceAtaqueMagico", () => {
-  it("pool (fonte 'oficios', padrão) = Base mágica (2d10+extra) + contagem de Ofícios + ajuste da magia", () => {
-    const attacker = { disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "alquimia", "constructo"] } }; // 3 ofícios
-    // manaGasta=2, custoMagia=1 -> extra=1 -> base=3; +3(ofícios) = 6
-    assert.equal(diceAtaqueMagico(attacker, 2, 1, "oficios", 0), 6);
+describe("diceAtaqueMagico (24/10: Base mágica + atributo à escolha + Magia Ofensiva)", () => {
+  it("Base mágica (2d10+extra) + atributo + Magia Ofensiva + ajuste; ofícios não contam mais", () => {
+    const attacker = withProfs(withAttrs({ disciplinaMagica: { oficiosMagicos: ["a", "b", "c"] } }, { inteligencia: "B" }), { magiaOfensiva: "D" });
+    // manaGasta=2, custo=1 -> base 3; +4 (Inteligência B) +2 (Magia Ofensiva D) = 9
+    assert.equal(diceAtaqueMagico(attacker, 2, 1, "inteligencia", 0), 9);
   });
-  it("pool (fonte 'inteligencia') = Base mágica + grau de Inteligência + ajuste da magia", () => {
-    const attacker = withAttrs(makeCharacter(), { inteligencia: "B" }); // grau 4
-    // manaGasta=2, custoMagia=1 -> extra=1 -> base=3; +4(inteligência) = 7
-    assert.equal(diceAtaqueMagico(attacker, 2, 1, "inteligencia", 0), 7);
+  it("atributo à escolha: qualquer Atributo Geral (ex.: Carisma)", () => {
+    const attacker = withProfs(withAttrs(makeCharacter(), { carisma: "C" }), { magiaOfensiva: "E" });
+    assert.equal(diceAtaqueMagico(attacker, 1, 1, "carisma", 0), 2 + 3 + 1);
   });
-  it("Mísseis Mágicos (ajusteDados +1): Base mágica + 1 + Ofícios/Inteligência", () => {
-    const attacker = makeCharacter(); // sem ofícios, sem disciplinaMagica
-    // manaGasta=1, custoMagia=1 -> extra=0 -> base=2; +0(ofícios) +1(ajuste) = 3
-    assert.equal(diceAtaqueMagico(attacker, 1, 1, "oficios", 1), 3);
+  it("valor antigo 'oficios' cai em Inteligência; sem Magia Ofensiva salva conta 0", () => {
+    const attacker = { atributosGerais: { inteligencia: "D" } };
+    assert.equal(diceAtaqueMagico(attacker, 1, 1, "oficios", 1), 2 + 2 + 0 + 1);
   });
-  it("Magia Inata soma +1 dado fixo, não conta como ofício", () => {
-    const attacker = { disciplinaMagica: { magiaInata: true } };
-    // manaGasta=1, custoMagia=1 -> extra=0 -> base=2; +0(ofícios) +1(magia inata) = 3
-    assert.equal(diceAtaqueMagico(attacker, 1, 1, "oficios", 0), 3);
+  it("Magia Inata soma +1 dado fixo", () => {
+    const attacker = { disciplinaMagica: { magiaInata: true }, proficiencias: { magiaOfensiva: "F" } };
+    assert.equal(diceAtaqueMagico(attacker, 1, 1, "inteligencia", 0), 2 + 1 + 0 + 1);
   });
 });
 
-// Alquimia/Constructo (21/10, docs/ATUALIZACAO_21-10.md seção 4.1/4.2).
-describe("diceAtaqueAlquimia", () => {
-  it("pool (fonte 'oficios', padrão) = Destreza + contagem de Ofícios, SEM Base mágica", () => {
-    const attacker = withAttrs({ disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "alquimia"] } }, { destreza: "C" }); // destreza 3 + 2 ofícios
-    assert.equal(diceAtaqueAlquimia(attacker, "oficios", 0), 5);
+describe("diceAtaqueAlquimia (24/10: Destreza ou Inteligência + Magia Ofensiva)", () => {
+  it("atributo à escolha + Magia Ofensiva, SEM Base mágica", () => {
+    const attacker = withProfs(withAttrs(makeCharacter(), { destreza: "C", inteligencia: "B" }), { magiaOfensiva: "D" });
+    assert.equal(diceAtaqueAlquimia(attacker, "destreza", 0), 3 + 2);
+    assert.equal(diceAtaqueAlquimia(attacker, "inteligencia", 0), 4 + 2);
   });
-  it("pool (fonte 'inteligencia') = Destreza + grau de Inteligência", () => {
-    const attacker = withAttrs(makeCharacter(), { destreza: "C", inteligencia: "B" }); // 3 + 4
-    assert.equal(diceAtaqueAlquimia(attacker, "inteligencia", 0), 7);
-  });
-  it("não soma Magia Inata nem Base mágica alguma — só Destreza + ofícios/Inteligência + ajuste", () => {
-    const attacker = { disciplinaMagica: { magiaInata: true } }; // tudo em E (destreza 1, 0 ofícios)
-    assert.equal(diceAtaqueAlquimia(attacker, "oficios", 2), 3); // 1 + 0 + 2(ajuste)
+  it("não soma Magia Inata; ajuste por cima", () => {
+    const attacker = { disciplinaMagica: { magiaInata: true }, proficiencias: { magiaOfensiva: "F" } };
+    assert.equal(diceAtaqueAlquimia(attacker, "destreza", 2), 1 + 0 + 2);
   });
 });
 
-describe("diceAtaqueConstructo", () => {
-  it("pool = 2 (Base mágica fixa, sem mana extra) + ofícios do dono", () => {
-    const dono = { disciplinaMagica: { oficiosMagicos: ["magias-de-guerra", "alquimia", "constructo"] } };
-    assert.equal(diceAtaqueConstructo(dono), 5); // 2 + 3
+describe("diceAtaqueConstructo (24/10: 2 + atributo do dono + Magia Ofensiva do dono)", () => {
+  it("pool = 2 + atributo + Magia Ofensiva", () => {
+    const dono = withProfs(withAttrs(makeCharacter(), { inteligencia: "C" }), { magiaOfensiva: "D" });
+    assert.equal(diceAtaqueConstructo(dono, "inteligencia"), 2 + 3 + 2);
   });
-  it("sem ofícios, fica só a Base mágica fixa (2)", () => {
-    assert.equal(diceAtaqueConstructo({}), 2);
+  it("ofícios do dono não contam mais", () => {
+    const dono = { disciplinaMagica: { oficiosMagicos: ["a", "b", "c"] }, proficiencias: { magiaOfensiva: "F" } };
+    assert.equal(diceAtaqueConstructo(dono), 2 + 1 + 0);
   });
   it("ajusteDados soma por cima", () => {
-    assert.equal(diceAtaqueConstructo({}, 3), 5);
+    assert.equal(diceAtaqueConstructo({ proficiencias: { magiaOfensiva: "F" } }, "inteligencia", 3), 2 + 1 + 0 + 3);
   });
 });
 
@@ -935,19 +929,26 @@ describe("diceAtaqueConstructo", () => {
 // ---------------------------------------------------------------------------
 
 describe("resolveRolagemDefesa", () => {
-  it("Defesa + Atributo Geral escolhido, contra ataque físico (21/10: Defesa substitui Resistência Física)", (t) => {
-    const defensor = withProfs(withAttrs(makeCharacter(), { vigor: "C" }), { defesaProf: "B" }); // 3+4=7 dados
-    mockDice(t, [1, 1, 1, 1, 1, 1, 1]);
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor" });
-    assert.equal(r.totalDice, 7);
-    assert.equal(r.profKey, "defesaProf");
+  it("24/10: esquivar = Destreza + Esquiva; bloquear = Força + Bloqueio", (t) => {
+    const defensor = withProfs(withAttrs(makeCharacter(), { destreza: "C", forca: "D" }), { esquiva: "B", bloqueio: "F" });
+    mockDice(t, [1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    const esq = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" });
+    assert.equal(esq.profKey, "esquiva");
+    assert.equal(esq.totalDice, 3 + 4);
+    const blo = resolveRolagemDefesa({ defensor, defesaAtributo: "forca" });
+    assert.equal(blo.profKey, "bloqueio");
+    assert.equal(blo.totalDice, 2 + 0);
   });
-  it("14/10: contra ataque mágico também é só Defesa (Resistência Mágica não existe mais)", (t) => {
-    const defensor = withProfs(makeCharacter(), { defesaProf: "A" });
-    mockDice(t, [1, 1, 1, 1, 1, 1]); // vigor E(1) + defesaProf A(5) = 6
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "vigor", ehMagia: true });
-    assert.equal(r.profKey, "defesaProf");
-    assert.equal(r.totalDice, 6);
+  it("24/10: vale contra ataque mágico também", (t) => {
+    const defensor = withProfs(makeCharacter(), { esquiva: "A" });
+    mockDice(t, [1, 1, 1, 1, 1, 1]);
+    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", ehMagia: true });
+    assert.equal(r.totalDice, 1 + 5);
+  });
+  it("defensor no formato antigo (só defesaProf) cai na antiga Defesa", (t) => {
+    const defensor = { atributosGerais: { destreza: "E" }, proficiencias: { defesaProf: "C" } };
+    mockDice(t, [1, 1, 1, 1]);
+    assert.equal(resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" }).totalDice, 1 + 3);
   });
   // Preciso N (21/10, substitui o antigo Saturante — Saturante = Preciso 2):
   // penaliza quem esquiva (defesaAtributo "destreza").
@@ -1201,11 +1202,11 @@ describe("Grau F — abaixo de E, reduz 1 dado (14/10)", () => {
     const rE = resolveRolagemDefesa({ defensor: comE, defesaAtributo: "vigor" });
     assert.equal(rE.totalDice, 2);
   });
-  it("resolveRolagemDefesa: Defesa em F dá 1 dado a menos (vigor E + prof F = 1)", (t) => {
-    const comF = withProfs(makeCharacter(), { defesaProf: "F" });
+  it("resolveRolagemDefesa: Esquiva em F (sem treino) dá 0 dados de proficiência (destreza E + F = 1)", (t) => {
+    const comF = withProfs(makeCharacter(), { esquiva: "F" });
     mockDice(t, [1]);
-    const rF = resolveRolagemDefesa({ defensor: comF, defesaAtributo: "vigor" });
-    assert.equal(rF.totalDice, 1); // vigor E(1) + defesaProf F(0)
+    const rF = resolveRolagemDefesa({ defensor: comF, defesaAtributo: "destreza" });
+    assert.equal(rF.totalDice, 1);
   });
 
   it("resolveAtaque: defensor com Vigor F faz qualquer sucesso líquido virar agravante", (t) => {

@@ -60,7 +60,9 @@ describe("Tabela de estatísticas do Grupo Suth (engine.js x documento de conver
       // item 2) — a defesa agora é a rolagem ativa de Resistência Física/Mágica,
       // sem estatística passiva pra comparar aqui.
 
-      const acertos = ACERTOS_POR_TIPO.map((entrada) => computeAcertoTipo(character, entrada).total);
+      // 24/10: ACERTOS_POR_TIPO ganhou Desarmado/À distância — a tabela
+      // compara só Corpo a corpo e Arma de fogo, como antes.
+      const acertos = ACERTOS_POR_TIPO.filter((e) => e.key === "corpoACorpo" || e.key === "armaDeFogo").map((entrada) => computeAcertoTipo(character, entrada).total);
       assert.deepEqual(acertos, esperado.acerto, "Acerto Corpo a corpo/Arma de fogo/Mágico");
 
       assert.equal(computeMaxHP(character), esperado.hp, "HP máximo");

@@ -63,7 +63,7 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: true,
     trocaGratisComAcao: true,
-    bonusTexto: "Magias Gerais, Política e Tecnologia +1 grau cada (teto C). Passiva: proficiência em todas as armas (mecanizada: libera o Descritor 2 de qualquer arma). Quem já tem proficiência em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (essa não é mecanizada: o app não acompanha início de combate).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Magias Gerais e Política, +1 grau cada (teto C). Passiva: Treino em todas as armas (Descritor 2 de qualquer arma, mesmo com grau 0). Quem já tem Treino em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (não mecanizada: o app não acompanha início de combate).",
     descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
   },
   {
@@ -75,27 +75,27 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: false,
     trocaGratisComAcao: false,
-    bonusTexto: "+1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico, não dá proficiências nem passiva de ofício).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha (teto C). +1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico, não dá proficiências fixas nem passiva de ofício).",
     descricao: "Magia que vem de dentro, sem estudo formal.",
   },
   {
     id: "oficio-encantamentos", nome: "Ofício Mágico: Encantamentos", tipo: "oficio-magico",
-    bonusTexto: "Magias Gerais, Ofício e Investigação +1 grau cada (teto C). Passiva: a cada descanso longo, escolhe uma proficiência qualquer (inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, teto C (não mecanizada: o app não tem descanso longo nem essa escolha).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Vontade, Magias Gerais e Ofício, +1 grau cada (teto C). Passiva: a cada descanso longo, escolhe uma proficiência qualquer (inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, teto C (não mecanizada: o app não tem descanso longo nem essa escolha).",
     descricao: "Disciplina de ofício mágico. Cada encantamento quebra 1 mana e concede um descritor ao usuário (ou aos ataques dele, físicos e mágicos) enquanto ela estiver quebrada. Nomes no formato 'Encantamento: Descritor'.",
   },
   {
     id: "oficio-alquimia", nome: "Ofício Mágico: Alquimia", tipo: "oficio-magico",
-    bonusTexto: "Medicina, Ofício e Acadêmicos +1 grau cada (teto C). Passiva: no descanso longo, prepara qualquer habilidade de Alquimia em quantidade igual à Inteligência ou ao número de ofícios (o maior), sem quebrar mana (não mecanizada: o app não tem descanso longo nem contagem de itens de graça).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Fortitude, Medicina e Ofício, +1 grau cada (teto C). Passiva: no descanso longo, prepara qualquer habilidade de Alquimia em quantidade igual à Inteligência, sem quebrar mana (não mecanizada: o app não tem descanso longo nem contagem de itens de graça).",
     descricao: "Disciplina de ofício mágico. Itens preparados que quebram mana pra existir, fora de combate — qualquer pessoa pode usá-los depois.",
   },
   {
     id: "oficio-constructo", nome: "Ofício Mágico: Constructo", tipo: "oficio-magico",
-    bonusTexto: "Tecnologia, Ofício e Liderança +1 grau cada (teto C). Passiva: já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana (não mecanizada: não há UI de invocar/gerenciar constructo ainda).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Tecnologia e Ofício, +1 grau cada (teto C). Passiva: já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana (não mecanizada: não há UI de invocar/gerenciar constructo ainda).",
     descricao: "Disciplina de ofício mágico. Servos/torres/armadilhas/armas/armaduras criados, que agem só quando o dono manda.",
   },
   {
     id: "oficio-invocacao", nome: "Ofício Mágico: Invocação", tipo: "oficio-magico",
-    bonusTexto: "Magias Gerais, Atletismo e Percepção +1 grau cada (teto C). Passiva: +1 grau em Combate Corpo a Corpo (teto C), sempre, não só com armas invocadas — mecanizada.",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas Corpo a Corpo, Magias Gerais e Atletismo, +1 grau cada (teto C). Passiva: armas invocadas contam como treinadas (Descritor 2 do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
     descricao: "Disciplina de ofício mágico (separado de Encantamentos e Constructo em 21/10). Invoca armas espectrais e algumas magias de invocação (Chama Mágica).",
   },
 ];
@@ -122,34 +122,56 @@ export const MAX_DISCIPLINAS = 3;
 // proficiências" do ofício, é a PASSIVA dele ("+1 grau em Combate Corpo a
 // Corpo, sempre") — mecanicamente idêntica (mesmo +1 grau/teto C), por isso
 // cabe na mesma tabela sem precisar de um mecanismo à parte.
+//
+// 24/10 (docs/ATUALIZACAO_24-10.md seção 2b): cada ofício troca 1 das 3
+// fixas antigas por uma fixa de COMBATE (a primeira de cada lista abaixo).
+// Saíram: Tecnologia (Magias de guerra), Investigação (Encantamentos),
+// Acadêmicos (Alquimia), Liderança (Constructo), Percepção (Invocação). A
+// passiva antiga de Invocação (+1 Corpo a Corpo) saiu — Armas Corpo a
+// Corpo virou a fixa de combate dela. A escolha LIVRE de combate (+1 numa
+// proficiência de Combate à escolha, toda disciplina, Magia Inata
+// inclusive) não mora aqui: fica em slot.escolhaCombate (ver
+// escolhaCombateDoSlot, abaixo, e racasCatalogo.js:bonusGrauDoPersonagem).
 export const BONUS_GRAU_POR_OFICIO = {
   "oficio-magias-de-guerra": [
+    { tipo: "proficiencia", chave: "magiaOfensiva" },
     { tipo: "proficiencia", chave: "magiasGerais" },
     { tipo: "proficiencia", chave: "politica" },
-    { tipo: "proficiencia", chave: "tecnologia" },
   ],
   "oficio-encantamentos": [
+    { tipo: "proficiencia", chave: "vontade" },
     { tipo: "proficiencia", chave: "magiasGerais" },
     { tipo: "proficiencia", chave: "oficio" },
-    { tipo: "proficiencia", chave: "investigacao" },
   ],
   "oficio-alquimia": [
+    { tipo: "proficiencia", chave: "fortitude" },
     { tipo: "proficiencia", chave: "medicina" },
     { tipo: "proficiencia", chave: "oficio" },
-    { tipo: "proficiencia", chave: "academicos" },
   ],
   "oficio-constructo": [
+    { tipo: "proficiencia", chave: "magiaOfensiva" },
     { tipo: "proficiencia", chave: "tecnologia" },
     { tipo: "proficiencia", chave: "oficio" },
-    { tipo: "proficiencia", chave: "lideranca" },
   ],
   "oficio-invocacao": [
+    { tipo: "proficiencia", chave: "combateCorpoACorpo" },
     { tipo: "proficiencia", chave: "magiasGerais" },
     { tipo: "proficiencia", chave: "atletismo" },
-    { tipo: "proficiencia", chave: "percepcao" },
-    { tipo: "proficiencia", chave: "combateCorpoACorpo" }, // passiva do ofício, sempre ativa
   ],
 };
+
+// Escolha livre de Combate da disciplina (24/10, seção 0.4): +1 grau numa
+// proficiência de Combate à escolha do jogador, guardada no próprio slot
+// (`slot.escolhaCombate`, chave de PROFICIENCIAS_LIST com categoria
+// "combate"). Vale pra toda disciplina do catálogo (os 5 ofícios e Magia
+// Inata). Fica fixa até trocar de disciplina (trocar a disciplina do slot
+// zera a escolha) — se muda no descanso longo é dúvida aberta (seção 0.7).
+// A lista de chaves válidas vem de quem chama (racasCatalogo.js), pra este
+// arquivo não depender do engine.
+export function escolhaCombateDoSlot(slot, chavesCombateValidas) {
+  const chave = slot?.escolhaCombate;
+  return chave && chavesCombateValidas.includes(chave) ? chave : null;
+}
 
 // 23/10 (seção 2b): texto da passiva de cada ofício, pra exibir e pro
 // relatório. `mecanizada` diz se o motor realmente aplica o efeito (hoje só
@@ -165,7 +187,7 @@ export const PASSIVA_POR_OFICIO = {
   // outra habilidade (slot.passivaAnterior = true) — essa continua sem
   // mecânica (o app não acompanha início de combate).
   "oficio-magias-de-guerra": {
-    texto: "Proficiência em todas as armas. Quem já tem proficiência em armas por outra habilidade pode, em vez disso, escolher a passiva anterior.",
+    texto: "Treino em todas as armas (conta como treinado em todas as proficiências de arma, sem dados de proficiência). Quem já tem Treino em armas por outra habilidade pode, em vez disso, escolher a passiva anterior.",
     mecanizada: true,
     alternativa: {
       texto: "A primeira magia lançada em um combate custa 1 MP a menos (mínimo 0). Vale para qualquer magia, de qualquer ofício. Combate não é o mesmo que cena.",
@@ -177,16 +199,19 @@ export const PASSIVA_POR_OFICIO = {
     mecanizada: false,
   },
   "oficio-alquimia": {
-    texto: "No descanso longo, prepara habilidades de Alquimia (poções, bombas e qualquer outro item) em quantidade igual à Inteligência ou ao número de ofícios (o que for maior). Os itens preparados assim não quebram mana, e podem ser de qualquer habilidade de Alquimia, não só das equipadas.",
+    texto: "No descanso longo, prepara habilidades de Alquimia (poções, bombas e qualquer outro item) em quantidade igual à Inteligência. Os itens preparados assim não quebram mana, e podem ser de qualquer habilidade de Alquimia, não só das equipadas.",
     mecanizada: false,
   },
   "oficio-constructo": {
     texto: "Já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana. Se for destruído, só volta no descanso longo.",
     mecanizada: false,
   },
+  // 24/10: era +1 Combate Corpo a Corpo (mecanizada); virou "armas
+  // invocadas contam como treinadas" — sem mecânica, porque Invocar Arma
+  // não gera ataque no app.
   "oficio-invocacao": {
-    texto: "Ganha +1 grau em Combate Corpo a Corpo (teto C), sempre, não só com armas invocadas.",
-    mecanizada: true,
+    texto: "Armas invocadas contam como treinadas: valem o Descritor 2 do tipo mesmo sem grau na proficiência da arma.",
+    mecanizada: false,
   },
 };
 
@@ -200,30 +225,32 @@ export function getPassivaDoOficio(disciplinaId) {
 // magias equipadas): em Magias de guerra isso já conta contra o limite de 3
 // (magiasAtivasMax); em Alquimia/Invocação o array não tinha outro uso e o
 // limite de 3 espaços continua não validado (mesma simplificação de antes).
-// "Proficiência" aqui = a "perícia" de data/armas.js/data/armaduras.js
-// (Descritor 2 da arma; sem penalidade de -1 dado na Defesa da armadura).
+// 24/10: renomeadas pra "Treino em ..." (ids mantidos — fichas salvas).
+// Treino = conta como treinado mesmo com grau 0, sem dados de proficiência
+// (Descritor 2 da arma, data/armas.js:treinadoNaArma; sem penalidade de -1
+// dado na Defesa da armadura).
 // `armas`/`armaduras`: "todas" ou lista de `periciaFamilia`.
 export const PROFICIENCIAS_DE_OFICIO = [
   {
     id: "proficiencia_armaduras",
-    nome: "Proficiência em Armaduras",
+    nome: "Treino em Armaduras",
     disciplinaId: "oficio-magias-de-guerra",
     armaduras: "todas",
-    efeito: "Proficiência em todas as armaduras, escudos inclusive: nenhuma peça tira o dado da Defesa por falta de perícia. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Treino em todas as armaduras, escudos inclusive: nenhuma peça tira o dado da Defesa por falta de perícia. Ocupa 1 dos 3 espaços do ofício.",
   },
   {
     id: "proficiencia_armas_de_fogo",
-    nome: "Proficiência em Armas de Fogo",
+    nome: "Treino em Armas de Fogo",
     disciplinaId: "oficio-alquimia",
     armas: ["Armas de fogo"],
-    efeito: "Proficiência em armas de fogo: o Descritor 2 de pistolas, rifles e espingardas passa a valer. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Treino em Armas de Fogo: conta como treinado mesmo com grau 0 (sem dados de proficiência) — o Descritor 2 de pistolas, rifles e espingardas vale. Ocupa 1 dos 3 espaços do ofício.",
   },
   {
     id: "proficiencia_armas",
-    nome: "Proficiência em Armas",
+    nome: "Treino em Armas",
     disciplinaId: "oficio-invocacao",
     armas: "todas",
-    efeito: "Proficiência em todas as famílias de arma: o Descritor 2 de qualquer arma passa a valer. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Treino em todas as proficiências de arma: conta como treinado mesmo com grau 0 (sem dados de proficiência) — o Descritor 2 de qualquer arma vale. Ocupa 1 dos 3 espaços do ofício.",
   },
 ];
 
@@ -688,7 +715,7 @@ export const ENCANTAMENTOS = [
     nome: "Perícia Encantada",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o alvo usa o Descritor 2 de um tipo de arma à sua escolha, como se tivesse a perícia da família. Permite combinar Invocação + Encantamentos (um mago de invocação). Não mecanizado: a escolha do tipo de arma e o acesso ao Descritor 2 ficam a cargo da mesa.",
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o alvo usa o Descritor 2 de um tipo de arma à sua escolha, como se tivesse treino na proficiência da arma (24/10). Permite combinar Invocação + Encantamentos (um mago de invocação). Não mecanizado: a escolha do tipo de arma e o acesso ao Descritor 2 ficam a cargo da mesa.",
   },
 ];
 
@@ -716,8 +743,10 @@ export function descritoresDeEncantamentosAtivos(character) {
   return resultado;
 }
 
-// Conduíte mágico: "existe em todo ofício mágico, ocupa 1 dos 3 espaços,
-// conta +1 ofício. Só um Conduíte funciona por vez." Não é magia nem
+// Conduíte mágico: "existe em todo ofício mágico, ocupa 1 dos 3 espaços.
+// Só um Conduíte funciona por vez." 24/10: dá +1 grau em Magia Ofensiva
+// (teto C) em vez de +1 ofício no pool; continua somando +1 na recuperação
+// de mana até o Pedro revisar essa parte (seção 0.7). Não é magia nem
 // encantamento — é uma passiva; o estado é um único flag global,
 // `character.conduiteAtivo` (ver racasCatalogo.js:comGrausEfetivos).
 export const CONDUITE_MAGICO = {
@@ -725,10 +754,10 @@ export const CONDUITE_MAGICO = {
   nome: "Conduíte mágico",
   custoMp: 0,
   descricao:
-    "Ocupa 1 dos 3 slots de habilidade do ofício. Equipado, soma +1 ofício " +
-    "mágico no pool de ataque mágico e na recuperação de mana. Não é magia " +
-    "e não custa MP. Todo ofício pode ter um, mas só um Conduíte funciona " +
-    "por vez.",
+    "Ocupa 1 dos 3 slots de habilidade do ofício. Equipado, soma +1 grau em " +
+    "Magia Ofensiva (teto C) no pool de ataque mágico. A parte que mexia na " +
+    "recuperação de mana fica a revisar (24/10). Não é magia e não custa MP. " +
+    "Todo ofício pode ter um, mas só um Conduíte funciona por vez.",
 };
 
 // Catálogo de ALQUIMIA (ofício mágico "Alquimia"). Itens são PREPARADOS, só
@@ -737,7 +766,7 @@ export const CONDUITE_MAGICO = {
 // Encantamentos, um item preparado NÃO concede descritor nenhum ao dono
 // automaticamente — ele é um objeto que QUALQUER UM pode usar depois, com os
 // parâmetros de quem criou (rolagem: engine.js:diceAtaqueAlquimia = Destreza
-// + ofícios/Inteligência, sem Base mágica nem mana extra). Por isso
+// ou Inteligência + Magia Ofensiva, sem Base mágica nem mana extra). Por isso
 // `descritores`/`descritoresConcedidos` aqui são só DECORATIVOS (pro selo/
 // pop-up aparecer na ficha) — nunca entram em character.descritores do dono,
 // mesmo quando o item afeta quem o usa (Tônico Veloz) e principalmente
@@ -900,7 +929,7 @@ export const ALQUIMIA = [
     custoManaQuebrada: 1,
     semRolagem: true,
     descritoresConcedidos: ["corrosivo"],
-    efeito: "Sem rolagem. Um alvo perde o Blindado e tem os efeitos (descritores) da armadura cancelados até o fim da cena (Goethiano inclusive). Pool do arremesso, se precisar acertar: Destreza + (ofícios ou Inteligência). Efeito em terceiros, não mecanizado.",
+    efeito: "Sem rolagem. Um alvo perde o Blindado e tem os efeitos (descritores) da armadura cancelados até o fim da cena (Goethiano inclusive). Pool do arremesso, se precisar acertar: atributo à escolha (Destreza ou Inteligência) + Magia Ofensiva. Efeito em terceiros, não mecanizado.",
   },
   {
     // 23/10: era "prioridade -1" — virou Lento 1.
@@ -978,7 +1007,8 @@ export function getItemAlquimicoPorId(id) {
 // (exceção à regra de 1 por habilidade); o constructo fica com o
 // personagem enquanto a mana estiver quebrada. Magias feitas através dele
 // custam 1 MP a menos. Quando destruído, só 1 das 2 manas quebradas volta.
-// Pool: engine.js:diceAtaqueConstructo = Base mágica + ofícios do dono.
+// Pool: engine.js:diceAtaqueConstructo = Base mágica + atributo à escolha
+// do dono + Magia Ofensiva do dono (24/10).
 //
 // TODO (não implementado — ver relatório final): não há "invocar
 // constructo" na UI nem tracking de Integridade, nem as "funções" como
@@ -1091,7 +1121,7 @@ export const INVOCACAO = [
     disciplinaId: "oficio-invocacao",
     tipo: "Invocação",
     custoManaQuebrada: 1,
-    efeito: "Invoca uma arma de qualquer tipo do catálogo de armas (escolha o tipo ao ativar — não modelado aqui, ver o slot Arma do painel Equipamento). Dura enquanto a mana estiver quebrada. Só o Descritor 1 do tipo vale (sem perícia, a menos que o usuário tenha a perícia da família ou o encantamento Perícia Encantada). O ataque usa Base mágica + ofícios mágicos (sem Destreza), com +1 de ajuste de acerto. Armas arremessadas voltam à mão ao fim do turno e, se soltas ou destruídas, podem ser re-invocadas de graça uma vez por cena.",
+    efeito: "Invoca uma arma de qualquer tipo do catálogo de armas (escolha o tipo ao ativar — não modelado aqui, ver o slot Arma do painel Equipamento). Dura enquanto a mana estiver quebrada. Valem o Descritor 1 e o Descritor 2 do tipo (a passiva do ofício a trata como treinada). O ataque usa Base mágica + atributo à escolha + Magia Ofensiva, com +1 de ajuste de acerto. Armas arremessadas voltam à mão ao fim do turno e, se soltas ou destruídas, podem ser re-invocadas de graça uma vez por cena.",
   },
   {
     id: "escudo_invocado",
@@ -1100,7 +1130,7 @@ export const INVOCACAO = [
     tipo: "Invocação",
     custoManaQuebrada: 1,
     descritoresConcedidos: ["firme_1"],
-    efeito: "Invoca um escudo espectral. Quem bloqueia (Força + Defesa) ganha Firme 1 enquanto a mana estiver quebrada.",
+    efeito: "Invoca um escudo espectral. Quem bloqueia (Força + Bloqueio) ganha Firme 1 enquanto a mana estiver quebrada.",
   },
   {
     id: "arma_de_brasa",

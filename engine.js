@@ -100,13 +100,33 @@ export function getAttrGrade(character, key) {
 // sobrescreve uma Defesa editada manualmente depois da migração), e o
 // grau antigo de Resistência Física fica preservado em
 // `character.proficienciasLegado.resistFisicaProf` (não apaga).
+//
+// 24/10 (docs/ATUALIZACAO_24-10.md seção 0.1): Combate passa a ter 9
+// proficiências — 5 de ataque (Armas Corpo a Corpo, Desarmado, Armas à
+// Distância, Armas de Fogo, Magia Ofensiva) e 4 de defesa (Esquiva com
+// Destreza, Bloqueio com Força, Fortitude com Vigor, Vontade com
+// Resolução). 31 no total (9 + 22 gerais). A antiga Defesa (defesaProf)
+// sai do catálogo e vira Esquiva + Bloqueio (migração em personagens.js;
+// o grau antigo fica em proficienciasLegado.defesaProf). Armas Corpo a
+// Corpo mantém a chave "combateCorpoACorpo" (só mudou o nome) pra não
+// mexer em toda ficha/ataque salvo. Magia Ofensiva usa uma chave NOVA,
+// "magiaOfensiva" — a antiga "magiasOfensivas" (removida em 14/10) ainda
+// existe com grau velho em fichas salvas e não pode ressuscitar.
+// `atributo`: atributo que soma com a proficiência na rolagem (ataque
+// físico usa o da arma, em geral Destreza; Magia Ofensiva soma com o
+// atributo à escolha do jogador, por isso null).
 export const PROFICIENCIAS_LIST = [
-  // Combate — perícias usadas nos cálculos de combate (somam com o atributo correspondente).
-  // "Briga" foi eliminada (21/09) — Ataque desarmado passou a usar Combate Corpo a Corpo,
-  // igual toda arma branca. Fichas salvas com profKey "briga" migram automaticamente.
-  { key: "armasDeFogo", label: "Armas de Fogo", categoria: "combate" },
-  { key: "combateCorpoACorpo", label: "Combate Corpo a Corpo", categoria: "combate" },
-  { key: "defesaProf", label: "Defesa", categoria: "combate" },
+  // Combate — ataque
+  { key: "combateCorpoACorpo", label: "Armas Corpo a Corpo", categoria: "combate", atributo: "destreza" },
+  { key: "desarmado", label: "Desarmado", categoria: "combate", atributo: "destreza" },
+  { key: "armasADistancia", label: "Armas à Distância", categoria: "combate", atributo: "destreza" },
+  { key: "armasDeFogo", label: "Armas de Fogo", categoria: "combate", atributo: "destreza" },
+  { key: "magiaOfensiva", label: "Magia Ofensiva", categoria: "combate", atributo: null },
+  // Combate — defesa
+  { key: "esquiva", label: "Esquiva", categoria: "combate", atributo: "destreza" },
+  { key: "bloqueio", label: "Bloqueio", categoria: "combate", atributo: "forca" },
+  { key: "fortitude", label: "Fortitude", categoria: "combate", atributo: "vigor" },
+  { key: "vontade", label: "Vontade", categoria: "combate", atributo: "resolucao" },
   // Física (não-combate)
   { key: "atletismo", label: "Atletismo", categoria: "fisica" },
   { key: "oficio", label: "Ofício", categoria: "fisica" },
@@ -203,6 +223,8 @@ export const STAT_USA_GRAU_CHEIO = new Set();
 // dois tipos.
 export const ACERTOS_POR_TIPO = [
   { key: "corpoACorpo", label: "Corpo a corpo", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
+  { key: "desarmado", label: "Desarmado", attr: "destreza", prof: "desarmado", tipo: "marcial" },
+  { key: "distancia", label: "À distância", attr: "destreza", prof: "armasADistancia", tipo: "marcial" },
   { key: "armaDeFogo", label: "Arma de fogo", attr: "destreza", prof: "armasDeFogo", tipo: "arma_de_fogo" },
 ];
 
@@ -368,7 +390,7 @@ export const TIPOS_ATAQUE = {
 // rodadas/ações, fora do escopo do guia novo; fica como TODO.
 export const BASE_ATTACK_TYPES = [
   {
-    id: "soco", profKey: "combateCorpoACorpo", atributoKey: "destreza",
+    id: "soco", profKey: "desarmado", atributoKey: "destreza",
     nome: "Ataque desarmado",
     categoria: "Corpo a corpo — desarmado",
     caracteristicas: ["físico", "corpo a corpo"],
@@ -377,7 +399,7 @@ export const BASE_ATTACK_TYPES = [
     feridas: 1,
     ehDesarmado: true,
     descritores: [],
-    descricao: "Ataque desarmado básico (soco, chute, etc). Rola Destreza + Combate Corpo a Corpo + 1 dado extra, sucesso 6+ (7+ se o alvo tiver Blindado). O defensor rola a própria defesa (Resistência Física) pra reduzir os sucessos. Sucessos líquidos ≥ Vigor do alvo = ferimento agravante; senão, superficial.",
+    descricao: "Ataque desarmado básico (soco, chute, etc). Rola Destreza + Desarmado + 1 dado extra, sucesso 6+ (7+ se o alvo tiver Blindado). O defensor rola Esquiva (Destreza) ou Bloqueio (Força) pra reduzir os sucessos. Sucessos líquidos ≥ Vigor do alvo = ferimento agravante; senão, superficial.",
   },
   {
     id: "arma_branca", profKey: "combateCorpoACorpo", atributoKey: "destreza",
@@ -388,7 +410,7 @@ export const BASE_ATTACK_TYPES = [
     ajusteDados: 0,
     feridas: 1,
     descritores: ["letal"],
-    descricao: "Arma branca comum (espada, adaga, etc). Rola Destreza + Combate Corpo a Corpo, sucesso 6+. Letal: reduz em 1 o Vigor necessário pro ferimento virar agravante.",
+    descricao: "Arma branca comum (espada, adaga, etc). Rola Destreza + Armas Corpo a Corpo, sucesso 6+. Letal: reduz em 1 o Vigor necessário pro ferimento virar agravante.",
   },
   {
     id: "arma_branca_pesada", profKey: "combateCorpoACorpo", atributoKey: "destreza",
@@ -860,6 +882,11 @@ export function diceAtaqueFisico(attacker, atributoKey, profKey, ajusteDados = 0
   return Math.max(0, base + (ajusteDados || 0) - lento);
 }
 
+// 24/10 (docs/ATUALIZACAO_24-10.md seção 1): a contagem de ofícios NÃO
+// entra mais em pool de ataque nenhum (magia, bomba, constructo, Invocar
+// Arma) — só sobra na recuperação de mana (diceRecuperacaoMana), que o
+// documento deixa "a revisar". `oficiosExtras` hoje é só o Conduíte (raças
+// e Potente ofício mágico viraram +1 grau em Magia Ofensiva).
 // Contagem de Ofícios Mágicos (docs/MUDANCAS_RACAS_E_MAGIA.md): cada
 // disciplina conhecida (até 3, ver `character.disciplinaMagica.oficiosMagicos`)
 // conta como 1, "como grau de proficiência" — mais os "ofícios extras"
@@ -883,45 +910,39 @@ export function diceRecuperacaoMana(character, manaGasta) {
   return contagemOficiosMagicos(character) + (manaGasta || 0) + reabastecer;
 }
 
-// Pool de dados de um ataque MÁGICO: Base Mágica (2d10 + extra de mana) +
-// (Ofícios Mágicos OU Inteligência, à escolha do jogador a cada conjuração —
-// `fonte`: "oficios" default, ou "inteligencia") + ajuste da magia (ex.:
-// Mísseis Mágicos é "Base mágica + 1 + Ofícios/Inteligência", ajusteDados=1)
-// + 1 dado fixo se o personagem tiver Magia Inata (docs/MUDANCAS_RACAS_E_
-// MAGIA.md: "+1d10 extra nas rolagens de magia, não conta como ofício").
-// Magias Ofensivas (proficiência) saiu — não existe mais no catálogo.
-export function diceAtaqueMagico(attacker, manaGasta, custoMagia, fonte = "oficios", ajusteDados = 0) {
-  const contribuicao = fonte === "inteligencia"
-    ? (GRADE_VALUE[getAttrGrade(attacker, "inteligencia")] ?? 1)
-    : contagemOficiosMagicos(attacker);
+// Atributo à escolha + Magia Ofensiva (24/10): o pedaço comum de toda
+// rolagem mágica (magia, bomba, constructo). `atributoKey` é qualquer
+// Atributo Geral (escolha do jogador "conforme a magia e a cena", sem lista
+// fixa); valores antigos ("oficios") caem em Inteligência.
+export function dadosAtributoMaisMagiaOfensiva(personagem, atributoKey = "inteligencia") {
+  const chave = ATRIBUTOS_GERAIS_KEYS.has(atributoKey) ? atributoKey : "inteligencia";
+  return (GRADE_VALUE[getAttrGrade(personagem, chave)] ?? 1) + (GRADE_VALUE[personagem?.proficiencias?.magiaOfensiva] ?? 0);
+}
+
+// Pool de dados de um ataque MÁGICO (24/10, docs/ATUALIZACAO_24-10.md seção
+// 1): Base Mágica (2d10 + extra de mana) + atributo à escolha do jogador +
+// proficiência Magia Ofensiva + ajuste da magia + 1 dado fixo com Magia
+// Inata. O número de ofícios mágicos não conta mais.
+export function diceAtaqueMagico(attacker, manaGasta, custoMagia, atributoKey = "inteligencia", ajusteDados = 0) {
   const bonusMagiaInata = attacker?.disciplinaMagica?.magiaInata ? 1 : 0;
-  const base = diceBaseMagica(manaGasta, custoMagia) + contribuicao + bonusMagiaInata;
+  const base = diceBaseMagica(manaGasta, custoMagia) + dadosAtributoMaisMagiaOfensiva(attacker, atributoKey) + bonusMagiaInata;
   return Math.max(0, base + (ajusteDados || 0));
 }
 
-// Pool de dados de uma criação de ALQUIMIA (21/10, docs/ATUALIZACAO_21-10.md
-// seção 4.1): "Destreza + (ofícios OU Inteligência), sem Base mágica nem
-// mana extra" — diferente de diceAtaqueMagico, não soma diceBaseMagica
-// nenhuma (o item já foi preparado antes, fora de combate; usá-lo não gasta
-// MP nem rola Base mágica). `fonte`: "oficios" (padrão) ou "inteligencia",
-// mesma escolha de diceAtaqueMagico.
-export function diceAtaqueAlquimia(attacker, fonte = "oficios", ajusteDados = 0) {
-  const contribuicao = fonte === "inteligencia"
-    ? (GRADE_VALUE[getAttrGrade(attacker, "inteligencia")] ?? 1)
-    : contagemOficiosMagicos(attacker);
-  const destreza = GRADE_VALUE[getAttrGrade(attacker, "destreza")] ?? 1;
-  return Math.max(0, destreza + contribuicao + (ajusteDados || 0));
+// Pool de dados de uma criação de ALQUIMIA (24/10, docs/ATUALIZACAO_24-10.md
+// seção 5): "atributo à escolha (Destreza ou Inteligência) + Magia
+// Ofensiva, sem Base mágica nem mana extra" — o item já foi preparado
+// antes, fora de combate.
+export function diceAtaqueAlquimia(attacker, atributoKey = "destreza", ajusteDados = 0) {
+  return Math.max(0, dadosAtributoMaisMagiaOfensiva(attacker, atributoKey) + (ajusteDados || 0));
 }
 
-// Pool de dados de um ataque de CONSTRUCTO (21/10, docs/ATUALIZACAO_21-10.md
-// seção 4.2): "Base mágica (2d10, SEM mana extra) + número de ofícios do
-// dono" — fixo em 2d10 (o constructo não gasta MP pra agir, só pra ser
-// criado), sem escolha de fonte (Inteligência não entra — quem ataca é o
-// constructo, não o dono) e sem o +1 de Magia Inata do dono (o guia não
-// menciona Magia Inata em nenhuma das 7 entradas do catálogo de
-// Constructo — decisão minha, listada no relatório final).
-export function diceAtaqueConstructo(dono, ajusteDados = 0) {
-  return Math.max(0, 2 + contagemOficiosMagicos(dono) + (ajusteDados || 0));
+// Pool de dados de um ataque de CONSTRUCTO (24/10, docs/ATUALIZACAO_24-10.md
+// seção 6): "Base mágica (2d10, sem mana extra) + atributo à escolha do
+// dono + Magia Ofensiva do dono (o Conduíte já entra nela)". Sem o +1 de
+// Magia Inata (o documento não menciona).
+export function diceAtaqueConstructo(dono, atributoKey = "inteligencia", ajusteDados = 0) {
+  return Math.max(0, 2 + dadosAtributoMaisMagiaOfensiva(dono, atributoKey) + (ajusteDados || 0));
 }
 
 // Rolagem de DEFESA do personagem atacado (21/10, docs/ATUALIZACAO_21-10.md
@@ -948,14 +969,23 @@ export function diceAtaqueConstructo(dono, ajusteDados = 0) {
 // sentido sem um "atributo de defesa" pra checar) e usa esse número direto
 // — Resiste a Magia (se o alvo tiver o descritor) continua descontando 1
 // dado por cima, igual no cálculo normal.
+// 24/10 (docs/ATUALIZACAO_24-10.md seção 0.3): a proficiência depende do
+// atributo — Destreza + Esquiva (esquivar) ou Força + Bloqueio (bloquear).
+// Defensor sem Esquiva/Bloqueio (ficha ou NPC sintético ainda no formato
+// antigo) cai na antiga Defesa (defesaProf).
+export function profDeDefesa(defesaAtributo) {
+  return defesaAtributo === "forca" ? "bloqueio" : "esquiva";
+}
+
 export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaque = [], ehMagia, limiar = LIMIAR_SUCESSO, totalDiceManual }) {
-  const profKey = "defesaProf";
+  const profKey = profDeDefesa(defesaAtributo);
   let totalDice;
   let firmeGarantidos = 0;
   if (totalDiceManual != null) {
     totalDice = Math.max(0, totalDiceManual);
   } else {
-    totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[defensor?.proficiencias?.[profKey]] ?? 1);
+    const grauProf = defensor?.proficiencias?.[profKey] ?? defensor?.proficiencias?.defesaProf;
+    totalDice = (GRADE_VALUE[getAttrGrade(defensor, defesaAtributo)] ?? 1) + (GRADE_VALUE[grauProf] ?? 1);
     // Bônus de Defesa em dados da armadura equipada (21/10, seção 7.1,
     // Regra 2) — já vem somado em `defensor.bonusDefesaEquipamento`
     // (racasCatalogo.js:comGrausEfetivos, via data/armaduras.js:

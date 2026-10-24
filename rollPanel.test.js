@@ -64,12 +64,12 @@ function mockDice(t, sequence) {
 describe("resolveFichaAtaque — monta o defensor sintético e chama resolveAtaque", () => {
   it("defaults do painel (alvo tudo em grau E, defesa por Vigor) viram o defensor esperado", (t) => {
     // Ataque: destreza E(1) + combateCorpoACorpo E(1) + ajusteDados(soco)=1 = 3 dados.
-    // Defesa: vigor E(1) + defesaProf E(1) = 2 dados.
+    // Defesa: vigor E(1) + Esquiva E(1) = 2 dados (24/10: o grau do alvo vale pra Esquiva/Bloqueio).
     mockDice(t, [7, 1, 1, /*defesa*/ 1, 1]);
     const r = resolveFichaAtaque({ character: makeAttacker(), attack: SOCO });
     assert.equal(r.rolagemAtaque.dice.length, 3);
     assert.equal(r.rolagemDefesa.dice.length, 2);
-    assert.equal(r.rolagemDefesa.profKey, "defesaProf"); // SOCO é marcial
+    assert.equal(r.rolagemDefesa.profKey, "esquiva"); // 24/10: atributo que não é Força cai na Esquiva
   });
 
   it("graus diferentes no alvo mudam o pool de dados da defesa", (t) => {

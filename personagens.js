@@ -99,7 +99,11 @@ function migrarDisciplinas(ch) {
       if (!slot || !slot.disciplinaId) return null;
       const def = DISCIPLINAS.find((d) => d.id === slot.disciplinaId);
       if (!def) return null; // disciplinaId desconhecido (catálogo mudou) — descarta o slot
-      return { disciplinaId: slot.disciplinaId, habilidadesAtivas: Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas.slice(0, def.magiasAtivasMax || 3) : [] };
+      const limpo = { disciplinaId: slot.disciplinaId, habilidadesAtivas: Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas.slice(0, def.magiasAtivasMax || 3) : [] };
+      // 23/10 (segunda parte): escolha da passiva anterior de Magias de
+      // guerra (data/magias.js:periciasDeOficio).
+      if (slot.passivaAnterior) limpo.passivaAnterior = true;
+      return limpo;
     });
     return normalizado;
   }

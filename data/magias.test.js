@@ -10,7 +10,11 @@ import {
   INVOCACAO, getInvocacaoPorId, descritoresDeInvocacoesAtivas,
   HABILIDADES_CONJUNTAS, getHabilidadeConjuntaPorId, DISCIPLINAS,
   BONUS_GRAU_POR_OFICIO, PASSIVA_POR_OFICIO, getPassivaDoOficio,
+  PROFICIENCIAS_DE_OFICIO, getProficienciaDeOficioPorId, getHabilidadeDeOficioPorId,
+  periciasDeOficio, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura,
 } from "./magias.js";
+import { getArmaPorId } from "./armas.js";
+import { getArmaduraPorId } from "./armaduras.js";
 
 describe("MAGIAS (23/10, docs/ATUALIZACAO_23-10.md seção 3/4/7)", () => {
   it("tem as 12 magias de guerra + Sensor (compartilhado) + Dreno de Mana (Encantamentos) + 3 de Invocação (Lança Longínqua/Chuva de Lâminas/Chama Mágica) = 17 entradas", () => {
@@ -370,14 +374,75 @@ describe("PASSIVA_POR_OFICIO / getPassivaDoOficio", () => {
       assert.ok(p.texto.length > 0, id);
     }
   });
-  it("só a de Invocação está marcada como mecanizada", () => {
+  it("Invocação e Magias de guerra (23/10, segunda parte: proficiência em todas as armas) são mecanizadas; a passiva anterior de Magias de guerra não", () => {
     assert.equal(PASSIVA_POR_OFICIO["oficio-invocacao"].mecanizada, true);
-    assert.equal(PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].mecanizada, false);
+    assert.equal(PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].mecanizada, true);
+    assert.equal(PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].alternativa.mecanizada, false);
     assert.equal(PASSIVA_POR_OFICIO["oficio-encantamentos"].mecanizada, false);
     assert.equal(PASSIVA_POR_OFICIO["oficio-alquimia"].mecanizada, false);
     assert.equal(PASSIVA_POR_OFICIO["oficio-constructo"].mecanizada, false);
   });
   it("getPassivaDoOficio retorna null pra id desconhecido", () => {
     assert.equal(getPassivaDoOficio("inexistente"), null);
+  });
+});
+
+describe("PROFICIENCIAS_DE_OFICIO / periciasDeOficio (23/10, segunda parte)", () => {
+  const mdg = (extra = {}) => ({ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [], ...extra });
+  const invocacao = (habs = []) => ({ disciplinaId: "oficio-invocacao", habilidadesAtivas: habs });
+  const alquimia = (habs = []) => ({ disciplinaId: "oficio-alquimia", habilidadesAtivas: habs });
+  const pistola = getArmaPorId("arma_de_fogo_curta");
+  const espada = getArmaPorId("lamina");
+  const placas = getArmaduraPorId("armadura_de_placas_completa");
+  const escudo = getArmaduraPorId("escudo_leve");
+
+  it("uma habilidade por ofício: Armaduras (Magias de guerra), Armas de Fogo (Alquimia), Armas (Invocação)", () => {
+    assert.equal(PROFICIENCIAS_DE_OFICIO.length, 3);
+    assert.equal(getProficienciaDeOficioPorId("proficiencia_armaduras").disciplinaId, "oficio-magias-de-guerra");
+    assert.equal(getProficienciaDeOficioPorId("proficiencia_armas_de_fogo").disciplinaId, "oficio-alquimia");
+    assert.equal(getProficienciaDeOficioPorId("proficiencia_armas").disciplinaId, "oficio-invocacao");
+  });
+  it("getHabilidadeDeOficioPorId acha magia e habilidade de proficiência; ids não colidem com MAGIAS", () => {
+    assert.equal(getHabilidadeDeOficioPorId("shin").nome, "Shin");
+    assert.equal(getHabilidadeDeOficioPorId("proficiencia_armas").nome, "Proficiência em Armas");
+    for (const p of PROFICIENCIAS_DE_OFICIO) assert.equal(getMagiaPorId(p.id), null);
+  });
+  it("sem ofício nenhum, nenhuma perícia", () => {
+    const p = periciasDeOficio([]);
+    assert.equal(periciaDeOficioCobreArma(p, espada), false);
+    assert.equal(periciaDeOficioCobreArmadura(p, placas), false);
+  });
+  it("passiva de Magias de guerra: todas as armas, mas não armaduras", () => {
+    const p = periciasDeOficio([mdg()]);
+    assert.equal(periciaDeOficioCobreArma(p, espada), true);
+    assert.equal(periciaDeOficioCobreArma(p, pistola), true);
+    assert.equal(periciaDeOficioCobreArmadura(p, placas), false);
+  });
+  it("Proficiência em Armaduras (Magias de guerra) cobre armaduras e escudos", () => {
+    const p = periciasDeOficio([mdg({ habilidadesAtivas: ["shin", "proficiencia_armaduras"] })]);
+    assert.equal(periciaDeOficioCobreArmadura(p, placas), true);
+    assert.equal(periciaDeOficioCobreArmadura(p, escudo), true);
+  });
+  it("Proficiência em Armas de Fogo (Alquimia) só cobre a família Armas de fogo", () => {
+    const p = periciasDeOficio([alquimia(["proficiencia_armas_de_fogo"])]);
+    assert.equal(periciaDeOficioCobreArma(p, pistola), true);
+    assert.equal(periciaDeOficioCobreArma(p, espada), false);
+  });
+  it("habilidade de proficiência fora do ofício dono não conta", () => {
+    const p = periciasDeOficio([alquimia(["proficiencia_armas"])]);
+    assert.equal(periciaDeOficioCobreArma(p, espada), false);
+  });
+  it("passiva anterior de Magias de guerra só vale com outra fonte de proficiência em todas as armas", () => {
+    const sozinha = periciasDeOficio([mdg({ passivaAnterior: true })]);
+    assert.equal(sozinha.passivaAnteriorMagiasDeGuerra, false);
+    assert.equal(periciaDeOficioCobreArma(sozinha, espada), true); // escolha não vale: volta pra armas
+    const comInvocacao = periciasDeOficio([mdg({ passivaAnterior: true }), invocacao(["proficiencia_armas"])]);
+    assert.equal(comInvocacao.outraFonteArmasTodas, true);
+    assert.equal(comInvocacao.passivaAnteriorMagiasDeGuerra, true);
+    assert.equal(periciaDeOficioCobreArma(comInvocacao, espada), true); // continua coberta pela Invocação
+  });
+  it("Armas de Fogo não conta como 'outra fonte' de proficiência em armas pra passiva anterior", () => {
+    const p = periciasDeOficio([mdg({ passivaAnterior: true }), alquimia(["proficiencia_armas_de_fogo"])]);
+    assert.equal(p.passivaAnteriorMagiasDeGuerra, false);
   });
 });

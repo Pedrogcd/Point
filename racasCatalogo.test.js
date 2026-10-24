@@ -545,6 +545,19 @@ describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => 
     assert.equal(character.bonusDefesaEquipamento, 1);
   });
 
+  it("23/10 (segunda parte): Proficiência em Armaduras (Magias de guerra) tira a penalidade sem marcar a perícia manual", () => {
+    const { character } = comGrausEfetivos({
+      disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: ["proficiencia_armaduras"] }],
+      equipamento: { armaduraId: "armadura_de_placas_completa", escudoId: "escudo_leve" },
+    });
+    assert.equal(character.penalidadeDefesaSemPericia, 0);
+    assert.equal(character.periciasOficio.armadurasTodas, true);
+  });
+  it("23/10 (segunda parte): habilidade de proficiência não entra em magiasAtivas", () => {
+    const ch = { disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: ["shin", "proficiencia_armaduras"] }] };
+    assert.deepEqual(magiasAtivasDoPersonagem(ch), ["shin"]);
+  });
+
   it("sem equipamento nenhum, penalidadeDefesaSemPericia e bonusDefesaEquipamento são 0", () => {
     const { character } = comGrausEfetivos({});
     assert.equal(character.penalidadeDefesaSemPericia, 0);

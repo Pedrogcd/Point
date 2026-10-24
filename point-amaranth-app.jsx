@@ -26,6 +26,7 @@ import {
 import {
   MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
+  PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura,
 } from "./data/magias.js";
 import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
@@ -5411,6 +5412,7 @@ function DisciplinaSlotPicker({
   titulo, legenda, atual, excluirIds, mpAtual, spAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose,
   encantamentosAtivos, onToggleEncantamento, conduiteAtivo, onToggleConduite, itensAlquimicosAtivos, onToggleItemAlquimico,
   invocacoesAtivas, onToggleInvocacao, sensorAtivo, onToggleSensor,
+  outraFonteArmasTodas, onTogglePassivaAnterior,
 }) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
@@ -5478,7 +5480,13 @@ function DisciplinaSlotPicker({
           {atual && def?.temMagias && (() => {
             // 23/10: filtra pela própria disciplina (Sensor, sem disciplinaId,
             // continua aparecendo em qualquer uma — ver data/magias.js:MAGIAS).
-            const magiasDoOficio = MAGIAS.filter((m) => !m.placeholder && (!m.disciplinaId || m.disciplinaId === def.id));
+            // 23/10 (segunda parte): a habilidade de proficiência do ofício
+            // (Proficiência em Armaduras, em Magias de guerra) entra na mesma
+            // lista — ocupa 1 dos 3 espaços, igual uma magia.
+            const magiasDoOficio = [
+              ...MAGIAS.filter((m) => !m.placeholder && (!m.disciplinaId || m.disciplinaId === def.id)),
+              ...PROFICIENCIAS_DE_OFICIO.filter((p) => p.disciplinaId === def.id),
+            ];
             return (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
@@ -5489,7 +5497,7 @@ function DisciplinaSlotPicker({
                   const ativa = habilidadesAtivas.includes(m.id);
                   const travada = !ativa && habilidadesAtivas.length >= def.magiasAtivasMax;
                   return (
-                    <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1, flexWrap: "wrap" }}>
+                    <label key={m.id} title={m.efeito} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: travada ? MUTED : PARCHMENT, opacity: travada ? 0.5 : 1, flexWrap: "wrap" }}>
                       <input type="checkbox" checked={ativa} disabled={travada} onChange={() => toggleMagia(m.id)} /> {m.nome}
                       {m.descritores?.map((id) => <Descritor key={id} token={id} />)}
                     </label>
@@ -5500,7 +5508,7 @@ function DisciplinaSlotPicker({
                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                   <select value={trocaRemover} onChange={(e) => setTrocaRemover(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
                     <option value="">Remover...</option>
-                    {habilidadesAtivas.map((id) => <option key={id} value={id}>{getMagiaPorId(id)?.nome}</option>)}
+                    {habilidadesAtivas.map((id) => <option key={id} value={id}>{getHabilidadeDeOficioPorId(id)?.nome}</option>)}
                   </select>
                   <select value={trocaAdicionar} onChange={(e) => setTrocaAdicionar(e.target.value)} style={{ ...inputStyle, flex: 1 }}>
                     <option value="">Adicionar...</option>
@@ -5524,6 +5532,50 @@ function DisciplinaSlotPicker({
             </div>
             );
           })()}
+
+          {/* Passiva de Magias de guerra (23/10, segunda parte): proficiência
+              em todas as armas; quem já tem proficiência em armas por outra
+              habilidade (hoje: Proficiência em Armas de Invocação) pode
+              trocar pela passiva anterior. Sem a outra fonte a escolha fica
+              travada (e, se já estava salva, não vale — data/magias.js:
+              periciasDeOficio). */}
+          {atual && def?.id === "oficio-magias-de-guerra" && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>Passiva do ofício</div>
+              <div style={{ fontSize: 10.5, color: PARCHMENT, lineHeight: 1.4 }}>
+                {atual.passivaAnterior && outraFonteArmasTodas
+                  ? PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].alternativa.texto
+                  : "Proficiência em todas as armas (o Descritor 2 de qualquer arma vale)."}
+              </div>
+              <label
+                title={outraFonteArmasTodas ? undefined : "Só pra quem já tem proficiência em armas por outra habilidade (ex.: Proficiência em Armas, de Invocação)."}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: outraFonteArmasTodas ? PARCHMENT : MUTED, opacity: outraFonteArmasTodas ? 1 : 0.5, marginTop: 6 }}
+              >
+                <input type="checkbox" checked={!!atual.passivaAnterior && !!outraFonteArmasTodas} disabled={!outraFonteArmasTodas} onChange={onTogglePassivaAnterior} />
+                Usar a passiva anterior: a primeira magia do combate custa 1 MP a menos (mínimo 0)
+              </label>
+              <div style={{ fontSize: 9.5, color: MUTED, marginTop: 4, fontStyle: "italic" }}>
+                A passiva anterior não é mecanizada (o app não acompanha início de combate) — desconte o MP à mão.
+              </div>
+            </div>
+          )}
+
+          {/* Habilidade de proficiência dos ofícios sem lista de magias
+              (23/10, segunda parte): Alquimia → Proficiência em Armas de
+              Fogo, Invocação → Proficiência em Armas. Ocupa 1 dos 3 espaços
+              do ofício (não validado nesses ofícios, mesma simplificação dos
+              itens/invocações). Fica em slot.habilidadesAtivas. */}
+          {atual && def && !def.temMagias && PROFICIENCIAS_DE_OFICIO.some((p) => p.disciplinaId === def.id) && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>Habilidade de proficiência (ocupa 1 dos 3 espaços)</div>
+              {PROFICIENCIAS_DE_OFICIO.filter((p) => p.disciplinaId === def.id).map((p) => (
+                <label key={p.id} title={p.efeito} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: PARCHMENT, flexWrap: "wrap" }}>
+                  <input type="checkbox" checked={habilidadesAtivas.includes(p.id)} onChange={() => onToggleMagia(p.id)} /> {p.nome}
+                  <span style={{ color: MUTED }}>— {p.efeito}</span>
+                </label>
+              ))}
+            </div>
+          )}
 
           {/* Encantamentos (Pedro, 19/10, economia de mana quebrada de
               verdade desde 21/10 — docs/ATUALIZACAO_21-10.md item 3):
@@ -5770,7 +5822,7 @@ function descricaoCurtaMagia(m) {
 }
 
 function ChipsHabilidadesDisciplina({ ids, onClick }) {
-  const magias = (ids || []).map((id) => getMagiaPorId(id)).filter(Boolean);
+  const magias = (ids || []).map((id) => getHabilidadeDeOficioPorId(id)).filter(Boolean);
   if (magias.length === 0) return null;
   return (
     <div
@@ -5952,7 +6004,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     atributoKey: "destreza",
     feridas: armaEquipadaCatalogo.feridas,
     superficial: armaEquipadaCatalogo.superficial,
-    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, character.equipamento?.temPericiaArma),
+    // 23/10 (segunda parte): perícia também vem dos ofícios (passiva de
+    // Magias de guerra, Proficiência em Armas/Armas de Fogo) — ver
+    // data/magias.js:periciasDeOficio.
+    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, character.equipamento?.temPericiaArma || periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaEquipadaCatalogo)),
   } : null;
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
@@ -6383,6 +6438,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                           onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, nomeArma: e.target.value } })}
                         />
                       </Field>
+                      {periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaCatalogo) ? (
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
+                          <input type="checkbox" checked disabled />
+                          Tem perícia em {armaCatalogo.periciaFamilia} (pelos ofícios equipados — ver Disciplinas)
+                        </label>
+                      ) : (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
                         <input
                           type="checkbox" checked={!!eq.temPericiaArma} disabled={!onUpdateCharacter}
@@ -6390,6 +6451,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         />
                         Tem perícia em {armaCatalogo.periciaFamilia} (sem isso, só <Descritor token={armaCatalogo.descritor1} /> vale)
                       </label>
+                      )}
                     </>
                   )}
                 </div>
@@ -6435,7 +6497,13 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         {armadurasDoSlot(slot).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
                       </select>
                     </Field>
-                    {peca && periciaKey && peca.periciaFamilia && (
+                    {peca && periciaKey && peca.periciaFamilia && periciaDeOficioCobreArmadura(characterEfetivo.periciasOficio, peca) && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
+                        <input type="checkbox" checked disabled />
+                        Tem perícia em {peca.periciaFamilia} (Proficiência em Armaduras, Magias de guerra)
+                      </label>
+                    )}
+                    {peca && periciaKey && peca.periciaFamilia && !periciaDeOficioCobreArmadura(characterEfetivo.periciasOficio, peca) && (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
                         <input
                           type="checkbox" checked={!!eq[periciaKey]} disabled={!onUpdateCharacter}
@@ -7110,6 +7178,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             spAtual={character.sp?.current}
             onEscolher={(id) => gravar({ disciplinaId: id, habilidadesAtivas: [] })}
             onEsvaziar={() => gravar(null)}
+            outraFonteArmasTodas={characterEfetivo.periciasOficio?.outraFonteArmasTodas}
+            onTogglePassivaAnterior={() => gravar({ ...atual, passivaAnterior: !atual?.passivaAnterior })}
             onToggleMagia={(magiaId) => {
               const habilidadesAtivas = atual?.habilidadesAtivas || [];
               const novas = habilidadesAtivas.includes(magiaId) ? habilidadesAtivas.filter((m) => m !== magiaId) : [...habilidadesAtivas, magiaId];

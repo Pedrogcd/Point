@@ -101,12 +101,16 @@ export function bonusDefesaDeEquipamento(character) {
 // `temPericia<Slot>` manual está desmarcado — podem somar (armadura E
 // escudo sem perícia ao mesmo tempo = -2). Acessório nunca exige perícia
 // (nenhuma das famílias de perícia da Regra 4 cobre acessório).
-export function penalidadeDefesaSemPericiaDoPersonagem(character) {
+// `periciaAutomatica(peca)` (opcional): perícia que vem de outra fonte além
+// do checkbox manual — hoje a Proficiência em Armaduras de Magias de guerra
+// (23/10, ver data/magias.js:periciasDeOficio, passada por
+// racasCatalogo.js:comGrausEfetivos).
+export function penalidadeDefesaSemPericiaDoPersonagem(character, periciaAutomatica = () => false) {
   const eq = character?.equipamento || {};
   let penalidade = 0;
   const checar = (id, temPericia) => {
     const armadura = getArmaduraPorId(id);
-    if (armadura?.periciaFamilia && !temPericia) penalidade += 1;
+    if (armadura?.periciaFamilia && !temPericia && !periciaAutomatica(armadura)) penalidade += 1;
   };
   checar(eq.armaduraId, eq.temPericiaArmadura);
   checar(eq.escudoId, eq.temPericiaEscudo);

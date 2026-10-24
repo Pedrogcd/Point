@@ -3,7 +3,7 @@
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
-import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO } from "./data/magias.js";
+import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO, getProficienciaDeOficioPorId, periciasDeOficio, periciaDeOficioCobreArmadura } from "./data/magias.js";
 import { descritoresDeEquipamentoDefensivo, penalidadeDefesaSemPericiaDoPersonagem, bonusDefesaDeEquipamento } from "./data/armaduras.js";
 
 export const CATALOGO_RACAS = catalogo;
@@ -536,6 +536,9 @@ export function magiasAtivasDoPersonagem(character) {
   const resultado = [];
   for (const d of disciplinasDoPersonagem(character)) {
     for (const magiaId of d.habilidadesAtivas || []) {
+      // 23/10: habilidades de proficiência (data/magias.js:
+      // PROFICIENCIAS_DE_OFICIO) moram no mesmo array mas não são magias.
+      if (getProficienciaDeOficioPorId(magiaId)) continue;
       if (!vistas.has(magiaId)) {
         vistas.add(magiaId);
         resultado.push(magiaId);
@@ -800,7 +803,12 @@ export function comGrausEfetivos(character) {
   // seção 7.1) — anexada direto no character efetivo, pra
   // engine.js:resolveRolagemDefesa ler o número sem precisar conhecer
   // armadura nenhuma (ver data/armaduras.js:penalidadeDefesaSemPericiaDoPersonagem).
-  const penalidadeDefesaSemPericia = penalidadeDefesaSemPericiaDoPersonagem(character);
+  // 23/10 (segunda parte): perícias de arma/armadura que os ofícios dão
+  // (passiva de Magias de guerra + habilidades de proficiência escolhidas)
+  // — anexadas no character efetivo pra ficha liberar o Descritor 2 da arma
+  // (data/magias.js:periciaDeOficioCobreArma) e aqui tirar a penalidade.
+  const periciasOficio = periciasDeOficio(disciplinasDoPersonagem(character));
+  const penalidadeDefesaSemPericia = penalidadeDefesaSemPericiaDoPersonagem(character, (peca) => periciaDeOficioCobreArmadura(periciasOficio, peca));
   // Bônus de Defesa em dados da armadura/escudo/acessório equipados (Regra
   // 2, seção 7.1) — mesmo princípio: anexado direto, engine.js só soma o
   // número.
@@ -808,7 +816,7 @@ export function comGrausEfetivos(character) {
   const bonusAplicado = { proficiencias: {}, atributos: {} };
   const semBonusDeGrau = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0;
   if (semBonusDeGrau) {
-    return { character: { ...character, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento }, bonusAplicado };
+    return { character: { ...character, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento, periciasOficio }, bonusAplicado };
   }
   const tetos = tetoGrauDoPersonagem(character);
   const proficiencias = { ...character.proficiencias };
@@ -825,5 +833,5 @@ export function comGrausEfetivos(character) {
     atributosGerais[chave] = novoGrau;
     bonusAplicado.atributos[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
   }
-  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento }, bonusAplicado };
+  return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento, periciasOficio }, bonusAplicado };
 }

@@ -5412,7 +5412,7 @@ function DisciplinaSlotPicker({
   titulo, legenda, atual, excluirIds, mpAtual, spAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose,
   encantamentosAtivos, onToggleEncantamento, conduiteAtivo, onToggleConduite, itensAlquimicosAtivos, onToggleItemAlquimico,
   invocacoesAtivas, onToggleInvocacao, sensorAtivo, onToggleSensor,
-  outraFonteArmasTodas, onTogglePassivaAnterior,
+  outraFonteArmas, onTogglePassivaAnterior,
 }) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
@@ -5535,23 +5535,24 @@ function DisciplinaSlotPicker({
 
           {/* Passiva de Magias de guerra (23/10, segunda parte): proficiência
               em todas as armas; quem já tem proficiência em armas por outra
-              habilidade (hoje: Proficiência em Armas de Invocação) pode
-              trocar pela passiva anterior. Sem a outra fonte a escolha fica
+              habilidade (Proficiência em Armas de Invocação, ou a de Armas
+              de Fogo de Alquimia — basta, decisão de 24/10) pode trocar pela
+              passiva anterior. Sem a outra fonte a escolha fica
               travada (e, se já estava salva, não vale — data/magias.js:
               periciasDeOficio). */}
           {atual && def?.id === "oficio-magias-de-guerra" && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>Passiva do ofício</div>
               <div style={{ fontSize: 10.5, color: PARCHMENT, lineHeight: 1.4 }}>
-                {atual.passivaAnterior && outraFonteArmasTodas
+                {atual.passivaAnterior && outraFonteArmas
                   ? PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].alternativa.texto
                   : "Proficiência em todas as armas (o Descritor 2 de qualquer arma vale)."}
               </div>
               <label
-                title={outraFonteArmasTodas ? undefined : "Só pra quem já tem proficiência em armas por outra habilidade (ex.: Proficiência em Armas, de Invocação)."}
-                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: outraFonteArmasTodas ? PARCHMENT : MUTED, opacity: outraFonteArmasTodas ? 1 : 0.5, marginTop: 6 }}
+                title={outraFonteArmas ? undefined : "Só pra quem já tem proficiência em armas por outra habilidade (Proficiência em Armas, de Invocação, ou Proficiência em Armas de Fogo, de Alquimia)."}
+                style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: outraFonteArmas ? PARCHMENT : MUTED, opacity: outraFonteArmas ? 1 : 0.5, marginTop: 6 }}
               >
-                <input type="checkbox" checked={!!atual.passivaAnterior && !!outraFonteArmasTodas} disabled={!outraFonteArmasTodas} onChange={onTogglePassivaAnterior} />
+                <input type="checkbox" checked={!!atual.passivaAnterior && !!outraFonteArmas} disabled={!outraFonteArmas} onChange={onTogglePassivaAnterior} />
                 Usar a passiva anterior: a primeira magia do combate custa 1 MP a menos (mínimo 0)
               </label>
               <div style={{ fontSize: 9.5, color: MUTED, marginTop: 4, fontStyle: "italic" }}>
@@ -7178,7 +7179,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             spAtual={character.sp?.current}
             onEscolher={(id) => gravar({ disciplinaId: id, habilidadesAtivas: [] })}
             onEsvaziar={() => gravar(null)}
-            outraFonteArmasTodas={characterEfetivo.periciasOficio?.outraFonteArmasTodas}
+            outraFonteArmas={characterEfetivo.periciasOficio?.outraFonteArmas}
             onTogglePassivaAnterior={() => gravar({ ...atual, passivaAnterior: !atual?.passivaAnterior })}
             onToggleMagia={(magiaId) => {
               const habilidadesAtivas = atual?.habilidadesAtivas || [];

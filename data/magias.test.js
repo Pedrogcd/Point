@@ -437,12 +437,14 @@ describe("PROFICIENCIAS_DE_OFICIO / periciasDeOficio (23/10, segunda parte)", ()
     assert.equal(sozinha.passivaAnteriorMagiasDeGuerra, false);
     assert.equal(periciaDeOficioCobreArma(sozinha, espada), true); // escolha não vale: volta pra armas
     const comInvocacao = periciasDeOficio([mdg({ passivaAnterior: true }), invocacao(["proficiencia_armas"])]);
-    assert.equal(comInvocacao.outraFonteArmasTodas, true);
+    assert.equal(comInvocacao.outraFonteArmas, true);
     assert.equal(comInvocacao.passivaAnteriorMagiasDeGuerra, true);
     assert.equal(periciaDeOficioCobreArma(comInvocacao, espada), true); // continua coberta pela Invocação
   });
-  it("Armas de Fogo não conta como 'outra fonte' de proficiência em armas pra passiva anterior", () => {
+  it("Armas de Fogo basta como 'outra fonte' pra passiva anterior (24/10) — e aí só armas de fogo ficam cobertas", () => {
     const p = periciasDeOficio([mdg({ passivaAnterior: true }), alquimia(["proficiencia_armas_de_fogo"])]);
-    assert.equal(p.passivaAnteriorMagiasDeGuerra, false);
+    assert.equal(p.passivaAnteriorMagiasDeGuerra, true);
+    assert.equal(periciaDeOficioCobreArma(p, pistola), true);
+    assert.equal(periciaDeOficioCobreArma(p, espada), false);
   });
 });

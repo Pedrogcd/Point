@@ -273,28 +273,28 @@ describe("racasCatalogo — BONUS_GRAU_POR_HABILIDADE(+ESCOLHA) cobre o catálog
 
 describe("racasCatalogo — grauComBonus", () => {
   it("soma passos normalmente abaixo do teto", () => {
-    assert.equal(grauComBonus("E", 1), "D");
-    assert.equal(grauComBonus("D", 1), "C");
+    assert.equal(grauComBonus(1, 1), 2);
+    assert.equal(grauComBonus(2, 1), 3);
   });
 
   it("não passa do teto C, mesmo com vários passos", () => {
-    assert.equal(grauComBonus("E", 5), "C");
-    assert.equal(grauComBonus("D", 2), "C");
+    assert.equal(grauComBonus(1, 5), 3);
+    assert.equal(grauComBonus(2, 2), 3);
   });
 
   it("grau já C ou acima não muda (nem sobe nem desce)", () => {
-    assert.equal(grauComBonus("C", 1), "C");
-    assert.equal(grauComBonus("B", 1), "B");
-    assert.equal(grauComBonus("A", 1), "A");
+    assert.equal(grauComBonus(3, 1), 3);
+    assert.equal(grauComBonus(4, 1), 4);
+    assert.equal(grauComBonus(5, 1), 5);
   });
 
   it("sem passos (0/undefined), devolve o grau base", () => {
-    assert.equal(grauComBonus("D", 0), "D");
-    assert.equal(grauComBonus("D", undefined), "D");
+    assert.equal(grauComBonus(2, 0), 2);
+    assert.equal(grauComBonus(2, undefined), 2);
   });
 
   it("grau base ausente conta como E", () => {
-    assert.equal(grauComBonus(undefined, 1), "D");
+    assert.equal(grauComBonus(undefined, 1), 2);
   });
 });
 
@@ -380,7 +380,7 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
 
   it("Goethiano não altera mais o Vigor (nem bonusAplicado)", () => {
     const { character, bonusAplicado } = comGrausEfetivos({ raca: "humano", habilidadeSecundaria: "goethiano", atributosGerais: { vigor: "C" } });
-    assert.equal(character.atributosGerais.vigor, "C");
+    assert.equal(character.atributosGerais.vigor, 3);
     assert.equal(bonusAplicado.atributos.vigor, undefined);
   });
 
@@ -475,7 +475,7 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   it("24/10: Clã Corvus não soma mais em oficiosExtras; vira Magia Ofensiva efetiva", () => {
     const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: {}, proficiencias: { magiaOfensiva: "F" } });
     assert.equal(character.disciplinaMagica.oficiosExtras, 0);
-    assert.equal(character.proficiencias.magiaOfensiva, "E");
+    assert.equal(character.proficiencias.magiaOfensiva, 1);
   });
 
   // Conduíte mágico (21/10, docs/ATUALIZACAO_21-10.md item 4): flag global
@@ -492,7 +492,7 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
   });
   it("24/10: conduiteAtivo dá +1 grau em Magia Ofensiva (e continua +1 em oficiosExtras, só pra recuperação de mana)", () => {
     const { character } = comGrausEfetivos({ conduiteAtivo: true, disciplinaMagica: {}, proficiencias: { magiaOfensiva: "E" } });
-    assert.equal(character.proficiencias.magiaOfensiva, "D");
+    assert.equal(character.proficiencias.magiaOfensiva, 2);
     assert.equal(character.disciplinaMagica.oficiosExtras, 1);
   });
 });
@@ -516,7 +516,7 @@ describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => 
     const { character, bonusAplicado } = comGrausEfetivos({
       atributosGerais: { forca: "D" }, equipamento: { armaduraId: "armadura_de_poder_base" },
     });
-    assert.equal(character.atributosGerais.forca, "C");
+    assert.equal(character.atributosGerais.forca, 3);
     assert.equal(bonusAplicado.atributos.forca, 1);
   });
 
@@ -524,14 +524,14 @@ describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => 
     const { character } = comGrausEfetivos({
       atributosGerais: { forca: "C" }, equipamento: { armaduraId: "armadura_de_poder_base" },
     });
-    assert.equal(character.atributosGerais.forca, "C");
+    assert.equal(character.atributosGerais.forca, 3);
   });
 
   it("Potente Destreza (exoesqueleto): +1 grau em Destreza, teto C", () => {
     const { character } = comGrausEfetivos({
       atributosGerais: { destreza: "D" }, equipamento: { armaduraId: "exoesqueleto" },
     });
-    assert.equal(character.atributosGerais.destreza, "C");
+    assert.equal(character.atributosGerais.destreza, 3);
   });
 
   it("24/10: Potente ofício mágico (armadura catalisadora) dá +1 grau em Magia Ofensiva, soma com o Conduíte", () => {
@@ -539,7 +539,7 @@ describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => 
       conduiteAtivo: true, disciplinaMagica: {}, equipamento: { armaduraId: "armadura_catalisadora" },
       proficiencias: { magiaOfensiva: "F" },
     });
-    assert.equal(character.proficiencias.magiaOfensiva, "D"); // F + 1 armadura + 1 Conduíte
+    assert.equal(character.proficiencias.magiaOfensiva, 2); // F + 1 armadura + 1 Conduíte
     assert.equal(character.disciplinaMagica.oficiosExtras, 1); // só o Conduíte (recuperação de mana)
   });
 
@@ -810,11 +810,11 @@ describe("racasCatalogo — tetoGrauDoPersonagem", () => {
 });
 
 describe("racasCatalogo — comGrausEfetivos", () => {
-  it("sem bônus de grau nenhum, não clona proficiencias/atributosGerais (mas disciplinaMagica é sempre recalculado)", () => {
+  it("sem bônus de grau nenhum, os graus saem em número (24/10) e iguais à base", () => {
     const ch = { proficiencias: { investigacao: "E" }, atributosGerais: { forca: "E" } };
     const { character, bonusAplicado } = comGrausEfetivos(ch);
-    assert.equal(character.proficiencias, ch.proficiencias); // não clonou à toa
-    assert.equal(character.atributosGerais, ch.atributosGerais); // não clonou à toa
+    assert.deepEqual(character.proficiencias, { investigacao: 1 });
+    assert.deepEqual(character.atributosGerais, { forca: 1 });
     assert.deepEqual(character.disciplinaMagica, { oficiosMagicos: [], oficiosExtras: 0, magiaInata: false, magiasAtivas: [] });
     assert.deepEqual(bonusAplicado, { proficiencias: {}, atributos: {} });
   });
@@ -822,7 +822,7 @@ describe("racasCatalogo — comGrausEfetivos", () => {
   it("Leonino com Investigação em E: ficha efetiva mostra D, bonusAplicado=1", () => {
     const ch = { raca: "ningen", habilidadePrincipal: "leonino", proficiencias: { investigacao: "E" }, atributosGerais: {} };
     const { character, bonusAplicado } = comGrausEfetivos(ch);
-    assert.equal(character.proficiencias.investigacao, "D");
+    assert.equal(character.proficiencias.investigacao, 2);
     assert.equal(bonusAplicado.proficiencias.investigacao, 1);
     assert.equal(ch.proficiencias.investigacao, "E"); // original não foi mutado
   });
@@ -830,7 +830,7 @@ describe("racasCatalogo — comGrausEfetivos", () => {
   it("quando o teto já impede o bônus (grau já C), bonusAplicado fica 0", () => {
     const ch = { raca: "ningen", habilidadePrincipal: "leonino", proficiencias: { investigacao: "C" }, atributosGerais: {} };
     const { character, bonusAplicado } = comGrausEfetivos(ch);
-    assert.equal(character.proficiencias.investigacao, "C");
+    assert.equal(character.proficiencias.investigacao, 3);
     assert.equal(bonusAplicado.proficiencias.investigacao, 0);
   });
 
@@ -872,7 +872,7 @@ describe("racasCatalogo — comGrausEfetivos", () => {
       proficiencias: { investigacao: "E" }, atributosGerais: {},
     };
     const { character } = comGrausEfetivos(ch);
-    assert.equal(character.proficiencias.investigacao, "D");
+    assert.equal(character.proficiencias.investigacao, 2);
     assert.deepEqual(character.descritores, ["queimadura_1"]);
   });
 
@@ -928,15 +928,15 @@ describe("Seção 8 — Humano revisado (21/10)", () => {
       bonusGrauEscolha: { "mana-concentrada": ["investigacao", "medicina"] },
     }));
     assert.ok(character.descritores.includes("veloz"));
-    assert.equal(character.proficiencias.investigacao, "D");
-    assert.equal(character.proficiencias.medicina, "D");
+    assert.equal(character.proficiencias.investigacao, 2);
+    assert.equal(character.proficiencias.medicina, 2);
   });
   it("Mana Fluida: Reabastecer + escolha de proficiência", () => {
     const { character } = comGrausEfetivos(comHabilidade("humano", "mana-fluida", null, {
       bonusGrauEscolha: { "mana-fluida": ["politica"] },
     }));
     assert.ok(character.descritores.includes("reabastecer"));
-    assert.equal(character.proficiencias.politica, "D");
+    assert.equal(character.proficiencias.politica, 2);
   });
   it("Mana Estática: Resistente + hp_maximo_1 + escolha de proficiência", () => {
     const { character } = comGrausEfetivos(comHabilidade("humano", "mana-estatica", null, {
@@ -944,7 +944,7 @@ describe("Seção 8 — Humano revisado (21/10)", () => {
     }));
     assert.ok(character.descritores.includes("resistente"));
     assert.ok(character.descritores.includes("hp_maximo_1"));
-    assert.equal(character.proficiencias.medicina, "D");
+    assert.equal(character.proficiencias.medicina, 2);
   });
   it("Homúnculo: Resistente sempre + sp_maximo_menos_1 + Atletismo fixo + Potente à escolha", () => {
     const { character } = comGrausEfetivos(comHabilidade("humano", null, "homunculo", {
@@ -953,7 +953,7 @@ describe("Seção 8 — Humano revisado (21/10)", () => {
     assert.ok(character.descritores.includes("resistente"));
     assert.ok(character.descritores.includes("sp_maximo_menos_1"));
     assert.ok(character.descritores.includes("potente_destreza"));
-    assert.equal(character.proficiencias.atletismo, "D");
+    assert.equal(character.proficiencias.atletismo, 2);
     assert.equal(computeMaxSP(character), 2); // 3 base - 1 (Homúnculo)
   });
   it("Goethiano: Resistente + Blindado, sem HP (21/10, revisado de novo)", () => {
@@ -969,7 +969,7 @@ describe("Seção 8 — Niosh revisado (21/10)", () => {
     }));
     assert.ok(character.descritores.includes("resistente"));
     assert.ok(character.descritores.includes("imune_envenenamento"));
-    assert.equal(character.proficiencias.atletismo, "D");
+    assert.equal(character.proficiencias.atletismo, 2);
   });
   it("Descendentes de Arcani: Resistente + Reabastecer + mp_maximo_1, sem Resiste a Magia (21/10, 22/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("niosh", "descendentes-de-arcani", null));
@@ -990,9 +990,9 @@ describe("Seção 8 — Niosh revisado (21/10)", () => {
   });
   it("Adaptado: 3 proficiências de verdade (21/10, antes era '+1 dado' sem mecanismo)", () => {
     const { character } = comGrausEfetivos(comHabilidade("niosh", null, "adaptado"));
-    assert.equal(character.proficiencias.sobrevivencia, "D");
-    assert.equal(character.proficiencias.atletismo, "D");
-    assert.equal(character.proficiencias.furtividade, "D");
+    assert.equal(character.proficiencias.sobrevivencia, 2);
+    assert.equal(character.proficiencias.atletismo, 2);
+    assert.equal(character.proficiencias.furtividade, 2);
   });
 });
 
@@ -1040,7 +1040,7 @@ describe("Seção 8 — Elfo revisado (21/10)", () => {
     const { character } = comGrausEfetivos(comHabilidade("elfo", "cla-corvus", null, {
       bonusGrauEscolha: { "cla-corvus": ["medicina"] },
     }));
-    assert.equal(character.proficiencias?.medicina, "D"); // E -> D
+    assert.equal(character.proficiencias?.medicina, 2); // E -> D
     assert.ok(character.proficiencias?.furtividade); // bônus fixo do Corvus continua valendo junto
   });
   it("Resistência à Dor continua igual (mantido, 21/10)", () => {
@@ -1068,7 +1068,7 @@ describe("descritoresDeTransformacaoAtiva", () => {
       raca: "ningen", habilidadeSecundaria: "transformacao", transformadoAtivo: true,
       atributosGerais: { forca: "D", destreza: "D" },
     });
-    assert.equal(character.atributosGerais.forca, "C");
-    assert.equal(character.atributosGerais.destreza, "C");
+    assert.equal(character.atributosGerais.forca, 3);
+    assert.equal(character.atributosGerais.destreza, 3);
   });
 });

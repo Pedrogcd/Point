@@ -27,7 +27,7 @@
 // "oficio-magico" ou "magia-inata" oferecem magias equipáveis.
 //
 // 23/10 (docs/ATUALIZACAO_23-10.md seção 2b): cada ofício agora dá 3
-// proficiências reais (+1 grau cada, teto C — ver BONUS_GRAU_POR_OFICIO
+// proficiências reais (+1 grau cada, teto 3 — ver BONUS_GRAU_POR_OFICIO
 // abaixo, consumido por racasCatalogo.js:bonusGrauDoPersonagem) e 1 passiva
 // própria (ver PASSIVA_POR_OFICIO). Conduíte e Magia Inata não dão
 // proficiências. `bonusTexto` resume as duas coisas pra exibir no seletor de
@@ -63,7 +63,7 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: true,
     trocaGratisComAcao: true,
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Magias Gerais e Política, +1 grau cada (teto C). Passiva: Treino em todas as armas (Descritor 2 de qualquer arma, mesmo com grau 0). Quem já tem Treino em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (não mecanizada: o app não acompanha início de combate).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Magias Gerais e Política, +1 grau cada (teto 3). Passiva: Treino em todas as armas (Descritor 2 de qualquer arma, mesmo com grau 0). Quem já tem Treino em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (não mecanizada: o app não acompanha início de combate).",
     descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
   },
   {
@@ -75,27 +75,27 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: false,
     trocaGratisComAcao: false,
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha (teto C). +1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico, não dá proficiências fixas nem passiva de ofício).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha (teto 3). +1 MP máximo. +1d10 extra em todas as rolagens de magia (não conta como ofício mágico, não dá proficiências fixas nem passiva de ofício).",
     descricao: "Magia que vem de dentro, sem estudo formal.",
   },
   {
     id: "oficio-encantamentos", nome: "Ofício Mágico: Encantamentos", tipo: "oficio-magico",
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Vontade, Magias Gerais e Ofício, +1 grau cada (teto C). Passiva: a cada descanso longo, escolhe uma proficiência qualquer (inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, teto C (não mecanizada: o app não tem descanso longo nem essa escolha).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Vontade, Magias Gerais e Ofício, +1 grau cada (teto 3). Passiva: a cada descanso longo, escolhe uma proficiência qualquer (inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, teto 3 (não mecanizada: o app não tem descanso longo nem essa escolha).",
     descricao: "Disciplina de ofício mágico. Cada encantamento quebra 1 mana e concede um descritor ao usuário (ou aos ataques dele, físicos e mágicos) enquanto ela estiver quebrada. Nomes no formato 'Encantamento: Descritor'.",
   },
   {
     id: "oficio-alquimia", nome: "Ofício Mágico: Alquimia", tipo: "oficio-magico",
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Fortitude, Medicina e Ofício, +1 grau cada (teto C). Passiva: no descanso longo, prepara qualquer habilidade de Alquimia em quantidade igual à Inteligência, sem quebrar mana (não mecanizada: o app não tem descanso longo nem contagem de itens de graça).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Fortitude, Medicina e Ofício, +1 grau cada (teto 3). Passiva: no descanso longo, prepara qualquer habilidade de Alquimia em quantidade igual à Inteligência, sem quebrar mana (não mecanizada: o app não tem descanso longo nem contagem de itens de graça).",
     descricao: "Disciplina de ofício mágico. Itens preparados que quebram mana pra existir, fora de combate — qualquer pessoa pode usá-los depois.",
   },
   {
     id: "oficio-constructo", nome: "Ofício Mágico: Constructo", tipo: "oficio-magico",
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Tecnologia e Ofício, +1 grau cada (teto C). Passiva: já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana (não mecanizada: não há UI de invocar/gerenciar constructo ainda).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Tecnologia e Ofício, +1 grau cada (teto 3). Passiva: já começa com um constructo acompanhando a pessoa (à escolha), sem quebrar mana (não mecanizada: não há UI de invocar/gerenciar constructo ainda).",
     descricao: "Disciplina de ofício mágico. Servos/torres/armadilhas/armas/armaduras criados, que agem só quando o dono manda.",
   },
   {
     id: "oficio-invocacao", nome: "Ofício Mágico: Invocação", tipo: "oficio-magico",
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas Corpo a Corpo, Magias Gerais e Atletismo, +1 grau cada (teto C). Passiva: armas invocadas contam como treinadas (Descritor 2 do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas Corpo a Corpo, Magias Gerais e Atletismo, +1 grau cada (teto 3). Passiva: armas invocadas contam como treinadas (Descritor 2 do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
     descricao: "Disciplina de ofício mágico (separado de Encantamentos e Constructo em 21/10). Invoca armas espectrais e algumas magias de invocação (Chama Mágica).",
   },
 ];
@@ -111,16 +111,16 @@ export const MAX_DISCIPLINAS = 3;
 // 23/10 (docs/ATUALIZACAO_23-10.md seção 2b): 3 proficiências fixas por
 // ofício equipado (+1 grau cada, sem escolha do jogador) — consumido por
 // racasCatalogo.js:bonusGrauDoPersonagem (soma com o resto dos bônus de
-// grau do personagem, teto C por padrão, igual qualquer outro bônus de
+// grau do personagem, teto 3 por padrão, igual qualquer outro bônus de
 // BONUS_GRAU_POR_HABILIDADE). "Os bônus de disciplinas diferentes somam até
-// o teto C": automático — se duas disciplinas diferentes derem +1 na mesma
+// o teto 3": automático — se duas disciplinas diferentes derem +1 na mesma
 // chave (ex.: Encantamentos e Constructo nos dois dão "oficio"), os passos
 // somam antes do teto, mesmo mecanismo de BONUS_GRAU_POR_HABILIDADE.
 // Conduíte e Magia Inata não entram aqui (não dão proficiências).
 //
 // Invocação tem uma 4ª entrada (combateCorpoACorpo): não é uma das "3
 // proficiências" do ofício, é a PASSIVA dele ("+1 grau em Combate Corpo a
-// Corpo, sempre") — mecanicamente idêntica (mesmo +1 grau/teto C), por isso
+// Corpo, sempre") — mecanicamente idêntica (mesmo +1 grau/teto 3), por isso
 // cabe na mesma tabela sem precisar de um mecanismo à parte.
 //
 // 24/10 (docs/ATUALIZACAO_24-10.md seção 2b): cada ofício troca 1 das 3
@@ -195,7 +195,7 @@ export const PASSIVA_POR_OFICIO = {
     },
   },
   "oficio-encantamentos": {
-    texto: "A cada descanso longo, escolhe uma proficiência (qualquer uma, inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, respeitando o teto C.",
+    texto: "A cada descanso longo, escolhe uma proficiência (qualquer uma, inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, respeitando o teto 3.",
     mecanizada: false,
   },
   "oficio-alquimia": {
@@ -745,7 +745,7 @@ export function descritoresDeEncantamentosAtivos(character) {
 
 // Conduíte mágico: "existe em todo ofício mágico, ocupa 1 dos 3 espaços.
 // Só um Conduíte funciona por vez." 24/10: dá +1 grau em Magia Ofensiva
-// (teto C) em vez de +1 ofício no pool; continua somando +1 na recuperação
+// (teto 3) em vez de +1 ofício no pool; continua somando +1 na recuperação
 // de mana até o Pedro revisar essa parte (seção 0.7). Não é magia nem
 // encantamento — é uma passiva; o estado é um único flag global,
 // `character.conduiteAtivo` (ver racasCatalogo.js:comGrausEfetivos).
@@ -755,7 +755,7 @@ export const CONDUITE_MAGICO = {
   custoMp: 0,
   descricao:
     "Ocupa 1 dos 3 slots de habilidade do ofício. Equipado, soma +1 grau em " +
-    "Magia Ofensiva (teto C) no pool de ataque mágico. A parte que mexia na " +
+    "Magia Ofensiva (teto 3) no pool de ataque mágico. A parte que mexia na " +
     "recuperação de mana fica a revisar (24/10). Não é magia e não custa MP. " +
     "Todo ofício pode ter um, mas só um Conduíte funciona por vez.",
 };

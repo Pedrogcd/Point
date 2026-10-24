@@ -104,8 +104,8 @@ describe("migrarPersonagem", () => {
 
     it("a Defesa recebe o grau que estava em Resistência Física (e, 24/10, passa pra Esquiva e Bloqueio)", () => {
       const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { resistFisicaProf: "C" } });
-      assert.equal(migrado.proficiencias.esquiva, "C");
-      assert.equal(migrado.proficiencias.bloqueio, "C");
+      assert.equal(migrado.proficiencias.esquiva, 3);
+      assert.equal(migrado.proficiencias.bloqueio, 3);
       assert.equal(migrado.proficienciasLegado.defesaProf, "C");
     });
 
@@ -116,8 +116,8 @@ describe("migrarPersonagem", () => {
 
     it("sem resistFisicaProf nem defesaProf salvos, Esquiva/Bloqueio ficam no padrão 'E'", () => {
       const migrado = migrarPersonagem({ id: "x", name: "X" });
-      assert.equal(migrado.proficiencias.esquiva, "E");
-      assert.equal(migrado.proficiencias.bloqueio, "E");
+      assert.equal(migrado.proficiencias.esquiva, 1);
+      assert.equal(migrado.proficiencias.bloqueio, 1);
       assert.equal(migrado.proficienciasLegado.resistFisicaProf, undefined);
     });
 
@@ -125,7 +125,7 @@ describe("migrarPersonagem", () => {
       const primeiraVez = migrarPersonagem({ id: "x", name: "X", proficiencias: { resistFisicaProf: "C" } });
       const editado = { ...primeiraVez, proficiencias: { ...primeiraVez.proficiencias, esquiva: "A" } };
       const segundaVez = migrarPersonagem(editado);
-      assert.equal(segundaVez.proficiencias.esquiva, "A");
+      assert.equal(segundaVez.proficiencias.esquiva, 5);
       assert.equal(segundaVez.proficienciasLegado.resistFisicaProf, "C");
     });
 
@@ -257,7 +257,7 @@ describe("migrarPersonagem", () => {
   it("remove a proficiência 'briga' (eliminada do sistema)", () => {
     const migrado = migrarPersonagem({ id: "x", name: "X", proficiencias: { briga: "C", esquiva: "D" } });
     assert.equal("briga" in migrado.proficiencias, false);
-    assert.equal(migrado.proficiencias.esquiva, "D");
+    assert.equal(migrado.proficiencias.esquiva, 2);
   });
 
   it("preenche grupo/racialAbility/classes ausentes com defaults", () => {
@@ -327,11 +327,11 @@ describe("migrarPersonagem — supressão do bônus de grau fixo na inferência 
     assert.equal(migrado.raca, "niosh");
     assert.equal(migrado.habilidadePrincipal, "descendentes-de-arcani");
     // Base salva não muda...
-    assert.equal(migrado.atributosGerais.forca, "C");
+    assert.equal(migrado.atributosGerais.forca, 3);
     // ...e o bônus de grau em Força fica zerado (suprimido), não só no teto.
     const bonus = bonusGrauDoPersonagem(migrado);
     assert.equal(bonus.atributos.forca || 0, 0);
-    assert.equal(grauComBonus(migrado.atributosGerais.forca, bonus.atributos.forca || 0), "C");
+    assert.equal(grauComBonus(migrado.atributosGerais.forca, bonus.atributos.forca || 0), 3);
   });
 
   it("a supressão persiste (fica salva na ficha) e a segunda migração é idempotente", () => {
@@ -352,7 +352,7 @@ describe("migrarPersonagem — supressão do bônus de grau fixo na inferência 
       id: "x", name: "X", raca: "niosh", habilidadePrincipal: "descendentes-de-arcani",
       atributosGerais: { forca: "C" },
     });
-    assert.equal(migrado.atributosGerais.forca, "C");
+    assert.equal(migrado.atributosGerais.forca, 3);
     assert.equal(bonusGrauDoPersonagem(migrado).atributos.forca, 1);
   });
 });
@@ -436,18 +436,18 @@ describe("migrarPersonagem — correção pontual da Raiko (24/10, 3ª volta do 
   it("suprime o +1 Força de Niosh e devolve a base pra C, marcando a correção", () => {
     const ch = migrarPersonagem(salva);
     assert.deepEqual(ch.bonusGrauFixoSuprimido, [{ tipo: "atributo", chave: "forca" }]);
-    assert.equal(ch.atributosGerais.forca, "C");
+    assert.equal(ch.atributosGerais.forca, 3);
     assert.equal(ch.correcaoForcaRaiko2410, true);
     assert.equal(bonusGrauDoPersonagem(ch).atributos.forca, undefined);
   });
   it("roda uma vez só: depois da marca, respeita o que estiver salvo", () => {
     const ch = migrarPersonagem({ ...salva, correcaoForcaRaiko2410: true });
     assert.deepEqual(ch.bonusGrauFixoSuprimido, []);
-    assert.equal(ch.atributosGerais.forca, "D");
+    assert.equal(ch.atributosGerais.forca, 2);
   });
   it("não mexe em outras fichas", () => {
     const ch = migrarPersonagem({ ...salva, id: "outra" });
-    assert.equal(ch.atributosGerais.forca, "D");
+    assert.equal(ch.atributosGerais.forca, 2);
     assert.equal("correcaoForcaRaiko2410" in ch, false);
   });
 });
@@ -456,28 +456,28 @@ describe("migrarPersonagem — proficiências de combate 24/10 (docs/ATUALIZACAO
   const base = (extra = {}) => ({ id: "x", name: "X", proficiencias: { defesaProf: "D", combateCorpoACorpo: "C", armasDeFogo: "B" }, ...extra });
   it("Esquiva e Bloqueio recebem a antiga Defesa; defesaProf vai pro legado", () => {
     const m = migrarPersonagem(base());
-    assert.equal(m.proficiencias.esquiva, "D");
-    assert.equal(m.proficiencias.bloqueio, "D");
+    assert.equal(m.proficiencias.esquiva, 2);
+    assert.equal(m.proficiencias.bloqueio, 2);
     assert.equal("defesaProf" in m.proficiencias, false);
     assert.equal(m.proficienciasLegado.defesaProf, "D");
   });
   it("Armas Corpo a Corpo e Armas de Fogo mantêm o valor; Desarmado, Distância, Fortitude e Vontade começam em F", () => {
     const m = migrarPersonagem(base());
-    assert.equal(m.proficiencias.combateCorpoACorpo, "C");
-    assert.equal(m.proficiencias.armasDeFogo, "B");
-    for (const k of ["desarmado", "armasADistancia", "fortitude", "vontade"]) assert.equal(m.proficiencias[k], "F", k);
+    assert.equal(m.proficiencias.combateCorpoACorpo, 3);
+    assert.equal(m.proficiencias.armasDeFogo, 4);
+    for (const k of ["desarmado", "armasADistancia", "fortitude", "vontade"]) assert.equal(m.proficiencias[k], 0, k);
   });
   it("Magia Ofensiva: base tal que o efetivo = mínimo(C, ofícios antigos) — Encantamentos + Alquimia = 2 ofícios -> base D", () => {
     const m = migrarPersonagem(base({ disciplinas: [{ disciplinaId: "oficio-encantamentos", habilidadesAtivas: [] }, { disciplinaId: "oficio-alquimia", habilidadesAtivas: [] }, null] }));
-    assert.equal(m.proficiencias.magiaOfensiva, "D");
+    assert.equal(m.proficiencias.magiaOfensiva, 2);
   });
   it("Magias de guerra + Conduíte (2 ofícios antigos): fixa +1 e Conduíte +1 já cobrem -> base F, efetivo D", () => {
     const m = migrarPersonagem(base({ conduiteAtivo: true, disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }, null, null] }));
-    assert.equal(m.proficiencias.magiaOfensiva, "F");
-    assert.equal(comGrausEfetivos(m).character.proficiencias.magiaOfensiva, "D");
+    assert.equal(m.proficiencias.magiaOfensiva, 0);
+    assert.equal(comGrausEfetivos(m).character.proficiencias.magiaOfensiva, 2);
   });
   it("sem ofício nenhum: Magia Ofensiva F", () => {
-    assert.equal(migrarPersonagem(base()).proficiencias.magiaOfensiva, "F");
+    assert.equal(migrarPersonagem(base()).proficiencias.magiaOfensiva, 0);
   });
   it("ataque desarmado passa a usar Desarmado", () => {
     const m = migrarPersonagem(base({ attacks: [{ nome: "Ataque desarmado", tipo: "marcial", profKey: "combateCorpoACorpo", ehDesarmado: true }] }));
@@ -486,8 +486,8 @@ describe("migrarPersonagem — proficiências de combate 24/10 (docs/ATUALIZACAO
   it("idempotente: segunda migração não mexe (Esquiva editada fica)", () => {
     const m1 = migrarPersonagem(base());
     const m2 = migrarPersonagem({ ...m1, proficiencias: { ...m1.proficiencias, esquiva: "A", desarmado: "C" } });
-    assert.equal(m2.proficiencias.esquiva, "A");
-    assert.equal(m2.proficiencias.desarmado, "C");
+    assert.equal(m2.proficiencias.esquiva, 5);
+    assert.equal(m2.proficiencias.desarmado, 3);
     assert.equal(m2.proficienciasLegado.defesaProf, "D");
   });
   it("preserva escolhaCombate do slot de disciplina", () => {

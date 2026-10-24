@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   PROFICIENCIAS_DEFAULT, PROFICIENCIAS_LIST, PROC_ABILITIES, BASE_ATTACK_TYPES, ACERTOS_POR_TIPO,
-  GRADE_VALUE, GRADE_ORDER, STAT_LIST, STAT_BASE_DEFAULTS, STAT_PROF_LINK,
+  GRADE_VALUE, GRADE_ORDER, grauNumero, STAT_LIST, STAT_BASE_DEFAULTS, STAT_PROF_LINK,
   attrBonus, computeMaxHP, computeMaxSP, computeMaxMana, MANA_MIN, MANA_MAX, quebrarMana, repararMana,
   limiarDaHabilidade, findTriggeredProc, computeStat, computeAcertoTipo,
   rollSuccessDice, migrateBrigaProfKey, defaultAttacksForCharacter,
@@ -98,7 +98,7 @@ describe("attrBonus", () => {
 describe("computeMaxHP / computeMaxSP", () => {
   it("HP = 2 + bônus de Vigor", () => {
     assert.equal(computeMaxHP(makeCharacter()), 2); // Vigor E
-    assert.equal(computeMaxHP(withAttrs(makeCharacter(), { vigor: "A" })), 6);
+    assert.equal(computeMaxHP(withAttrs(makeCharacter(), { vigor: 5 })), 6);
   });
   it("Persistente soma +1 no HP máximo e +1 no SP máximo", () => {
     const semPersistente = makeCharacter();
@@ -920,7 +920,7 @@ describe("diceAtaqueConstructo (24/10: 2 + atributo do dono + Magia Ofensiva do 
     assert.equal(diceAtaqueConstructo(dono), 2 + 1 + 0);
   });
   it("ajusteDados soma por cima", () => {
-    assert.equal(diceAtaqueConstructo({ proficiencias: { magiaOfensiva: "F" } }, "inteligencia", 3), 2 + 1 + 0 + 3);
+    assert.equal(diceAtaqueConstructo({ proficiencias: { magiaOfensiva: 0 } }, "inteligencia", 3), 2 + 1 + 0 + 3);
   });
 });
 
@@ -1165,8 +1165,18 @@ describe("Grau F — abaixo de E, reduz 1 dado (14/10)", () => {
     assert.equal(GRADE_VALUE.F, 0);
     assert.equal(GRADE_VALUE.E, 1);
   });
-  it("GRADE_ORDER começa em F, abaixo de E", () => {
-    assert.deepEqual(GRADE_ORDER, ["F", "E", "D", "C", "B", "A"]);
+  it("24/10: graus viram número — GRADE_ORDER é 0..5 (F=0 ... A=5)", () => {
+    assert.deepEqual(GRADE_ORDER, [0, 1, 2, 3, 4, 5]);
+  });
+  it("grauNumero aceita letra, número e string numérica; ausente cai em 1 (o antigo E)", () => {
+    assert.equal(grauNumero("F"), 0);
+    assert.equal(grauNumero("c"), 3);
+    assert.equal(grauNumero(4), 4);
+    assert.equal(grauNumero("2"), 2);
+    assert.equal(grauNumero(undefined), 1);
+    assert.equal(grauNumero(undefined, 0), 0);
+    assert.equal(grauNumero(9), 5);
+    assert.equal(grauNumero("S"), 1);
   });
 
   it("diceAtaqueFisico: atributo F reduz exatamente 1 dado comparado a E (resto igual)", () => {

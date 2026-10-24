@@ -65,6 +65,8 @@ export const ARMAS = [
   { id: "arma_flexivel", nome: "Arma flexível", familia: "Flexível", exemplos: "Corrente, mangual, chicote", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "preciso_1", descritor2: "veloz", extra: null, ajusteDados: 0, periciaFamilia: "Flexíveis" },
 ];
 
+import { grauNumero } from "../engine.js";
+
 export function getArmaPorId(id) {
   return ARMAS.find((a) => a.id === id) || null;
 }
@@ -100,8 +102,7 @@ export function profKeyDaArma(arma) {
 export function treinadoNaArma(personagem, arma, treinoPorOficio = false) {
   if (!arma) return false;
   if (treinoPorOficio) return true;
-  const grau = personagem?.proficiencias?.[profKeyDaArma(arma)];
-  return !!grau && grau !== "F";
+  return grauNumero(personagem?.proficiencias?.[profKeyDaArma(arma)], 0) >= 1;
 }
 
 export const ALCANCE_LABEL = {

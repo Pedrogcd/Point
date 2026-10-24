@@ -1,6 +1,6 @@
 {
   "versao": "2026-10-23",
-  "observacao": "Fonte da tabela de descritores do site. linkEmTextoLivre=false: só vira link quando o descritor vem de um campo estruturado, não em texto corrido (palavras comuns). acumulo (23/10, docs/ATUALIZACAO_23-10.md seção 1): 'soma' = fontes diferentes somam os N; 'maior' = vale só o maior N entre as fontes; 'nao-acumula' = só uma fonte conta por vez (mesmo sem N). Campo ausente = acúmulo não especificado no documento.",
+  "observacao": "Fonte da tabela de descritores do site. linkEmTextoLivre=false: só vira link quando o descritor vem de um campo estruturado, não em texto corrido (palavras comuns). 23/10: Corrosivo definido; regras de acúmulo adicionadas. acumulo (campo do app, não vem da planilha; docs/ATUALIZACAO_23-10.md seção 1): 'soma' = fontes diferentes somam os N; 'maior' = vale só o maior N entre as fontes; 'nao-acumula' = só uma fonte conta por vez (mesmo sem N). Campo ausente = acúmulo não especificado no documento.",
   "descritores": [
     {
       "id": "magia",
@@ -31,8 +31,8 @@
       "tipo": "Ataque",
       "status": "Definido",
       "resumo": "Quem esquiva (Destreza) rola N dados a menos.",
-      "regra": "Difícil de esquivar. Se o defensor usar a Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Antigo Saturante = Preciso 2. As armas usam Preciso 1. Preciso de fontes diferentes não soma: vale só o maior N.",
-      "usadoEm": "Bombardeio, Shin, Mísseis, Golpe Preciso, arma de dispersão, arco, arma flexível",
+      "regra": "Difícil de esquivar. Se o defensor usar a Destreza como base da defesa (esquivar), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Antigo Saturante = Preciso 2. As armas usam Preciso 1. Acúmulo (23/10): fontes diferentes não somam; vale o maior N.",
+      "usadoEm": "Bombardeio, Mísseis, Suth, Encantamento: Preciso 1, Chuva de Lâminas, arma de dispersão, arco, arma flexível",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
     },
@@ -43,8 +43,8 @@
       "tipo": "Ataque",
       "status": "Definido",
       "resumo": "Quem bloqueia (Força) rola N dados a menos.",
-      "regra": "Difícil de bloquear. Se o defensor usar a Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade. Esmagador de fontes diferentes não soma: vale só o maior N (ainda não decidido oficialmente — 23/10 — tratado aqui como o Preciso).",
-      "usadoEm": "Armas contundentes, lâmina pesada, Garras e Presas",
+      "regra": "Difícil de bloquear. Se o defensor usar a Força como base da defesa (bloquear), rola N dados a menos (mínimo 0). Quem defende com outro atributo não sofre a penalidade.",
+      "usadoEm": "Shin, Shin-kay, Encantamento: Esmagador 1, armas contundentes, lâmina pesada, Garras e Presas",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
     },
@@ -56,7 +56,7 @@
       "status": "Definido",
       "resumo": "Ignora o Blindado do alvo.",
       "regra": "Ignora Blindado: os dados de ataque continuam valendo 6+.",
-      "usadoEm": "Laser Mágico, hastes, arco, Agressividade Oni (antigo)",
+      "usadoEm": "Laser Mágico, Katalão, Encantamento: Perfurante, hastes, arco",
       "linkEmTextoLivre": true
     },
     {
@@ -67,7 +67,7 @@
       "status": "Definido",
       "resumo": "O Vigor do alvo conta −1 para o agravante.",
       "regra": "Reduz em 1 o Vigor necessário para o ferimento ser agravante (mínimo 1). Letal e Resistente se anulam.",
-      "usadoEm": "Torrente Mágica, lâminas, Agressividade Oni, Leonino, Lobo",
+      "usadoEm": "Torrente Mágica, Shin-kay, Katalão, Encantamento: Letal, lâminas, Agressividade Oni, Leonino, Lobo",
       "linkEmTextoLivre": true
     },
     {
@@ -78,7 +78,7 @@
       "status": "Definido",
       "resumo": "Acerta só com 7+, mas causa 2 ferimentos.",
       "regra": "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com Blindado). A arma causa 2 ferimentos por ataque que acerta, e os dois seguem a regra do Vigor (os dois agravantes ou os dois superficiais). Em armadura, Pesado dá Lento 1 ao portador.",
-      "usadoEm": "Armas pesadas, armaduras pesadas",
+      "usadoEm": "Torrente Mágica, armas pesadas, armaduras pesadas",
       "linkEmTextoLivre": false
     },
     {
@@ -88,8 +88,8 @@
       "tipo": "Efeito extra",
       "status": "Definido",
       "resumo": "Com 1 sucesso líquido, N d10 extras a 8+, sem defesa.",
-      "regra": "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras. Sucesso em 8+ (9+ contra Blindado; Perfurante ignora). O defensor não rola defesa. Cada sucesso é 1 ferimento superficial; se os sucessos da queimadura forem iguais ou maiores que o Vigor do alvo, viram agravantes. Age só na hora. Queimadura de fontes diferentes soma os N.",
-      "usadoEm": "Chama Mágica, Encantamento Flamejante, Bomba Incendiária, Seasus",
+      "regra": "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras. Sucesso em 8+ (9+ contra Blindado; Perfurante ignora). O defensor não rola defesa. Cada sucesso é 1 ferimento superficial; se os sucessos da queimadura forem iguais ou maiores que o Vigor do alvo, viram agravantes. Age só na hora. Acúmulo (23/10): Queimadura de fontes diferentes soma os N.",
+      "usadoEm": "Chama Mágica (Invocação), Encantamento: Queimadura 1, Bomba Incendiária, Óleo Inflamável, Seasus",
       "linkEmTextoLivre": true,
       "acumulo": "soma"
     },
@@ -100,7 +100,7 @@
       "tipo": "Efeito extra",
       "status": "Definido",
       "resumo": "Com 1 sucesso líquido, N dados a 7+; havendo sucesso, 1 superficial.",
-      "regra": "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de veneno do alvo é limitado ao maior N já recebido. O limite zera na cura ou no descanso longo. Envenenamento de fontes diferentes soma os N.",
+      "regra": "Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de veneno do alvo é limitado ao maior N já recebido. O limite zera na cura ou no descanso longo. Acúmulo (23/10): Envenenamento de fontes diferentes soma os N (provisório: o limite de veneno do alvo passa a ser o maior total de N recebido).",
       "usadoEm": "Bomba Tóxica, Veneno de Arma, Encantamento Venenoso, Sharkan",
       "linkEmTextoLivre": true,
       "acumulo": "soma"
@@ -112,8 +112,8 @@
       "tipo": "Efeito extra",
       "status": "Definido",
       "resumo": "Cada sucesso líquido deixa 1 carga; ao chegar a N descarrega.",
-      "regra": "Cada sucesso líquido do ataque deixa 1 carga no alvo. Quando as cargas chegam a N (o N do ataque que acabou de carregar), descarrega: N dados extras (6+, sem defesa), cada sucesso é 1 ferimento, agravante se os sucessos forem iguais ou maiores que o Vigor. As cargas zeram e persistem até a descarga ou o descanso longo. Carga de fontes diferentes soma os N.",
-      "usadoEm": "Descarga Elétrica, Encantamento Elétrico, Bomba Elétrica, Torre Elétrica",
+      "regra": "Cada sucesso líquido do ataque deixa 1 carga no alvo. Quando as cargas chegam a N (o N do ataque que acabou de carregar), descarrega: N dados extras (6+, sem defesa), cada sucesso é 1 ferimento, agravante se os sucessos forem iguais ou maiores que o Vigor. As cargas zeram e persistem até a descarga ou o descanso longo. Acúmulo (23/10): Carga de fontes diferentes soma os N (provisório).",
+      "usadoEm": "Descarga Elétrica, Encantamento: Carga 2, Bomba Elétrica, Torre Elétrica",
       "linkEmTextoLivre": true,
       "acumulo": "soma"
     },
@@ -125,7 +125,7 @@
       "status": "Definido",
       "resumo": "Alvo perde 1 mana e o atacante recupera 1 gasta.",
       "regra": "Se o ataque causar ao menos 1 sucesso líquido, o alvo perde 1 mana disponível e o atacante recupera 1 mana gasta (nunca quebrada). Se o alvo não tem mana, o atacante não recupera nada. Uma vez por ataque.",
-      "usadoEm": "Dreno de Mana, Encantamento Drenante, Elixir Drenante",
+      "usadoEm": "Dreno de Mana (Encantamentos), Encantamento: Drenante, Elixir Drenante",
       "linkEmTextoLivre": true
     },
     {
@@ -145,9 +145,9 @@
       "temN": false,
       "tipo": "Efeito extra",
       "status": "Definido",
-      "resumo": "Remove o Blindado do alvo e cancela os efeitos (descritores) da armadura até o fim da cena.",
-      "regra": "Remove o Blindado do alvo (de qualquer fonte) e cancela os descritores concedidos pela armadura dele (inclusive Goethiano) até o fim da cena.",
-      "usadoEm": "Ácido Corrosivo (Alquimia)",
+      "resumo": "Remove o Blindado do alvo e cancela os descritores da armadura até o fim da cena.",
+      "regra": "Remove o Blindado do alvo e cancela os efeitos (descritores) da armadura dele até o fim da cena, Goethiano inclusive. Definido em 23/10.",
+      "usadoEm": "Ácido Corrosivo",
       "linkEmTextoLivre": true
     },
     {
@@ -170,7 +170,7 @@
       "status": "Definido",
       "resumo": "Seu Vigor conta +1 para o agravante.",
       "regra": "Para decidir se o ferimento é agravante, o Vigor do defensor conta como +1 (vale para qualquer comparação com o Vigor, inclusive a Queimadura). Não acumula nem muda HP ou dados. Letal e Resistente se anulam.",
-      "usadoEm": "Humanos, Niosh, Reptiliano, Goethiano, armaduras",
+      "usadoEm": "Encantamento: Resistente, Elixir de Vigor, Humanos, Niosh, Reptiliano, Goethiano, armaduras",
       "linkEmTextoLivre": true,
       "acumulo": "nao-acumula"
     },
@@ -181,8 +181,8 @@
       "tipo": "Defesa",
       "status": "Definido",
       "resumo": "Ao bloquear, tira N dados da defesa e garante N sucessos.",
-      "regra": "Só ao bloquear (Força + Defesa): tira N dados da rolagem de defesa e considera N sucessos como garantidos. Os sucessos garantidos somam aos da defesa em cada ataque bloqueado. Firme de fontes diferentes não soma: vale só o maior N.",
-      "usadoEm": "Escudos, Escudo Invocado",
+      "regra": "Só ao bloquear (Força + Defesa): tira N dados da rolagem de defesa e considera N sucessos como garantidos. Os sucessos garantidos somam aos da defesa em cada ataque bloqueado. Fontes diferentes não acumulam (23/10).",
+      "usadoEm": "Escudo Invocado, Encantamento: Firme 1, escudos",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
     },
@@ -193,8 +193,8 @@
       "tipo": "Defesa",
       "status": "Definido",
       "resumo": "Drenante não funciona; Queimadura e Envenenamento rolam N a menos.",
-      "regra": "O Drenante não funciona contra você: você não perde mana e o atacante não recupera. A Queimadura e o Envenenamento contra você rolam N dados a menos. Selado de fontes diferentes não soma: vale só o maior N (mesmo tratamento do Firme).",
-      "usadoEm": "Vestimenta rúnica",
+      "regra": "O Drenante não funciona contra você: você não perde mana e o atacante não recupera. A Queimadura e o Envenenamento contra você rolam N dados a menos.",
+      "usadoEm": "Encantamento: Selado 1, vestimenta rúnica",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
     },
@@ -205,8 +205,8 @@
       "tipo": "Defesa",
       "status": "Definido",
       "resumo": "Ativo, o primeiro agravante vira superficial e o campo desliga.",
-      "regra": "Ativo, quebra 1 mana. O primeiro ferimento agravante que você receberia (de ataque, magia ou Queimadura) vira superficial, e o campo se desativa: a mana quebrada passa a gasta (volta no fim da cena). Para reativar, quebre uma nova mana como ação. Só um Campo de Mana fica ativo por vez; não acumulam.",
-      "usadoEm": "Chifre de Mana, armadura de mana, Escudo de Mana",
+      "regra": "Ativo, quebra 1 mana. O primeiro ferimento agravante que você receberia (de ataque, magia ou Queimadura) vira superficial, e o campo se desativa: a mana quebrada passa a gasta (volta no fim da cena). Para reativar, quebre uma nova mana como ação. Só um Campo de Mana fica ativo por vez; não acumulam. Não acumula (23/10).",
+      "usadoEm": "Chifre de Mana, armadura de mana",
       "linkEmTextoLivre": true,
       "acumulo": "nao-acumula"
     },
@@ -218,7 +218,7 @@
       "status": "Definido",
       "resumo": "+1 grau em Força (até C), para ataque e defesa.",
       "regra": "Aumenta a Força do usuário em 1 grau, até C. Vale para ataque e defesa, como um atributo normal, enquanto a fonte está ativa.",
-      "usadoEm": "Armadura de poder base, Sabato, Transformação",
+      "usadoEm": "Encantamento: Potente Força, armadura de poder base, Sabato, Transformação",
       "linkEmTextoLivre": true
     },
     {
@@ -229,7 +229,7 @@
       "status": "Definido",
       "resumo": "+1 grau em Destreza (até C), para ataque e defesa.",
       "regra": "Aumenta a Destreza do usuário em 1 grau, até C. Vale para ataque e defesa.",
-      "usadoEm": "Exoesqueleto, Transformação",
+      "usadoEm": "Encantamento: Potente Destreza, exoesqueleto, Transformação",
       "linkEmTextoLivre": true
     },
     {
@@ -251,7 +251,7 @@
       "status": "Definido",
       "resumo": "Re-rola o primeiro 1 ou 2 do teste.",
       "regra": "Re-rola o primeiro 1 ou 2 do teste (de ataque ou de defesa, conforme a habilidade). O site mostra o dado original e o novo.",
-      "usadoEm": "Sorte Encantada, Radiante, Coelho, Arte e Tradição",
+      "usadoEm": "Encantamento: Sortudo, Mísseis, Suth, Radiante, Coelho, Arte e Tradição",
       "linkEmTextoLivre": true
     },
     {
@@ -262,7 +262,7 @@
       "status": "Definido",
       "resumo": "O alvo re-rola o primeiro sucesso do teste.",
       "regra": "O alvo re-rola o primeiro sucesso do teste e fica com o novo resultado. Oposto do Sortudo.",
-      "usadoEm": "Raposa, Noctis, Bomba de Fumaça",
+      "usadoEm": "Bomba de Fumaça, Raposa, Noctis",
       "linkEmTextoLivre": true
     },
     {
@@ -272,8 +272,8 @@
       "tipo": "Mana",
       "status": "Definido",
       "resumo": "Rola 1 dado a mais na recuperação de mana.",
-      "regra": "Na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais. Reabastecer de fontes diferentes não acumula: vale um só.",
-      "usadoEm": "Mana Fluida, Arcani, Radiante, Noctis, Natrus",
+      "regra": "Na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais. Fontes diferentes não somam: vale uma só (23/10).",
+      "usadoEm": "Elixir de Mana, Mana Fluida, Arcani, Radiante, Noctis, Natrus",
       "linkEmTextoLivre": true,
       "acumulo": "nao-acumula"
     },
@@ -284,8 +284,8 @@
       "tipo": "Prioridade",
       "status": "Etiqueta",
       "resumo": "Prioridade +1 (só etiqueta até existir iniciativa).",
-      "regra": "Prioridade +1. Só etiqueta por enquanto, porque a iniciativa ainda não existe no motor.",
-      "usadoEm": "Mana Concentrada, Agilidade Bestial, Tônico Veloz",
+      "regra": "Prioridade +1. Só etiqueta por enquanto, porque a iniciativa ainda não existe no motor. A iniciativa existe mas não é acompanhada no sistema (23/10).",
+      "usadoEm": "Mana Concentrada, Agilidade Bestial, Tônico Veloz, Encantamento: Veloz",
       "linkEmTextoLivre": false
     },
     {
@@ -296,7 +296,7 @@
       "status": "Etiqueta",
       "resumo": "Age depois de quem tem prioridade 1 e 0.",
       "regra": "Age depois de quem tem prioridade 1 e 0. Só etiqueta por enquanto.",
-      "usadoEm": "Frasco de Gosma (antigo)",
+      "usadoEm": "—",
       "linkEmTextoLivre": true
     },
     {
@@ -307,7 +307,7 @@
       "status": "Etiqueta",
       "resumo": "A ação só entra em efeito no turno seguinte.",
       "regra": "A ação só entra em efeito no turno seguinte. Só etiqueta por enquanto.",
-      "usadoEm": "Magia de guerra Suth",
+      "usadoEm": "— (saiu da Magia de guerra Suth)",
       "linkEmTextoLivre": true
     },
     {
@@ -317,8 +317,8 @@
       "tipo": "Condição",
       "status": "Definido",
       "resumo": "Você rola N dados a menos em ações físicas.",
-      "regra": "Você rola N dados a menos em ações físicas (ataque físico e esquiva). Em armadura, é o efeito do Pesado: o portador ganha Lento 1. Lento de fontes diferentes não soma: vale só o maior N.",
-      "usadoEm": "Armaduras pesadas, Frasco de Gosma (proposto)",
+      "regra": "Você rola N dados a menos em ações físicas (ataque físico e esquiva). Em armadura, é o efeito do Pesado: o portador ganha Lento 1. Acúmulo (23/10): fontes diferentes não somam; vale o maior N.",
+      "usadoEm": "Maxis, Frasco de Gosma, Rede Rúnica, armaduras pesadas",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
     },

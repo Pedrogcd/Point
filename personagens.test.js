@@ -412,3 +412,12 @@ describe("migrarPersonagens", () => {
     assert.deepEqual(migrarPersonagens(null), []);
   });
 });
+
+describe("migrarPersonagem — passivaAnterior de Magias de guerra (23/10, segunda parte)", () => {
+  it("preserva passivaAnterior e a habilidade de proficiência no slot", () => {
+    const ch = migrarPersonagem({ id: "x", name: "X", disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: ["shin", "proficiencia_armaduras"], passivaAnterior: true }, null, null] });
+    assert.equal(ch.disciplinas[0].passivaAnterior, true);
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas, ["shin", "proficiencia_armaduras"]);
+    assert.equal("passivaAnterior" in (migrarPersonagem({ id: "y", name: "Y", disciplinas: [{ disciplinaId: "oficio-alquimia", habilidadesAtivas: [] }] }).disciplinas[0]), false);
+  });
+});

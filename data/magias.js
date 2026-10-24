@@ -63,7 +63,7 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: true,
     trocaGratisComAcao: true,
-    bonusTexto: "Magias Gerais, Política e Tecnologia +1 grau cada (teto C). Passiva: a primeira magia que a pessoa lança em um combate custa 1 MP a menos (mínimo 0) — vale pra qualquer magia, de qualquer ofício (não mecanizada: o app não acompanha início de combate).",
+    bonusTexto: "Magias Gerais, Política e Tecnologia +1 grau cada (teto C). Passiva: proficiência em todas as armas (mecanizada: libera o Descritor 2 de qualquer arma). Quem já tem proficiência em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (essa não é mecanizada: o app não acompanha início de combate).",
     descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
   },
   {
@@ -153,14 +153,24 @@ export const BONUS_GRAU_POR_OFICIO = {
 
 // 23/10 (seção 2b): texto da passiva de cada ofício, pra exibir e pro
 // relatório. `mecanizada` diz se o motor realmente aplica o efeito (hoje só
-// a de Invocação, via BONUS_GRAU_POR_OFICIO acima) — as outras quatro
+// a de Invocação, via BONUS_GRAU_POR_OFICIO acima, e a de Magias de guerra,
+// via periciasDeOficio abaixo) — as outras três
 // dependem de conceitos que o app não modela (início de combate, descanso
 // longo, UI de constructo) e ficam só como texto, mostradas no bonusTexto
 // de cada disciplina.
 export const PASSIVA_POR_OFICIO = {
+  // 23/10 (segunda parte): a passiva virou "proficiência em todas as armas"
+  // (mecanizada via periciasDeOficio, abaixo). A anterior fica como
+  // `alternativa`, escolhível só por quem já tem proficiência em armas por
+  // outra habilidade (slot.passivaAnterior = true) — essa continua sem
+  // mecânica (o app não acompanha início de combate).
   "oficio-magias-de-guerra": {
-    texto: "A primeira magia que a pessoa lança em um combate custa 1 MP a menos (mínimo 0). Vale para qualquer magia, de qualquer ofício. Combate não é o mesmo que cena.",
-    mecanizada: false,
+    texto: "Proficiência em todas as armas. Quem já tem proficiência em armas por outra habilidade pode, em vez disso, escolher a passiva anterior.",
+    mecanizada: true,
+    alternativa: {
+      texto: "A primeira magia lançada em um combate custa 1 MP a menos (mínimo 0). Vale para qualquer magia, de qualquer ofício. Combate não é o mesmo que cena.",
+      mecanizada: false,
+    },
   },
   "oficio-encantamentos": {
     texto: "A cada descanso longo, escolhe uma proficiência (qualquer uma, inclusive de Combate) e ganha +1 grau nela até o próximo descanso longo, respeitando o teto C.",
@@ -182,6 +192,93 @@ export const PASSIVA_POR_OFICIO = {
 
 export function getPassivaDoOficio(disciplinaId) {
   return PASSIVA_POR_OFICIO[disciplinaId] || null;
+}
+
+// 23/10 (segunda parte, docs/ATUALIZACAO_23-10.md seções 2b e 8): habilidades
+// de proficiência ESCOLHIDAS, uma por ofício, cada uma ocupando 1 dos 3
+// espaços do ofício. Guardadas em slot.habilidadesAtivas (o mesmo array das
+// magias equipadas): em Magias de guerra isso já conta contra o limite de 3
+// (magiasAtivasMax); em Alquimia/Invocação o array não tinha outro uso e o
+// limite de 3 espaços continua não validado (mesma simplificação de antes).
+// "Proficiência" aqui = a "perícia" de data/armas.js/data/armaduras.js
+// (Descritor 2 da arma; sem penalidade de -1 dado na Defesa da armadura).
+// `armas`/`armaduras`: "todas" ou lista de `periciaFamilia`.
+export const PROFICIENCIAS_DE_OFICIO = [
+  {
+    id: "proficiencia_armaduras",
+    nome: "Proficiência em Armaduras",
+    disciplinaId: "oficio-magias-de-guerra",
+    armaduras: "todas",
+    efeito: "Proficiência em todas as armaduras (inclui escudos): nenhuma peça tira o dado da Defesa por falta de perícia. Ocupa 1 dos 3 espaços do ofício.",
+  },
+  {
+    id: "proficiencia_armas_de_fogo",
+    nome: "Proficiência em Armas de Fogo",
+    disciplinaId: "oficio-alquimia",
+    armas: ["Armas de fogo"],
+    efeito: "Proficiência em armas de fogo: o Descritor 2 de pistolas, rifles e espingardas passa a valer. Ocupa 1 dos 3 espaços do ofício.",
+  },
+  {
+    id: "proficiencia_armas",
+    nome: "Proficiência em Armas",
+    disciplinaId: "oficio-invocacao",
+    armas: "todas",
+    efeito: "Proficiência em todas as famílias de arma: o Descritor 2 de qualquer arma passa a valer. Ocupa 1 dos 3 espaços do ofício.",
+  },
+];
+
+export function getProficienciaDeOficioPorId(id) {
+  return PROFICIENCIAS_DE_OFICIO.find((p) => p.id === id) || null;
+}
+
+// Qualquer coisa que pode morar em slot.habilidadesAtivas (magia ou
+// habilidade de proficiência) — pra listar nome/descrição na ficha.
+export function getHabilidadeDeOficioPorId(id) {
+  return getMagiaPorId(id) || getProficienciaDeOficioPorId(id);
+}
+
+// Perícias (proficiências de arma/armadura) que os ofícios equipados dão.
+// Recebe a lista de slots já resolvida (racasCatalogo.js:
+// disciplinasDoPersonagem — os 3 normais + o encaixe extra do Humano).
+// Uma habilidade de proficiência só conta no slot do ofício dono dela.
+// Magias de guerra: a passiva dá todas as armas, a menos que o slot tenha
+// passivaAnterior E outra habilidade já dê proficiência em TODAS as armas
+// (hoje só a Proficiência em Armas de Invocação) — sem essa outra fonte, a
+// escolha salva não vale e a passiva volta a ser a de armas.
+export function periciasDeOficio(slots) {
+  const lista = (slots || []).filter(Boolean);
+  const familiasArmas = new Set();
+  let armasTodas = false;
+  let armadurasTodas = false;
+  const familiasArmaduras = new Set();
+  for (const slot of lista) {
+    for (const id of slot.habilidadesAtivas || []) {
+      const p = getProficienciaDeOficioPorId(id);
+      if (!p || p.disciplinaId !== slot.disciplinaId) continue;
+      if (p.armas === "todas") armasTodas = true;
+      else for (const f of p.armas || []) familiasArmas.add(f);
+      if (p.armaduras === "todas") armadurasTodas = true;
+      else for (const f of p.armaduras || []) familiasArmaduras.add(f);
+    }
+  }
+  const outraFonteArmasTodas = armasTodas;
+  let passivaAnteriorMagiasDeGuerra = false;
+  const slotMdg = lista.find((s) => s.disciplinaId === "oficio-magias-de-guerra");
+  if (slotMdg) {
+    if (slotMdg.passivaAnterior && outraFonteArmasTodas) passivaAnteriorMagiasDeGuerra = true;
+    else armasTodas = true;
+  }
+  return { armasTodas, familiasArmas, armadurasTodas, familiasArmaduras, outraFonteArmasTodas, passivaAnteriorMagiasDeGuerra };
+}
+
+export function periciaDeOficioCobreArma(pericias, arma) {
+  if (!pericias || !arma) return false;
+  return pericias.armasTodas || pericias.familiasArmas?.has(arma.periciaFamilia);
+}
+
+export function periciaDeOficioCobreArmadura(pericias, peca) {
+  if (!pericias || !peca?.periciaFamilia) return false;
+  return pericias.armadurasTodas || pericias.familiasArmaduras?.has(peca.periciaFamilia);
 }
 
 // Catálogo de MAGIAS (Tipo "Ataque"/"Defesa"/"Magia"/"Utilidade" — rolam com

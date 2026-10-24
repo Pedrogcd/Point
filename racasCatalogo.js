@@ -3,7 +3,7 @@
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
-import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO, getProficienciaDeOficioPorId, periciasDeOficio, periciaDeOficioCobreArmadura } from "./data/magias.js";
+import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO, escolhaCombateDoSlot, getProficienciaDeOficioPorId, periciasDeOficio, periciaDeOficioCobreArmadura } from "./data/magias.js";
 import { descritoresDeEquipamentoDefensivo, penalidadeDefesaSemPericiaDoPersonagem, bonusDefesaDeEquipamento } from "./data/armaduras.js";
 
 export const CATALOGO_RACAS = catalogo;
@@ -326,14 +326,20 @@ export const BONUS_GRAU_POR_HABILIDADE = {
   // Defesa", vira só o descritor Blindado (ver catalogo-racas.json).
   "cla-radiante": [{ tipo: "atributo", chave: "carisma" }],
   "cla-noctis": [{ tipo: "atributo", chave: "manipulacao" }],
+  // 24/10 (docs/ATUALIZACAO_24-10.md seção 0.5): Corvus, Seasus e Natrus
+  // trocam "conta como 1 ofício mágico a mais" por +1 grau em Magia
+  // Ofensiva (teto C) — ver BONUS_OFICIO_EXTRA_POR_HABILIDADE, esvaziado.
   "cla-corvus": [
     { tipo: "proficiencia", chave: "furtividade" },
+    { tipo: "proficiencia", chave: "magiaOfensiva" },
   ],
   "cla-seasus": [
     { tipo: "proficiencia", chave: "magiasGerais" },
+    { tipo: "proficiencia", chave: "magiaOfensiva" },
   ],
   "cla-natrus": [
     { tipo: "proficiencia", chave: "sobrevivencia" },
+    { tipo: "proficiencia", chave: "magiaOfensiva" },
   ],
   "resistencia-a-dor": [{ tipo: "atributo", chave: "resolucao" }],
   "arte-e-tradicao": [
@@ -475,11 +481,11 @@ function bonusEstaSuprimido(suprimidos, b) {
 // MAGIA.md: "Campo 'ofícios extras' para raças e habilidades") — soma na
 // contagem de Ofícios Mágicos (engine.js:contagemOficiosMagicos) SEM contar
 // contra o limite de 3 disciplinas escolhidas pelo jogador.
-export const BONUS_OFICIO_EXTRA_POR_HABILIDADE = {
-  "cla-natrus": 1,
-  "cla-corvus": 1,
-  "cla-seasus": 1,
-};
+//
+// 24/10 (seção 0.5): esvaziado — os 3 clãs que estavam aqui (Natrus,
+// Corvus, Seasus) passaram a dar +1 grau em Magia Ofensiva (ver
+// BONUS_GRAU_POR_HABILIDADE). Mantido (vazio) pra quem ainda importa.
+export const BONUS_OFICIO_EXTRA_POR_HABILIDADE = {};
 
 // Disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10): até 3 slots por personagem
 // (character.disciplinas, array de até 3 `{ disciplinaId, habilidadesAtivas }`
@@ -705,6 +711,13 @@ export function bonusGrauDoPersonagem(character) {
       alvo[b.chave] = (alvo[b.chave] || 0) + 1;
     }
   }
+  // 24/10 (docs/ATUALIZACAO_24-10.md seção 0.4): toda disciplina (ofícios e
+  // Magia Inata) dá +1 grau numa proficiência de Combate à escolha do
+  // jogador, guardada em slot.escolhaCombate. Soma com o resto, teto C.
+  for (const slot of disciplinasDoPersonagem(character)) {
+    const chave = escolhaCombateDoSlot(slot, CHAVES_COMBATE);
+    if (chave) resultado.proficiencias[chave] = (resultado.proficiencias[chave] || 0) + 1;
+  }
   return resultado;
 }
 
@@ -714,6 +727,8 @@ export function bonusGrauDoPersonagem(character) {
 // MAGIA.md: Goethiano em Vigor, Pele Grossa em Resistência Física) passaram a
 // não ter teto C — sobem até A. Grau já no teto (ou acima) não sobe mais por
 // esse bônus (nem desce).
+export const CHAVES_COMBATE = PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => p.key);
+
 export function grauComBonus(grauBase, passos, teto = "C") {
   const base = grauBase || "E";
   if (!passos) return base;
@@ -788,14 +803,19 @@ export function comGrausEfetivos(character) {
   // (senão a própria armadura equipada nunca veria o bônus que ela dá).
   // Potente ofício mágico: "+1 ofício, soma com o Conduíte" — mesmo
   // mecanismo de oficiosExtras que o Conduíte já usava.
+  // 24/10 (seção 1): Potente ofício mágico e Conduíte dão +1 grau em Magia
+  // Ofensiva (teto C) em vez de +1 ofício. O Conduíte continua somando 1
+  // em oficiosExtras só pra recuperação de mana (engine.js:
+  // diceRecuperacaoMana), parte que o documento deixa "a revisar".
   const descritoresSet = new Set(descritores || []);
-  const bonusArmaduraOficioMagico = descritoresSet.has("potente_oficio_magico") ? 1 : 0;
+  if (descritoresSet.has("potente_oficio_magico")) bonus.proficiencias.magiaOfensiva = (bonus.proficiencias.magiaOfensiva || 0) + 1;
+  if (bonusConduite) bonus.proficiencias.magiaOfensiva = (bonus.proficiencias.magiaOfensiva || 0) + 1;
   if (descritoresSet.has("potente_forca")) bonus.atributos.forca = (bonus.atributos.forca || 0) + 1;
   if (descritoresSet.has("potente_destreza")) bonus.atributos.destreza = (bonus.atributos.destreza || 0) + 1;
   const disciplinaMagica = {
     ...(character.disciplinaMagica || {}),
     oficiosMagicos: oficiosMagicosDoPersonagem(character),
-    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais + bonusConduite + bonusArmaduraOficioMagico,
+    oficiosExtras: (character.disciplinaMagica?.oficiosExtras || 0) + oficiosExtrasRaciais + bonusConduite,
     magiaInata: temMagiaInataDoPersonagem(character),
     magiasAtivas: magiasAtivasDoPersonagem(character),
   };

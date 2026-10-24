@@ -1,6 +1,6 @@
 {
-  "versao": "2026-10-23",
-  "observacao": "Fonte da tabela de descritores do site. linkEmTextoLivre=false: só vira link quando o descritor vem de um campo estruturado, não em texto corrido (palavras comuns). 23/10: Corrosivo definido; regras de acúmulo adicionadas. acumulo (campo do app, não vem da planilha; docs/ATUALIZACAO_23-10.md seção 1): 'soma' = fontes diferentes somam os N; 'maior' = vale só o maior N entre as fontes; 'nao-acumula' = só uma fonte conta por vez (mesmo sem N). Campo ausente = acúmulo não especificado no documento.",
+  "versao": "2026-10-24",
+  "observacao": "Fonte da tabela de descritores do site. linkEmTextoLivre=false: só vira link quando o descritor vem de um campo estruturado, não em texto corrido (palavras comuns). 23/10: Corrosivo definido; regras de acúmulo adicionadas. 24/10: Magia passa a usar atributo à escolha + Magia Ofensiva; Potente ofício mágico dá +1 grau em Magia Ofensiva. acumulo (campo do app, não vem da planilha; docs/ATUALIZACAO_23-10.md seção 1): 'soma' = fontes diferentes somam os N; 'maior' = vale só o maior N entre as fontes; 'nao-acumula' = só uma fonte conta por vez (mesmo sem N). Campo ausente = acúmulo não especificado no documento.",
   "descritores": [
     {
       "id": "magia",
@@ -9,7 +9,7 @@
       "tipo": "Ataque",
       "status": "Definido",
       "resumo": "Marca o ataque como mágico.",
-      "regra": "O ataque é mágico. Pool: Base mágica (2d10 + mana gasta acima do custo) + (ofícios mágicos ou Inteligência, à escolha) + ajuste da magia + 1d10 com Magia Inata. O defensor rola Defesa (atributo + proficiência Defesa).",
+      "regra": "O ataque é mágico. Pool: Base mágica (2d10 + mana gasta acima do custo) + (atributo à escolha do jogador, conforme a magia e a cena) + Magia Ofensiva + ajuste da magia + 1d10 com Magia Inata. O defensor rola Esquiva (Destreza + Esquiva) ou Bloqueio (Força + Bloqueio).",
       "usadoEm": "Todas as magias, bombas",
       "linkEmTextoLivre": false
     },
@@ -181,7 +181,7 @@
       "tipo": "Defesa",
       "status": "Definido",
       "resumo": "Ao bloquear, tira N dados da defesa e garante N sucessos.",
-      "regra": "Só ao bloquear (Força + Defesa): tira N dados da rolagem de defesa e considera N sucessos como garantidos. Os sucessos garantidos somam aos da defesa em cada ataque bloqueado. Fontes diferentes não acumulam (23/10).",
+      "regra": "Só ao bloquear (Força + Bloqueio): tira N dados da rolagem de defesa e considera N sucessos como garantidos. Os sucessos garantidos somam aos da defesa em cada ataque bloqueado. Fontes diferentes não acumulam (23/10).",
       "usadoEm": "Escudo Invocado, Encantamento: Firme 1, escudos",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
@@ -238,8 +238,8 @@
       "temN": false,
       "tipo": "Defesa",
       "status": "Definido",
-      "resumo": "Conta como 1 ofício mágico; soma com o Conduíte.",
-      "regra": "Conta como 1 ponto de ofício mágico. Soma com o Conduíte mágico.",
+      "resumo": "Dá +1 grau em Magia Ofensiva (teto C); soma com o Conduíte.",
+      "regra": "Dá +1 grau em Magia Ofensiva (teto C). Soma com o Conduíte mágico. (24/10: antes contava como 1 ofício mágico.)",
       "usadoEm": "Armadura catalisadora",
       "linkEmTextoLivre": true
     },

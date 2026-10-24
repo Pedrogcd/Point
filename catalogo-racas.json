@@ -532,11 +532,11 @@
           "icone": "gota-sangue-pena",
           "cor": "#A1122B",
           "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
-          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 ofício mágico extra. Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 grau em Magia Ofensiva (teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "1 ferimento superficial = +1 MP (até 2x/cena)",
             "Furtividade +1 grau",
-            "+1 ofício mágico extra",
+            "+1 grau em Magia Ofensiva (teto C)",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": []
@@ -548,10 +548,10 @@
           "icone": "circulo-quatro",
           "cor": "#14A3A8",
           "descricao": "Poder dos conhecimentos dos primordiais e das estações.",
-          "efeito": "+1 grau em Magias Gerais. +1 ofício mágico extra. Durante o dia (narração do mestre), suas magias ganham o descritor Queimadura 1 — não mecanizado no app (não há estado de dia/noite no motor; é adjudicado pelo mestre em mesa). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "+1 grau em Magias Gerais. +1 grau em Magia Ofensiva (teto C). Durante o dia (narração do mestre), suas magias ganham o descritor Queimadura 1 — não mecanizado no app (não há estado de dia/noite no motor; é adjudicado pelo mestre em mesa). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Magias Gerais +1 grau",
-            "+1 ofício mágico extra",
+            "+1 grau em Magia Ofensiva (teto C)",
             "Queimadura 1 de dia (não mecanizado)",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
@@ -564,9 +564,9 @@
           "icone": "folha",
           "cor": "#3F8F3A",
           "descricao": "Elfos nobres, ligados aos elementos da natureza e do mundo material.",
-          "efeito": "+1 ofício mágico extra. +1 grau em Sobrevivência. Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "+1 grau em Magia Ofensiva (teto C). +1 grau em Sobrevivência. Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
-            "+1 ofício mágico extra",
+            "+1 grau em Magia Ofensiva (teto C)",
             "Sobrevivência +1 grau",
             "Reabastecer",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"

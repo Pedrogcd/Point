@@ -28,7 +28,7 @@ import {
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
   PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura,
 } from "./data/magias.js";
-import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, treinadoNaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
   DESCRITORES, DESCRITORES_POR_ID, TIPOS_DESCRITOR, DESCRITORES_INTERNOS,
   resolverDescritorToken, nomeDoToken, textoComN, marcarDescritoresNoTexto,
@@ -5157,7 +5157,7 @@ function AttackCard({ atk, onClick, selected, character }) {
   const atributoGrade = character ? getAttrGrade(character, atributoKey) : null;
   const profGrade = character && atk.profKey ? character.proficiencias?.[atk.profKey] : null;
   const totalDice = ehMagia
-    ? (character ? diceAtaqueMagico(character, atk.custoMp || 0, atk.custoMp || 0, "oficios", atk.ajusteDados || 0) : null)
+    ? (character ? diceAtaqueMagico(character, atk.custoMp || 0, atk.custoMp || 0, "inteligencia", atk.ajusteDados || 0) : null)
     : (character
         ? diceAtaqueFisico(character, atributoKey, atk.profKey, atk.ajusteDados || 0)
         : (GRADE_VALUE[atributoGrade] ?? 1) + (GRADE_VALUE[profGrade] ?? 1) + (atk.ajusteDados || 0));
@@ -5191,7 +5191,7 @@ function AttackCard({ atk, onClick, selected, character }) {
         <MiniStat
           label="DADOS"
           value={totalDice != null ? `${totalDice}d10` : "—"}
-          sub={ehMagia ? "Base + Ofícios" : (character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] ?? 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] ?? 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null)}
+          sub={ehMagia ? "Base + Int + MO" : (character ? `${atributoInfo?.label[0] || ""}${GRADE_VALUE[atributoGrade] ?? 1}${profInfo ? ` + ${profInfo.label[0]}${GRADE_VALUE[profGrade] ?? 1}` : ""}${atk.ajusteDados ? ` ${atk.ajusteDados > 0 ? "+" : ""}${atk.ajusteDados}` : ""}` : null)}
         />
         <MiniStat label="FERIDAS" value={atk.feridas ?? 1} />
         {ehMagia && <MiniStat label="CUSTO" value={`${atk.custoMp ?? 0} MP`} />}
@@ -5199,7 +5199,7 @@ function AttackCard({ atk, onClick, selected, character }) {
 
       <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.4, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${LINE}` }}>
         {ehMagia
-          ? "Base mágica (2d10 + mana extra) + Ofícios Mágicos ou Inteligência (à escolha na aba Magia), sucesso 6+ (7+ contra Blindado, exceto Perfurante)"
+          ? "Base mágica (2d10 + mana extra) + atributo à escolha (na aba Magia; aqui, Inteligência) + Magia Ofensiva, sucesso 6+ (7+ contra Blindado, exceto Perfurante)"
           : `${atributoInfo?.label || "Destreza"}${profInfo ? ` + ${profInfo.label}` : ""}, sucesso 6+ (7+ contra Blindado, exceto Perfurante)`}
       </div>
       {descritoresEfetivos.length > 0 && (
@@ -5412,7 +5412,7 @@ function DisciplinaSlotPicker({
   titulo, legenda, atual, excluirIds, mpAtual, spAtual, onEscolher, onEsvaziar, onToggleMagia, onConfirmarTroca, onClose,
   encantamentosAtivos, onToggleEncantamento, conduiteAtivo, onToggleConduite, itensAlquimicosAtivos, onToggleItemAlquimico,
   invocacoesAtivas, onToggleInvocacao, sensorAtivo, onToggleSensor,
-  outraFonteArmas, onTogglePassivaAnterior,
+  outraFonteArmas, onTogglePassivaAnterior, onEscolherCombate,
 }) {
   const def = atual ? getDisciplinaPorId(atual.disciplinaId) : null;
   const habilidadesAtivas = atual?.habilidadesAtivas || [];
@@ -5476,6 +5476,25 @@ function DisciplinaSlotPicker({
               );
             })}
           </div>
+
+          {/* Escolha livre de Combate (24/10, docs/ATUALIZACAO_24-10.md seção
+              0.4): toda disciplina dá +1 grau numa proficiência de Combate
+              à escolha (teto C), além das 3 fixas. Guardada no slot
+              (escolhaCombate); trocar de disciplina zera. */}
+          {atual && def && (
+            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: 10.5, color: PURPLE, fontWeight: 600 }}>Escolha livre: +1 grau em Combate (teto C)</label>
+              <select
+                style={{ ...inputStyle, width: 220 }} value={atual.escolhaCombate || ""}
+                onChange={(e) => onEscolherCombate(e.target.value || null)}
+              >
+                <option value="">— escolher —</option>
+                {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {atual && def?.temMagias && (() => {
             // 23/10: filtra pela própria disciplina (Sensor, sem disciplinaId,
@@ -5546,10 +5565,10 @@ function DisciplinaSlotPicker({
               <div style={{ fontSize: 10.5, color: PARCHMENT, lineHeight: 1.4 }}>
                 {atual.passivaAnterior && outraFonteArmas
                   ? PASSIVA_POR_OFICIO["oficio-magias-de-guerra"].alternativa.texto
-                  : "Proficiência em todas as armas (o Descritor 2 de qualquer arma vale)."}
+                  : "Treino em todas as armas (o Descritor 2 de qualquer arma vale, mesmo com grau F)."}
               </div>
               <label
-                title={outraFonteArmas ? undefined : "Só pra quem já tem proficiência em armas por outra habilidade (Proficiência em Armas, de Invocação, ou Proficiência em Armas de Fogo, de Alquimia)."}
+                title={outraFonteArmas ? undefined : "Só pra quem já tem Treino em armas por outra habilidade (Treino em Armas, de Invocação, ou Treino em Armas de Fogo, de Alquimia)."}
                 style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: outraFonteArmas ? PARCHMENT : MUTED, opacity: outraFonteArmas ? 1 : 0.5, marginTop: 6 }}
               >
                 <input type="checkbox" checked={!!atual.passivaAnterior && !!outraFonteArmas} disabled={!outraFonteArmas} onChange={onTogglePassivaAnterior} />
@@ -5568,7 +5587,7 @@ function DisciplinaSlotPicker({
               itens/invocações). Fica em slot.habilidadesAtivas. */}
           {atual && def && !def.temMagias && PROFICIENCIAS_DE_OFICIO.some((p) => p.disciplinaId === def.id) && (
             <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>Habilidade de proficiência (ocupa 1 dos 3 espaços)</div>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>Habilidade de treino (ocupa 1 dos 3 espaços)</div>
               {PROFICIENCIAS_DE_OFICIO.filter((p) => p.disciplinaId === def.id).map((p) => (
                 <label key={p.id} title={p.efeito} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: PARCHMENT, flexWrap: "wrap" }}>
                   <input type="checkbox" checked={habilidadesAtivas.includes(p.id)} onChange={() => onToggleMagia(p.id)} /> {p.nome}
@@ -5695,7 +5714,7 @@ function DisciplinaSlotPicker({
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 6 }}>
               <label title={CONDUITE_MAGICO.descricao} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: PARCHMENT }}>
                 <input type="checkbox" checked={!!conduiteAtivo} onChange={onToggleConduite} />
-                {CONDUITE_MAGICO.nome} (+1 ofício mágico, só um por vez)
+                {CONDUITE_MAGICO.nome} (+1 grau em Magia Ofensiva, só um por vez)
               </label>
               {/* Sensor (23/10, docs/ATUALIZACAO_23-10.md seção 1): "qualquer
                   ofício pode pegar Sensor" — flag simples, igual Conduíte
@@ -5954,10 +5973,12 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     return m.disciplinaId && m.disciplinaId !== "oficio-magias-de-guerra" && disciplinaMagica.oficiosMagicos.includes(m.disciplinaId);
   });
   const magiasDisponiveis = [...magiasEquipadasDeGuerra, ...magiasAutomaticasDeOutrosOficios];
-  // Fonte do pool de ataque mágico (docs/MUDANCAS_RACAS_E_MAGIA.md): o
-  // jogador escolhe, a cada conjuração, entre a contagem de Ofícios Mágicos
-  // ou o grau de Inteligência — ver diceAtaqueMagico(..., fonte, ...).
-  const [fonteMagia, setFonteMagia] = useState("oficios");
+  // Atributo do pool de ataque mágico (24/10, docs/ATUALIZACAO_24-10.md
+  // seção 1): o jogador escolhe, a cada conjuração, qualquer Atributo Geral
+  // ("conforme a magia e a cena") — soma com Magia Ofensiva, ver
+  // diceAtaqueMagico(..., atributoKey, ...). A contagem de ofícios não
+  // entra mais.
+  const [fonteMagia, setFonteMagia] = useState("inteligencia");
   // Índice do espaço de Disciplina aberto: 0-2 (um dos 3 normais), "extra"
   // (o 4º encaixe da secundária "Vaga de Disciplina" do Humano) ou null
   // (fechado) — abre o DisciplinaSlotPicker (distinto de slotAberto, que é
@@ -6005,10 +6026,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     atributoKey: "destreza",
     feridas: armaEquipadaCatalogo.feridas,
     superficial: armaEquipadaCatalogo.superficial,
-    // 23/10 (segunda parte): perícia também vem dos ofícios (passiva de
-    // Magias de guerra, Proficiência em Armas/Armas de Fogo) — ver
-    // data/magias.js:periciasDeOficio.
-    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, character.equipamento?.temPericiaArma || periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaEquipadaCatalogo)),
+    // 24/10: Descritor 2 só pra quem é treinado na proficiência da arma
+    // (grau E+ ou Treino de ofício — passiva de Magias de guerra, Treino em
+    // Armas/Armas de Fogo), ver data/armas.js:treinadoNaArma.
+    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, treinadoNaArma(characterEfetivo, armaEquipadaCatalogo, periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaEquipadaCatalogo))),
   } : null;
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
@@ -6072,7 +6093,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // Modo Magia: conjura uma magia do catálogo (data/magias.js) contra o MESMO
   // alvo sintético do modo Ataque — desconta o custo da mana da ficha (item
   // 7) e, se a magia não for "sem rolagem" (Escudo de Mana), rola Base mágica
-  // + (Ofícios Mágicos ou Inteligência, à escolha — fonteMagia) via
+  // + atributo à escolha (fonteMagia) + Magia Ofensiva via
   // resolveAtaque. Depois de conjurar, rola a recuperação de mana na cena
   // (item 6, fórmula atualizada em 14/10: Ofícios + mana gasta) e guarda em
   // mp.recuperarPendente — ver botões "Início de turno"/"Fim de cena" no
@@ -6439,20 +6460,20 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                           onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, nomeArma: e.target.value } })}
                         />
                       </Field>
-                      {periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaCatalogo) ? (
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
-                          <input type="checkbox" checked disabled />
-                          Tem perícia em {armaCatalogo.periciaFamilia} (pelos ofícios equipados — ver Disciplinas)
-                        </label>
-                      ) : (
-                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
-                        <input
-                          type="checkbox" checked={!!eq.temPericiaArma} disabled={!onUpdateCharacter}
-                          onChange={() => onUpdateCharacter(character.id, { equipamento: { ...eq, temPericiaArma: !eq.temPericiaArma } })}
-                        />
-                        Tem perícia em {armaCatalogo.periciaFamilia} (sem isso, só <Descritor token={armaCatalogo.descritor1} /> vale)
-                      </label>
-                      )}
+                      {(() => {
+                        const profKey = profKeyDaArma(armaCatalogo);
+                        const profLabel = PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label;
+                        const grau = characterEfetivo.proficiencias?.[profKey] || "F";
+                        const porOficio = periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaCatalogo);
+                        const treinado = treinadoNaArma(characterEfetivo, armaCatalogo, porOficio);
+                        return (
+                          <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>
+                            {profLabel} {grau}{porOficio ? " · Treino pelos ofícios" : ""} — {treinado
+                              ? <>treinado: <Descritor token={armaCatalogo.descritor1} />{armaCatalogo.descritor2 && <> e <Descritor token={armaCatalogo.descritor2} /></>} valem</>
+                              : <>sem treino (grau F): só <Descritor token={armaCatalogo.descritor1} /> vale</>}
+                          </div>
+                        );
+                      })()}
                     </>
                   )}
                 </div>
@@ -6501,7 +6522,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     {peca && periciaKey && peca.periciaFamilia && periciaDeOficioCobreArmadura(characterEfetivo.periciasOficio, peca) && (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
                         <input type="checkbox" checked disabled />
-                        Tem perícia em {peca.periciaFamilia} (Proficiência em Armaduras, Magias de guerra)
+                        Tem perícia em {peca.periciaFamilia} (Treino em Armaduras, Magias de guerra)
                       </label>
                     )}
                     {peca && periciaKey && peca.periciaFamilia && !periciaDeOficioCobreArmadura(characterEfetivo.periciasOficio, peca) && (
@@ -6554,7 +6575,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Ataques físicos (Marcial/Arma de fogo): dados = Destreza + Proficiência de Combate (Combate Corpo a Corpo/Armas de Fogo), sucesso 6+ (7+ contra Blindado, exceto Perfurante). Magias ofensivas equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Ofícios Mágicos) — pra conjurar de verdade, com escolha de mana extra e fonte do pool (Ofícios ou Inteligência), use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
+              Ataques físicos: dados = Destreza + proficiência da arma (Armas Corpo a Corpo, Desarmado, Armas à Distância ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau F) não há dados de proficiência nem Descritor 2. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -6904,7 +6925,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     </div>
                   )}
                   <div style={{ fontSize: 10, color: MUTED }}>
-                    Ofícios Mágicos: {disciplinaMagica.oficiosMagicos.length}{(disciplinaMagica.oficiosExtras || 0) > 0 ? ` + ${disciplinaMagica.oficiosExtras} extra(s) de raça/habilidade` : ""}. Magia Inata: {disciplinaMagica.magiaInata ? "sim (+1d10 fixo, +1 MP)" : "não"}.
+                    Magia Ofensiva: {characterEfetivo.proficiencias?.magiaOfensiva || "F"}. Ofícios Mágicos: {disciplinaMagica.oficiosMagicos.length} (só contam na recuperação de mana{characterEfetivo.conduiteAtivo ? ", com +1 do Conduíte" : ""}). Magia Inata: {disciplinaMagica.magiaInata ? "sim (+1d10 fixo, +1 MP)" : "não"}.
                   </div>
                 </div>
                 <Field label="Magia">
@@ -6929,10 +6950,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic", margin: "0 0 10px" }}><TextoComDescritores texto={magiaSelecionada.efeito} /></div>
                 ) : null}
                 {!magiaSelecionada?.semRolagem && !magiaSelecionada?.placeholder && (
-                  <Field label={`Pool: Base mágica + Ofícios (${contagemOficiosMagicos(characterEfetivo)}) ou Inteligência — escolha`}>
+                  <Field label={`Pool: Base mágica + atributo à escolha + Magia Ofensiva (${characterEfetivo.proficiencias?.magiaOfensiva || "F"})`}>
                     <select value={fonteMagia} onChange={(e) => setFonteMagia(e.target.value)} style={inputStyle}>
-                      <option value="oficios">Ofícios Mágicos ({contagemOficiosMagicos(characterEfetivo)} dado(s))</option>
-                      <option value="inteligencia">Inteligência (grau {characterEfetivo.atributosGerais?.inteligencia || "E"})</option>
+                      {ATRIBUTOS_GERAIS_LIST.map((a) => (
+                        <option key={a.key} value={a.key}>{a.label} (grau {characterEfetivo.atributosGerais?.[a.key] || "E"})</option>
+                      ))}
                     </select>
                   </Field>
                 )}
@@ -7091,7 +7113,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   titulo={def?.nome}
                   subtitulo={def?.temTelaDeMana ? "Tela de mana" : null}
                   corpo={def
-                    ? `${def.bonusTexto}${(slot?.habilidadesAtivas || []).length === 0 && def.temMagias ? " · Nenhuma magia equipada ainda." : ""}`
+                    ? `${slot?.escolhaCombate ? `Escolha de Combate: ${PROFICIENCIAS_LIST.find((p) => p.key === slot.escolhaCombate)?.label || slot.escolhaCombate}. ` : "Escolha de Combate ainda não feita. "}${def.bonusTexto}${(slot?.habilidadesAtivas || []).length === 0 && def.temMagias ? " · Nenhuma magia equipada ainda." : ""}`
                     : "Vazia — clique pra escolher."}
                   onClick={onUpdateCharacter ? () => setDisciplinaSlotAberto(i) : undefined}
                 />
@@ -7181,6 +7203,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             onEsvaziar={() => gravar(null)}
             outraFonteArmas={characterEfetivo.periciasOficio?.outraFonteArmas}
             onTogglePassivaAnterior={() => gravar({ ...atual, passivaAnterior: !atual?.passivaAnterior })}
+            onEscolherCombate={(chave) => gravar({ ...atual, escolhaCombate: chave })}
             onToggleMagia={(magiaId) => {
               const habilidadesAtivas = atual?.habilidadesAtivas || [];
               const novas = habilidadesAtivas.includes(magiaId) ? habilidadesAtivas.filter((m) => m !== magiaId) : [...habilidadesAtivas, magiaId];
@@ -7825,7 +7848,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Essas entram nos cálculos de combate (somando com o atributo correspondente) — Combate Corpo a Corpo/Armas de Fogo por tipo de ataque físico, e Defesa (Destreza pra esquivar ou Força pra bloquear, 21/10 — substitui Resistência Física). Ataques mágicos usam Ofícios Mágicos ou Inteligência, não uma proficiência fixa (ver docs/ATUALIZACAO_21-10.md).
+        Essas entram nos cálculos de combate (somando com o atributo correspondente, 24/10). Ataque: Armas Corpo a Corpo, Desarmado, Armas à Distância e Armas de Fogo (com o atributo da arma, em geral Destreza) e Magia Ofensiva (com o atributo à escolha). Defesa: Esquiva (Destreza) ou Bloqueio (Força). Fortitude (Vigor) e Vontade (Resolução) resistem a status físicos e mentais (rolagem ainda a definir). Grau F = sem treino.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
@@ -7885,7 +7908,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Target}>Ataques</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Cada ataque tem um Tipo, que já define o que entra na conta: Marcial (Acerto: Destreza + Proficiência, Dano: Força + Proficiência, ferida escala), Arma de fogo (Acerto: Destreza + Proficiência, Dano: só Proficiência + valor da arma, ferida fixa). Ataques mágicos não entram mais aqui — ver a aba "Magia" no painel Teste (catálogo em data/magias.js, pool por Ofícios Mágicos ou Inteligência).
+        Cada ataque tem um Tipo, que já define o que entra na conta: Marcial (Acerto: Destreza + Proficiência, Dano: Força + Proficiência, ferida escala), Arma de fogo (Acerto: Destreza + Proficiência, Dano: só Proficiência + valor da arma, ferida fixa). Ataques mágicos não entram mais aqui — ver a aba "Magia" no painel Teste (catálogo em data/magias.js, pool por atributo à escolha + Magia Ofensiva).
       </p>
       {attacks.map((atk, i) => (
         <div key={i} style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 0.5fr 0.7fr 0.5fr 1.3fr auto", gap: 6, marginBottom: 8 }}>
@@ -8309,6 +8332,7 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
   const attacksA = a.attacks && a.attacks.length > 0
     ? a.attacks
     : [{ nome: "(ataque genérico)", tipo: "marcial", atributoKey: "destreza", profKey: "combateCorpoACorpo", ajusteDados: 0, feridas: 1, descritores: [] }];
+  // 24/10: a defesa usa Esquiva (com Destreza) ou Bloqueio (com Força).
   const [attackIdx, setAttackIdx] = useState(0);
   const [result, setResult] = useState(null);
   // 21/10 (docs/ATUALIZACAO_21-10.md item 1): Defesa = Destreza (esquivar) ou
@@ -8337,14 +8361,14 @@ function DuelRoller({ a, b, onUpdateCharacter }) {
     <div style={{ marginTop: 24 }}>
       <SectionTitle icon={Dices}>Rolagem de Confronto — Ataque × Defesa</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa: proficiência Defesa de {b.name} + Destreza (esquivar) ou Força (bloquear), mesmo limiar — Preciso N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
+        {a.name} ataca, {b.name} defende. Ataque: dados = Destreza + Proficiência de Combate (físico), sucesso 6+ (7+ se {b.name} tiver Blindado ou o ataque for Pesado, exceto ataque Perfurante). Defesa de {b.name}: Destreza + Esquiva (esquivar) ou Força + Bloqueio (bloquear), mesmo limiar — Preciso N penaliza quem esquiva, Esmagador N penaliza quem bloqueia — cada sucesso da defesa cancela 1 do ataque (mínimo 0). Sucessos líquidos ≥ Vigor de {b.name} (grau cheio {vigorGrauB}; Letal reduz em 1, Resistente soma 1 — se anulam) = ferimento agravante; senão, superficial.
       </p>
 
       <div style={{ maxWidth: 260, marginBottom: 14 }}>
         <Field label={`Defesa de ${b.name}`}>
           <select style={inputStyle} value={defesaAtributo} onChange={(e) => { setDefesaAtributo(e.target.value); setResult(null); }}>
-            <option value="destreza">Esquivar — Destreza ({getAttrGrade(b, "destreza") || "E"})</option>
-            <option value="forca">Bloquear — Força ({getAttrGrade(b, "forca") || "E"})</option>
+            <option value="destreza">Esquivar — Destreza ({getAttrGrade(b, "destreza") || "E"}) + Esquiva ({b.proficiencias?.esquiva ?? b.proficiencias?.defesaProf ?? "E"})</option>
+            <option value="forca">Bloquear — Força ({getAttrGrade(b, "forca") || "E"}) + Bloqueio ({b.proficiencias?.bloqueio ?? b.proficiencias?.defesaProf ?? "E"})</option>
           </select>
         </Field>
       </div>
@@ -8417,7 +8441,9 @@ export function resolveFichaAtaque({
 }) {
   const defender = {
     atributosGerais: { vigor: targetVigorGrau, [targetDefesaAtributo]: targetDefesaAtributo === "vigor" ? targetVigorGrau : targetDefesaAtributoGrau },
-    proficiencias: { defesaProf: targetDefesaProfGrau },
+    // 24/10: o grau informado vale pra proficiência de defesa do atributo
+    // escolhido (Esquiva ou Bloqueio — engine.js:profDeDefesa).
+    proficiencias: { esquiva: targetDefesaProfGrau, bloqueio: targetDefesaProfGrau },
     descritores: [...(targetBlindado ? ["blindado"] : []), ...(targetResisteAMagia ? ["resiste_a_magia"] : [])],
   };
   const descritoresAtaque = descritoresEfetivosDoAtaque(character, attack);
@@ -8696,10 +8722,14 @@ function recursoDoCombatente(combatente, characters, chave) {
 // resolveRolagemDefesa). Pra "avulso" continua sendo o número livre que o
 // GM digita na criação (campo "Defesa" do formulário, só referência — o
 // painel Encontro não rola ataque nenhum, é tracker de HP/MP/SP/estados).
+// 24/10: a Defesa virou Esquiva + Bloqueio — mostra os dois graus.
 function defesaDoCombatente(combatente, characters) {
   if (combatente.tipo === "avulso") return combatente.defesa;
   const p = personagemDoCombatente(combatente, characters);
-  return p?.proficiencias?.defesaProf || null;
+  if (!p) return null;
+  const esq = p.proficiencias?.esquiva ?? p.proficiencias?.defesaProf;
+  const blo = p.proficiencias?.bloqueio ?? p.proficiencias?.defesaProf;
+  return esq || blo ? `Esq ${esq || "—"} / Blo ${blo || "—"}` : null;
 }
 
 function armaduraDoCombatente(combatente, characters) {

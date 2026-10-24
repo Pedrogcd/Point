@@ -303,12 +303,12 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonusGrauDoPersonagem({}), { proficiencias: {}, atributos: {} });
   });
 
-  it("Disciplina 'Ofício Mágico: Magias de guerra' dá +1 em Magias Gerais, Política e Tecnologia (23/10, docs/ATUALIZACAO_23-10.md seção 2b — Política no lugar de Acadêmicos)", () => {
+  it("24/10: Magias de guerra dá +1 em Magia Ofensiva, Magias Gerais e Política (Tecnologia saiu)", () => {
     const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }] });
-    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, politica: 1, tecnologia: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { magiaOfensiva: 1, magiasGerais: 1, politica: 1 }, atributos: {} });
   });
 
-  it("23/10: Encantamentos/Alquimia/Constructo também dão 3 proficiências cada — e somam entre si até o teto (seção 2b)", () => {
+  it("24/10: Encantamentos/Alquimia/Constructo dão 3 fixas cada (uma de Combate) — e somam entre si até o teto", () => {
     const bonus = bonusGrauDoPersonagem({
       disciplinas: [
         { disciplinaId: "oficio-encantamentos", habilidadesAtivas: [] },
@@ -316,22 +316,36 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
         { disciplinaId: "oficio-constructo", habilidadesAtivas: [] },
       ],
     });
-    // Encantamentos: Magias Gerais, Ofício, Investigação. Alquimia: Medicina,
-    // Ofício, Acadêmicos. Constructo: Tecnologia, Ofício, Liderança.
+    // Encantamentos: Vontade, Magias Gerais, Ofício. Alquimia: Fortitude,
+    // Medicina, Ofício. Constructo: Magia Ofensiva, Tecnologia, Ofício.
     // "Ofício" se repete nos 3 ofícios -> soma 3.
     assert.deepEqual(bonus, {
-      proficiencias: { magiasGerais: 1, investigacao: 1, medicina: 1, academicos: 1, tecnologia: 1, lideranca: 1, oficio: 3 },
+      proficiencias: { vontade: 1, magiasGerais: 1, fortitude: 1, medicina: 1, magiaOfensiva: 1, tecnologia: 1, oficio: 3 },
       atributos: {},
     });
   });
 
-  it("23/10: Invocação dá as 3 proficiências (Magias Gerais, Atletismo, Percepção) + a passiva mecanizada (Combate Corpo a Corpo)", () => {
+  it("24/10: Invocação dá Armas Corpo a Corpo, Magias Gerais e Atletismo (Percepção e a passiva +1 Corpo a Corpo saíram)", () => {
     const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-invocacao", habilidadesAtivas: [] }] });
-    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, atletismo: 1, percepcao: 1, combateCorpoACorpo: 1 }, atributos: {} });
+    assert.deepEqual(bonus, { proficiencias: { combateCorpoACorpo: 1, magiasGerais: 1, atletismo: 1 }, atributos: {} });
   });
 
-  it("Magia Inata não dá bônus de grau nenhum (virou só +1d10 fixo e +1 MP, ver engine.js)", () => {
+  it("Magia Inata não dá fixas; sem escolha de Combate feita, nenhum bônus", () => {
     const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: [] }] });
+    assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
+  });
+
+  it("24/10: escolha livre de Combate (+1) em qualquer disciplina, Magia Inata inclusive; soma com as fixas", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinas: [
+      { disciplinaId: "magia-inata", habilidadesAtivas: [], escolhaCombate: "esquiva" },
+      { disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [], escolhaCombate: "magiaOfensiva" },
+    ] });
+    assert.equal(bonus.proficiencias.esquiva, 1);
+    assert.equal(bonus.proficiencias.magiaOfensiva, 2); // fixa + escolha
+  });
+
+  it("24/10: escolha de Combate inválida (proficiência geral) é ignorada", () => {
+    const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: [], escolhaCombate: "atletismo" }] });
     assert.deepEqual(bonus, { proficiencias: {}, atributos: {} });
   });
 
@@ -435,22 +449,22 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.deepEqual(bonus, { proficiencias: {}, atributos: { manipulacao: 1 } });
   });
 
-  it("Clã Corvus (elfo) dá +1 em Furtividade (14/10: Magias Ofensivas saiu, virou +1 ofício mágico extra)", () => {
+  it("24/10: Clã Corvus (elfo) dá +1 em furtividade e +1 em Magia Ofensiva (antes: +1 ofício mágico extra)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-corvus" });
-    assert.deepEqual(bonus, { proficiencias: { furtividade: 1 }, atributos: {} });
-    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-corvus" }), 1);
+    assert.deepEqual(bonus, { proficiencias: { furtividade: 1, magiaOfensiva: 1 }, atributos: {} });
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-corvus" }), 0);
   });
 
-  it("Clã Seasus (elfo) dá +1 em Magias Gerais (14/10: Magias Ofensivas/Resistência Mágica saíram, viram +1 ofício mágico extra)", () => {
+  it("24/10: Clã Seasus (elfo) dá +1 em magiasGerais e +1 em Magia Ofensiva (antes: +1 ofício mágico extra)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-seasus" });
-    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1 }, atributos: {} });
-    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-seasus" }), 1);
+    assert.deepEqual(bonus, { proficiencias: { magiasGerais: 1, magiaOfensiva: 1 }, atributos: {} });
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-seasus" }), 0);
   });
 
-  it("Clã Natrus (elfo) dá +1 em Sobrevivência (14/10: Resistência Mágica/Blindado Mágico saíram, viram +1 ofício mágico extra)", () => {
+  it("24/10: Clã Natrus (elfo) dá +1 em sobrevivencia e +1 em Magia Ofensiva (antes: +1 ofício mágico extra)", () => {
     const bonus = bonusGrauDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-natrus" });
-    assert.deepEqual(bonus, { proficiencias: { sobrevivencia: 1 }, atributos: {} });
-    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-natrus" }), 1);
+    assert.deepEqual(bonus, { proficiencias: { sobrevivencia: 1, magiaOfensiva: 1 }, atributos: {} });
+    assert.equal(oficiosExtrasDoPersonagem({ raca: "elfo", habilidadePrincipal: "cla-natrus" }), 0);
   });
 
   it("oficiosExtrasDoPersonagem é 0 pra quem não tem Natrus/Corvus/Seasus", () => {
@@ -458,14 +472,10 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     assert.equal(oficiosExtrasDoPersonagem({}), 0);
   });
 
-  it("comGrausEfetivos soma o ofício extra racial em disciplinaMagica.oficiosExtras (base 0 + 1 do Clã Corvus)", () => {
-    const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: {} });
-    assert.equal(character.disciplinaMagica.oficiosExtras, 1);
-  });
-
-  it("comGrausEfetivos soma o ofício extra racial em cima de um oficiosExtras já salvo na ficha", () => {
-    const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: { oficiosExtras: 2 } });
-    assert.equal(character.disciplinaMagica.oficiosExtras, 3);
+  it("24/10: Clã Corvus não soma mais em oficiosExtras; vira Magia Ofensiva efetiva", () => {
+    const { character } = comGrausEfetivos({ raca: "elfo", habilidadePrincipal: "cla-corvus", disciplinaMagica: {}, proficiencias: { magiaOfensiva: "F" } });
+    assert.equal(character.disciplinaMagica.oficiosExtras, 0);
+    assert.equal(character.proficiencias.magiaOfensiva, "E");
   });
 
   // Conduíte mágico (21/10, docs/ATUALIZACAO_21-10.md item 4): flag global
@@ -480,12 +490,10 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     const { character } = comGrausEfetivos({ disciplinaMagica: {} });
     assert.equal(character.disciplinaMagica.oficiosExtras, 0);
   });
-  it("conduiteAtivo soma em cima de ofícios extras raciais e já salvos", () => {
-    const { character } = comGrausEfetivos({
-      raca: "elfo", habilidadePrincipal: "cla-corvus", conduiteAtivo: true,
-      disciplinaMagica: { oficiosExtras: 2 },
-    });
-    assert.equal(character.disciplinaMagica.oficiosExtras, 4); // 2 salvo + 1 Corvus + 1 Conduíte
+  it("24/10: conduiteAtivo dá +1 grau em Magia Ofensiva (e continua +1 em oficiosExtras, só pra recuperação de mana)", () => {
+    const { character } = comGrausEfetivos({ conduiteAtivo: true, disciplinaMagica: {}, proficiencias: { magiaOfensiva: "E" } });
+    assert.equal(character.proficiencias.magiaOfensiva, "D");
+    assert.equal(character.disciplinaMagica.oficiosExtras, 1);
   });
 });
 
@@ -526,11 +534,13 @@ describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => 
     assert.equal(character.atributosGerais.destreza, "C");
   });
 
-  it("Potente ofício mágico (armadura catalisadora): +1 em disciplinaMagica.oficiosExtras, soma com o Conduíte", () => {
+  it("24/10: Potente ofício mágico (armadura catalisadora) dá +1 grau em Magia Ofensiva, soma com o Conduíte", () => {
     const { character } = comGrausEfetivos({
       conduiteAtivo: true, disciplinaMagica: {}, equipamento: { armaduraId: "armadura_catalisadora" },
+      proficiencias: { magiaOfensiva: "F" },
     });
-    assert.equal(character.disciplinaMagica.oficiosExtras, 2); // 1 Conduíte + 1 armadura
+    assert.equal(character.proficiencias.magiaOfensiva, "D"); // F + 1 armadura + 1 Conduíte
+    assert.equal(character.disciplinaMagica.oficiosExtras, 1); // só o Conduíte (recuperação de mana)
   });
 
   it("bonusDefesaEquipamento e penalidadeDefesaSemPericia ficam anexados no character efetivo", () => {
@@ -682,7 +692,7 @@ describe("racasCatalogo — disciplinas (docs/DISCIPLINAS_MAGIA.md, 14/10)", () 
     const { character } = comGrausEfetivos(ch);
     assert.deepEqual(character.disciplinaMagica, {
       oficiosMagicos: ["oficio-magias-de-guerra"],
-      oficiosExtras: 1, // Clã Corvus
+      oficiosExtras: 0, // 24/10: Clã Corvus virou Magia Ofensiva
       magiaInata: true,
       magiasAtivas: ["shin", "tiro_magico"],
     });

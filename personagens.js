@@ -10,8 +10,28 @@ import {
   repararMana,
 } from "./engine.js";
 import { grupoDoPersonagem } from "./sidepoint.js";
-import { migrarSelecaoRacaLegado } from "./racasCatalogo.js";
-import { DISCIPLINAS, MAX_DISCIPLINAS } from "./data/magias.js";
+import { migrarSelecaoRacaLegado, disciplinasDoPersonagem } from "./racasCatalogo.js";
+import { DISCIPLINAS, MAX_DISCIPLINAS, BONUS_GRAU_POR_OFICIO } from "./data/magias.js";
+
+// 24/10 (seção 0.6): base de Magia Ofensiva na migração — ver nota no passo
+// 15 de migrarPersonagem. `antigos` = ofícios mágicos + Conduíte + clã que
+// "contava como 1 ofício a mais" (como a contagem antiga de
+// engine.js:contagemOficiosMagicos, sem a armadura catalisadora, que vale
+// igual nos dois modelos); `novos` = o que o modelo 24/10 já soma sozinho
+// em Magia Ofensiva por cima da base (fixa de Magias de guerra/Constructo,
+// Conduíte, clã). Grau por dados: 0=F, 1=E, 2=D, 3=C.
+const CLAS_OFICIO_EXTRA_ANTIGO = new Set(["cla-natrus", "cla-corvus", "cla-seasus"]);
+const GRAU_POR_DADOS = ["F", "E", "D", "C"];
+function magiaOfensivaBaseMigrada(ch) {
+  const slots = disciplinasDoPersonagem(ch);
+  const oficios = slots.filter((s) => DISCIPLINAS.find((d) => d.id === s.disciplinaId)?.tipo === "oficio-magico");
+  const conduite = ch.conduiteAtivo ? 1 : 0;
+  const cla = [ch.habilidadePrincipal, ch.habilidadeSecundaria].filter((id) => CLAS_OFICIO_EXTRA_ANTIGO.has(id)).length;
+  const antigos = Math.min(3, oficios.length + conduite + cla);
+  const fixasNovas = oficios.filter((s) => (BONUS_GRAU_POR_OFICIO[s.disciplinaId] || []).some((b) => b.chave === "magiaOfensiva")).length;
+  const novos = fixasNovas + conduite + cla;
+  return GRAU_POR_DADOS[Math.max(0, antigos - novos)];
+}
 
 const NAME_ALIASES = { soco: "Ataque desarmado", mosquetão: "Mosquete", mosquetao: "Mosquete" };
 // 23/10 (docs/ATUALIZACAO_23-10.md seção 4): vários ENCANTAMENTOS renomeados
@@ -103,6 +123,9 @@ function migrarDisciplinas(ch) {
       // 23/10 (segunda parte): escolha da passiva anterior de Magias de
       // guerra (data/magias.js:periciasDeOficio).
       if (slot.passivaAnterior) limpo.passivaAnterior = true;
+      // 24/10: escolha livre de Combate da disciplina (racasCatalogo.js:
+      // bonusGrauDoPersonagem).
+      if (slot.escolhaCombate) limpo.escolhaCombate = slot.escolhaCombate;
       return limpo;
     });
     return normalizado;
@@ -215,6 +238,7 @@ export function migrarPersonagem(ch) {
     const base = BASE_ATTACK_TYPES.find((t) => t.nome.trim().toLowerCase() === (atk.nome || "").trim().toLowerCase());
     return { ...atk, tipo: base?.tipo || "marcial" };
   });
+  let attacksMigrados = fixedAttacks;
   const existingNames = new Set(fixedAttacks.map((a) => (a.nome || "").trim().toLowerCase()));
   const missing = ch.fichaFechada ? [] : defaultAttacksForCharacter().filter((a) => {
     const nomeLower = a.nome.trim().toLowerCase();
@@ -294,6 +318,35 @@ export function migrarPersonagem(ch) {
     bonusGrauFixoSuprimido = [{ tipo: "atributo", chave: "forca" }];
     atributosGerais.forca = "C";
   }
+  // 15) Proficiências de combate 24/10 (docs/ATUALIZACAO_24-10.md seção
+  // 0.6) — só na primeira vez (ficha salva ainda sem "esquiva"):
+  // - Esquiva e Bloqueio recebem o grau da antiga Defesa (defesaProf, que
+  //   fica guardada em proficienciasLegado.defesaProf);
+  // - Desarmado, Armas à Distância, Fortitude e Vontade começam em F (0);
+  // - Combate Corpo a Corpo (agora "Armas Corpo a Corpo") e Armas de Fogo
+  //   ficam como estão (mesma chave);
+  // - Magia Ofensiva: o documento pede "mínimo entre C e o número de
+  //   ofícios mágicos que a ficha tinha (contando Conduíte e raça)". Como
+  //   agora Magias de guerra/Constructo (fixa), Conduíte e os clãs élficos
+  //   também dão +1 grau em Magia Ofensiva por cima da base, gravar esse
+  //   número direto na base contaria esses bônus duas vezes. A base fica
+  //   com o que falta pro valor EFETIVO bater com o número antigo (mesmos
+  //   dados na rolagem de magia que a ficha tinha antes) — decisão minha,
+  //   listada no relatório.
+  if (proficienciasSalvas.esquiva === undefined) {
+    const defesaAntiga = proficiencias.defesaProf || "E";
+    if (proficiencias.defesaProf !== undefined) proficienciasLegado.defesaProf = proficiencias.defesaProf;
+    proficiencias.esquiva = defesaAntiga;
+    proficiencias.bloqueio = defesaAntiga;
+    for (const chave of ["desarmado", "armasADistancia", "fortitude", "vontade"]) proficiencias[chave] = "F";
+    proficiencias.magiaOfensiva = magiaOfensivaBaseMigrada({ ...ch, raca, habilidadePrincipal, habilidadeSecundaria, disciplinas });
+    // Ataque desarmado passa a usar a proficiência Desarmado.
+    attacksMigrados = attacksMigrados.map((atk) => (
+      (atk.ehDesarmado || (atk.nome || "").trim().toLowerCase() === "ataque desarmado") && atk.profKey === "combateCorpoACorpo"
+        ? { ...atk, profKey: "desarmado" } : atk
+    ));
+  }
+  delete proficiencias.defesaProf;
   // hp/mp/sp: toda ficha criada pelo app (semente, "Nova Ficha", Sidepoint) já
   // nasce com os três — por isso nunca precisou de default aqui. Mas um backup
   // incompleto ou salvo num formato bem antigo pode não ter; sem isso, a ficha
@@ -336,7 +389,7 @@ export function migrarPersonagem(ch) {
   // antes de hoje, então toda ficha ganha `null` por padrão, não-destrutivo.
   const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
   return {
-    ...ch, attacks: [...fixedAttacks, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
+    ...ch, attacks: [...attacksMigrados, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
     abilities, atributosGerais, proficiencias, proficienciasLegado, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, disciplinaExtraHumano, descritores, bonusGrauEscolha,
     bonusGrauFixoSuprimido, encantamentosAtivos, itensAlquimicosAtivos,

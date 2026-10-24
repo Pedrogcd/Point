@@ -26,7 +26,7 @@ Cada ofício dá 3 proficiências (+1 grau cada) e 1 passiva própria. Os bônus
 
 ### Magias de guerra
 - **Proficiências:** Magias Gerais, Política, Tecnologia (+1 grau cada)
-- **Passiva:** A primeira magia que a pessoa lança em um combate custa 1 MP a menos (mínimo 0). Vale para qualquer magia, de qualquer ofício. Combate não é o mesmo que cena.
+- **Passiva:** Proficiência em todas as armas. Quem já tem proficiência em armas por outra habilidade pode, em vez disso, escolher a passiva anterior: a primeira magia lançada em um combate custa 1 MP a menos (mínimo 0; vale para qualquer magia; combate não é cena).
 
 ### Encantamentos
 - **Proficiências:** Magias Gerais, Ofício, Investigação (+1 grau cada)
@@ -585,6 +585,21 @@ Exigem mais de um ofício. Círculo mágico só aqui; Elixir Drenante entra (Alq
 - **Ofícios exigidos:** Alquimia + Encantamentos
 - **Custo:** 1 mana quebrada
 - **O que faz:** Sem rolagem. Durante uma cena, os ataques de quem bebe (físicos e mágicos) ganham Drenante. Exige os dois ofícios. Qualquer pessoa pode usar.
+
+### Proficiência em Armaduras
+- **Ofícios exigidos:** Passiva escolhida
+- **Custo:** —
+- **O que faz:** —
+
+### Proficiência em Armas de Fogo
+- **Ofícios exigidos:** Passiva escolhida
+- **Custo:** —
+- **O que faz:** —
+
+### Proficiência em Armas
+- **Ofícios exigidos:** Passiva escolhida
+- **Custo:** —
+- **O que faz:** —
 
 ## 9. Abertas
 

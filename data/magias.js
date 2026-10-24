@@ -209,7 +209,7 @@ export const PROFICIENCIAS_DE_OFICIO = [
     nome: "Proficiência em Armaduras",
     disciplinaId: "oficio-magias-de-guerra",
     armaduras: "todas",
-    efeito: "Proficiência em todas as armaduras (inclui escudos): nenhuma peça tira o dado da Defesa por falta de perícia. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Proficiência em todas as armaduras, escudos inclusive: nenhuma peça tira o dado da Defesa por falta de perícia. Ocupa 1 dos 3 espaços do ofício.",
   },
   {
     id: "proficiencia_armas_de_fogo",
@@ -242,9 +242,11 @@ export function getHabilidadeDeOficioPorId(id) {
 // disciplinasDoPersonagem — os 3 normais + o encaixe extra do Humano).
 // Uma habilidade de proficiência só conta no slot do ofício dono dela.
 // Magias de guerra: a passiva dá todas as armas, a menos que o slot tenha
-// passivaAnterior E outra habilidade já dê proficiência em TODAS as armas
-// (hoje só a Proficiência em Armas de Invocação) — sem essa outra fonte, a
-// escolha salva não vale e a passiva volta a ser a de armas.
+// passivaAnterior E outra habilidade já dê alguma proficiência em armas
+// (Proficiência em Armas de Invocação, ou só a de Armas de Fogo de Alquimia
+// — decisão do Pedro em 24/10: "basta pra armas de fogo"; aí a pessoa fica
+// só com as armas que a outra fonte cobre). Sem outra fonte, a escolha
+// salva não vale e a passiva volta a ser a de armas.
 export function periciasDeOficio(slots) {
   const lista = (slots || []).filter(Boolean);
   const familiasArmas = new Set();
@@ -261,14 +263,14 @@ export function periciasDeOficio(slots) {
       else for (const f of p.armaduras || []) familiasArmaduras.add(f);
     }
   }
-  const outraFonteArmasTodas = armasTodas;
+  const outraFonteArmas = armasTodas || familiasArmas.size > 0;
   let passivaAnteriorMagiasDeGuerra = false;
   const slotMdg = lista.find((s) => s.disciplinaId === "oficio-magias-de-guerra");
   if (slotMdg) {
-    if (slotMdg.passivaAnterior && outraFonteArmasTodas) passivaAnteriorMagiasDeGuerra = true;
+    if (slotMdg.passivaAnterior && outraFonteArmas) passivaAnteriorMagiasDeGuerra = true;
     else armasTodas = true;
   }
-  return { armasTodas, familiasArmas, armadurasTodas, familiasArmaduras, outraFonteArmasTodas, passivaAnteriorMagiasDeGuerra };
+  return { armasTodas, familiasArmas, armadurasTodas, familiasArmaduras, outraFonteArmas, passivaAnteriorMagiasDeGuerra };
 }
 
 export function periciaDeOficioCobreArma(pericias, arma) {

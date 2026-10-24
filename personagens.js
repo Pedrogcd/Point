@@ -279,10 +279,21 @@ export function migrarPersonagem(ch) {
   // Raça/habilidades do catálogo (catalogo-racas.json): migra o esquema antigo
   // (racaId/habilidadePrincipalId/habilidadeSecundariaId, PR #30/#31) pro novo
   // quando a ficha ainda não tiver os campos novos — ver racasCatalogo.js.
-  const {
-    raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha,
-    bonusGrauFixoSuprimido,
-  } = migrarSelecaoRacaLegado(ch);
+  const selecaoRaca = migrarSelecaoRacaLegado(ch);
+  const { raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, descritores, bonusGrauEscolha } = selecaoRaca;
+  let { bonusGrauFixoSuprimido } = selecaoRaca;
+  // 24/10: correção pontual da Raiko (3ª volta do bônus de Força fantasma).
+  // A ficha salva perdeu o texto de racialAbility (ficou vazio), então o
+  // backfill de 22/10 (que reconhece a ficha pelo texto livre) não rodou e
+  // gravou bonusGrauFixoSuprimido: [] — o +1 Força de todo Niosh voltou a
+  // aparecer em azul, em cima de uma Força base que tinha sido baixada pra
+  // D. Uma vez só (marca `correcaoForcaRaiko2410`): suprime o bônus e
+  // devolve a base pro C da ficha original. Escolher a raça de novo pela UI
+  // continua limpando a supressão (escolherRaca), como pra qualquer ficha.
+  if (ch.id === "sp_raiko" && !ch.correcaoForcaRaiko2410) {
+    bonusGrauFixoSuprimido = [{ tipo: "atributo", chave: "forca" }];
+    atributosGerais.forca = "C";
+  }
   // hp/mp/sp: toda ficha criada pelo app (semente, "Nova Ficha", Sidepoint) já
   // nasce com os três — por isso nunca precisou de default aqui. Mas um backup
   // incompleto ou salvo num formato bem antigo pode não ter; sem isso, a ficha
@@ -329,6 +340,7 @@ export function migrarPersonagem(ch) {
     abilities, atributosGerais, proficiencias, proficienciasLegado, hp, mp, sp, imagemPos, disciplinas, visivelJogador,
     raca, habilidadePrincipal, habilidadeSecundaria, disciplinaHumano, disciplinaExtraHumano, descritores, bonusGrauEscolha,
     bonusGrauFixoSuprimido, encantamentosAtivos, itensAlquimicosAtivos,
+    ...(ch.id === "sp_raiko" ? { correcaoForcaRaiko2410: true } : {}),
   };
 }
 

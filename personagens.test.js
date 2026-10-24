@@ -421,3 +421,32 @@ describe("migrarPersonagem — passivaAnterior de Magias de guerra (23/10, segun
     assert.equal("passivaAnterior" in (migrarPersonagem({ id: "y", name: "Y", disciplinas: [{ disciplinaId: "oficio-alquimia", habilidadesAtivas: [] }] }).disciplinas[0]), false);
   });
 });
+
+describe("migrarPersonagem — correção pontual da Raiko (24/10, 3ª volta do bônus de Força fantasma)", () => {
+  // Formato da ficha salva no Supabase em 24/10: racialAbility vazio,
+  // supressão gravada vazia, Força base D.
+  const salva = {
+    id: "sp_raiko", name: "Raiko", race: "Niosh (Oni, descendente de Arcani)",
+    racialAbility: { name: "", description: "" },
+    raca: "niosh", habilidadePrincipal: "descendentes-de-arcani", habilidadeSecundaria: "pele-grossa",
+    bonusGrauFixoSuprimido: [],
+    atributosGerais: { forca: "D", vigor: "E", carisma: "D" },
+  };
+  it("suprime o +1 Força de Niosh e devolve a base pra C, marcando a correção", () => {
+    const ch = migrarPersonagem(salva);
+    assert.deepEqual(ch.bonusGrauFixoSuprimido, [{ tipo: "atributo", chave: "forca" }]);
+    assert.equal(ch.atributosGerais.forca, "C");
+    assert.equal(ch.correcaoForcaRaiko2410, true);
+    assert.equal(bonusGrauDoPersonagem(ch).atributos.forca, undefined);
+  });
+  it("roda uma vez só: depois da marca, respeita o que estiver salvo", () => {
+    const ch = migrarPersonagem({ ...salva, correcaoForcaRaiko2410: true });
+    assert.deepEqual(ch.bonusGrauFixoSuprimido, []);
+    assert.equal(ch.atributosGerais.forca, "D");
+  });
+  it("não mexe em outras fichas", () => {
+    const ch = migrarPersonagem({ ...salva, id: "outra" });
+    assert.equal(ch.atributosGerais.forca, "D");
+    assert.equal("correcaoForcaRaiko2410" in ch, false);
+  });
+});

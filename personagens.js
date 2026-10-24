@@ -7,7 +7,7 @@
 import {
   BASE_ATTACK_TYPES, STAT_BASE_DEFAULTS, ATRIBUTOS_GERAIS_DEFAULT, PROFICIENCIAS_DEFAULT,
   migrateBrigaProfKey, defaultAttacksForCharacter, MAX_PROCS, computeMaxHP, computeMaxSP,
-  repararMana,
+  repararMana, grauNumero,
 } from "./engine.js";
 import { grupoDoPersonagem } from "./sidepoint.js";
 import { migrarSelecaoRacaLegado, disciplinasDoPersonagem } from "./racasCatalogo.js";
@@ -388,6 +388,13 @@ export function migrarPersonagem(ch) {
   // livre nome+grau, preservado intocado acima via ...ch) — nunca existiu
   // antes de hoje, então toda ficha ganha `null` por padrão, não-destrutivo.
   const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
+  // 16) Graus em número (24/10, pedido do Pedro): atributos gerais e
+  // proficiências deixam de ser letras — F=0, E=1, D=2, C=3, B=4, A=5
+  // (engine.js:grauNumero). Idempotente: número continua número. Feito por
+  // último, depois de todos os passos acima (que ainda escrevem letras).
+  // proficienciasLegado fica como estava (histórico).
+  for (const chave of Object.keys(atributosGerais)) atributosGerais[chave] = grauNumero(atributosGerais[chave]);
+  for (const chave of Object.keys(proficiencias)) proficiencias[chave] = grauNumero(proficiencias[chave]);
   return {
     ...ch, attacks: [...attacksMigrados, ...missing], statBase, itens, attributes, procs, grupo, racialAbility, classes,
     abilities, atributosGerais, proficiencias, proficienciasLegado, hp, mp, sp, imagemPos, disciplinas, visivelJogador,

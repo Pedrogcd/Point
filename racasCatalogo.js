@@ -2,7 +2,7 @@
 // Funções puras (sem React), usadas pela UI (point-amaranth-app.jsx) e pela
 // migração de fichas antigas (personagens.js); testadas em racasCatalogo.test.js.
 import catalogo from "./catalogo-racas.json" with { type: "json" };
-import { GRADE_ORDER, PROFICIENCIAS_LIST } from "./engine.js";
+import { PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO, escolhaCombateDoSlot, getProficienciaDeOficioPorId, periciasDeOficio, periciaDeOficioCobreArmadura } from "./data/magias.js";
 import { descritoresDeEquipamentoDefensivo, penalidadeDefesaSemPericiaDoPersonagem, bonusDefesaDeEquipamento } from "./data/armaduras.js";
 
@@ -620,9 +620,8 @@ export function tetoGrauDoPersonagem(character) {
     for (const b of bonus) {
       if (!b.teto || bonusEstaSuprimido(character?.bonusGrauFixoSuprimido, b)) continue;
       const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
-      const atualIdx = GRADE_ORDER.indexOf(alvo[b.chave] || "C");
-      const novoIdx = GRADE_ORDER.indexOf(b.teto);
-      if (novoIdx > atualIdx) alvo[b.chave] = b.teto;
+      const teto = grauNumero(b.teto, TETO_PADRAO);
+      if (teto > (alvo[b.chave] ?? TETO_PADRAO)) alvo[b.chave] = teto;
     }
   }
   // Teto do bônus FIXO de raça (BONUS_GRAU_FIXO_POR_RACA) — mesmo padrão do
@@ -632,9 +631,8 @@ export function tetoGrauDoPersonagem(character) {
     for (const b of fixoRaca) {
       if (!b.teto || bonusEstaSuprimido(character?.bonusGrauFixoSuprimido, b)) continue;
       const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
-      const atualIdx = GRADE_ORDER.indexOf(alvo[b.chave] || "C");
-      const novoIdx = GRADE_ORDER.indexOf(b.teto);
-      if (novoIdx > atualIdx) alvo[b.chave] = b.teto;
+      const teto = grauNumero(b.teto, TETO_PADRAO);
+      if (teto > (alvo[b.chave] ?? TETO_PADRAO)) alvo[b.chave] = teto;
     }
   }
   return resultado;
@@ -729,13 +727,24 @@ export function bonusGrauDoPersonagem(character) {
 // esse bônus (nem desce).
 export const CHAVES_COMBATE = PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => p.key);
 
-export function grauComBonus(grauBase, passos, teto = "C") {
-  const base = grauBase || "E";
+// 24/10: graus são números 0..5 (engine.js:grauNumero) — teto padrão 3
+// (o antigo C). Aceita letra na entrada; devolve sempre número.
+export const TETO_PADRAO = 3;
+
+export function grauComBonus(grauBase, passos, teto = TETO_PADRAO) {
+  const base = grauNumero(grauBase);
   if (!passos) return base;
-  const baseIdx = Math.max(0, GRADE_ORDER.indexOf(base));
-  const tetoIdx = GRADE_ORDER.indexOf(teto);
-  if (baseIdx >= tetoIdx) return base;
-  return GRADE_ORDER[Math.min(tetoIdx, baseIdx + passos)];
+  const tetoN = grauNumero(teto, TETO_PADRAO);
+  if (base >= tetoN) return base;
+  return Math.min(tetoN, base + passos);
+}
+
+// Mapa de graus (atributosGerais/proficiencias) com todos os valores em
+// número — o character efetivo nunca devolve letra, mesmo de ficha antiga.
+function grausEmNumero(mapa) {
+  const out = {};
+  for (const [chave, valor] of Object.entries(mapa || {})) out[chave] = grauNumero(valor);
+  return out;
 }
 
 // Devolve `{ character, bonusAplicado }`: uma cópia do personagem com
@@ -834,24 +843,20 @@ export function comGrausEfetivos(character) {
   // número.
   const bonusDefesaEquipamento = bonusDefesaDeEquipamento(character);
   const bonusAplicado = { proficiencias: {}, atributos: {} };
-  const semBonusDeGrau = Object.keys(bonus.proficiencias).length === 0 && Object.keys(bonus.atributos).length === 0;
-  if (semBonusDeGrau) {
-    return { character: { ...character, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento, periciasOficio }, bonusAplicado };
-  }
   const tetos = tetoGrauDoPersonagem(character);
-  const proficiencias = { ...character.proficiencias };
+  const proficiencias = grausEmNumero(character.proficiencias);
   for (const [chave, passos] of Object.entries(bonus.proficiencias)) {
-    const baseIdx = Math.max(0, GRADE_ORDER.indexOf(proficiencias[chave] || "E"));
-    const novoGrau = grauComBonus(proficiencias[chave], passos, tetos.proficiencias[chave] || "C");
+    const base = grauNumero(proficiencias[chave]);
+    const novoGrau = grauComBonus(base, passos, tetos.proficiencias[chave] ?? TETO_PADRAO);
     proficiencias[chave] = novoGrau;
-    bonusAplicado.proficiencias[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
+    bonusAplicado.proficiencias[chave] = novoGrau - base;
   }
-  const atributosGerais = { ...character.atributosGerais };
+  const atributosGerais = grausEmNumero(character.atributosGerais);
   for (const [chave, passos] of Object.entries(bonus.atributos)) {
-    const baseIdx = Math.max(0, GRADE_ORDER.indexOf(atributosGerais[chave] || "E"));
-    const novoGrau = grauComBonus(atributosGerais[chave], passos, tetos.atributos[chave] || "C");
+    const base = grauNumero(atributosGerais[chave]);
+    const novoGrau = grauComBonus(base, passos, tetos.atributos[chave] ?? TETO_PADRAO);
     atributosGerais[chave] = novoGrau;
-    bonusAplicado.atributos[chave] = GRADE_ORDER.indexOf(novoGrau) - baseIdx;
+    bonusAplicado.atributos[chave] = novoGrau - base;
   }
   return { character: { ...character, proficiencias, atributosGerais, disciplinaMagica, descritores, penalidadeDefesaSemPericia, bonusDefesaEquipamento, periciasOficio }, bonusAplicado };
 }

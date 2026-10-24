@@ -31,7 +31,7 @@
           "icone": "pontos-convergindo",
           "cor": "#2E9E5B",
           "descricao": "Mana verde concentrada nas extremidades; destreza e percepção mais apuradas e alma mais forte. Usam a mana das extremidades para impulsos momentâneos.",
-          "efeito": "Ganha o descritor Veloz. +1 SP máximo. +1 grau (até o teto C) em duas proficiências à escolha, que podem ser a mesma — nunca de Combate.",
+          "efeito": "Ganha o descritor Veloz. +1 SP máximo. +1 grau (até o teto 3) em duas proficiências à escolha, que podem ser a mesma — nunca de Combate.",
           "bonus": [
             "Veloz",
             "SP +1",
@@ -49,7 +49,7 @@
           "icone": "gota-onda",
           "cor": "#2F6FDE",
           "descricao": "Mana azul que se mantém fluida; mente mais aguçada e troca de mana com o exterior com facilidade.",
-          "efeito": "Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 MP máximo. +1 grau (até o teto C) numa proficiência à escolha, nunca de Combate.",
+          "efeito": "Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 MP máximo. +1 grau (até o teto 3) numa proficiência à escolha, nunca de Combate.",
           "bonus": [
             "Reabastecer",
             "MP +1",
@@ -67,7 +67,7 @@
           "icone": "losango-solido",
           "cor": "#D23B3B",
           "descricao": "Mana vermelha estática pelo corpo; músculos e constituição mais fortes e mais resistência a dano.",
-          "efeito": "Ganha o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal). +1 HP máximo. +1 grau (até o teto C) numa proficiência à escolha, nunca de Combate.",
+          "efeito": "Ganha o descritor Resistente (Vigor +1 na comparação de agravante; não acumula; anula Letal). +1 HP máximo. +1 grau (até o teto 3) numa proficiência à escolha, nunca de Combate.",
           "bonus": [
             "Resistente",
             "+1 HP máximo",
@@ -139,7 +139,7 @@
       "anatomia": "Humanoide de até 2,3 m. A pele varia, sendo vermelho e azul comuns; a cada cerca de 5 anos trocam de pele e podem mudar de cor.",
       "divindade": "Umbra, Dulahand ou Arcanis.",
       "fixos": [
-        "+1 grau em Força para toda a raça, até o teto C.",
+        "+1 grau em Força para toda a raça, até o teto 3.",
         "O +1 HP máximo que valia pra toda a raça foi removido — só o Descendente de Sabato tem +1 HP agora."
       ],
       "fraquezas": [
@@ -156,7 +156,7 @@
           "icone": "boca-dentes",
           "cor": "#8A8420",
           "descricao": "Imunes a veneno, buscam o prazer da gula e exageram em tudo: comer, beber, qualquer excesso.",
-          "efeito": "Ganha os descritores Resistente e Imune a Envenenamento (o descritor Envenenamento não tem nenhum efeito contra você). +1 grau (até o teto C) numa proficiência Física à escolha. Gastando 1 MP, adiciona Envenenamento 1 a um ataque. Uma vez por cena, ao receber um ferimento, libera Envenenamento 1 em área na zona.",
+          "efeito": "Ganha os descritores Resistente e Imune a Envenenamento (o descritor Envenenamento não tem nenhum efeito contra você). +1 grau (até o teto 3) numa proficiência Física à escolha. Gastando 1 MP, adiciona Envenenamento 1 a um ataque. Uma vez por cena, ao receber um ferimento, libera Envenenamento 1 em área na zona.",
           "bonus": [
             "Resistente",
             "Imune a Envenenamento",
@@ -258,7 +258,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Oni de montanha, de mata e de áreas cobertas, como subtipos da descendência (o texto antigo cita onde vivem).",
-          "efeito": "+1 grau em Sobrevivência, em Atletismo e em Furtividade (até o teto C). Terreno difícil de montanha e mata não atrapalha.",
+          "efeito": "+1 grau em Sobrevivência, em Atletismo e em Furtividade (até o teto 3). Terreno difícil de montanha e mata não atrapalha.",
           "bonus": [
             "Sobrevivência +1 grau",
             "Atletismo +1 grau",
@@ -415,7 +415,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Olfato, audição e visão acima do humano.",
-          "efeito": "+1 grau em Perspicácia e em Intuição (até o teto C). No primeiro turno de uma cena, +1 dado em ataque e em defesa — não mecanizado no app (o motor não rastreia turnos).",
+          "efeito": "+1 grau em Perspicácia e em Intuição (até o teto 3). No primeiro turno de uma cena, +1 dado em ataque e em defesa — não mecanizado no app (o motor não rastreia turnos).",
           "bonus": [
             "Perspicácia +1 grau",
             "Intuição +1 grau",
@@ -480,7 +480,7 @@
       "divindade": "Dragoalma; por clã, Dulahand ou Umbra.",
       "fixos": [
         "Cada elfo tem um clã e um dom genérico.",
-        "Todo elfo ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate — regra geral da raça, vale pros 5 clãs (Radiante, Noctis, Corvus, Seasus, Natrus), além do que cada clã já dá de próprio."
+        "Todo elfo ganha +1 grau (até o teto 3) numa proficiência à escolha, que não seja de Combate — regra geral da raça, vale pros 5 clãs (Radiante, Noctis, Corvus, Seasus, Natrus), além do que cada clã já dá de próprio."
       ],
       "fraquezas": [
         "Só expressam emoção pela arte (narrativo)."
@@ -496,7 +496,7 @@
           "icone": "sol",
           "cor": "#E0A800",
           "descricao": "Poder de Dulahand, do sol; sorte, e geram mana da matéria.",
-          "efeito": "No primeiro turno de uma cena, ganha o descritor Sortudo — não mecanizado no app (o motor não rastreia turnos; deixar o Sortudo sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 grau em Carisma (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "No primeiro turno de uma cena, ganha o descritor Sortudo — não mecanizado no app (o motor não rastreia turnos; deixar o Sortudo sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). +1 grau em Carisma (até o teto 3). Como todo elfo, também ganha +1 grau (até o teto 3) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Sortudo no 1º turno (não mecanizado)",
             "Reabastecer",
@@ -514,7 +514,7 @@
           "icone": "lua-crescente",
           "cor": "#4B4FC4",
           "descricao": "Poder de Umbra, da lua; sua bênção; geram mana da matéria.",
-          "efeito": "No primeiro turno de uma cena, quem faz teste contra o elfo ganha o descritor Azarado — não mecanizado no app (o motor não rastreia turnos; deixar sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer. +1 grau em Manipulação (até o teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "No primeiro turno de uma cena, quem faz teste contra o elfo ganha o descritor Azarado — não mecanizado no app (o motor não rastreia turnos; deixar sempre ativo seria mais forte que o pedido, por isso não é concedido automaticamente). Ganha o descritor Reabastecer. +1 grau em Manipulação (até o teto 3). Como todo elfo, também ganha +1 grau (até o teto 3) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Azarado no inimigo no 1º turno (não mecanizado)",
             "Reabastecer",
@@ -532,11 +532,11 @@
           "icone": "gota-sangue-pena",
           "cor": "#A1122B",
           "descricao": "Tiram poder de si mesmos: usam o próprio sangue como mana.",
-          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 grau em Magia Ofensiva (teto C). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "Recebe 1 ferimento superficial para recuperar 1 MP (nunca uma mana quebrada), no máximo 2 vezes por cena. +1 grau em Furtividade. +1 grau em Magia Ofensiva (teto 3). Como todo elfo, também ganha +1 grau (até o teto 3) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "1 ferimento superficial = +1 MP (até 2x/cena)",
             "Furtividade +1 grau",
-            "+1 grau em Magia Ofensiva (teto C)",
+            "+1 grau em Magia Ofensiva (teto 3)",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
           "descritores": []
@@ -548,10 +548,10 @@
           "icone": "circulo-quatro",
           "cor": "#14A3A8",
           "descricao": "Poder dos conhecimentos dos primordiais e das estações.",
-          "efeito": "+1 grau em Magias Gerais. +1 grau em Magia Ofensiva (teto C). Durante o dia (narração do mestre), suas magias ganham o descritor Queimadura 1 — não mecanizado no app (não há estado de dia/noite no motor; é adjudicado pelo mestre em mesa). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "+1 grau em Magias Gerais. +1 grau em Magia Ofensiva (teto 3). Durante o dia (narração do mestre), suas magias ganham o descritor Queimadura 1 — não mecanizado no app (não há estado de dia/noite no motor; é adjudicado pelo mestre em mesa). Como todo elfo, também ganha +1 grau (até o teto 3) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
             "Magias Gerais +1 grau",
-            "+1 grau em Magia Ofensiva (teto C)",
+            "+1 grau em Magia Ofensiva (teto 3)",
             "Queimadura 1 de dia (não mecanizado)",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
           ],
@@ -564,9 +564,9 @@
           "icone": "folha",
           "cor": "#3F8F3A",
           "descricao": "Elfos nobres, ligados aos elementos da natureza e do mundo material.",
-          "efeito": "+1 grau em Magia Ofensiva (teto C). +1 grau em Sobrevivência. Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). Como todo elfo, também ganha +1 grau (até o teto C) numa proficiência à escolha, que não seja de Combate.",
+          "efeito": "+1 grau em Magia Ofensiva (teto 3). +1 grau em Sobrevivência. Ganha o descritor Reabastecer (na rolagem de recuperação de mana ao lançar magia, rola 1 dado a mais). Como todo elfo, também ganha +1 grau (até o teto 3) numa proficiência à escolha, que não seja de Combate.",
           "bonus": [
-            "+1 grau em Magia Ofensiva (teto C)",
+            "+1 grau em Magia Ofensiva (teto 3)",
             "Sobrevivência +1 grau",
             "Reabastecer",
             "Proficiência à escolha +1 grau, não-Combate (regra geral do Elfo)"
@@ -726,7 +726,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Opção do arsenal (Forte C). Força dracônica.",
-          "efeito": "+1 grau em Força (até o teto C).",
+          "efeito": "+1 grau em Força (até o teto 3).",
           "bonus": [],
           "descritores": []
         },
@@ -737,7 +737,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Opção do arsenal (Resistente C).",
-          "efeito": "+1 grau em Vigor (até o teto C).",
+          "efeito": "+1 grau em Vigor (até o teto 3).",
           "bonus": [],
           "descritores": []
         },

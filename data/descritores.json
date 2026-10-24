@@ -217,7 +217,7 @@
       "tipo": "Defesa",
       "status": "Definido",
       "resumo": "+1 grau em Força (até C), para ataque e defesa.",
-      "regra": "Aumenta a Força do usuário em 1 grau, até C. Vale para ataque e defesa, como um atributo normal, enquanto a fonte está ativa.",
+      "regra": "Aumenta a Força do usuário em 1 grau, até 3. Vale para ataque e defesa, como um atributo normal, enquanto a fonte está ativa.",
       "usadoEm": "Encantamento: Potente Força, armadura de poder base, Sabato, Transformação",
       "linkEmTextoLivre": true
     },
@@ -228,7 +228,7 @@
       "tipo": "Defesa",
       "status": "Definido",
       "resumo": "+1 grau em Destreza (até C), para ataque e defesa.",
-      "regra": "Aumenta a Destreza do usuário em 1 grau, até C. Vale para ataque e defesa.",
+      "regra": "Aumenta a Destreza do usuário em 1 grau, até 3. Vale para ataque e defesa.",
       "usadoEm": "Encantamento: Potente Destreza, exoesqueleto, Transformação",
       "linkEmTextoLivre": true
     },
@@ -238,8 +238,8 @@
       "temN": false,
       "tipo": "Defesa",
       "status": "Definido",
-      "resumo": "Dá +1 grau em Magia Ofensiva (teto C); soma com o Conduíte.",
-      "regra": "Dá +1 grau em Magia Ofensiva (teto C). Soma com o Conduíte mágico. (24/10: antes contava como 1 ofício mágico.)",
+      "resumo": "Dá +1 grau em Magia Ofensiva (teto 3); soma com o Conduíte.",
+      "regra": "Dá +1 grau em Magia Ofensiva (teto 3). Soma com o Conduíte mágico. (24/10: antes contava como 1 ofício mágico.)",
       "usadoEm": "Armadura catalisadora",
       "linkEmTextoLivre": true
     },

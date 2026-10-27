@@ -6596,7 +6596,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Ataques físicos: dados = Destreza + proficiência da arma (Armas Corpo a Corpo, Desarmado, Armas à Distância ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau 0) não há dados de proficiência e a arma usa só 1 dos 2 descritores, à escolha; com treino, os dois. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
+              Ataques físicos: dados = Destreza + proficiência da arma (Armas, Desarmado ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau 0) não há dados de proficiência e a arma usa só 1 dos 2 descritores, à escolha; com treino, os dois. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -7869,7 +7869,7 @@ export function CharacterForm({ initial, onSave, onCancel }) {
 
       <SectionTitle icon={Swords}>Proficiências de Combate</SectionTitle>
       <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Essas entram nos cálculos de combate (somando com o atributo correspondente, 24/10). Ataque: Armas Corpo a Corpo, Desarmado, Armas à Distância e Armas de Fogo (com o atributo da arma, em geral Destreza) e Magia Ofensiva (com o atributo à escolha). Defesa: Esquiva (Destreza) ou Bloqueio (Força). Fortitude (Vigor) e Vontade (Resolução) resistem a status físicos e mentais (rolagem ainda a definir). Grau 0 = sem treino. Graus vão de 0 a 5.
+        Essas entram nos cálculos de combate (somando com o atributo correspondente, 24/10). Ataque: Armas (corpo a corpo e distância), Desarmado e Armas de Fogo (com o atributo da arma, em geral Destreza) e Magia Ofensiva (com o atributo à escolha). Defesa: Esquiva (Destreza) ou Bloqueio (Força). Fortitude (Vigor) e Vontade (Resolução) resistem a status físicos e mentais (rolagem ainda a definir). Grau 0 = sem treino. Graus vão de 0 a 5.
       </p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
         {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (

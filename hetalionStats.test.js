@@ -41,7 +41,7 @@ describe("Tabela de estatísticas do Valefor/Yurity (engine.js x dossiê enviado
       // item 2) — a defesa agora é a rolagem ativa de Resistência Física/Mágica,
       // sem estatística passiva pra comparar aqui.
 
-      // 24/10: ACERTOS_POR_TIPO ganhou Desarmado/À distância — a tabela
+      // 24/10: ACERTOS_POR_TIPO ganhou Desarmado — a tabela
       // compara só Corpo a corpo e Arma de fogo, como antes.
       const acertos = ACERTOS_POR_TIPO.filter((e) => e.key === "corpoACorpo" || e.key === "armaDeFogo").map((entrada) => computeAcertoTipo(character, entrada).total);
       assert.deepEqual(acertos, esperado.acerto, "Acerto Corpo a corpo/Arma de fogo/Mágico");

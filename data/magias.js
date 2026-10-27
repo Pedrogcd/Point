@@ -95,7 +95,7 @@ export const DISCIPLINAS = [
   },
   {
     id: "oficio-invocacao", nome: "Ofício Mágico: Invocação", tipo: "oficio-magico",
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas Corpo a Corpo, Magias Gerais e Atletismo, +1 grau cada (teto 3). Passiva: armas invocadas contam como treinadas (os dois descritores do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas, Magias Gerais e Atletismo, +1 grau cada (teto 3). Passiva: armas invocadas contam como treinadas (os dois descritores do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
     descricao: "Disciplina de ofício mágico (separado de Encantamentos e Constructo em 21/10). Invoca armas espectrais e algumas magias de invocação (Chama Mágica).",
   },
 ];

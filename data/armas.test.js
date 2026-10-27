@@ -76,14 +76,14 @@ describe("descritoresEfetivosArma (27/10: sem treino escolhe 1 dos 2, treinado u
 describe("profKeyDaArma / treinadoNaArma (24/10, docs/ATUALIZACAO_24-10.md seções 0.1-0.2)", () => {
   it("família define a proficiência: Arma de fogo, Distância, resto Corpo a Corpo", () => {
     assert.equal(profKeyDaArma(getArmaPorId("arma_de_fogo_curta")), "armasDeFogo");
-    assert.equal(profKeyDaArma(getArmaPorId("arma_de_arco")), "armasADistancia");
+    assert.equal(profKeyDaArma(getArmaPorId("arma_de_arco")), "combateCorpoACorpo"); // 27/10: Distância usa Armas
     assert.equal(profKeyDaArma(getArmaPorId("lamina")), "combateCorpoACorpo");
     assert.equal(profKeyDaArma(getArmaPorId("haste")), "combateCorpoACorpo");
   });
   it("treinado com grau E+ na proficiência da arma; grau F não é treinado", () => {
     const arco = getArmaPorId("arma_de_arco");
-    assert.equal(treinadoNaArma({ proficiencias: { armasADistancia: "E" } }, arco), true);
-    assert.equal(treinadoNaArma({ proficiencias: { armasADistancia: "F" } }, arco), false);
+    assert.equal(treinadoNaArma({ proficiencias: { combateCorpoACorpo: "E" } }, arco), true);
+    assert.equal(treinadoNaArma({ proficiencias: { combateCorpoACorpo: "F" } }, arco), false);
     assert.equal(treinadoNaArma({ proficiencias: {} }, arco), false);
   });
   it("Treino de ofício conta mesmo com grau F", () => {

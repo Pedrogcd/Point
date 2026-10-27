@@ -136,7 +136,9 @@ export function getAttrGrade(character, key) {
 // sai do catálogo e vira Esquiva + Bloqueio (migração em personagens.js;
 // o grau antigo fica em proficienciasLegado.defesaProf). Armas Corpo a
 // Corpo mantém a chave "combateCorpoACorpo" (só mudou o nome) pra não
-// mexer em toda ficha/ataque salvo. Magia Ofensiva usa uma chave NOVA,
+// mexer em toda ficha/ataque salvo. 27/10: Armas à Distância saiu e
+// Armas Corpo a Corpo virou "Armas" (cobre as de distância também) —
+// Combate fica com 8, 30 no total. Magia Ofensiva usa uma chave NOVA,
 // "magiaOfensiva" — a antiga "magiasOfensivas" (removida em 14/10) ainda
 // existe com grau velho em fichas salvas e não pode ressuscitar.
 // `atributo`: atributo que soma com a proficiência na rolagem (ataque
@@ -144,9 +146,12 @@ export function getAttrGrade(character, key) {
 // atributo à escolha do jogador, por isso null).
 export const PROFICIENCIAS_LIST = [
   // Combate — ataque
-  { key: "combateCorpoACorpo", label: "Armas Corpo a Corpo", categoria: "combate", atributo: "destreza" },
+  // 27/10 (pedido do Pedro): "Armas Corpo a Corpo" virou só "Armas" e
+  // passou a cobrir também as armas de distância (arco, besta, arremesso)
+  // — Armas à Distância saiu. Combate fica com 8 proficiências, 30 no
+  // total. A chave continua "combateCorpoACorpo" (fichas e ataques salvos).
+  { key: "combateCorpoACorpo", label: "Armas", categoria: "combate", atributo: "destreza" },
   { key: "desarmado", label: "Desarmado", categoria: "combate", atributo: "destreza" },
-  { key: "armasADistancia", label: "Armas à Distância", categoria: "combate", atributo: "destreza" },
   { key: "armasDeFogo", label: "Armas de Fogo", categoria: "combate", atributo: "destreza" },
   { key: "magiaOfensiva", label: "Magia Ofensiva", categoria: "combate", atributo: null },
   // Combate — defesa
@@ -249,9 +254,8 @@ export const STAT_USA_GRAU_CHEIO = new Set();
 // não dava pra resumir num par atributo/proficiência fixo como os outros
 // dois tipos.
 export const ACERTOS_POR_TIPO = [
-  { key: "corpoACorpo", label: "Corpo a corpo", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
+  { key: "corpoACorpo", label: "Armas", attr: "destreza", prof: "combateCorpoACorpo", tipo: "marcial" },
   { key: "desarmado", label: "Desarmado", attr: "destreza", prof: "desarmado", tipo: "marcial" },
-  { key: "distancia", label: "À distância", attr: "destreza", prof: "armasADistancia", tipo: "marcial" },
   { key: "armaDeFogo", label: "Arma de fogo", attr: "destreza", prof: "armasDeFogo", tipo: "arma_de_fogo" },
 ];
 
@@ -437,7 +441,7 @@ export const BASE_ATTACK_TYPES = [
     ajusteDados: 0,
     feridas: 1,
     descritores: ["letal"],
-    descricao: "Arma branca comum (espada, adaga, etc). Rola Destreza + Armas Corpo a Corpo, sucesso 6+. Letal: reduz em 1 o Vigor necessário pro ferimento virar agravante.",
+    descricao: "Arma branca comum (espada, adaga, etc). Rola Destreza + Armas, sucesso 6+. Letal: reduz em 1 o Vigor necessário pro ferimento virar agravante.",
   },
   {
     id: "arma_branca_pesada", profKey: "combateCorpoACorpo", atributoKey: "destreza",

@@ -325,7 +325,7 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
     });
   });
 
-  it("24/10: Invocação dá Armas Corpo a Corpo, Magias Gerais e Atletismo (Percepção e a passiva +1 Corpo a Corpo saíram)", () => {
+  it("24/10: Invocação dá Armas, Magias Gerais e Atletismo (Percepção e a passiva +1 Corpo a Corpo saíram)", () => {
     const bonus = bonusGrauDoPersonagem({ disciplinas: [{ disciplinaId: "oficio-invocacao", habilidadesAtivas: [] }] });
     assert.deepEqual(bonus, { proficiencias: { combateCorpoACorpo: 1, magiasGerais: 1, atletismo: 1 }, atributos: {} });
   });

@@ -26,7 +26,7 @@ import {
 import {
   MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
-  PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura,
+  PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, treinoDeOficioNaProficiencia,
 } from "./data/magias.js";
 import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, treinadoNaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
@@ -7363,7 +7363,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       <div style={panelStyle}>
         <div style={panelHeadStyle}>Atributos Gerais e Proficiências (estilo Vampiro: A Máscara)</div>
         <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 12 }}>
-          Força e Destreza migraram pra cá (saíram dos Atributos de Combate). Vigor determina o HP máximo (2 + bônus de Vigor). Os demais — Carisma, Manipulação, Compostura, Inteligência, Perspicácia, Resolução — não têm função de combate: servem pra testes interpretativos fora de combate. As Proficiências de Combate já entram nos cálculos de Acerto/Dano/Defesa/Resistência; as outras 22 são só de referência.
+          Força e Destreza migraram pra cá (saíram dos Atributos de Combate). Vigor determina o HP máximo (2 + bônus de Vigor). Os demais — Carisma, Manipulação, Compostura, Inteligência, Perspicácia, Resolução — não têm função de combate: servem pra testes interpretativos fora de combate. São 30 proficiências: as 8 de Combate (Armas, Desarmado, Armas de Fogo, Magia Ofensiva, Esquiva, Bloqueio, Fortitude, Vontade) entram nos cálculos de ataque e defesa; as outras 22 são só de referência. Graus de 0 a 5; “(treino)” = treinado por habilidade de ofício mesmo com grau 0.
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div>
@@ -7392,7 +7392,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             <div key={cat}>
               <div style={{ fontSize: 10, color: CATEGORIA_GERAL_INFO[cat].color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>{CATEGORIA_GERAL_INFO[cat].label}</div>
               {PROFICIENCIAS_LIST.filter((p) => p.categoria === cat).map((p) => (
-                <AttrBar key={p.key} label={p.label} grade={characterEfetivo.proficiencias?.[p.key] ?? 1} bonus={bonusAplicado.proficiencias[p.key] || 0} onChangeGrade={setProficiencia ? (g) => setProficiencia(p.key, g) : undefined} />
+                <AttrBar key={p.key} label={treinoDeOficioNaProficiencia(characterEfetivo.periciasOficio, p.key) ? `${p.label} (treino)` : p.label} grade={characterEfetivo.proficiencias?.[p.key] ?? 1} bonus={bonusAplicado.proficiencias[p.key] || 0} onChangeGrade={setProficiencia ? (g) => setProficiencia(p.key, g) : undefined} />
               ))}
             </div>
           ))}

@@ -250,7 +250,7 @@ export const PROFICIENCIAS_DE_OFICIO = [
     nome: "Treino em Armas",
     disciplinaId: "oficio-invocacao",
     armas: "todas",
-    efeito: "Treino em todas as proficiências de arma: conta como treinado mesmo com grau 0 (sem dados de proficiência) — os dois descritores de qualquer arma valem. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Treino em Armas: conta como treinado em Armas, Desarmado e Armas de Fogo mesmo com grau 0 (sem dados de proficiência) — os dois descritores de qualquer arma valem. Ocupa 1 dos 3 espaços do ofício.",
   },
 ];
 
@@ -297,7 +297,24 @@ export function periciasDeOficio(slots) {
     if (slotMdg.passivaAnterior && outraFonteArmas) passivaAnteriorMagiasDeGuerra = true;
     else armasTodas = true;
   }
-  return { armasTodas, familiasArmas, armadurasTodas, familiasArmaduras, outraFonteArmas, passivaAnteriorMagiasDeGuerra };
+  // 27/10 (pedido do Pedro): Treino em Armas (e a passiva "Treino em todas
+  // as armas" de Magias de guerra) conta como treinado nas TRÊS
+  // proficiências de arma — Armas, Desarmado e Armas de Fogo. Treino em
+  // Armas de Fogo, só em Armas de Fogo.
+  const profsTreinadas = new Set();
+  if (armasTodas) for (const k of PROFS_DE_ARMA) profsTreinadas.add(k);
+  if (familiasArmas.has("Armas de fogo")) profsTreinadas.add("armasDeFogo");
+  return { armasTodas, familiasArmas, armadurasTodas, familiasArmaduras, outraFonteArmas, passivaAnteriorMagiasDeGuerra, profsTreinadas };
+}
+
+// Proficiências de arma (27/10): Armas (chave combateCorpoACorpo),
+// Desarmado e Armas de Fogo.
+export const PROFS_DE_ARMA = ["combateCorpoACorpo", "desarmado", "armasDeFogo"];
+
+// Treino de ofício numa proficiência de Combate (27/10) — pra ficha marcar
+// "treino" na barra mesmo com grau 0.
+export function treinoDeOficioNaProficiencia(pericias, profKey) {
+  return !!pericias?.profsTreinadas?.has(profKey);
 }
 
 export function periciaDeOficioCobreArma(pericias, arma) {

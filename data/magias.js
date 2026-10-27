@@ -63,7 +63,7 @@ export const DISCIPLINAS = [
     magiasAtivasMax: 3,
     temTelaDeMana: true,
     trocaGratisComAcao: true,
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Magias Gerais e Política, +1 grau cada (teto 3). Passiva: Treino em todas as armas (Descritor 2 de qualquer arma, mesmo com grau 0). Quem já tem Treino em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (não mecanizada: o app não acompanha início de combate).",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Magia Ofensiva, Magias Gerais e Política, +1 grau cada (teto 3). Passiva: Treino em todas as armas (os dois descritores de qualquer arma, mesmo com grau 0). Quem já tem Treino em armas por outra habilidade pode escolher a passiva anterior — a primeira magia lançada em um combate custa 1 MP a menos, mínimo 0 (não mecanizada: o app não acompanha início de combate).",
     descricao: "Ex-Ofício Mágico/Evocação, renomeado. O usuário é um mago que entende código de magia.",
   },
   {
@@ -95,7 +95,7 @@ export const DISCIPLINAS = [
   },
   {
     id: "oficio-invocacao", nome: "Ofício Mágico: Invocação", tipo: "oficio-magico",
-    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas Corpo a Corpo, Magias Gerais e Atletismo, +1 grau cada (teto 3). Passiva: armas invocadas contam como treinadas (Descritor 2 do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
+    bonusTexto: "Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: Armas Corpo a Corpo, Magias Gerais e Atletismo, +1 grau cada (teto 3). Passiva: armas invocadas contam como treinadas (os dois descritores do tipo mesmo sem grau na proficiência) — não mecanizada: Invocar Arma não gera ataque no app.",
     descricao: "Disciplina de ofício mágico (separado de Encantamentos e Constructo em 21/10). Invoca armas espectrais e algumas magias de invocação (Chama Mágica).",
   },
 ];
@@ -210,7 +210,7 @@ export const PASSIVA_POR_OFICIO = {
   // invocadas contam como treinadas" — sem mecânica, porque Invocar Arma
   // não gera ataque no app.
   "oficio-invocacao": {
-    texto: "Armas invocadas contam como treinadas: valem o Descritor 2 do tipo mesmo sem grau na proficiência da arma.",
+    texto: "Armas invocadas contam como treinadas: valem os dois descritores do tipo mesmo sem grau na proficiência da arma.",
     mecanizada: false,
   },
 };
@@ -243,14 +243,14 @@ export const PROFICIENCIAS_DE_OFICIO = [
     nome: "Treino em Armas de Fogo",
     disciplinaId: "oficio-alquimia",
     armas: ["Armas de fogo"],
-    efeito: "Treino em Armas de Fogo: conta como treinado mesmo com grau 0 (sem dados de proficiência) — o Descritor 2 de pistolas, rifles e espingardas vale. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Treino em Armas de Fogo: conta como treinado mesmo com grau 0 (sem dados de proficiência) — os dois descritores de pistolas, rifles e espingardas valem. Ocupa 1 dos 3 espaços do ofício.",
   },
   {
     id: "proficiencia_armas",
     nome: "Treino em Armas",
     disciplinaId: "oficio-invocacao",
     armas: "todas",
-    efeito: "Treino em todas as proficiências de arma: conta como treinado mesmo com grau 0 (sem dados de proficiência) — o Descritor 2 de qualquer arma vale. Ocupa 1 dos 3 espaços do ofício.",
+    efeito: "Treino em todas as proficiências de arma: conta como treinado mesmo com grau 0 (sem dados de proficiência) — os dois descritores de qualquer arma valem. Ocupa 1 dos 3 espaços do ofício.",
   },
 ];
 
@@ -715,7 +715,7 @@ export const ENCANTAMENTOS = [
     nome: "Perícia Encantada",
     disciplinaId: "oficio-encantamentos",
     custoManaQuebrada: 1,
-    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o alvo usa o Descritor 2 de um tipo de arma à sua escolha, como se tivesse treino na proficiência da arma (24/10). Permite combinar Invocação + Encantamentos (um mago de invocação). Não mecanizado: a escolha do tipo de arma e o acesso ao Descritor 2 ficam a cargo da mesa.",
+    descricao: "Quebra 1 de mana. Enquanto a mana estiver quebrada, o alvo usa os dois descritores de um tipo de arma à sua escolha, como se tivesse treino na proficiência da arma (24/10). Permite combinar Invocação + Encantamentos (um mago de invocação). Não mecanizado: a escolha do tipo de arma e o acesso ao Descritor 2 ficam a cargo da mesa.",
   },
 ];
 

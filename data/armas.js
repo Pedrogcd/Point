@@ -3,9 +3,12 @@
 // ficha a pessoa escolhe o TIPO aqui e digita o NOME da própria arma (os
 // `exemplos` abaixo são só referência pro jogador, não aparecem como nome).
 //
-// Cada tipo tem 2 descritores: `descritor1` vale pra qualquer pessoa que use
-// a arma; `descritor2` só vale pra quem é treinado na proficiência da arma
-// (24/10: grau 1+ ou Treino de ofício — ver treinadoNaArma).
+// Cada tipo tem 2 descritores. 27/10 (pedido do Pedro): sem treino na
+// proficiência da arma, a pessoa ESCOLHE um dos dois (`descritor1` ou
+// `descritor2`, guardado em character.equipamento.descritorArmaEscolhido,
+// padrão 1); treinada (grau 1+ ou Treino de ofício — ver treinadoNaArma),
+// usa os dois. Antes (até 24/10) o Descritor 1 era fixo e o 2 só vinha
+// com treino.
 //
 // `extra: "pesado"` é um terceiro descritor à parte (não entra nos dois
 // normais): dados de ataque precisam de 7+ (não soma com Blindado — mesmo
@@ -71,14 +74,14 @@ export function getArmaPorId(id) {
   return ARMAS.find((a) => a.id === id) || null;
 }
 
-// Descritores EFETIVOS de uma arma do catálogo pra quem a empunha: Descritor
-// 1 sempre vale; Descritor 2 só com `treinado` (ver treinadoNaArma, abaixo —
-// 24/10); `pesado` (o extra) entra junto
-// quando presente, sempre, treinado ou não.
-export function descritoresEfetivosArma(arma, temPericia) {
+// Descritores EFETIVOS de uma arma do catálogo pra quem a empunha (27/10):
+// treinado = os dois; sem treino = só o escolhido (`escolhido`: 1 ou 2,
+// qualquer outro valor vale 1). `pesado` (o extra) entra sempre.
+export function descritoresEfetivosArma(arma, treinado, escolhido = 1) {
   if (!arma) return [];
-  const out = [arma.descritor1];
-  if (temPericia && arma.descritor2) out.push(arma.descritor2);
+  const out = treinado
+    ? [arma.descritor1, arma.descritor2]
+    : [escolhido === 2 && arma.descritor2 ? arma.descritor2 : arma.descritor1];
   if (arma.extra === "pesado") out.push("pesado");
   return out.filter(Boolean);
 }

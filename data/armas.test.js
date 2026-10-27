@@ -50,24 +50,25 @@ describe("ARMAS", () => {
   });
 });
 
-describe("descritoresEfetivosArma", () => {
-  it("sem perícia, só o Descritor 1 (e o extra 'pesado', se houver)", () => {
-    const lamina = getArmaPorId("lamina");
+describe("descritoresEfetivosArma (27/10: sem treino escolhe 1 dos 2, treinado usa os dois)", () => {
+  const lamina = getArmaPorId("lamina"); // letal / sortudo
+  const laminaPesada = getArmaPorId("lamina_pesada"); // letal / esmagador_1 + pesado
+  it("sem treino: só o Descritor 1 por padrão", () => {
     assert.deepEqual(descritoresEfetivosArma(lamina, false), ["letal"]);
   });
-
-  it("com perícia, Descritor 1 + Descritor 2", () => {
-    const lamina = getArmaPorId("lamina");
-    assert.deepEqual(descritoresEfetivosArma(lamina, true), ["letal", "sortudo"]);
+  it("sem treino: escolhendo o 2, só o Descritor 2", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina, false, 2), ["sortudo"]);
   });
-
-  it("arma pesada soma 'pesado' com ou sem perícia", () => {
-    const laminaPesada = getArmaPorId("lamina_pesada");
-    assert.deepEqual(descritoresEfetivosArma(laminaPesada, false), ["letal", "pesado"]);
+  it("treinado: os dois, independente da escolha", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina, true), ["letal", "sortudo"]);
+    assert.deepEqual(descritoresEfetivosArma(lamina, true, 2), ["letal", "sortudo"]);
+  });
+  it("Pesado (o extra) entra sempre, junto do escolhido", () => {
+    assert.deepEqual(descritoresEfetivosArma(laminaPesada, false, 2), ["esmagador_1", "pesado"]);
     assert.deepEqual(descritoresEfetivosArma(laminaPesada, true), ["letal", "esmagador_1", "pesado"]);
   });
-
-  it("arma nula devolve []", () => {
+  it("escolha inválida cai no Descritor 1; arma nula devolve []", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina, false, 7), ["letal"]);
     assert.deepEqual(descritoresEfetivosArma(null, true), []);
   });
 });

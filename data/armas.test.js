@@ -3,7 +3,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, treinadoNaArma } from "./armas.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, normalizarDescritoresArma, profKeyDaArma, treinadoNaArma } from "./armas.js";
 
 describe("ARMAS", () => {
   it("tem os 17 tipos da planilha", () => {
@@ -50,26 +50,34 @@ describe("ARMAS", () => {
   });
 });
 
-describe("descritoresEfetivosArma (27/10: sem treino escolhe 1 dos 2, treinado usa os dois)", () => {
+describe("descritoresEfetivosArma (28/10: usa os marcados — um ou os dois)", () => {
   const lamina = getArmaPorId("lamina"); // letal / sortudo
   const laminaPesada = getArmaPorId("lamina_pesada"); // letal / esmagador_1 + pesado
-  it("sem treino: só o Descritor 1 por padrão", () => {
-    assert.deepEqual(descritoresEfetivosArma(lamina, false), ["letal"]);
+  it("padrão: só o Descritor 1", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina), ["letal"]);
+    assert.deepEqual(descritoresEfetivosArma(lamina, []), ["letal"]);
   });
-  it("sem treino: escolhendo o 2, só o Descritor 2", () => {
-    assert.deepEqual(descritoresEfetivosArma(lamina, false, 2), ["sortudo"]);
+  it("só o 2, ou os dois", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina, [2]), ["sortudo"]);
+    assert.deepEqual(descritoresEfetivosArma(lamina, [1, 2]), ["letal", "sortudo"]);
   });
-  it("treinado: os dois, independente da escolha", () => {
-    assert.deepEqual(descritoresEfetivosArma(lamina, true), ["letal", "sortudo"]);
-    assert.deepEqual(descritoresEfetivosArma(lamina, true, 2), ["letal", "sortudo"]);
+  it("Pesado entra sempre", () => {
+    assert.deepEqual(descritoresEfetivosArma(laminaPesada, [2]), ["esmagador_1", "pesado"]);
   });
-  it("Pesado (o extra) entra sempre, junto do escolhido", () => {
-    assert.deepEqual(descritoresEfetivosArma(laminaPesada, false, 2), ["esmagador_1", "pesado"]);
-    assert.deepEqual(descritoresEfetivosArma(laminaPesada, true), ["letal", "esmagador_1", "pesado"]);
+  it("arma nula devolve []", () => {
+    assert.deepEqual(descritoresEfetivosArma(null, [1, 2]), []);
   });
-  it("escolha inválida cai no Descritor 1; arma nula devolve []", () => {
-    assert.deepEqual(descritoresEfetivosArma(lamina, false, 7), ["letal"]);
-    assert.deepEqual(descritoresEfetivosArma(null, true), []);
+});
+
+describe("normalizarDescritoresArma (28/10)", () => {
+  const lamina = getArmaPorId("lamina");
+  it("lista nova é respeitada; valor antigo 1/2 (27/10) vira lista", () => {
+    assert.deepEqual(normalizarDescritoresArma([2, 1], lamina), [1, 2]);
+    assert.deepEqual(normalizarDescritoresArma(2, lamina), [2]);
+    assert.deepEqual(normalizarDescritoresArma(undefined, lamina), [1]);
+  });
+  it("valores inválidos caem em [1]", () => {
+    assert.deepEqual(normalizarDescritoresArma([7], lamina), [1]);
   });
 });
 

@@ -28,7 +28,7 @@ import {
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
   PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, treinoDeOficioNaProficiencia,
 } from "./data/magias.js";
-import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, treinadoNaArma, ALCANCE_LABEL } from "./data/armas.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, normalizarDescritoresArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
   DESCRITORES, DESCRITORES_POR_ID, TIPOS_DESCRITOR, DESCRITORES_INTERNOS,
   resolverDescritorToken, nomeDoToken, textoComN, marcarDescritoresNoTexto,
@@ -6030,10 +6030,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     atributoKey: "destreza",
     feridas: armaEquipadaCatalogo.feridas,
     superficial: armaEquipadaCatalogo.superficial,
-    // 24/10: Descritor 2 só pra quem é treinado na proficiência da arma
-    // (grau E+ ou Treino de ofício — passiva de Magias de guerra, Treino em
-    // Armas/Armas de Fogo), ver data/armas.js:treinadoNaArma.
-    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, treinadoNaArma(characterEfetivo, armaEquipadaCatalogo, periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaEquipadaCatalogo)), character.equipamento?.descritorArmaEscolhido),
+    // 28/10: os descritores marcados no slot Arma (um ou os dois), ver
+    // data/armas.js:normalizarDescritoresArma.
+    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, normalizarDescritoresArma(character.equipamento?.descritoresArma ?? character.equipamento?.descritorArmaEscolhido, armaEquipadaCatalogo)),
   } : null;
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
@@ -6449,7 +6448,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   <Field label="Arma">
                     <select
                       style={inputStyle} value={eq.armaId || ""} disabled={!onUpdateCharacter}
-                      onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, armaId: e.target.value || null, temPericiaArma: false, descritorArmaEscolhido: 1 } })}
+                      onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, armaId: e.target.value || null, temPericiaArma: false, descritorArmaEscolhido: 1, descritoresArma: [1] } })}
                     >
                       <option value="">(nenhuma)</option>
                       {ARMAS.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
@@ -6465,33 +6464,33 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         />
                       </Field>
                       {(() => {
+                        // 28/10: marca um ou os dois descritores da arma
+                        // (equipamento.descritoresArma) — sem trava por
+                        // proficiência; ao menos um fica marcado.
                         const profKey = profKeyDaArma(armaCatalogo);
                         const profLabel = PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label;
                         const grau = characterEfetivo.proficiencias?.[profKey] ?? 0;
-                        const porOficio = periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaCatalogo);
-                        const treinado = treinadoNaArma(characterEfetivo, armaCatalogo, porOficio);
-                        // 27/10: sem treino, escolhe 1 dos 2 descritores
-                        // (equipamento.descritorArmaEscolhido, padrão 1);
-                        // treinado, usa os dois.
-                        const escolhido = eq.descritorArmaEscolhido === 2 ? 2 : 1;
+                        const marcados = normalizarDescritoresArma(eq.descritoresArma ?? eq.descritorArmaEscolhido, armaCatalogo);
+                        function alternar(n) {
+                          const novo = marcados.includes(n) ? marcados.filter((x) => x !== n) : [...marcados, n].sort();
+                          if (novo.length === 0) return;
+                          onUpdateCharacter(character.id, { equipamento: { ...eq, descritoresArma: novo } });
+                        }
                         return (
                           <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>
-                            {profLabel} {grau}{porOficio ? " · Treino pelos ofícios" : ""} — {treinado
-                              ? <>treinado: <Descritor token={armaCatalogo.descritor1} />{armaCatalogo.descritor2 && <> e <Descritor token={armaCatalogo.descritor2} /></>} valem</>
-                              : <>sem treino (grau 0): escolha 1 descritor</>}
-                            {!treinado && armaCatalogo.descritor2 && (
-                              <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
-                                {[1, 2].map((n) => (
-                                  <label key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                    <input
-                                      type="radio" name={`descritor-arma-${character.id}`} checked={escolhido === n} disabled={!onUpdateCharacter}
-                                      onChange={() => onUpdateCharacter(character.id, { equipamento: { ...eq, descritorArmaEscolhido: n } })}
-                                    />
-                                    <Descritor token={n === 1 ? armaCatalogo.descritor1 : armaCatalogo.descritor2} />
-                                  </label>
-                                ))}
-                              </div>
-                            )}
+                            {profLabel} {grau} — descritores em uso:
+                            <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
+                              {[1, 2].filter((n) => n === 1 || armaCatalogo.descritor2).map((n) => (
+                                <label key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <input
+                                    type="checkbox" checked={marcados.includes(n)} disabled={!onUpdateCharacter || (marcados.length === 1 && marcados.includes(n))}
+                                    onChange={() => alternar(n)}
+                                  />
+                                  <Descritor token={n === 1 ? armaCatalogo.descritor1 : armaCatalogo.descritor2} />
+                                </label>
+                              ))}
+                              {armaCatalogo.extra === "pesado" && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>+ <Descritor token="pesado" /></span>}
+                            </div>
                           </div>
                         );
                       })()}
@@ -6540,6 +6539,17 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         {armadurasDoSlot(slot).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
                       </select>
                     </Field>
+                    {/* 28/10: descritores (e bônus/extra) da peça logo abaixo
+                        dela, assim que escolhida. Nas peças com mana, valem
+                        só com a mana ativa (caixa "Ativa" abaixo). */}
+                    {peca && ((peca.descritoresConcedidos || []).length > 0 || peca.bonusDefesa > 0 || peca.extra) && (
+                      <div style={{ fontSize: 11, color: MUTED, marginTop: 4, display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                        {(peca.descritoresConcedidos || []).map((id) => <Descritor key={id} token={id} />)}
+                        {peca.bonusDefesa > 0 && <span>+{peca.bonusDefesa} dado na Defesa</span>}
+                        {peca.custoManaAtivar > 0 && <span>(com a mana ativa)</span>}
+                        {peca.extra && <span style={{ flexBasis: "100%", fontStyle: "italic" }}>{peca.extra}</span>}
+                      </div>
+                    )}
                     {peca && periciaKey && peca.periciaFamilia && periciaDeOficioCobreArmadura(characterEfetivo.periciasOficio, peca) && (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
                         <input type="checkbox" checked disabled />
@@ -6596,7 +6606,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Ataques físicos: dados = Destreza + proficiência da arma (Armas, Desarmado ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau 0) não há dados de proficiência e a arma usa só 1 dos 2 descritores, à escolha; com treino, os dois. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
+              Ataques físicos: dados = Destreza + proficiência da arma (Armas, Desarmado ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau 0) não há dados de proficiência. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -13186,7 +13196,7 @@ function RulesView() {
 
       <SectionTitle icon={Swords}>Catálogo de Armas (tipos)</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 10px" }}>
-        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Sem treino na proficiência da arma, escolha 1 dos 2 descritores; com treino (grau 1+ ou Treino de ofício), valem os dois (27/10). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas.
+        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Na ficha, marque qual descritor a arma usa (um ou os dois). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas.
       </p>
       {ARMAS.map((a) => (
         <div key={a.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
@@ -13201,7 +13211,7 @@ function RulesView() {
             <Descritor token={a.descritor1} />{a.descritor2 && <><span>ou</span><Descritor token={a.descritor2} /></>}
             {a.extra === "pesado" && <Descritor token="pesado" />}
           </div>
-          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Proficiência: {PROFICIENCIAS_LIST.find((p) => p.key === profKeyDaArma(a))?.label} (treinado: os dois descritores)</div>
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Proficiência: {PROFICIENCIAS_LIST.find((p) => p.key === profKeyDaArma(a))?.label}</div>
         </div>
       ))}
 

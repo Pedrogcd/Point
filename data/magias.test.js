@@ -11,7 +11,7 @@ import {
   HABILIDADES_CONJUNTAS, getHabilidadeConjuntaPorId, DISCIPLINAS,
   BONUS_GRAU_POR_OFICIO, PASSIVA_POR_OFICIO, getPassivaDoOficio,
   PROFICIENCIAS_DE_OFICIO, getProficienciaDeOficioPorId, getHabilidadeDeOficioPorId,
-  periciasDeOficio, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, escolhaCombateDoSlot,
+  periciasDeOficio, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, escolhaCombateDoSlot, treinoDeOficioNaProficiencia,
 } from "./magias.js";
 import { PROFICIENCIAS_LIST } from "../engine.js";
 import { getArmaPorId } from "./armas.js";
@@ -454,5 +454,23 @@ describe("PROFICIENCIAS_DE_OFICIO / periciasDeOficio (23/10, segunda parte)", ()
     assert.equal(p.passivaAnteriorMagiasDeGuerra, true);
     assert.equal(periciaDeOficioCobreArma(p, pistola), true);
     assert.equal(periciaDeOficioCobreArma(p, espada), false);
+  });
+});
+
+describe("Treino em Armas cobre Armas, Desarmado e Armas de Fogo (27/10)", () => {
+  it("Treino em Armas (Invocação): as três proficiências de arma", () => {
+    const p = periciasDeOficio([{ disciplinaId: "oficio-invocacao", habilidadesAtivas: ["proficiencia_armas"] }]);
+    for (const k of ["combateCorpoACorpo", "desarmado", "armasDeFogo"]) assert.equal(treinoDeOficioNaProficiencia(p, k), true, k);
+    assert.equal(treinoDeOficioNaProficiencia(p, "esquiva"), false);
+  });
+  it("passiva de Magias de guerra (Treino em todas as armas): as mesmas três", () => {
+    const p = periciasDeOficio([{ disciplinaId: "oficio-magias-de-guerra", habilidadesAtivas: [] }]);
+    assert.equal(treinoDeOficioNaProficiencia(p, "desarmado"), true);
+  });
+  it("Treino em Armas de Fogo (Alquimia): só Armas de Fogo", () => {
+    const p = periciasDeOficio([{ disciplinaId: "oficio-alquimia", habilidadesAtivas: ["proficiencia_armas_de_fogo"] }]);
+    assert.equal(treinoDeOficioNaProficiencia(p, "armasDeFogo"), true);
+    assert.equal(treinoDeOficioNaProficiencia(p, "combateCorpoACorpo"), false);
+    assert.equal(treinoDeOficioNaProficiencia(p, "desarmado"), false);
   });
 });

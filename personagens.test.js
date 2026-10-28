@@ -461,11 +461,12 @@ describe("migrarPersonagem — proficiências de combate 24/10 (docs/ATUALIZACAO
     assert.equal("defesaProf" in m.proficiencias, false);
     assert.equal(m.proficienciasLegado.defesaProf, "D");
   });
-  it("Armas Corpo a Corpo e Armas de Fogo mantêm o valor; Desarmado, Distância, Fortitude e Vontade começam em F", () => {
+  it("Armas e Armas de Fogo mantêm o valor; Desarmado, Fortitude e Vontade começam em 0", () => {
     const m = migrarPersonagem(base());
     assert.equal(m.proficiencias.combateCorpoACorpo, 3);
     assert.equal(m.proficiencias.armasDeFogo, 4);
-    for (const k of ["desarmado", "armasADistancia", "fortitude", "vontade"]) assert.equal(m.proficiencias[k], 0, k);
+    for (const k of ["desarmado", "fortitude", "vontade"]) assert.equal(m.proficiencias[k], 0, k);
+    assert.equal("armasADistancia" in m.proficiencias, false);
   });
   it("Magia Ofensiva: base tal que o efetivo = mínimo(C, ofícios antigos) — Encantamentos + Alquimia = 2 ofícios -> base D", () => {
     const m = migrarPersonagem(base({ disciplinas: [{ disciplinaId: "oficio-encantamentos", habilidadesAtivas: [] }, { disciplinaId: "oficio-alquimia", habilidadesAtivas: [] }, null] }));
@@ -493,5 +494,18 @@ describe("migrarPersonagem — proficiências de combate 24/10 (docs/ATUALIZACAO
   it("preserva escolhaCombate do slot de disciplina", () => {
     const m = migrarPersonagem(base({ disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: [], escolhaCombate: "esquiva" }, null, null] }));
     assert.equal(m.disciplinas[0].escolhaCombate, "esquiva");
+  });
+});
+
+describe("migrarPersonagem — Armas à Distância saiu (27/10)", () => {
+  it("remove armasADistancia, guarda o grau no legado e mantém Armas", () => {
+    const m = migrarPersonagem({ id: "x", name: "X", proficiencias: { esquiva: 1, combateCorpoACorpo: 2, armasADistancia: 3 } });
+    assert.equal("armasADistancia" in m.proficiencias, false);
+    assert.equal(m.proficienciasLegado.armasADistancia, 3);
+    assert.equal(m.proficiencias.combateCorpoACorpo, 2);
+  });
+  it("escolha livre de Combate em Armas à Distância vira Armas", () => {
+    const m = migrarPersonagem({ id: "x", name: "X", disciplinas: [{ disciplinaId: "magia-inata", habilidadesAtivas: [], escolhaCombate: "armasADistancia" }, null, null] });
+    assert.equal(m.disciplinas[0].escolhaCombate, "combateCorpoACorpo");
   });
 });

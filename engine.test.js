@@ -244,9 +244,9 @@ describe("computeAcertoTipo", () => {
   const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
   const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
 
-  it("não tem entrada 'Mágico'; 24/10: Corpo a corpo, Desarmado, À distância e Arma de fogo", () => {
+  it("não tem entrada 'Mágico'; 27/10: Armas, Desarmado e Arma de fogo (À distância saiu)", () => {
     assert.equal(ACERTOS_POR_TIPO.find((e) => e.key === "magico"), undefined);
-    assert.deepEqual(ACERTOS_POR_TIPO.map((e) => e.prof), ["combateCorpoACorpo", "desarmado", "armasADistancia", "armasDeFogo"]);
+    assert.deepEqual(ACERTOS_POR_TIPO.map((e) => e.prof), ["combateCorpoACorpo", "desarmado", "armasDeFogo"]);
   });
   it("Corpo a corpo = Destreza + Combate Corpo a Corpo (bônus E=0..A=+4)", () => {
     const c = withProfs(withAttrs(makeCharacter(), { destreza: "C" }), { combateCorpoACorpo: "B" });

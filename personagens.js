@@ -125,7 +125,8 @@ function migrarDisciplinas(ch) {
       if (slot.passivaAnterior) limpo.passivaAnterior = true;
       // 24/10: escolha livre de Combate da disciplina (racasCatalogo.js:
       // bonusGrauDoPersonagem).
-      if (slot.escolhaCombate) limpo.escolhaCombate = slot.escolhaCombate;
+      // 27/10: escolha em Armas à Distância (saiu) vira Armas.
+      if (slot.escolhaCombate) limpo.escolhaCombate = slot.escolhaCombate === "armasADistancia" ? "combateCorpoACorpo" : slot.escolhaCombate;
       return limpo;
     });
     return normalizado;
@@ -338,7 +339,7 @@ export function migrarPersonagem(ch) {
     if (proficiencias.defesaProf !== undefined) proficienciasLegado.defesaProf = proficiencias.defesaProf;
     proficiencias.esquiva = defesaAntiga;
     proficiencias.bloqueio = defesaAntiga;
-    for (const chave of ["desarmado", "armasADistancia", "fortitude", "vontade"]) proficiencias[chave] = "F";
+    for (const chave of ["desarmado", "fortitude", "vontade"]) proficiencias[chave] = "F";
     proficiencias.magiaOfensiva = magiaOfensivaBaseMigrada({ ...ch, raca, habilidadePrincipal, habilidadeSecundaria, disciplinas });
     // Ataque desarmado passa a usar a proficiência Desarmado.
     attacksMigrados = attacksMigrados.map((atk) => (
@@ -388,6 +389,15 @@ export function migrarPersonagem(ch) {
   // livre nome+grau, preservado intocado acima via ...ch) — nunca existiu
   // antes de hoje, então toda ficha ganha `null` por padrão, não-destrutivo.
   const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
+  // 17) Armas à Distância saiu (27/10, pedido do Pedro): as armas de
+  // distância passam a usar Armas (combateCorpoACorpo, que já fica como
+  // estava). O grau salvo em Armas à Distância vai pro legado.
+  if (proficiencias.armasADistancia !== undefined) {
+    if (proficienciasSalvas.armasADistancia !== undefined && proficienciasLegado.armasADistancia === undefined) {
+      proficienciasLegado.armasADistancia = proficienciasSalvas.armasADistancia;
+    }
+    delete proficiencias.armasADistancia;
+  }
   // 16) Graus em número (24/10, pedido do Pedro): atributos gerais e
   // proficiências deixam de ser letras — F=0, E=1, D=2, C=3, B=4, A=5
   // (engine.js:grauNumero). Idempotente: número continua número. Feito por

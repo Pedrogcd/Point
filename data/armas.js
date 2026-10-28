@@ -86,14 +86,13 @@ export function descritoresEfetivosArma(arma, treinado, escolhido = 1) {
   return out.filter(Boolean);
 }
 
-// Proficiência de combate usada ao atacar com uma arma do catálogo (24/10,
-// docs/ATUALIZACAO_24-10.md seção 0.1): Armas de Fogo pra família "Arma de
-// fogo", Armas à Distância pra "Distância" (arco, besta, arremesso) e
-// Armas Corpo a Corpo pro resto (lâminas, contundentes, hastes,
-// flexíveis — inclusive manoplas, que são família Contundente).
+// Proficiência de combate usada ao atacar com uma arma do catálogo: Armas
+// de Fogo pra família "Arma de fogo"; Armas (chave combateCorpoACorpo) pra
+// todo o resto — lâminas, contundentes, hastes, flexíveis e, desde 27/10,
+// também as de "Distância" (arco, besta, arremesso; Armas à Distância
+// saiu).
 export function profKeyDaArma(arma) {
   if (arma?.familia === "Arma de fogo") return "armasDeFogo";
-  if (arma?.familia === "Distância") return "armasADistancia";
   return "combateCorpoACorpo";
 }
 

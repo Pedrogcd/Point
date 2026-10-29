@@ -74,7 +74,7 @@ export function getArmaPorId(id) {
 }
 
 // Descritores EFETIVOS de uma arma do catálogo (28/10): os marcados em
-// `escolhidos` (lista com 1 e/ou 2; vazia ou inválida vale [1]). `pesado`
+// `escolhidos` (lista com 1 e/ou 2; 29/10: lista vazia = nenhum). `pesado`
 // (o extra) entra sempre.
 export function descritoresEfetivosArma(arma, escolhidos = [1]) {
   if (!arma) return [];
@@ -84,13 +84,14 @@ export function descritoresEfetivosArma(arma, escolhidos = [1]) {
   return out.filter(Boolean);
 }
 
-// Lista de descritores marcados pra arma (28/10), a partir do que a ficha
-// guarda: `descritoresArma` (novo, lista) ou `descritorArmaEscolhido`
-// (27/10, 1 ou 2). Sem nada salvo: [1]. Sempre ao menos um.
+// Lista de descritores marcados pra arma, a partir do que a ficha guarda:
+// `descritoresArma` (lista) ou `descritorArmaEscolhido` (27/10, 1 ou 2).
+// Sem nada salvo: [1]. 29/10 (pedido do Pedro: "clicar em quais possuo sem
+// restrição"): a lista salva vale como está — um, o outro, os dois ou
+// nenhum.
 export function normalizarDescritoresArma(valor, arma) {
   const bruto = Array.isArray(valor) ? valor : (valor === 2 ? [2] : [1]);
-  const lista = [1, 2].filter((n) => bruto.includes(n) && (n === 1 || arma?.descritor2));
-  return lista.length ? lista : [1];
+  return [1, 2].filter((n) => bruto.includes(n) && (n === 1 || arma?.descritor2));
 }
 
 // Proficiência de combate usada ao atacar com uma arma do catálogo: Armas

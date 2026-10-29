@@ -55,7 +55,10 @@ describe("descritoresEfetivosArma (28/10: usa os marcados — um ou os dois)", (
   const laminaPesada = getArmaPorId("lamina_pesada"); // letal / esmagador_1 + pesado
   it("padrão: só o Descritor 1", () => {
     assert.deepEqual(descritoresEfetivosArma(lamina), ["letal"]);
-    assert.deepEqual(descritoresEfetivosArma(lamina, []), ["letal"]);
+  });
+  it("29/10: lista vazia = nenhum descritor (só o Pesado, se houver)", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina, []), []);
+    assert.deepEqual(descritoresEfetivosArma(getArmaPorId("lamina_pesada"), []), ["pesado"]);
   });
   it("só o 2, ou os dois", () => {
     assert.deepEqual(descritoresEfetivosArma(lamina, [2]), ["sortudo"]);
@@ -76,8 +79,9 @@ describe("normalizarDescritoresArma (28/10)", () => {
     assert.deepEqual(normalizarDescritoresArma(2, lamina), [2]);
     assert.deepEqual(normalizarDescritoresArma(undefined, lamina), [1]);
   });
-  it("valores inválidos caem em [1]", () => {
-    assert.deepEqual(normalizarDescritoresArma([7], lamina), [1]);
+  it("29/10: lista salva vale como está — vazia fica vazia, inválidos saem", () => {
+    assert.deepEqual(normalizarDescritoresArma([], lamina), []);
+    assert.deepEqual(normalizarDescritoresArma([7], lamina), []);
   });
 });
 

@@ -6469,16 +6469,15 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         />
                       </Field>
                       {(() => {
-                        // 28/10: marca um ou os dois descritores da arma
-                        // (equipamento.descritoresArma) — sem trava por
-                        // proficiência; ao menos um fica marcado.
+                        // 28/10: marca os descritores da arma
+                        // (equipamento.descritoresArma). 29/10: sem trava
+                        // nenhuma — cada caixa liga/desliga livremente.
                         const profKey = profKeyDaArma(armaCatalogo);
                         const profLabel = PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label;
                         const grau = characterEfetivo.proficiencias?.[profKey] ?? 0;
                         const marcados = normalizarDescritoresArma(eq.descritoresArma ?? eq.descritorArmaEscolhido, armaCatalogo);
                         function alternar(n) {
                           const novo = marcados.includes(n) ? marcados.filter((x) => x !== n) : [...marcados, n].sort();
-                          if (novo.length === 0) return;
                           onUpdateCharacter(character.id, { equipamento: { ...eq, descritoresArma: novo } });
                         }
                         return (
@@ -6488,7 +6487,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                               {[1, 2].filter((n) => n === 1 || armaCatalogo.descritor2).map((n) => (
                                 <label key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                   <input
-                                    type="checkbox" checked={marcados.includes(n)} disabled={!onUpdateCharacter || (marcados.length === 1 && marcados.includes(n))}
+                                    type="checkbox" checked={marcados.includes(n)} disabled={!onUpdateCharacter}
                                     onChange={() => alternar(n)}
                                   />
                                   <Descritor token={n === 1 ? armaCatalogo.descritor1 : armaCatalogo.descritor2} />

@@ -17,7 +17,7 @@ import {
   diceAtaqueAlquimia, diceAtaqueConstructo,
   contagemOficiosMagicos,
   resolveRolagemDefesa, determinarFerimento, aplicarFerimentos, resolveAtaque,
-  resolveAtaqueEmArea, descritoresEfetivosDoAtaque,
+  resolveAtaqueEmArea, descritoresEfetivosDoAtaque, ferimentosDoAtaque,
   grauQueimadura, resolveQueimadura, LIMIAR_QUEIMADURA, LIMIAR_QUEIMADURA_BLINDADO,
   grauDescritorNumerico, grauPreciso, grauEsmagador, grauEnvenenamento, grauCarga,
   LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveCarga, resolveDrenante,
@@ -1650,4 +1650,23 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       assert.equal(computeMaxSP(c), ficha.esperado.sp, "SP máximo");
     });
   }
+});
+
+describe("Arma de fogo (29/10)", () => {
+  it("limiar 7+ como Pesado; Perfurante ignora", () => {
+    assert.equal(limiarAtaque({ atacante: {}, defensor: {}, descritoresAtaque: ["arma_de_fogo"] }), LIMIAR_BLINDADO);
+    assert.equal(limiarAtaque({ atacante: {}, defensor: {}, descritoresAtaque: ["arma_de_fogo", "perfurante"] }), LIMIAR_SUCESSO);
+  });
+  it("passando do Vigor: 1 agravante + 1 superficial; senão 2 superficiais", () => {
+    assert.deepEqual(ferimentosDoAtaque("agravante", 1, ["arma_de_fogo"]), { feridas: 2, agravantes: 1, superficiais: 1 });
+    assert.deepEqual(ferimentosDoAtaque("superficial", 1, ["arma_de_fogo"]), { feridas: 2, agravantes: 0, superficiais: 2 });
+    assert.deepEqual(ferimentosDoAtaque(null, 2, ["arma_de_fogo"]), { feridas: 0, agravantes: 0, superficiais: 0 });
+  });
+  it("sem Arma de fogo, regra de sempre (todos do mesmo tipo)", () => {
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["pesado"]), { feridas: 2, agravantes: 2, superficiais: 0 });
+  });
+  it("todo ataque de arma de fogo ganha o descritor, inclusive ataque salvo antigo", () => {
+    assert.ok(descritoresEfetivosDoAtaque({}, { tipo: "arma_de_fogo", descritores: ["letal"] }).includes("arma_de_fogo"));
+    assert.ok(!descritoresEfetivosDoAtaque({}, { tipo: "marcial", descritores: ["letal"] }).includes("arma_de_fogo"));
+  });
 });

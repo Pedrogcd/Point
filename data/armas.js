@@ -9,6 +9,10 @@
 // habilidades específicas fazem isso (a mesa decide; o app não trava).
 // Histórico: 24/10 Descritor 2 só treinado; 27/10 sem treino escolhe 1.
 //
+// 29/10: as 3 armas de fogo têm `extra: "arma_de_fogo"` (descritor novo,
+// sempre ativo; na longa substitui o Pesado, decisão do Pedro) — 7+ e 2
+// ferimentos: 1 agravante + 1 superficial passando do Vigor, senão 2
+// superficiais (ver engine.js:ferimentosDoAtaque).
 // `extra: "pesado"` é um terceiro descritor à parte (não entra nos dois
 // normais): dados de ataque precisam de 7+ (não soma com Blindado — mesmo
 // limiar, não sobe pra 8+) e a arma causa 2 feridas por ataque que acerta.
@@ -58,9 +62,9 @@ export const ARMAS = [
   { id: "contundente_de_punho", nome: "Contundente de punho", familia: "Contundente", exemplos: "Manoplas, soco-inglês", alcance: "mesma_zona", feridas: 1, superficial: true, descritor1: "veloz", descritor2: "esmagador_1", extra: null, ajusteDados: 0, periciaFamilia: "Contundentes" },
   { id: "haste", nome: "Haste", familia: "Haste", exemplos: "Lança, tridente", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Hastes" },
   { id: "haste_pesada", nome: "Haste pesada", familia: "Haste", exemplos: "Alabarda, glaive", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "letal", descritor2: "perfurante", extra: "pesado", ajusteDados: 0, periciaFamilia: "Hastes" },
-  { id: "arma_de_fogo_curta", nome: "Arma de fogo curta", familia: "Arma de fogo", exemplos: "Pistola, revólver", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "veloz", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Armas de fogo" },
-  { id: "arma_de_fogo_longa", nome: "Arma de fogo longa", familia: "Arma de fogo", exemplos: "Rifle, fuzil", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: "pesado", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
-  { id: "arma_de_fogo_dispersao", nome: "Arma de fogo de dispersão", familia: "Arma de fogo", exemplos: "Espingarda", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "preciso_1", descritor2: "em_area", extra: null, ajusteDados: 0, periciaFamilia: "Armas de fogo" },
+  { id: "arma_de_fogo_curta", nome: "Arma de fogo curta", familia: "Arma de fogo", exemplos: "Pistola, revólver", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "veloz", descritor2: "sortudo", extra: "arma_de_fogo", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
+  { id: "arma_de_fogo_longa", nome: "Arma de fogo longa", familia: "Arma de fogo", exemplos: "Rifle, fuzil", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: "arma_de_fogo", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
+  { id: "arma_de_fogo_dispersao", nome: "Arma de fogo de dispersão", familia: "Arma de fogo", exemplos: "Espingarda", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "preciso_1", descritor2: "em_area", extra: "arma_de_fogo", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
   { id: "arma_de_arco", nome: "Arma de arco", familia: "Distância", exemplos: "Arco curto, arco longo", alcance: "longo", feridas: 1, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Distância" },
   { id: "arma_de_mecanismo", nome: "Arma de mecanismo", familia: "Distância", exemplos: "Besta", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "letal", extra: "pesado", ajusteDados: 0, periciaFamilia: "Distância" },
   { id: "arma_de_arremesso", nome: "Arma de arremesso", familia: "Distância", exemplos: "Facas de arremesso, machadinha", alcance: "uma_zona_adiante", feridas: 1, superficial: true, descritor1: "veloz", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Distância" },
@@ -80,7 +84,7 @@ export function descritoresEfetivosArma(arma, escolhidos = [1]) {
   if (!arma) return [];
   const lista = normalizarDescritoresArma(escolhidos, arma);
   const out = lista.map((n) => (n === 2 ? arma.descritor2 : arma.descritor1));
-  if (arma.extra === "pesado") out.push("pesado");
+  if (arma.extra) out.push(arma.extra);
   return out.filter(Boolean);
 }
 

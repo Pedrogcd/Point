@@ -23,17 +23,27 @@ describe("ARMAS", () => {
     }
   });
 
-  it("extra só é null ou 'pesado'", () => {
+  it("extra só é null, 'pesado' ou 'arma_de_fogo' (29/10)", () => {
     for (const a of ARMAS) {
-      assert.ok(a.extra === null || a.extra === "pesado", a.id);
+      assert.ok(a.extra === null || a.extra === "pesado" || a.extra === "arma_de_fogo", a.id);
     }
   });
 
-  it("toda arma 'pesada' causa 2 feridas (5 tipos: lâmina/contundente/haste pesada, arma de fogo longa, arma de mecanismo)", () => {
+  it("toda arma 'pesada' causa 2 feridas (4 tipos: lâmina/contundente/haste pesada, arma de mecanismo)", () => {
     const pesadas = ARMAS.filter((a) => a.extra === "pesado");
-    assert.equal(pesadas.length, 5);
+    assert.equal(pesadas.length, 4);
     for (const a of pesadas) {
       assert.equal(a.feridas, 2, a.id);
+    }
+  });
+
+  it("29/10: as 3 armas de fogo têm o descritor Arma de fogo (na longa, no lugar do Pesado) e 2 feridas", () => {
+    const fogo = ARMAS.filter((a) => a.familia === "Arma de fogo");
+    assert.equal(fogo.length, 3);
+    for (const a of fogo) {
+      assert.equal(a.extra, "arma_de_fogo", a.id);
+      assert.equal(a.feridas, 2, a.id);
+      assert.ok(descritoresEfetivosArma(a, []).includes("arma_de_fogo"), a.id);
     }
   });
 

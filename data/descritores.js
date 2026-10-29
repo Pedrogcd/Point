@@ -17,7 +17,7 @@ export const DESCRITORES_POR_ID = Object.fromEntries(DESCRITORES.map((d) => [d.i
 // o mapa é explícito.
 const ALIAS_BASE = {
   magia: "magia", em_area: "em-area", preciso: "preciso", esmagador: "esmagador",
-  perfurante: "perfurante", letal: "letal", pesado: "pesado", queimadura: "queimadura",
+  perfurante: "perfurante", letal: "letal", pesado: "pesado", arma_de_fogo: "arma-de-fogo", queimadura: "queimadura",
   envenenamento: "envenenamento", carga: "carga", drenante: "drenante",
   repulsivo: "repulsivo", corrosivo: "corrosivo", blindado: "blindado",
   resistente: "resistente", firme: "firme", selado: "selado",

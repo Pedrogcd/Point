@@ -462,8 +462,8 @@ export const BASE_ATTACK_TYPES = [
     tipo: "arma_de_fogo",
     ajusteDados: -1,
     feridas: 2,
-    descritores: ["letal"],
-    descricao: "Arma de fogo de longa distância. Rola Destreza + Armas de Fogo -1 dado, sucesso 6+. Letal, 2 feridas por ataque.",
+    descritores: ["letal", "arma_de_fogo"],
+    descricao: "Arma de fogo de longa distância. Rola Destreza + Armas de Fogo -1 dado. Letal. Arma de fogo: acerta com 7+; 1 agravante + 1 superficial se passar do Vigor, senão 2 superficiais.",
   },
   {
     id: "revolver", profKey: "armasDeFogo", atributoKey: "destreza",
@@ -473,8 +473,8 @@ export const BASE_ATTACK_TYPES = [
     tipo: "arma_de_fogo",
     ajusteDados: 0,
     feridas: 2,
-    descritores: ["letal"],
-    descricao: "Arma de fogo curta. Rola Destreza + Armas de Fogo, sucesso 6+. Letal, 2 feridas por ataque.",
+    descritores: ["letal", "arma_de_fogo"],
+    descricao: "Arma de fogo curta. Rola Destreza + Armas de Fogo. Letal. Arma de fogo: acerta com 7+; 1 agravante + 1 superficial se passar do Vigor, senão 2 superficiais.",
   },
   {
     id: "morteiro_pesado", profKey: "armasDeFogo", atributoKey: "destreza",
@@ -483,8 +483,8 @@ export const BASE_ATTACK_TYPES = [
     caracteristicas: ["físico", "longa distância"],
     tipo: "arma_de_fogo",
     ajusteDados: -1,
-    feridas: 1,
-    descritores: ["letal", "em_area"],
+    feridas: 2,
+    descritores: ["letal", "em_area", "arma_de_fogo"],
     descricao: "Arma de área/indireta. TODO: o mecanismo antigo de carregar 1 turno antes de disparar dependia de rodadas/ações — fora do escopo do guia novo, removido por enquanto.",
   },
 ];
@@ -526,6 +526,12 @@ const DESCRITORES_DE_ATAQUE_DO_PERSONAGEM = /^(letal|perfurante|sortudo|drenante
 export function descritoresEfetivosDoAtaque(attacker, attack) {
   const base = attack?.descritores || [];
   let resultado = base;
+  // 29/10: toda arma de fogo tem o descritor Arma de fogo — inclusive os
+  // ataques já salvos nas fichas (tipo "arma_de_fogo" ou proficiência Armas
+  // de Fogo), que foram copiados do catálogo antes dele existir.
+  if ((attack?.tipo === "arma_de_fogo" || attack?.profKey === "armasDeFogo") && !base.includes("arma_de_fogo")) {
+    resultado = [...resultado, "arma_de_fogo"];
+  }
   if (attack?.ehDesarmado && temDescritor(attacker, "desarmado_letal") && !base.includes("letal")) {
     resultado = [...resultado, "letal"];
   }
@@ -881,7 +887,8 @@ export function limiarAtaque({ atacante, defensor, descritoresAtaque }) {
   const ds = descritoresAtaque || [];
   const perfurante = ds.includes("perfurante") || temDescritor(atacante, "ignora_blindado");
   if (perfurante) return LIMIAR_SUCESSO;
-  const elevado = temDescritor(defensor, "blindado") || ds.includes("pesado");
+  // 29/10: Arma de fogo também pede 7+ (igual Pesado; não soma com Blindado).
+  const elevado = temDescritor(defensor, "blindado") || ds.includes("pesado") || ds.includes("arma_de_fogo");
   return elevado ? LIMIAR_BLINDADO : LIMIAR_SUCESSO;
 }
 
@@ -1074,6 +1081,24 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
 // "não acumula" (é um booleano, não um grau: ter o descritor de mais de uma
 // fonte não soma mais que +1) "e anula Letal" (os dois presentes ao mesmo
 // tempo voltam pro Vigor normal, sem +1 nem -1) — texto exato do Pedro.
+// Arma de fogo (29/10, descritor novo, pedido do Pedro): parecido com
+// Pesado — acerta com 7+ (ver limiarAtaque) e causa sempre 2 ferimentos —
+// mas, se os sucessos líquidos chegam no Vigor (o que seria agravante), são
+// 1 agravante + 1 superficial; senão, 2 superficiais. Pra qualquer outro
+// ataque: `feridas` ferimentos, todos do mesmo tipo (regra de sempre).
+// Devolve { feridas, agravantes, superficiais }.
+export function ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque = []) {
+  if (!tipoFerimento) return { feridas: 0, agravantes: 0, superficiais: 0 };
+  if (descritoresAtaque.includes("arma_de_fogo")) {
+    return tipoFerimento === "agravante"
+      ? { feridas: 2, agravantes: 1, superficiais: 1 }
+      : { feridas: 2, agravantes: 0, superficiais: 2 };
+  }
+  return tipoFerimento === "agravante"
+    ? { feridas, agravantes: feridas, superficiais: 0 }
+    : { feridas, agravantes: 0, superficiais: feridas };
+}
+
 export function determinarFerimento({ sucessosLiquidos, vigorGrauCheio, letal, resistente, superficialForcado }) {
   if (sucessosLiquidos <= 0) return null;
   if (superficialForcado) return "superficial";
@@ -1296,7 +1321,7 @@ export function resolveAtaque({
   const drenante = resolveDrenante({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
   return {
     limiar, rolagemAtaque, rolagemDefesa, sucessosLiquidos, letal, resistente,
-    tipoFerimento, feridas: tipoFerimento ? feridas : 0, queimadura, envenenamento, carga, drenante,
+    tipoFerimento, ...ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque), queimadura, envenenamento, carga, drenante,
   };
 }
 
@@ -1334,7 +1359,7 @@ export function resolveAtaqueEmArea({
     const drenante = resolveDrenante({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
     return {
       defender, limiar, sucessosAtaque, rolagemDefesa, sucessosLiquidos, letal, resistente,
-      tipoFerimento, feridas: tipoFerimento ? feridas : 0, queimadura, carga, drenante,
+      tipoFerimento, ...ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque), queimadura, carga, drenante,
     };
   });
   return { rolagemAtaqueBase, resultados };

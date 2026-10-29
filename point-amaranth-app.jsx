@@ -28,7 +28,7 @@ import {
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
   PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, treinoDeOficioNaProficiencia,
 } from "./data/magias.js";
-import { ARMAS, getArmaPorId, descritoresEfetivosArma, profKeyDaArma, treinadoNaArma, ALCANCE_LABEL } from "./data/armas.js";
+import { ARMAS, getArmaPorId, descritoresEfetivosArma, normalizarDescritoresArma, profKeyDaArma, ALCANCE_LABEL } from "./data/armas.js";
 import {
   DESCRITORES, DESCRITORES_POR_ID, TIPOS_DESCRITOR, DESCRITORES_INTERNOS,
   resolverDescritorToken, nomeDoToken, textoComN, marcarDescritoresNoTexto,
@@ -66,6 +66,11 @@ import {
   comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
+import { supabase } from "./supabaseClient.js";
+import {
+  carregarPersonagensRemotos, enviarPatchPersonagem, apagarPersonagemRemoto, assinarMudancas,
+  diffPersonagens, aplicarLinhaRemota, removerLinhaRemota, aplicarRecarga,
+} from "./sincronizacao.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
 import { migrarPersonagens } from "./personagens.js";
@@ -381,7 +386,7 @@ const SEED_CHARACTERS_RAW = [
     })(),
     singularity: { name: "Mana Consciente", level: "EX", description: "Manifesta mana como um ser consciente com memória própria — deu origem a Minerva. Pode vincular e transferir mana a longa distância." },
     attributes: {},
-    atributosGerais: { forca: "E", destreza: "B", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 1, destreza: 4, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Ofício mágico", grade: "A", description: "Domínio avançado de ofício mágico; cria magias e itens mágicos. Regra de Ouro." },
       { name: "Combatente à Distância", grade: "D", description: "Revólver, rifle, bombas e torres de mana com funções variadas." },
@@ -398,7 +403,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "Thalia (Freya) e Gigas", weapon: "Punhos + manipulação de metal",
     singularity: { name: "Metal Craft", level: "EX", description: "Manipulação e criação de habilidades ligadas ao magnetismo — mãos de ferro à distância, estilhaços, barreiras de metal." },
     attributes: {},
-    atributosGerais: { forca: "B", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 4, destreza: 3, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Força e Resistência Acima do Padrão", grade: "B", description: "Escamas metálicas e campo de força magnético constante." },
       { name: "Artista Marcial", grade: "D", description: "Especialista em combate desarmado e estilo único de combate." },
@@ -415,7 +420,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "União", weapon: "Garras",
     singularity: { name: "Juba de Chamas", level: "B — Superior", description: "Manifestação de fogo dourado ligada à sua forma bestial, ampliando força e agressividade em combate." },
     attributes: {},
-    atributosGerais: { forca: "C", destreza: "D", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 3, destreza: 2, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Militar (Hetalion)", grade: "D", description: "Cargo militar elevado e condecorações de mérito." },
       { name: "Artista Marcial", grade: "D", description: "Especialista em combate desarmado e estilo único de combate." },
@@ -432,7 +437,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "União", weapon: "Magia elemental de suporte",
     singularity: { name: "Imbuição Elemental", level: "C — Intermediário", description: "Fortalece aliados em combate através da imbuição de elementos em armas e habilidades." },
     attributes: {},
-    atributosGerais: { forca: "E", destreza: "A", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 1, destreza: 5, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Diplomata e Estrategista", grade: "A", description: "Mente estratégica refinada; rede de contatos (Black Shield)." },
       { name: "Artista Marcial", grade: "E", description: "Uso de armas escondidas e leque." },
@@ -449,7 +454,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "Kronos", weapon: "Espada de Kronos",
     singularity: { name: "Domínio Temporal Local", level: "A", description: "Acelera ou desacelera o tempo em pequenas zonas ao seu redor." },
     attributes: {},
-    atributosGerais: { forca: "D", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 2, destreza: 3, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Lutadora de Alta Velocidade", grade: "B", description: "Combos com a Espada de Kronos que confundem os inimigos." },
       { name: "Bênção de Kronos", grade: "B", description: "Manipula o fluxo do tempo em zonas pequenas." },
@@ -466,7 +471,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "Presente de Umbra, moldada por Gigas", weapon: "Duas espadas",
     singularity: { name: "A Voz de Goethia", level: "EX — Divino", description: "Conexão emocional em massa com toda a nação goethiana; usada para inspirar, proteger e orientar seu povo." },
     attributes: {},
-    atributosGerais: { forca: "A", destreza: "B", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 5, destreza: 4, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Guerreira Poderosa", grade: "EX", description: "Temida até pelos generais goethianos; força e combate excepcionais." },
       { name: "Magia de Gravidade", grade: "EX", description: "Capaz de erguer estruturas colossais, como um castelo montanha acima." },
@@ -483,7 +488,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "—", weapon: "Naginata e lâminas múltiplas",
     singularity: { name: "Deusa da Guerra", level: "EX — Divino", description: "Poder de combate elevado a um patamar quase divino, base de seu título e de sua ascensão como próxima Santa." },
     attributes: {},
-    atributosGerais: { forca: "A", destreza: "B", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 5, destreza: 4, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Guerreira e Artista Marcial", grade: "EX", description: "Mestre no uso de naginatas, espadas e facas." },
       { name: "Golden Rule", grade: "A", description: "Elite do Pilar da Santa; influência crescente dentro do exército." },
@@ -500,7 +505,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "—", weapon: "Facas de osso de dragão imbuídas de toxina",
     singularity: { name: "Sopro Alquímico", level: "A", description: "Cura aliados ou envenena/corrói inimigos conforme a necessidade do combate." },
     attributes: {},
-    atributosGerais: { forca: "C", destreza: "B", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 3, destreza: 4, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Suporte Versátil (Sopro Alquímico)", grade: "A", description: "Cura ou corrói, adaptando-se à situação de combate." },
       { name: "Combatente Furtiva e Ágil", grade: "B", description: "Luta com facas envenenadas, ocultando-se nas sombras." },
@@ -517,7 +522,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "Umbra", weapon: "Varia conforme o estilo ativo (Modal de Alma)",
     singularity: { name: "Modal de Alma", level: "S — Superior", description: "Domina completamente os três arquétipos de combate (guerreira, ladina, maga), trocando arma e abordagem em tempo real." },
     attributes: {},
-    atributosGerais: { forca: "A", destreza: "A", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 5, destreza: 5, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Guerreira Veterana", grade: "S", description: "Treinada por heróis lendários; incontáveis missões de altíssimo risco." },
       { name: "Paladina de Umbra", grade: "S", description: "Poderes sagrados de proteção contra ameaças dimensionais." },
@@ -534,7 +539,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "—", weapon: "Nenhuma (combate desarmado, quatro braços)",
     singularity: { name: "Assimilação Adaptativa", level: "Indefinido (em desenvolvimento)", description: "Potencial de absorver e replicar poderes alheios — ainda instável, sem tier fixo definido." },
     attributes: {},
-    atributosGerais: { forca: "B", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 4, destreza: 3, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Combatente Desarmada", grade: "C", description: "Luta com as próprias mãos, aproveitando quatro braços em sincronia." },
       { name: "Suporte e Proteção", grade: "C", description: "Atua como protetora pessoal de Almah, priorizando defesa." },
@@ -551,7 +556,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "Dulahand", weapon: "Katana criada do próprio sangue",
     singularity: { name: "Sangue Eterno", level: "S — Superior", description: "Regeneração extrema e criação de constructos de sangue, usada tanto ofensivamente quanto para sobrevivência." },
     attributes: {},
-    atributosGerais: { forca: "B", destreza: "A", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 4, destreza: 5, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Regeneração e Constructos de Sangue", grade: "S", description: "Sua singularidade, usada para ataque e sobrevivência extrema." },
       { name: "Combatente com Katana de Sangue", grade: "A", description: "Luta com a katana que também serve de reserva mágica de emergência." },
@@ -568,7 +573,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "Necron (atual)", weapon: "Par de facas",
     singularity: { name: "Véu da Não-Existência", level: "Selada: D | Potencial: S — Transcendente", description: "Poder de ocultação e não-existência, atualmente limitado por um selo — seu potencial real é muito maior." },
     attributes: {},
-    atributosGerais: { forca: "C", destreza: "B", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 3, destreza: 4, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Ladra e Prestidigitadora Profissional", grade: "A", description: "Séculos de prática em roubos e truques de mão." },
       { name: "Pregadora de Peças Profissional", grade: "A", description: "Especialista em confundir e enganar sem causar dano real." },
@@ -585,7 +590,7 @@ const SEED_CHARACTERS_RAW = [
     deity: "União", weapon: "Encantamentos aplicados ao próprio corpo",
     singularity: { name: "Compilação Emocional", level: "S — Superior", description: "Acessa, estuda e altera emoções, personalidade e memórias de outros seres através da mana." },
     attributes: {},
-    atributosGerais: { forca: "C", destreza: "A", vigor: "E", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 3, destreza: 5, vigor: 1, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     abilities: [
       { name: "Encantadora e Pesquisadora", grade: "S", description: "Domina magias de manipulação emocional/mental reconhecidas até por divindades." },
       { name: "Auto-Encantamento Marcial", grade: "A", description: "Torna-se temporariamente uma artista marcial experiente." },
@@ -665,10 +670,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
       { name: "Mercador Ocultista (Regra de Cobre)", description: "Ex-ajudante da Madame Satã e leitor de tarô. Tem trânsito natural entre mercadores e ocultistas e sabe conseguir recursos e informação." },
     ],
     attributes: {},
-    atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "D", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "C", resolucao: "E" },
+    atributosGerais: { forca: 1, destreza: 3, vigor: 1, carisma: 2, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 3, resolucao: 1 },
     proficiencias: {
-      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "C",
-      intuicao: "C", percepcao: "C", ocultismo: "D", financas: "D", persuasao: "D",
+      combateCorpoACorpo: 3, armasDeFogo: 1, magiasOfensivas: 1, defesaProf: 2, resistMagicaProf: 1, manipulacaoManaProf: 3,
+      intuicao: 3, percepcao: 3, ocultismo: 2, financas: 2, persuasao: 2,
     },
     procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
     attacks: [
@@ -715,10 +720,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
       { name: "Encantador", description: "Aplica encantamentos de mana em si e em aliados (Força, Mira, Velocidade, Esquiva), com trocas feitas na manutenção." },
     ],
     attributes: {},
-    atributosGerais: { forca: "C", destreza: "D", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 3, destreza: 2, vigor: 2, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     proficiencias: {
-      combateCorpoACorpo: "C", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "D",
-      atletismo: "D", intuicao: "D", ocultismo: "D", intimidacao: "D", percepcao: "D",
+      combateCorpoACorpo: 3, armasDeFogo: 1, magiasOfensivas: 1, defesaProf: 2, resistMagicaProf: 1, manipulacaoManaProf: 2,
+      atletismo: 2, intuicao: 2, ocultismo: 2, intimidacao: 2, percepcao: 2,
     },
     procs: ["persistente", "instinto_selvagem", "furia_crescente"],
     attacks: [
@@ -760,10 +765,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
       { name: "Bardo do Eco", description: "Toca baixo, bongos e o que aparecer. Usa a música para motivar tropas, distrair e amplificar o próprio poder sonoro." },
     ],
     attributes: {},
-    atributosGerais: { forca: "C", destreza: "E", vigor: "D", carisma: "E", manipulacao: "E", compostura: "E", inteligencia: "E", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 3, destreza: 1, vigor: 2, carisma: 1, manipulacao: 1, compostura: 1, inteligencia: 1, perspicacia: 1, resolucao: 1 },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "D", defesaProf: "E", resistMagicaProf: "D", manipulacaoManaProf: "D",
-      atuacao: "C", sobrevivencia: "D", intimidacao: "D",
+      combateCorpoACorpo: 2, armasDeFogo: 1, magiasOfensivas: 2, defesaProf: 1, resistMagicaProf: 2, manipulacaoManaProf: 2,
+      atuacao: 3, sobrevivencia: 2, intimidacao: 2,
     },
     procs: ["golpe_penetrante", "furia_crescente", "instinto_selvagem"],
     attacks: [
@@ -813,10 +818,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
       { name: "Sensora", description: "Marca até 5 pessoas numa rede de visão e comunicação compartilhada, transfere mana e prepara defesas nos marcados." },
     ],
     attributes: {},
-    atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "D", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "E" },
+    atributosGerais: { forca: 1, destreza: 3, vigor: 1, carisma: 1, manipulacao: 2, compostura: 1, inteligencia: 3, perspicacia: 1, resolucao: 1 },
     proficiencias: {
-      combateCorpoACorpo: "E", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "D",
-      ciencia: "C", magiasGerais: "C", furtividade: "D", subterfugio: "D", medicina: "D", etiqueta: "D",
+      combateCorpoACorpo: 1, armasDeFogo: 1, magiasOfensivas: 1, defesaProf: 2, resistMagicaProf: 1, manipulacaoManaProf: 2,
+      ciencia: 3, magiasGerais: 3, furtividade: 2, subterfugio: 2, medicina: 2, etiqueta: 2,
     },
     procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
     attacks: [
@@ -860,10 +865,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
       { name: "Batedora Furtiva", description: "Oculta a presença e ataca de surpresa. Boa atiradora de longa distância." },
     ],
     attributes: {},
-    atributosGerais: { forca: "E", destreza: "C", vigor: "E", carisma: "E", manipulacao: "E", compostura: "D", inteligencia: "E", perspicacia: "D", resolucao: "E" },
+    atributosGerais: { forca: 1, destreza: 3, vigor: 1, carisma: 1, manipulacao: 1, compostura: 2, inteligencia: 1, perspicacia: 2, resolucao: 1 },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "D", magiasOfensivas: "E", defesaProf: "E", resistMagicaProf: "E", manipulacaoManaProf: "D",
-      furtividade: "C", percepcao: "D", sobrevivencia: "D",
+      combateCorpoACorpo: 2, armasDeFogo: 2, magiasOfensivas: 1, defesaProf: 1, resistMagicaProf: 1, manipulacaoManaProf: 2,
+      furtividade: 3, percepcao: 2, sobrevivencia: 2,
     },
     procs: ["reflexo_agil", "golpe_certeiro", "furia_crescente"],
     attacks: [
@@ -907,10 +912,10 @@ const SIDEPOINT_CHARACTERS_RAW = [
       { name: "Sistema Nekron (Vitalidade)", description: "Troca vida própria e alma por cura: transfere HP para aliados, levanta aliados caídos e se recupera com SP." },
     ],
     attributes: {},
-    atributosGerais: { forca: "D", destreza: "E", vigor: "D", carisma: "C", manipulacao: "E", compostura: "E", inteligencia: "C", perspicacia: "E", resolucao: "D" },
+    atributosGerais: { forca: 2, destreza: 1, vigor: 2, carisma: 3, manipulacao: 1, compostura: 1, inteligencia: 3, perspicacia: 1, resolucao: 2 },
     proficiencias: {
-      combateCorpoACorpo: "D", armasDeFogo: "E", magiasOfensivas: "E", defesaProf: "D", resistMagicaProf: "E", manipulacaoManaProf: "E",
-      lideranca: "B", medicina: "C", magiasGerais: "C", ocultismo: "C", persuasao: "D",
+      combateCorpoACorpo: 2, armasDeFogo: 1, magiasOfensivas: 1, defesaProf: 2, resistMagicaProf: 1, manipulacaoManaProf: 1,
+      lideranca: 4, medicina: 3, magiasGerais: 3, ocultismo: 3, persuasao: 2,
     },
     procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
     attacks: [
@@ -975,26 +980,26 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "C",
-      "destreza": "D",
-      "vigor": "C",
-      "carisma": "B",
-      "manipulacao": "B",
-      "compostura": "A",
-      "inteligencia": "B",
-      "perspicacia": "B",
-      "resolucao": "A"
+      "forca": 3,
+      "destreza": 2,
+      "vigor": 3,
+      "carisma": 4,
+      "manipulacao": 4,
+      "compostura": 5,
+      "inteligencia": 4,
+      "perspicacia": 4,
+      "resolucao": 5
     },
     "proficiencias": {
-      "combateCorpoACorpo": "C",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "D",
-      "defesaProf": "C",
-      "resistMagicaProf": "C",
-      "manipulacaoManaProf": "C",
-      "lideranca": "A",
-      "politica": "A",
-      "persuasao": "B"
+      "combateCorpoACorpo": 3,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 2,
+      "defesaProf": 3,
+      "resistMagicaProf": 3,
+      "manipulacaoManaProf": 3,
+      "lideranca": 5,
+      "politica": 5,
+      "persuasao": 4
     },
     "procs": [
       "golpe_penetrante",
@@ -1103,23 +1108,23 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "E",
-      "destreza": "E",
-      "vigor": "E",
-      "carisma": "E",
-      "manipulacao": "E",
-      "compostura": "E",
-      "inteligencia": "E",
-      "perspicacia": "E",
-      "resolucao": "E"
+      "forca": 1,
+      "destreza": 1,
+      "vigor": 1,
+      "carisma": 1,
+      "manipulacao": 1,
+      "compostura": 1,
+      "inteligencia": 1,
+      "perspicacia": 1,
+      "resolucao": 1
     },
     "proficiencias": {
-      "combateCorpoACorpo": "E",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "E",
-      "resistMagicaProf": "E",
-      "manipulacaoManaProf": "E"
+      "combateCorpoACorpo": 1,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 1,
+      "resistMagicaProf": 1,
+      "manipulacaoManaProf": 1
     },
     "procs": [],
     "attacks": [
@@ -1201,26 +1206,26 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "B",
-      "destreza": "E",
-      "vigor": "A",
-      "carisma": "D",
-      "manipulacao": "C",
-      "compostura": "B",
-      "inteligencia": "D",
-      "perspicacia": "D",
-      "resolucao": "C"
+      "forca": 4,
+      "destreza": 1,
+      "vigor": 5,
+      "carisma": 2,
+      "manipulacao": 3,
+      "compostura": 4,
+      "inteligencia": 2,
+      "perspicacia": 2,
+      "resolucao": 3
     },
     "proficiencias": {
-      "combateCorpoACorpo": "C",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "E",
-      "resistMagicaProf": "E",
-      "manipulacaoManaProf": "C",
-      "lideranca": "B",
-      "politica": "C",
-      "persuasao": "D"
+      "combateCorpoACorpo": 3,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 1,
+      "resistMagicaProf": 1,
+      "manipulacaoManaProf": 3,
+      "lideranca": 4,
+      "politica": 3,
+      "persuasao": 2
     },
     "procs": [
       "instinto_selvagem",
@@ -1336,25 +1341,25 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "B",
-      "destreza": "C",
-      "vigor": "B",
-      "carisma": "C",
-      "manipulacao": "C",
-      "compostura": "A",
-      "inteligencia": "C",
-      "perspicacia": "C",
-      "resolucao": "B"
+      "forca": 4,
+      "destreza": 3,
+      "vigor": 4,
+      "carisma": 3,
+      "manipulacao": 3,
+      "compostura": 5,
+      "inteligencia": 3,
+      "perspicacia": 3,
+      "resolucao": 4
     },
     "proficiencias": {
-      "combateCorpoACorpo": "C",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "D",
-      "defesaProf": "C",
-      "resistMagicaProf": "B",
-      "manipulacaoManaProf": "C",
-      "lideranca": "B",
-      "intimidacao": "C"
+      "combateCorpoACorpo": 3,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 2,
+      "defesaProf": 3,
+      "resistMagicaProf": 4,
+      "manipulacaoManaProf": 3,
+      "lideranca": 4,
+      "intimidacao": 3
     },
     "procs": [
       "instinto_selvagem",
@@ -1451,24 +1456,24 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "B",
-      "destreza": "C",
-      "vigor": "A",
-      "carisma": "D",
-      "manipulacao": "E",
-      "compostura": "B",
-      "inteligencia": "E",
-      "perspicacia": "D",
-      "resolucao": "B"
+      "forca": 4,
+      "destreza": 3,
+      "vigor": 5,
+      "carisma": 2,
+      "manipulacao": 1,
+      "compostura": 4,
+      "inteligencia": 1,
+      "perspicacia": 2,
+      "resolucao": 4
     },
     "proficiencias": {
-      "combateCorpoACorpo": "C",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "D",
-      "defesaProf": "B",
-      "resistMagicaProf": "C",
-      "manipulacaoManaProf": "C",
-      "atletismo": "C"
+      "combateCorpoACorpo": 3,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 2,
+      "defesaProf": 4,
+      "resistMagicaProf": 3,
+      "manipulacaoManaProf": 3,
+      "atletismo": 3
     },
     "procs": [
       "instinto_selvagem",
@@ -1583,27 +1588,27 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "C",
-      "destreza": "E",
-      "vigor": "C",
-      "carisma": "E",
-      "manipulacao": "C",
-      "compostura": "A",
-      "inteligencia": "A",
-      "perspicacia": "B",
-      "resolucao": "A"
+      "forca": 3,
+      "destreza": 1,
+      "vigor": 3,
+      "carisma": 1,
+      "manipulacao": 3,
+      "compostura": 5,
+      "inteligencia": 5,
+      "perspicacia": 4,
+      "resolucao": 5
     },
     "proficiencias": {
-      "combateCorpoACorpo": "E",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "A",
-      "defesaProf": "D",
-      "resistMagicaProf": "B",
-      "manipulacaoManaProf": "C",
-      "ciencia": "A",
-      "medicina": "A",
-      "magiasGerais": "B",
-      "ocultismo": "C"
+      "combateCorpoACorpo": 1,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 5,
+      "defesaProf": 2,
+      "resistMagicaProf": 4,
+      "manipulacaoManaProf": 3,
+      "ciencia": 5,
+      "medicina": 5,
+      "magiasGerais": 4,
+      "ocultismo": 3
     },
     "procs": [
       "escudo_de_mana",
@@ -1711,24 +1716,24 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "C",
-      "destreza": "B",
-      "vigor": "C",
-      "carisma": "E",
-      "manipulacao": "E",
-      "compostura": "B",
-      "inteligencia": "C",
-      "perspicacia": "B",
-      "resolucao": "A"
+      "forca": 3,
+      "destreza": 4,
+      "vigor": 3,
+      "carisma": 1,
+      "manipulacao": 1,
+      "compostura": 4,
+      "inteligencia": 3,
+      "perspicacia": 4,
+      "resolucao": 5
     },
     "proficiencias": {
-      "combateCorpoACorpo": "B",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "B",
-      "resistMagicaProf": "E",
-      "manipulacaoManaProf": "B",
-      "sobrevivencia": "D"
+      "combateCorpoACorpo": 4,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 4,
+      "resistMagicaProf": 1,
+      "manipulacaoManaProf": 4,
+      "sobrevivencia": 2
     },
     "procs": [
       "golpe_certeiro",
@@ -1843,24 +1848,24 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "B",
-      "destreza": "C",
-      "vigor": "B",
-      "carisma": "D",
-      "manipulacao": "D",
-      "compostura": "B",
-      "inteligencia": "C",
-      "perspicacia": "C",
-      "resolucao": "E"
+      "forca": 4,
+      "destreza": 3,
+      "vigor": 4,
+      "carisma": 2,
+      "manipulacao": 2,
+      "compostura": 4,
+      "inteligencia": 3,
+      "perspicacia": 3,
+      "resolucao": 1
     },
     "proficiencias": {
-      "combateCorpoACorpo": "D",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "C",
-      "resistMagicaProf": "D",
-      "manipulacaoManaProf": "B",
-      "lideranca": "C"
+      "combateCorpoACorpo": 2,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 3,
+      "resistMagicaProf": 2,
+      "manipulacaoManaProf": 4,
+      "lideranca": 3
     },
     "procs": [
       "golpe_certeiro",
@@ -1958,26 +1963,26 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "D",
-      "destreza": "A",
-      "vigor": "C",
-      "carisma": "E",
-      "manipulacao": "E",
-      "compostura": "C",
-      "inteligencia": "C",
-      "perspicacia": "C",
-      "resolucao": "B"
+      "forca": 2,
+      "destreza": 5,
+      "vigor": 3,
+      "carisma": 1,
+      "manipulacao": 1,
+      "compostura": 3,
+      "inteligencia": 3,
+      "perspicacia": 3,
+      "resolucao": 4
     },
     "proficiencias": {
-      "combateCorpoACorpo": "C",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "A",
-      "resistMagicaProf": "C",
-      "manipulacaoManaProf": "A",
-      "furtividade": "B",
-      "sobrevivencia": "C",
-      "percepcao": "C"
+      "combateCorpoACorpo": 3,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 5,
+      "resistMagicaProf": 3,
+      "manipulacaoManaProf": 5,
+      "furtividade": 4,
+      "sobrevivencia": 3,
+      "percepcao": 3
     },
     "procs": [
       "reflexo_agil",
@@ -2075,23 +2080,23 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "B",
-      "destreza": "C",
-      "vigor": "A",
-      "carisma": "E",
-      "manipulacao": "D",
-      "compostura": "C",
-      "inteligencia": "E",
-      "perspicacia": "E",
-      "resolucao": "C"
+      "forca": 4,
+      "destreza": 3,
+      "vigor": 5,
+      "carisma": 1,
+      "manipulacao": 2,
+      "compostura": 3,
+      "inteligencia": 1,
+      "perspicacia": 1,
+      "resolucao": 3
     },
     "proficiencias": {
-      "combateCorpoACorpo": "E",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "C",
-      "resistMagicaProf": "C",
-      "manipulacaoManaProf": "B"
+      "combateCorpoACorpo": 1,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 3,
+      "resistMagicaProf": 3,
+      "manipulacaoManaProf": 4
     },
     "procs": [
       "instinto_selvagem",
@@ -2195,25 +2200,25 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "D",
-      "destreza": "B",
-      "vigor": "C",
-      "carisma": "C",
-      "manipulacao": "C",
-      "compostura": "A",
-      "inteligencia": "C",
-      "perspicacia": "C",
-      "resolucao": "B"
+      "forca": 2,
+      "destreza": 4,
+      "vigor": 3,
+      "carisma": 3,
+      "manipulacao": 3,
+      "compostura": 5,
+      "inteligencia": 3,
+      "perspicacia": 3,
+      "resolucao": 4
     },
     "proficiencias": {
-      "combateCorpoACorpo": "B",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "B",
-      "resistMagicaProf": "C",
-      "manipulacaoManaProf": "B",
-      "lideranca": "B",
-      "intimidacao": "C"
+      "combateCorpoACorpo": 4,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 4,
+      "resistMagicaProf": 3,
+      "manipulacaoManaProf": 4,
+      "lideranca": 4,
+      "intimidacao": 3
     },
     "procs": [
       "golpe_certeiro",
@@ -2320,25 +2325,25 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "D",
-      "destreza": "D",
-      "vigor": "D",
-      "carisma": "D",
-      "manipulacao": "E",
-      "compostura": "B",
-      "inteligencia": "B",
-      "perspicacia": "D",
-      "resolucao": "B"
+      "forca": 2,
+      "destreza": 2,
+      "vigor": 2,
+      "carisma": 2,
+      "manipulacao": 1,
+      "compostura": 4,
+      "inteligencia": 4,
+      "perspicacia": 2,
+      "resolucao": 4
     },
     "proficiencias": {
-      "combateCorpoACorpo": "E",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "B",
-      "defesaProf": "C",
-      "resistMagicaProf": "A",
-      "manipulacaoManaProf": "C",
-      "lideranca": "D",
-      "magiasGerais": "C"
+      "combateCorpoACorpo": 1,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 4,
+      "defesaProf": 3,
+      "resistMagicaProf": 5,
+      "manipulacaoManaProf": 3,
+      "lideranca": 2,
+      "magiasGerais": 3
     },
     "procs": [
       "surto_arcano",
@@ -2437,24 +2442,24 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "C",
-      "destreza": "B",
-      "vigor": "C",
-      "carisma": "E",
-      "manipulacao": "D",
-      "compostura": "B",
-      "inteligencia": "C",
-      "perspicacia": "C",
-      "resolucao": "C"
+      "forca": 3,
+      "destreza": 4,
+      "vigor": 3,
+      "carisma": 1,
+      "manipulacao": 2,
+      "compostura": 4,
+      "inteligencia": 3,
+      "perspicacia": 3,
+      "resolucao": 3
     },
     "proficiencias": {
-      "combateCorpoACorpo": "B",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "C",
-      "defesaProf": "C",
-      "resistMagicaProf": "D",
-      "manipulacaoManaProf": "B",
-      "lideranca": "D"
+      "combateCorpoACorpo": 4,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 3,
+      "defesaProf": 3,
+      "resistMagicaProf": 2,
+      "manipulacaoManaProf": 4,
+      "lideranca": 2
     },
     "procs": [
       "golpe_certeiro",
@@ -2574,27 +2579,27 @@ const SUTH_CHARACTERS_RAW = [
     ],
     "attributes": {},
     "atributosGerais": {
-      "forca": "E",
-      "destreza": "B",
-      "vigor": "D",
-      "carisma": "D",
-      "manipulacao": "C",
-      "compostura": "D",
-      "inteligencia": "D",
-      "perspicacia": "C",
-      "resolucao": "B"
+      "forca": 1,
+      "destreza": 4,
+      "vigor": 2,
+      "carisma": 2,
+      "manipulacao": 3,
+      "compostura": 2,
+      "inteligencia": 2,
+      "perspicacia": 3,
+      "resolucao": 4
     },
     "proficiencias": {
-      "combateCorpoACorpo": "D",
-      "armasDeFogo": "E",
-      "magiasOfensivas": "E",
-      "defesaProf": "B",
-      "resistMagicaProf": "C",
-      "manipulacaoManaProf": "C",
-      "persuasao": "C",
-      "politica": "D",
-      "financas": "D",
-      "tecnologia": "D"
+      "combateCorpoACorpo": 2,
+      "armasDeFogo": 1,
+      "magiasOfensivas": 1,
+      "defesaProf": 4,
+      "resistMagicaProf": 3,
+      "manipulacaoManaProf": 3,
+      "persuasao": 3,
+      "politica": 2,
+      "financas": 2,
+      "tecnologia": 2
     },
     "procs": [
       "reflexo_agil",
@@ -2732,25 +2737,25 @@ const FICHA_NOVA_FATE = {
   ],
   "attributes": {},
   "atributosGerais": {
-    "forca": "D",
-    "destreza": "A",
-    "vigor": "D",
-    "carisma": "D",
-    "manipulacao": "E",
-    "compostura": "B",
-    "inteligencia": "C",
-    "perspicacia": "B",
-    "resolucao": "A"
+    "forca": 2,
+    "destreza": 5,
+    "vigor": 2,
+    "carisma": 2,
+    "manipulacao": 1,
+    "compostura": 4,
+    "inteligencia": 3,
+    "perspicacia": 4,
+    "resolucao": 5
   },
   "proficiencias": {
-    "combateCorpoACorpo": "A",
-    "armasDeFogo": "E",
-    "magiasOfensivas": "E",
-    "defesaProf": "A",
-    "resistMagicaProf": "D",
-    "manipulacaoManaProf": "A",
-    "intimidacao": "B",
-    "percepcao": "C"
+    "combateCorpoACorpo": 5,
+    "armasDeFogo": 1,
+    "magiasOfensivas": 1,
+    "defesaProf": 5,
+    "resistMagicaProf": 2,
+    "manipulacaoManaProf": 5,
+    "intimidacao": 4,
+    "percepcao": 3
   },
   "procs": [
     "reflexo_agil",
@@ -3142,8 +3147,8 @@ const HETALION_CHARACTERS_RAW = [
       { name: "Sacerdote de Kronos", description: "Ritos e conhecimento sacerdotal de Kronos, como Chaeskele Boda, de Katalão." },
       { name: "Mago da Associação de Magia", description: "Magias de combate e utilidade de um mago habilidoso; estilo de suporte à distância, sem entrar em combate corpo a corpo." },
     ],
-    atributosGerais: { forca: "E", destreza: "C", vigor: "D", carisma: "C", manipulacao: "B", compostura: "B", inteligencia: "A", perspicacia: "B", resolucao: "B" },
-    proficiencias: { armasDeFogo: "E", combateCorpoACorpo: "E", magiasOfensivas: "A", defesaProf: "D", resistMagicaProf: "B", manipulacaoManaProf: "A" },
+    atributosGerais: { forca: 1, destreza: 3, vigor: 2, carisma: 3, manipulacao: 4, compostura: 4, inteligencia: 5, perspicacia: 4, resolucao: 4 },
+    proficiencias: { armasDeFogo: 1, combateCorpoACorpo: 1, magiasOfensivas: 5, defesaProf: 2, resistMagicaProf: 4, manipulacaoManaProf: 5 },
     procs: ["reflexo_agil", "surto_arcano", "escudo_de_mana"],
     hp: { current: 3, max: 3 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
     history: "A família de Valefor segue Kronos há gerações; ele cresceu cumprindo o que se esperava dele, virando sacerdote de Kronos e mago da Associação de Magia porque era o esperado, não por escolha. Para ele, a Prime e a tradição eram tudo — foi zeloso e fiel, cegamente, por boa parte do tempo, e via Hoshon como seu superior e como tudo o que precisava ser. Foi ao conhecer Hetalion Seguintes que passou a pensar fora do molde que lhe deram; hoje se dedica a ela e procura decidir o próprio destino. Recentemente soube do plano secreto de Yurity e Crikon (ampliar a influência de Seguintes para derrubar o governo atual de Hetalion). Não sabe o que pensar, mas está disposto a ver aonde vai e quer decidir por conta própria. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade, o 'poder de alma' e as magias de combate específicas ainda não foram definidos; ver notas do mestre do reino.]",
@@ -3162,8 +3167,8 @@ const HETALION_CHARACTERS_RAW = [
       { name: "Comandante do Exército Vermelho", description: "Lidera o braço armado do Partido Vermelho de Hetalion; estilo de suporte e bombardeio à longa distância." },
       { name: "Conspiradora política", description: "Usa a posição para ampliar influência junto de Hetalion Seguintes, com o objetivo de derrubar o governo atual de Hetalion e enfrentar Amaranth." },
     ],
-    atributosGerais: { forca: "D", destreza: "B", vigor: "C", carisma: "B", manipulacao: "A", compostura: "C", inteligencia: "B", perspicacia: "A", resolucao: "A" },
-    proficiencias: { armasDeFogo: "B", combateCorpoACorpo: "D", magiasOfensivas: "A", defesaProf: "C", resistMagicaProf: "B", manipulacaoManaProf: "B" },
+    atributosGerais: { forca: 2, destreza: 4, vigor: 3, carisma: 4, manipulacao: 5, compostura: 3, inteligencia: 4, perspicacia: 5, resolucao: 5 },
+    proficiencias: { armasDeFogo: 4, combateCorpoACorpo: 2, magiasOfensivas: 5, defesaProf: 3, resistMagicaProf: 4, manipulacaoManaProf: 4 },
     procs: ["toque_flamejante", "surto_arcano", "escudo_de_mana"],
     hp: { current: 4, max: 4 }, mp: { current: 3, max: 3 }, sp: { current: 3, max: 3 },
     history: "Yurity é filha da antiga general do Partido Vermelho, que morreu em serviço durante a guerra em Amaranth, há cerca de 20 anos. Para o povo, a mãe morreu como heroína; para Yurity, a morte foi desnecessária, causada pela negligência de Amaranth. O ódio por Amaranth mudou a forma como ela vê o mundo — pra ela, o continente inteiro está preso nas garras de Karphel e de um status quo que ninguém questiona. Seu plano é crescer no Exército Vermelho, ampliar a influência junto de Hetalion Seguintes e ter poder pra derrubar o governo atual de Hetalion, enfrentar Amaranth e se libertar desses grilhões. No início usava Seguintes como degrau; hoje a vê como aliada próxima — foi Yurity quem acendeu a centelha revolucionária de Seguintes, e Seguintes disse que não sacrificaria Yurity nem Crikon. [Estatísticas estimadas a partir do dossiê enviado pelo mestre — conferidas contra as fórmulas do engine.js, mas o nível da singularidade e as regras do Elo (limite de conectados, alcance, custo) ainda não foram definidos; ver notas do mestre do reino.]",
@@ -6030,10 +6035,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     atributoKey: "destreza",
     feridas: armaEquipadaCatalogo.feridas,
     superficial: armaEquipadaCatalogo.superficial,
-    // 24/10: Descritor 2 só pra quem é treinado na proficiência da arma
-    // (grau E+ ou Treino de ofício — passiva de Magias de guerra, Treino em
-    // Armas/Armas de Fogo), ver data/armas.js:treinadoNaArma.
-    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, treinadoNaArma(characterEfetivo, armaEquipadaCatalogo, periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaEquipadaCatalogo)), character.equipamento?.descritorArmaEscolhido),
+    // 28/10: os descritores marcados no slot Arma (um ou os dois), ver
+    // data/armas.js:normalizarDescritoresArma.
+    descritores: descritoresEfetivosArma(armaEquipadaCatalogo, normalizarDescritoresArma(character.equipamento?.descritoresArma ?? character.equipamento?.descritorArmaEscolhido, armaEquipadaCatalogo)),
   } : null;
   const hasHabilidades = ["ativas", "especial", "racial", "passivas", "extras"].some((k) => (habilidadesFicha[k] || []).length);
 
@@ -6449,7 +6453,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   <Field label="Arma">
                     <select
                       style={inputStyle} value={eq.armaId || ""} disabled={!onUpdateCharacter}
-                      onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, armaId: e.target.value || null, temPericiaArma: false, descritorArmaEscolhido: 1 } })}
+                      onChange={(e) => onUpdateCharacter(character.id, { equipamento: { ...eq, armaId: e.target.value || null, temPericiaArma: false, descritorArmaEscolhido: 1, descritoresArma: [1] } })}
                     >
                       <option value="">(nenhuma)</option>
                       {ARMAS.map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
@@ -6465,33 +6469,33 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         />
                       </Field>
                       {(() => {
+                        // 28/10: marca um ou os dois descritores da arma
+                        // (equipamento.descritoresArma) — sem trava por
+                        // proficiência; ao menos um fica marcado.
                         const profKey = profKeyDaArma(armaCatalogo);
                         const profLabel = PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label;
                         const grau = characterEfetivo.proficiencias?.[profKey] ?? 0;
-                        const porOficio = periciaDeOficioCobreArma(characterEfetivo.periciasOficio, armaCatalogo);
-                        const treinado = treinadoNaArma(characterEfetivo, armaCatalogo, porOficio);
-                        // 27/10: sem treino, escolhe 1 dos 2 descritores
-                        // (equipamento.descritorArmaEscolhido, padrão 1);
-                        // treinado, usa os dois.
-                        const escolhido = eq.descritorArmaEscolhido === 2 ? 2 : 1;
+                        const marcados = normalizarDescritoresArma(eq.descritoresArma ?? eq.descritorArmaEscolhido, armaCatalogo);
+                        function alternar(n) {
+                          const novo = marcados.includes(n) ? marcados.filter((x) => x !== n) : [...marcados, n].sort();
+                          if (novo.length === 0) return;
+                          onUpdateCharacter(character.id, { equipamento: { ...eq, descritoresArma: novo } });
+                        }
                         return (
                           <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>
-                            {profLabel} {grau}{porOficio ? " · Treino pelos ofícios" : ""} — {treinado
-                              ? <>treinado: <Descritor token={armaCatalogo.descritor1} />{armaCatalogo.descritor2 && <> e <Descritor token={armaCatalogo.descritor2} /></>} valem</>
-                              : <>sem treino (grau 0): escolha 1 descritor</>}
-                            {!treinado && armaCatalogo.descritor2 && (
-                              <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
-                                {[1, 2].map((n) => (
-                                  <label key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                    <input
-                                      type="radio" name={`descritor-arma-${character.id}`} checked={escolhido === n} disabled={!onUpdateCharacter}
-                                      onChange={() => onUpdateCharacter(character.id, { equipamento: { ...eq, descritorArmaEscolhido: n } })}
-                                    />
-                                    <Descritor token={n === 1 ? armaCatalogo.descritor1 : armaCatalogo.descritor2} />
-                                  </label>
-                                ))}
-                              </div>
-                            )}
+                            {profLabel} {grau} — descritores em uso:
+                            <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
+                              {[1, 2].filter((n) => n === 1 || armaCatalogo.descritor2).map((n) => (
+                                <label key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <input
+                                    type="checkbox" checked={marcados.includes(n)} disabled={!onUpdateCharacter || (marcados.length === 1 && marcados.includes(n))}
+                                    onChange={() => alternar(n)}
+                                  />
+                                  <Descritor token={n === 1 ? armaCatalogo.descritor1 : armaCatalogo.descritor2} />
+                                </label>
+                              ))}
+                              {armaCatalogo.extra === "pesado" && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>+ <Descritor token="pesado" /></span>}
+                            </div>
                           </div>
                         );
                       })()}
@@ -6540,6 +6544,17 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         {armadurasDoSlot(slot).map((a) => <option key={a.id} value={a.id}>{a.nome}</option>)}
                       </select>
                     </Field>
+                    {/* 28/10: descritores (e bônus/extra) da peça logo abaixo
+                        dela, assim que escolhida. Nas peças com mana, valem
+                        só com a mana ativa (caixa "Ativa" abaixo). */}
+                    {peca && ((peca.descritoresConcedidos || []).length > 0 || peca.bonusDefesa > 0 || peca.extra) && (
+                      <div style={{ fontSize: 11, color: MUTED, marginTop: 4, display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                        {(peca.descritoresConcedidos || []).map((id) => <Descritor key={id} token={id} />)}
+                        {peca.bonusDefesa > 0 && <span>+{peca.bonusDefesa} dado na Defesa</span>}
+                        {peca.custoManaAtivar > 0 && <span>(com a mana ativa)</span>}
+                        {peca.extra && <span style={{ flexBasis: "100%", fontStyle: "italic" }}>{peca.extra}</span>}
+                      </div>
+                    )}
                     {peca && periciaKey && peca.periciaFamilia && periciaDeOficioCobreArmadura(characterEfetivo.periciasOficio, peca) && (
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: MUTED, marginTop: 4 }}>
                         <input type="checkbox" checked disabled />
@@ -6596,7 +6611,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               </div>
             )}
             <div style={{ fontSize: 10, color: MUTED, marginTop: 10, fontStyle: "italic" }}>
-              Ataques físicos: dados = Destreza + proficiência da arma (Armas, Desarmado ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau 0) não há dados de proficiência e a arma usa só 1 dos 2 descritores, à escolha; com treino, os dois. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
+              Ataques físicos: dados = Destreza + proficiência da arma (Armas, Desarmado ou Armas de Fogo) + ajuste, sucesso 6+ (7+ contra Blindado, exceto Perfurante). Sem treino (grau 0) não há dados de proficiência. Magias equipadas nas Disciplinas aparecem aqui também (dados = Base mágica + Inteligência + Magia Ofensiva) — pra conjurar de verdade, com escolha de mana extra e do atributo, use a aba "Magia" no painel Teste. Use o Confronto pra resolver contra um alvo.
             </div>
           </div>
 
@@ -13186,7 +13201,7 @@ function RulesView() {
 
       <SectionTitle icon={Swords}>Catálogo de Armas (tipos)</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 10px" }}>
-        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Sem treino na proficiência da arma, escolha 1 dos 2 descritores; com treino (grau 1+ ou Treino de ofício), valem os dois (27/10). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas.
+        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Na ficha, marque qual descritor a arma usa (um ou os dois). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas.
       </p>
       {ARMAS.map((a) => (
         <div key={a.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
@@ -13201,7 +13216,7 @@ function RulesView() {
             <Descritor token={a.descritor1} />{a.descritor2 && <><span>ou</span><Descritor token={a.descritor2} /></>}
             {a.extra === "pesado" && <Descritor token="pesado" />}
           </div>
-          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Proficiência: {PROFICIENCIAS_LIST.find((p) => p.key === profKeyDaArma(a))?.label} (treinado: os dois descritores)</div>
+          <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Proficiência: {PROFICIENCIAS_LIST.find((p) => p.key === profKeyDaArma(a))?.label}</div>
         </div>
       ))}
 
@@ -13335,6 +13350,18 @@ export default function App() {
   const [confirmState, setConfirmState] = useState(null);
   const backupInputRef = useRef(null);
   const seedCheckedRef = useRef(false);
+  // Sincronização em tempo real (29/10, ver sincronizacao.js):
+  // snapshotRef = último estado de cada ficha confirmado no banco (Map
+  // id -> ficha), ou null quando não há Supabase (modo offline, sem
+  // sincronizar); ordensRef = posição de cada ficha na lista (coluna
+  // `ordem`); chavesRef = último JSON de cada chave de point_kv lido ou
+  // gravado (pra não regravar o que acabou de chegar de outra pessoa).
+  const snapshotRef = useRef(null);
+  const ordensRef = useRef(new Map());
+  const charactersRef = useRef(characters);
+  const envioRef = useRef({ timer: null, enviando: false, repetir: false });
+  const chavesRef = useRef({});
+  const [statusAoVivo, setStatusAoVivo] = useState(null);
 
   function askConfirm(message, action, options) {
     setConfirmState({ message, action, ...options });
@@ -13366,9 +13393,26 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const c = await storage.get("point-characters");
-        if (c?.value) {
-          const loadedChars = JSON.parse(c.value);
+        // 29/10: as fichas vêm da tabela point_personagens (uma linha por
+        // ficha). Tabela vazia (primeiro acesso desta versão) = copia de
+        // point_kv "point-characters" e sobe linha por linha (snapshot
+        // vazio, o envio abaixo insere tudo). Sem Supabase/offline
+        // (remotos === null) = modo antigo, sem sincronizar.
+        const remotos = await carregarPersonagensRemotos(supabase);
+        let loadedChars = null;
+        if (remotos && remotos.length > 0) {
+          loadedChars = remotos.map((r) => r.data);
+          snapshotRef.current = new Map(remotos.map((r) => [r.id, r.data]));
+          for (const r of remotos) ordensRef.current.set(r.id, r.ordem);
+        } else {
+          const c = await storage.get("point-characters");
+          if (c?.value) loadedChars = JSON.parse(c.value);
+          if (remotos) {
+            snapshotRef.current = new Map();
+            (loadedChars || []).forEach((ch, i) => { if (ch?.id) ordensRef.current.set(ch.id, i); });
+          }
+        }
+        if (loadedChars) {
           // Migração de formato antigo -> novo (renomeia/remove ataques legados,
           // tipa ataques sem "tipo", repõe ataques padrão, corrige defaults de
           // Defesa/Resistência, atributos no formato antigo, Grupo/Raça+Classes,
@@ -13503,16 +13547,110 @@ export default function App() {
     })();
   }, []);
 
-  useEffect(() => { if (loaded) storage.set("point-characters", JSON.stringify(characters)).catch(() => {}); }, [characters, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-cidades-overrides", JSON.stringify(cidadesOverrides)).catch(() => {}); }, [cidadesOverrides, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-pessoas-overrides", JSON.stringify(pessoasOverrides)).catch(() => {}); }, [pessoasOverrides, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-npcs-overrides", JSON.stringify(npcsOverrides)).catch(() => {}); }, [npcsOverrides, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-rotas", JSON.stringify(rotas)).catch(() => {}); }, [rotas, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-encontro", JSON.stringify(encontro)).catch(() => {}); }, [encontro, loaded]);
+  // Fichas (29/10): cache local sempre; no banco, só o que mudou (campos de
+  // topo de cada ficha alterada, ~250 ms depois da última mudança), via
+  // point_personagem_patch, que mescla com o que já está lá.
+  async function enviarFichasPendentes() {
+    const envio = envioRef.current;
+    const snap = snapshotRef.current;
+    if (!snap || !supabase) return;
+    if (envio.enviando) { envio.repetir = true; return; }
+    envio.enviando = true;
+    let falhou = false;
+    try {
+      const atuais = charactersRef.current;
+      const { alterados, removidos } = diffPersonagens(snap, atuais);
+      for (const { id, patch } of alterados) {
+        const anterior = snap.get(id);
+        snap.set(id, atuais.find((p) => p.id === id));
+        let ordem = ordensRef.current.get(id);
+        if (ordem == null) {
+          ordem = Math.max(Date.now(), ...[...ordensRef.current.values()].map((v) => v + 1));
+          ordensRef.current.set(id, ordem);
+        }
+        try { await enviarPatchPersonagem(supabase, id, patch, ordem); }
+        catch (e) { if (anterior) snap.set(id, anterior); else snap.delete(id); falhou = true; }
+      }
+      for (const id of removidos) {
+        const anterior = snap.get(id);
+        snap.delete(id);
+        try { await apagarPersonagemRemoto(supabase, id); }
+        catch (e) { snap.set(id, anterior); falhou = true; }
+      }
+    } finally {
+      envio.enviando = false;
+    }
+    if (envio.repetir || falhou) {
+      envio.repetir = false;
+      setTimeout(enviarFichasPendentes, falhou ? 3000 : 0);
+    }
+  }
+  useEffect(() => {
+    charactersRef.current = characters;
+    if (!loaded) return;
+    storage.setLocal("point-characters", JSON.stringify(characters));
+    if (!snapshotRef.current || !supabase) return;
+    clearTimeout(envioRef.current.timer);
+    envioRef.current.timer = setTimeout(enviarFichasPendentes, 250);
+  }, [characters, loaded]);
+
+  // Demais chaves compartilhadas (point_kv): grava quando muda, menos
+  // quando o valor acabou de chegar de outra pessoa (chavesRef).
+  function salvarChave(chave, valor) {
+    const json = JSON.stringify(valor);
+    if (chavesRef.current[chave] === json) return;
+    chavesRef.current[chave] = json;
+    storage.set(chave, json).catch(() => {});
+  }
+  useEffect(() => { if (loaded) salvarChave("point-kingdoms", kingdoms); }, [kingdoms, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-cidades-overrides", cidadesOverrides); }, [cidadesOverrides, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-pessoas-overrides", pessoasOverrides); }, [pessoasOverrides, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-npcs-overrides", npcsOverrides); }, [npcsOverrides, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-gods", gods); }, [gods, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-sagas", sagas); }, [sagas, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-objectives", objectives); }, [objectives, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-rotas", rotas); }, [rotas, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-encontro", encontro); }, [encontro, loaded]);
+
+  // Tempo real (29/10): mudanças de outras pessoas chegam na hora — fichas
+  // (point_personagens) e as demais chaves (point_kv). Ao (re)conectar,
+  // recarrega tudo, pra cobrir o que passou enquanto a conexão estava fora.
+  useEffect(() => {
+    if (!loaded || !supabase || !snapshotRef.current) return undefined;
+    function aplicarFichas(fn) {
+      const atual = charactersRef.current;
+      const novo = fn(atual);
+      if (novo !== atual) { charactersRef.current = novo; setCharacters(novo); }
+    }
+    const setterDaChave = {
+      "point-kingdoms": (v) => setKingdoms(v),
+      "point-cidades-overrides": (v) => setCidadesOverrides(v),
+      "point-pessoas-overrides": (v) => setPessoasOverrides(v),
+      "point-npcs-overrides": (v) => setNpcsOverrides(v),
+      "point-gods": (v) => setGods(v),
+      "point-sagas": (v) => setSagas(v),
+      "point-objectives": (v) => setObjectives(v),
+      "point-rotas": (v) => setRotas(migrarRotas(v)),
+      "point-encontro": (v) => setEncontro(normalizarEncontro(v)),
+    };
+    return assinarMudancas(supabase, {
+      aoMudarPersonagem: (linha) => aplicarFichas((atual) => aplicarLinhaRemota(atual, snapshotRef.current, ordensRef.current, linha)),
+      aoApagarPersonagem: (id) => aplicarFichas((atual) => removerLinhaRemota(atual, snapshotRef.current, ordensRef.current, id)),
+      aoMudarChave: (chave, valor) => {
+        const setter = setterDaChave[chave];
+        if (!setter) return;
+        const json = JSON.stringify(valor);
+        if (chavesRef.current[chave] === json) return;
+        chavesRef.current[chave] = json;
+        setter(valor);
+      },
+      aoReconectar: async () => {
+        const linhas = await carregarPersonagensRemotos(supabase);
+        if (linhas) aplicarFichas((atual) => aplicarRecarga(atual, snapshotRef.current, ordensRef.current, linhas));
+      },
+      aoMudarStatus: setStatusAoVivo,
+    });
+  }, [loaded]);
 
   const filtered = useMemo(() => {
     const porGrupo = grupoFilter === "todos" ? characters : characters.filter((c) => grupoDoPersonagem(c) === grupoFilter);
@@ -13923,6 +14061,16 @@ export default function App() {
           >
             <Download size={12} /> Backup
           </button>
+          {/* 29/10: indicador da sincronização em tempo real. */}
+          {supabase && (
+            <span
+              title={statusAoVivo === "SUBSCRIBED" ? "Ao vivo: as mudanças de todo mundo aparecem na hora." : "Sem conexão ao vivo — as mudanças são salvas e aparecem quando a conexão voltar."}
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", color: `${PURPLE_TEXT}88` }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusAoVivo === "SUBSCRIBED" ? "#3FA34D" : "#B0A79A" }} />
+              {statusAoVivo === "SUBSCRIBED" ? "Ao vivo" : "Conectando…"}
+            </span>
+          )}
         </div>
       </div>
 

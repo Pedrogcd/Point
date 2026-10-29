@@ -59,6 +59,16 @@ function writeLocal(key, value) {
 }
 
 export const storage = {
+  // 29/10: só o cache local (sem Supabase) — as fichas agora sincronizam
+  // pela tabela point_personagens (ver sincronizacao.js); o localStorage
+  // fica como cópia offline.
+  getLocal(key) {
+    return readLocal(key);
+  },
+  setLocal(key, value) {
+    try { writeLocal(key, value); } catch (e) { /* cota cheia etc. — não trava o app */ }
+  },
+
   async get(key) {
     if (supabase) {
       try {

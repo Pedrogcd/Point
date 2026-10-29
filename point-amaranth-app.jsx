@@ -66,6 +66,11 @@ import {
   comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE,
 } from "./racasCatalogo.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
+import { supabase } from "./supabaseClient.js";
+import {
+  carregarPersonagensRemotos, enviarPatchPersonagem, apagarPersonagemRemoto, assinarMudancas,
+  diffPersonagens, aplicarLinhaRemota, removerLinhaRemota, aplicarRecarga,
+} from "./sincronizacao.js";
 import { buildBackup, parseBackup } from "./backup.js";
 import { normalizarEstado } from "./normalizar.js";
 import { migrarPersonagens } from "./personagens.js";
@@ -13345,6 +13350,18 @@ export default function App() {
   const [confirmState, setConfirmState] = useState(null);
   const backupInputRef = useRef(null);
   const seedCheckedRef = useRef(false);
+  // Sincronização em tempo real (29/10, ver sincronizacao.js):
+  // snapshotRef = último estado de cada ficha confirmado no banco (Map
+  // id -> ficha), ou null quando não há Supabase (modo offline, sem
+  // sincronizar); ordensRef = posição de cada ficha na lista (coluna
+  // `ordem`); chavesRef = último JSON de cada chave de point_kv lido ou
+  // gravado (pra não regravar o que acabou de chegar de outra pessoa).
+  const snapshotRef = useRef(null);
+  const ordensRef = useRef(new Map());
+  const charactersRef = useRef(characters);
+  const envioRef = useRef({ timer: null, enviando: false, repetir: false });
+  const chavesRef = useRef({});
+  const [statusAoVivo, setStatusAoVivo] = useState(null);
 
   function askConfirm(message, action, options) {
     setConfirmState({ message, action, ...options });
@@ -13376,9 +13393,26 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const c = await storage.get("point-characters");
-        if (c?.value) {
-          const loadedChars = JSON.parse(c.value);
+        // 29/10: as fichas vêm da tabela point_personagens (uma linha por
+        // ficha). Tabela vazia (primeiro acesso desta versão) = copia de
+        // point_kv "point-characters" e sobe linha por linha (snapshot
+        // vazio, o envio abaixo insere tudo). Sem Supabase/offline
+        // (remotos === null) = modo antigo, sem sincronizar.
+        const remotos = await carregarPersonagensRemotos(supabase);
+        let loadedChars = null;
+        if (remotos && remotos.length > 0) {
+          loadedChars = remotos.map((r) => r.data);
+          snapshotRef.current = new Map(remotos.map((r) => [r.id, r.data]));
+          for (const r of remotos) ordensRef.current.set(r.id, r.ordem);
+        } else {
+          const c = await storage.get("point-characters");
+          if (c?.value) loadedChars = JSON.parse(c.value);
+          if (remotos) {
+            snapshotRef.current = new Map();
+            (loadedChars || []).forEach((ch, i) => { if (ch?.id) ordensRef.current.set(ch.id, i); });
+          }
+        }
+        if (loadedChars) {
           // Migração de formato antigo -> novo (renomeia/remove ataques legados,
           // tipa ataques sem "tipo", repõe ataques padrão, corrige defaults de
           // Defesa/Resistência, atributos no formato antigo, Grupo/Raça+Classes,
@@ -13513,16 +13547,110 @@ export default function App() {
     })();
   }, []);
 
-  useEffect(() => { if (loaded) storage.set("point-characters", JSON.stringify(characters)).catch(() => {}); }, [characters, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-kingdoms", JSON.stringify(kingdoms)).catch(() => {}); }, [kingdoms, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-cidades-overrides", JSON.stringify(cidadesOverrides)).catch(() => {}); }, [cidadesOverrides, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-pessoas-overrides", JSON.stringify(pessoasOverrides)).catch(() => {}); }, [pessoasOverrides, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-npcs-overrides", JSON.stringify(npcsOverrides)).catch(() => {}); }, [npcsOverrides, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-gods", JSON.stringify(gods)).catch(() => {}); }, [gods, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-sagas", JSON.stringify(sagas)).catch(() => {}); }, [sagas, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-objectives", JSON.stringify(objectives)).catch(() => {}); }, [objectives, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-rotas", JSON.stringify(rotas)).catch(() => {}); }, [rotas, loaded]);
-  useEffect(() => { if (loaded) storage.set("point-encontro", JSON.stringify(encontro)).catch(() => {}); }, [encontro, loaded]);
+  // Fichas (29/10): cache local sempre; no banco, só o que mudou (campos de
+  // topo de cada ficha alterada, ~250 ms depois da última mudança), via
+  // point_personagem_patch, que mescla com o que já está lá.
+  async function enviarFichasPendentes() {
+    const envio = envioRef.current;
+    const snap = snapshotRef.current;
+    if (!snap || !supabase) return;
+    if (envio.enviando) { envio.repetir = true; return; }
+    envio.enviando = true;
+    let falhou = false;
+    try {
+      const atuais = charactersRef.current;
+      const { alterados, removidos } = diffPersonagens(snap, atuais);
+      for (const { id, patch } of alterados) {
+        const anterior = snap.get(id);
+        snap.set(id, atuais.find((p) => p.id === id));
+        let ordem = ordensRef.current.get(id);
+        if (ordem == null) {
+          ordem = Math.max(Date.now(), ...[...ordensRef.current.values()].map((v) => v + 1));
+          ordensRef.current.set(id, ordem);
+        }
+        try { await enviarPatchPersonagem(supabase, id, patch, ordem); }
+        catch (e) { if (anterior) snap.set(id, anterior); else snap.delete(id); falhou = true; }
+      }
+      for (const id of removidos) {
+        const anterior = snap.get(id);
+        snap.delete(id);
+        try { await apagarPersonagemRemoto(supabase, id); }
+        catch (e) { snap.set(id, anterior); falhou = true; }
+      }
+    } finally {
+      envio.enviando = false;
+    }
+    if (envio.repetir || falhou) {
+      envio.repetir = false;
+      setTimeout(enviarFichasPendentes, falhou ? 3000 : 0);
+    }
+  }
+  useEffect(() => {
+    charactersRef.current = characters;
+    if (!loaded) return;
+    storage.setLocal("point-characters", JSON.stringify(characters));
+    if (!snapshotRef.current || !supabase) return;
+    clearTimeout(envioRef.current.timer);
+    envioRef.current.timer = setTimeout(enviarFichasPendentes, 250);
+  }, [characters, loaded]);
+
+  // Demais chaves compartilhadas (point_kv): grava quando muda, menos
+  // quando o valor acabou de chegar de outra pessoa (chavesRef).
+  function salvarChave(chave, valor) {
+    const json = JSON.stringify(valor);
+    if (chavesRef.current[chave] === json) return;
+    chavesRef.current[chave] = json;
+    storage.set(chave, json).catch(() => {});
+  }
+  useEffect(() => { if (loaded) salvarChave("point-kingdoms", kingdoms); }, [kingdoms, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-cidades-overrides", cidadesOverrides); }, [cidadesOverrides, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-pessoas-overrides", pessoasOverrides); }, [pessoasOverrides, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-npcs-overrides", npcsOverrides); }, [npcsOverrides, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-gods", gods); }, [gods, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-sagas", sagas); }, [sagas, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-objectives", objectives); }, [objectives, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-rotas", rotas); }, [rotas, loaded]);
+  useEffect(() => { if (loaded) salvarChave("point-encontro", encontro); }, [encontro, loaded]);
+
+  // Tempo real (29/10): mudanças de outras pessoas chegam na hora — fichas
+  // (point_personagens) e as demais chaves (point_kv). Ao (re)conectar,
+  // recarrega tudo, pra cobrir o que passou enquanto a conexão estava fora.
+  useEffect(() => {
+    if (!loaded || !supabase || !snapshotRef.current) return undefined;
+    function aplicarFichas(fn) {
+      const atual = charactersRef.current;
+      const novo = fn(atual);
+      if (novo !== atual) { charactersRef.current = novo; setCharacters(novo); }
+    }
+    const setterDaChave = {
+      "point-kingdoms": (v) => setKingdoms(v),
+      "point-cidades-overrides": (v) => setCidadesOverrides(v),
+      "point-pessoas-overrides": (v) => setPessoasOverrides(v),
+      "point-npcs-overrides": (v) => setNpcsOverrides(v),
+      "point-gods": (v) => setGods(v),
+      "point-sagas": (v) => setSagas(v),
+      "point-objectives": (v) => setObjectives(v),
+      "point-rotas": (v) => setRotas(migrarRotas(v)),
+      "point-encontro": (v) => setEncontro(normalizarEncontro(v)),
+    };
+    return assinarMudancas(supabase, {
+      aoMudarPersonagem: (linha) => aplicarFichas((atual) => aplicarLinhaRemota(atual, snapshotRef.current, ordensRef.current, linha)),
+      aoApagarPersonagem: (id) => aplicarFichas((atual) => removerLinhaRemota(atual, snapshotRef.current, ordensRef.current, id)),
+      aoMudarChave: (chave, valor) => {
+        const setter = setterDaChave[chave];
+        if (!setter) return;
+        const json = JSON.stringify(valor);
+        if (chavesRef.current[chave] === json) return;
+        chavesRef.current[chave] = json;
+        setter(valor);
+      },
+      aoReconectar: async () => {
+        const linhas = await carregarPersonagensRemotos(supabase);
+        if (linhas) aplicarFichas((atual) => aplicarRecarga(atual, snapshotRef.current, ordensRef.current, linhas));
+      },
+      aoMudarStatus: setStatusAoVivo,
+    });
+  }, [loaded]);
 
   const filtered = useMemo(() => {
     const porGrupo = grupoFilter === "todos" ? characters : characters.filter((c) => grupoDoPersonagem(c) === grupoFilter);
@@ -13933,6 +14061,16 @@ export default function App() {
           >
             <Download size={12} /> Backup
           </button>
+          {/* 29/10: indicador da sincronização em tempo real. */}
+          {supabase && (
+            <span
+              title={statusAoVivo === "SUBSCRIBED" ? "Ao vivo: as mudanças de todo mundo aparecem na hora." : "Sem conexão ao vivo — as mudanças são salvas e aparecem quando a conexão voltar."}
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, fontFamily: "'IBM Plex Mono', monospace", color: `${PURPLE_TEXT}88` }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusAoVivo === "SUBSCRIBED" ? "#3FA34D" : "#B0A79A" }} />
+              {statusAoVivo === "SUBSCRIBED" ? "Ao vivo" : "Conectando…"}
+            </span>
+          )}
         </div>
       </div>
 

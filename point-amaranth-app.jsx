@@ -251,8 +251,17 @@ const DESCRITOR_INFO = new Proxy({}, {
 // use um ataque catalogado ou a aba Magia).
 const CARACTERISTICAS_ATAQUE = [
   "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
-  "queimadura", "pesado", "envenenamento", "carga", "drenante",
+  "queimadura", "pesado", "arma_de_fogo", "envenenamento", "carga", "drenante",
 ];
+// Texto do resultado de ferimentos (29/10): com Arma de fogo pode vir
+// misto — 1 agravante + 1 superficial.
+function textoFerimentos(r) {
+  if (!r?.tipoFerimento) return "Sem ferimento";
+  const ag = r.agravantes ?? (r.tipoFerimento === "agravante" ? r.feridas : 0);
+  const sup = r.superficiais ?? (r.tipoFerimento === "superficial" ? r.feridas : 0);
+  if (ag && sup) return `Ferimento ${ag} AGRAVANTE + ${sup} SUPERFICIAL`;
+  return `Ferimento ${ag ? "AGRAVANTE" : "SUPERFICIAL"} ×${ag || sup}`;
+}
 const CARACTERISTICAS_ALVO = ["blindado", "resiste_a_magia", "resistente", "azarado", "imune_envenenamento"];
 
 
@@ -6469,16 +6478,15 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         />
                       </Field>
                       {(() => {
-                        // 28/10: marca um ou os dois descritores da arma
-                        // (equipamento.descritoresArma) — sem trava por
-                        // proficiência; ao menos um fica marcado.
+                        // 28/10: marca os descritores da arma
+                        // (equipamento.descritoresArma). 29/10: sem trava
+                        // nenhuma — cada caixa liga/desliga livremente.
                         const profKey = profKeyDaArma(armaCatalogo);
                         const profLabel = PROFICIENCIAS_LIST.find((p) => p.key === profKey)?.label;
                         const grau = characterEfetivo.proficiencias?.[profKey] ?? 0;
                         const marcados = normalizarDescritoresArma(eq.descritoresArma ?? eq.descritorArmaEscolhido, armaCatalogo);
                         function alternar(n) {
                           const novo = marcados.includes(n) ? marcados.filter((x) => x !== n) : [...marcados, n].sort();
-                          if (novo.length === 0) return;
                           onUpdateCharacter(character.id, { equipamento: { ...eq, descritoresArma: novo } });
                         }
                         return (
@@ -6488,13 +6496,13 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                               {[1, 2].filter((n) => n === 1 || armaCatalogo.descritor2).map((n) => (
                                 <label key={n} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                   <input
-                                    type="checkbox" checked={marcados.includes(n)} disabled={!onUpdateCharacter || (marcados.length === 1 && marcados.includes(n))}
+                                    type="checkbox" checked={marcados.includes(n)} disabled={!onUpdateCharacter}
                                     onChange={() => alternar(n)}
                                   />
                                   <Descritor token={n === 1 ? armaCatalogo.descritor1 : armaCatalogo.descritor2} />
                                 </label>
                               ))}
-                              {armaCatalogo.extra === "pesado" && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>+ <Descritor token="pesado" /></span>}
+                              {armaCatalogo.extra && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>+ <Descritor token={armaCatalogo.extra} /></span>}
                             </div>
                           </div>
                         );
@@ -6933,7 +6941,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     {ataqueHistory.map((h) => (
                       <div key={h.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: MUTED, padding: "3px 0", fontFamily: "'IBM Plex Mono', monospace" }}>
                         <span>{h.atkNome}</span>
-                        <span style={{ color: BRASS }}>{h.tipoFerimento ? `${h.tipoFerimento === "agravante" ? "Agravante" : "Superficial"} ×${h.feridas}` : "Sem ferimento"}</span>
+                        <span style={{ color: BRASS }}>{textoFerimentos(h)}</span>
                       </div>
                     ))}
                   </div>
@@ -8314,7 +8322,7 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
             color: tipoFerimento === "agravante" ? EMBER : tipoFerimento === "superficial" ? BRASS_BRIGHT : MUTED,
           }}>
             {tipoFerimento
-              ? `Ferimento ${tipoFerimento === "agravante" ? "AGRAVANTE" : "SUPERFICIAL"} ×${feridas}`
+              ? textoFerimentos(result)
               : "Sem ferimento"}
           </span>
           {/* Queimadura (Pedro, 19/10): rolagem separada, nunca soma com os
@@ -13210,11 +13218,11 @@ function RulesView() {
             <span style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{a.familia} · {ALCANCE_LABEL[a.alcance]}</span>
           </div>
           <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", margin: "4px 0" }}>
-            Exemplos: {a.exemplos} · Feridas {a.feridas}{a.superficial ? " (superficial)" : ""}{a.extra === "pesado" ? " · Pesado" : ""}
+            Exemplos: {a.exemplos} · Feridas {a.feridas}{a.superficial ? " (superficial)" : ""}{a.extra ? ` · ${nomeDoToken(a.extra)}` : ""}
           </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6, fontSize: 10 }}>
             <Descritor token={a.descritor1} />{a.descritor2 && <><span>ou</span><Descritor token={a.descritor2} /></>}
-            {a.extra === "pesado" && <Descritor token="pesado" />}
+            {a.extra && <Descritor token={a.extra} />}
           </div>
           <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Proficiência: {PROFICIENCIAS_LIST.find((p) => p.key === profKeyDaArma(a))?.label}</div>
         </div>

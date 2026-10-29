@@ -58,7 +58,7 @@ describe("descritoresDeEquipamentoDefensivo", () => {
 
   it("armadura passiva (sem custoManaAtivar) vale sempre que equipada", () => {
     const character = { equipamento: { armaduraId: "armadura_media" } };
-    assert.deepEqual(descritoresDeEquipamentoDefensivo(character), ["resistente", "blindado"]);
+    assert.deepEqual(descritoresDeEquipamentoDefensivo(character), ["resistente", "blindado", "lento_1"]);
   });
 
   it("peça com custoManaAtivar > 0 só conta com a mana ativa correspondente", () => {

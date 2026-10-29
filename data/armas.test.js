@@ -23,17 +23,27 @@ describe("ARMAS", () => {
     }
   });
 
-  it("extra só é null ou 'pesado'", () => {
+  it("extra só é null, 'pesado' ou 'arma_de_fogo' (29/10)", () => {
     for (const a of ARMAS) {
-      assert.ok(a.extra === null || a.extra === "pesado", a.id);
+      assert.ok(a.extra === null || a.extra === "pesado" || a.extra === "arma_de_fogo", a.id);
     }
   });
 
-  it("toda arma 'pesada' causa 2 feridas (5 tipos: lâmina/contundente/haste pesada, arma de fogo longa, arma de mecanismo)", () => {
+  it("toda arma 'pesada' causa 2 feridas (4 tipos: lâmina/contundente/haste pesada, arma de mecanismo)", () => {
     const pesadas = ARMAS.filter((a) => a.extra === "pesado");
-    assert.equal(pesadas.length, 5);
+    assert.equal(pesadas.length, 4);
     for (const a of pesadas) {
       assert.equal(a.feridas, 2, a.id);
+    }
+  });
+
+  it("29/10: as 3 armas de fogo têm o descritor Arma de fogo (na longa, no lugar do Pesado) e 2 feridas", () => {
+    const fogo = ARMAS.filter((a) => a.familia === "Arma de fogo");
+    assert.equal(fogo.length, 3);
+    for (const a of fogo) {
+      assert.equal(a.extra, "arma_de_fogo", a.id);
+      assert.equal(a.feridas, 2, a.id);
+      assert.ok(descritoresEfetivosArma(a, []).includes("arma_de_fogo"), a.id);
     }
   });
 
@@ -55,7 +65,10 @@ describe("descritoresEfetivosArma (28/10: usa os marcados — um ou os dois)", (
   const laminaPesada = getArmaPorId("lamina_pesada"); // letal / esmagador_1 + pesado
   it("padrão: só o Descritor 1", () => {
     assert.deepEqual(descritoresEfetivosArma(lamina), ["letal"]);
-    assert.deepEqual(descritoresEfetivosArma(lamina, []), ["letal"]);
+  });
+  it("29/10: lista vazia = nenhum descritor (só o Pesado, se houver)", () => {
+    assert.deepEqual(descritoresEfetivosArma(lamina, []), []);
+    assert.deepEqual(descritoresEfetivosArma(getArmaPorId("lamina_pesada"), []), ["pesado"]);
   });
   it("só o 2, ou os dois", () => {
     assert.deepEqual(descritoresEfetivosArma(lamina, [2]), ["sortudo"]);
@@ -76,8 +89,9 @@ describe("normalizarDescritoresArma (28/10)", () => {
     assert.deepEqual(normalizarDescritoresArma(2, lamina), [2]);
     assert.deepEqual(normalizarDescritoresArma(undefined, lamina), [1]);
   });
-  it("valores inválidos caem em [1]", () => {
-    assert.deepEqual(normalizarDescritoresArma([7], lamina), [1]);
+  it("29/10: lista salva vale como está — vazia fica vazia, inválidos saem", () => {
+    assert.deepEqual(normalizarDescritoresArma([], lamina), []);
+    assert.deepEqual(normalizarDescritoresArma([7], lamina), []);
   });
 });
 

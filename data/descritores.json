@@ -82,6 +82,17 @@
       "linkEmTextoLivre": false
     },
     {
+      "id": "arma-de-fogo",
+      "nome": "Arma de fogo",
+      "temN": false,
+      "tipo": "Ataque",
+      "status": "Definido",
+      "resumo": "Acerta só com 7+; causa 2 ferimentos: 1 agravante + 1 superficial se passar do Vigor, senão 2 superficiais.",
+      "regra": "Parecido com Pesado. Os dados de ataque precisam de 7+ (como contra Blindado; não soma com Blindado; Perfurante ignora). O ataque que acerta causa 2 ferimentos: se os sucessos líquidos forem iguais ou maiores que o Vigor do alvo (o que seria agravante), 1 agravante + 1 superficial; senão, 2 superficiais. Toda arma de fogo tem este descritor (29/10).",
+      "usadoEm": "Armas de fogo (curta, longa, dispersão)",
+      "linkEmTextoLivre": false
+    },
+    {
       "id": "queimadura",
       "nome": "Queimadura",
       "temN": true,
@@ -317,8 +328,8 @@
       "tipo": "Condição",
       "status": "Definido",
       "resumo": "Você rola N dados a menos em ações físicas.",
-      "regra": "Você rola N dados a menos em ações físicas (ataque físico e esquiva). Em armadura, é o efeito do Pesado: o portador ganha Lento 1. Acúmulo (23/10): fontes diferentes não somam; vale o maior N.",
-      "usadoEm": "Maxis, Frasco de Gosma, Rede Rúnica, armaduras pesadas",
+      "regra": "Você rola N dados a menos em ações físicas (ataque físico e esquiva). Em armadura: a média e a pesada dão Lento 1 ao portador (a média desde 29/10). Acúmulo (23/10): fontes diferentes não somam; vale o maior N.",
+      "usadoEm": "Maxis, Frasco de Gosma, Rede Rúnica, armaduras médias e pesadas",
       "linkEmTextoLivre": true,
       "acumulo": "maior"
     },

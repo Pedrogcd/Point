@@ -504,12 +504,12 @@ describe("racasCatalogo — bonusGrauDoPersonagem", () => {
 describe("racasCatalogo — comGrausEfetivos com equipamento (armadura)", () => {
   it("soma os descritores da armadura equipada em character.descritores", () => {
     const { character } = comGrausEfetivos({ equipamento: { armaduraId: "armadura_media" } });
-    assert.deepEqual(character.descritores, ["resistente", "blindado"]);
+    assert.deepEqual(character.descritores, ["resistente", "blindado", "lento_1"]);
   });
 
   it("não duplica um descritor que o personagem já tinha (dedupe)", () => {
     const { character } = comGrausEfetivos({ descritores: ["resistente"], equipamento: { armaduraId: "armadura_media" } });
-    assert.deepEqual(character.descritores, ["resistente", "blindado"]);
+    assert.deepEqual(character.descritores, ["resistente", "blindado", "lento_1"]);
   });
 
   it("Potente Força (armadura de poder base): +1 grau em Força, teto C", () => {

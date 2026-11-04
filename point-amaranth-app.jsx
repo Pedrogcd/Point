@@ -10593,14 +10593,18 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
             )}
           </svg>
 
-          {/* Rotas do mapa (ver rotasMapa.js) — cruzam reinos, então ficam numa
+          {/* Esta <svg> fica POR CIMA da dos territórios e cobre o mapa todo:
+              sem pointerEvents "none" ela engolia o clique nos reinos (o zoom
+              não abria). Só os pontos editáveis da rota voltam a receber
+              ponteiro (pointerEvents "auto" neles).
+              Rotas do mapa (ver rotasMapa.js) — cruzam reinos, então ficam numa
               <svg> própria, com viewBox em PIXELS (MAPA_MUNDO.largura x altura) em
               vez do 0-a-1 do svg de cima: caminhoSuave devolve o "d" do <path> em
               pixels, pra não ficar com o traço fino/grosso desproporcional numa
               imagem não quadrada (ver nota no topo de rotasMapa.js). */}
           <svg
             viewBox={`0 0 ${MAPA_MUNDO.largura} ${MAPA_MUNDO.altura}`} preserveAspectRatio="none"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
           >
             <g pointerEvents="none">
               {rotasParaExibir.filter((r) => r.id !== rotaEditandoId).map((r) => (
@@ -10634,7 +10638,7 @@ function MapaMundoInterativo({ kingdoms, setKingdoms, removeCity, reinoAbertoId,
                 onPointerDown={(e) => { e.stopPropagation(); setArrastandoPontoRotaIdx(i); }}
                 onClick={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => { e.stopPropagation(); setRotaDraftPontos((prev) => prev.filter((_, idx) => idx !== i)); }}
-                style={{ cursor: "grab" }}
+                style={{ cursor: "grab", pointerEvents: "auto" }}
               >
                 <circle r={11} fill={p.cidadeId ? BRASS_BRIGHT : PURPLE} stroke="#F3E9D2" strokeWidth={2} />
                 <text textAnchor="middle" dominantBaseline="central" fontSize={10.5} fontFamily="'IBM Plex Mono', monospace" fill="#F3E9D2">{i + 1}</text>

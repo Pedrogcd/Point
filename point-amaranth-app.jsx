@@ -24,7 +24,7 @@ import {
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
 import {
-  MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, nomeDaDisciplina, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
+  MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, nomeDaDisciplina, MAX_DISCIPLINAS, BONUS_GRAU_POR_OFICIO, ENCANTAMENTOS, getEncantamentoPorId,
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
   PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, treinoDeOficioNaProficiencia,
 } from "./data/magias.js";
@@ -65,7 +65,7 @@ import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
   comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE, disciplinasDoPersonagem,
 } from "./racasCatalogo.js";
-import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade } from "./data/arquetipos.js";
+import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade, BONUS_GRAU_POR_ARQUETIPO } from "./data/arquetipos.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
 import {
@@ -5495,89 +5495,50 @@ function DisciplinaSlotPicker({
   }
 
   const disciplinasDisponiveis = DISCIPLINAS.filter((d) => !excluirIds.includes(d.id));
+  // 04/11 (pedido do Pedro): grupos de arquétipo em sanfona ("Recolher
+  // todos" / "Expandir todos") e o detalhe da escolha logo abaixo do grupo
+  // dela, com "Minimizar".
+  const [gruposFechados, setGruposFechados] = useState([]);
+  const [detalheAberto, setDetalheAberto] = useState(true);
+  const fixasDaEscolha = def
+    ? (BONUS_GRAU_POR_OFICIO[def.id] || BONUS_GRAU_POR_ARQUETIPO[def.id] || []).map((b) => PROFICIENCIAS_LIST.find((p) => p.key === b.chave)?.label || b.chave)
+    : [];
 
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 10, width: "min(720px, 100%)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 0 40px #00000090" }}
-      >
-        <div style={{ padding: "16px 20px 10px", borderBottom: `1px solid ${LINE}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: BRASS_BRIGHT, textTransform: "uppercase" }}>
-              {titulo}
-            </span>
-            <Btn variant="ghost" onClick={onClose}>Fechar</Btn>
+  function renderDetalhe() {
+    return (
+      <>
+        {/* Proficiências da escolha (04/11): as 3 fixas e a escolha livre
+            de Combate em destaque, já mostrando o que foi escolhido. */}
+        <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "#00000010", border: `1px solid ${LINE}` }}>
+          <div style={{ fontSize: 10.5, color: PURPLE, fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>Proficiências (+1 grau cada, teto 3)</div>
+          {fixasDaEscolha.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 10.5, color: MUTED }}>Fixas:</span>
+              {fixasDaEscolha.map((label) => (
+                <span key={label} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, border: `1px solid ${PURPLE}66`, color: PARCHMENT }}>{label}</span>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 10.5, color: MUTED }}>Escolha livre de Combate:</span>
+            <select
+              style={{ ...inputStyle, width: 200, borderColor: atual?.escolhaCombate ? PURPLE : undefined }} value={atual?.escolhaCombate || ""}
+              onChange={(e) => onEscolherCombate(e.target.value || null)}
+            >
+              <option value="">— escolher —</option>
+              {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+            {!atual?.escolhaCombate && <span style={{ fontSize: 10.5, color: EMBER }}>falta escolher</span>}
           </div>
-          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 0" }}>{legenda}</p>
         </div>
-
-        <div style={{ overflowY: "auto", padding: 16 }}>
-          {/* Arquétipos (04/11, docs/revisao/ATUALIZACAO_04-11.md): todas
-              as disciplinas agrupadas por arquétipo — primeiro "Mago" (os
-              ofícios mágicos e a Magia Inata, ver data/magias.js:
-              ARQUETIPO_MAGO), depois os 8 arquétipos de data/arquetipos.json.
-              Cada variação ocupa 1 slot; o detalhe aparece embaixo. */}
-          {(() => {
-            const grupos = [...new Set(disciplinasDisponiveis.map((d) => d.arquetipo))];
-            return (
-              <div>
-                <div style={{ fontSize: 11, color: PURPLE, fontWeight: 700, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>Arquétipos</div>
-                {grupos.map((g) => (
-                  <div key={g} style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 12, color: PARCHMENT, fontWeight: 700, margin: "0 0 4px" }}>{g}</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                      {disciplinasDisponiveis.filter((d) => d.arquetipo === g).map((d) => {
-                        const selecionada = atual?.disciplinaId === d.id;
-                        return (
-                          <div
-                            key={d.id} onClick={() => onEscolher(d.id)}
-                            style={{ padding: 9, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}` }}
-                          >
-                            <div style={{ fontSize: 12, fontWeight: 700, color: PARCHMENT, marginBottom: 2 }}>{d.variacao}</div>
-                            <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.35 }}>{d.foco || d.descricao}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-
-          {/* Detalhe do Mago (ofício mágico ou Magia Inata) escolhido:
-              descrição, fixas e passiva — os arquétipos têm o próprio
-              detalhe logo abaixo. */}
-          {atual && def && def.tipo !== TIPO_DISCIPLINA_ARQUETIPO && (
-            <div style={{ marginTop: 12, fontSize: 11, color: PARCHMENT, lineHeight: 1.5 }}>
-              <div style={{ color: MUTED }}>{def.descricao}</div>
-              <div style={{ color: PURPLE, marginTop: 4 }}>{def.bonusTexto}</div>
-            </div>
-          )}
-
-          {/* Escolha livre de Combate (24/10, docs/ATUALIZACAO_24-10.md seção
-              0.4): toda disciplina dá +1 grau numa proficiência de Combate
-              à escolha (teto C), além das 3 fixas. Guardada no slot
-              (escolhaCombate); trocar de disciplina zera. */}
-          {atual && def && (
-            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <label style={{ fontSize: 10.5, color: PURPLE, fontWeight: 600 }}>Escolha livre: +1 grau em Combate (teto 3)</label>
-              <select
-                style={{ ...inputStyle, width: 220 }} value={atual.escolhaCombate || ""}
-                onChange={(e) => onEscolherCombate(e.target.value || null)}
-              >
-                <option value="">— escolher —</option>
-                {PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate").map((p) => (
-                  <option key={p.key} value={p.key}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
+        {def && def.tipo !== TIPO_DISCIPLINA_ARQUETIPO && (
+          <div style={{ marginTop: 10, fontSize: 11, color: PARCHMENT, lineHeight: 1.5 }}>
+            <div style={{ color: MUTED }}>{def.descricao}</div>
+            <div style={{ color: PURPLE, marginTop: 4 }}>{def.bonusTexto}</div>
+          </div>
+        )}
           {atual && def?.tipo === TIPO_DISCIPLINA_ARQUETIPO && (() => {
             const v = getVariacaoPorId(def.id);
             if (!v) return null;
@@ -5593,18 +5554,23 @@ function DisciplinaSlotPicker({
                     as que o personagem já tem; dá pra desbloquear mais depois.
                     Fica em slot.habilidadesAtivas (sem limite de 3). */}
                 <div style={{ fontSize: 10.5, color: PURPLE, fontWeight: 600, margin: "12px 0 6px" }}>
-                  Habilidades desbloqueadas ({habilidadesAtivas.filter((id) => (v.habilidades || []).some((h) => idDaHabilidade(h) === id)).length} de {(v.habilidades || []).length}) — marque as que o personagem já tem
+                  Habilidades desbloqueadas ({habilidadesAtivas.filter((id) => (v.habilidades || []).some((h) => idDaHabilidade(h) === id)).length} de {(v.habilidades || []).length}) — clique nas que o personagem já tem
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   {(v.habilidades || []).map((h) => {
                     const id = idDaHabilidade(h);
                     const tem = habilidadesAtivas.includes(id);
                     return (
-                      <div key={h.nome}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: PARCHMENT, marginBottom: 4, cursor: "pointer" }}>
-                          <input type="checkbox" checked={tem} onChange={() => onToggleMagia(id)} />
-                          {tem ? "Desbloqueada" : "Ainda não tem"}
-                        </label>
+                      <div
+                        key={h.nome} role="button" tabIndex={0} aria-pressed={tem}
+                        title={tem ? "Clique pra bloquear de novo" : "Clique pra desbloquear"}
+                        onClick={() => onToggleMagia(id)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleMagia(id); } }}
+                        style={{ position: "relative", cursor: "pointer", borderRadius: 9, outline: "none", boxShadow: tem ? `0 0 0 2px ${PURPLE}` : "none" }}
+                      >
+                        <span style={{ position: "absolute", top: -7, right: 8, zIndex: 1, fontSize: 9.5, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: tem ? PURPLE : PANEL_2, color: tem ? "#fff" : MUTED, border: `1px solid ${tem ? PURPLE : LINE}` }}>
+                          {tem ? "✓ Tem" : "Bloqueada"}
+                        </span>
                         <CartaoHabilidadeArquetipo h={h} usada={!tem} />
                       </div>
                     );
@@ -5846,6 +5812,106 @@ function DisciplinaSlotPicker({
               </label>
             </div>
           )}
+      </>
+    );
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: PANEL_2, border: `1px solid ${PURPLE}`, borderRadius: 10, width: "min(720px, 100%)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 0 40px #00000090" }}
+      >
+        <div style={{ padding: "16px 20px 10px", borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ fontFamily: "'Cinzel', serif", fontSize: 14, letterSpacing: 1, color: BRASS_BRIGHT, textTransform: "uppercase" }}>
+              {titulo}
+            </span>
+            <Btn variant="ghost" onClick={onClose}>Fechar</Btn>
+          </div>
+          <p style={{ fontSize: 11, color: MUTED, margin: "6px 0 0" }}>{legenda}</p>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 16 }}>
+          {/* Arquétipos (04/11, docs/revisao/ATUALIZACAO_04-11.md): todas
+              as disciplinas agrupadas por arquétipo — primeiro "Mago" (os
+              ofícios mágicos e a Magia Inata, ver data/magias.js:
+              ARQUETIPO_MAGO), depois os 8 arquétipos de data/arquetipos.json.
+              Cada variação ocupa 1 slot; o detalhe aparece embaixo. */}
+          {(() => {
+            const grupos = [...new Set(disciplinasDisponiveis.map((d) => d.arquetipo))];
+            const todosAbertos = grupos.every((g) => !gruposFechados.includes(g));
+            return (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 8px" }}>
+                  <span style={{ fontSize: 11, color: PURPLE, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Arquétipos</span>
+                  <Btn variant="ghost" onClick={() => setGruposFechados(todosAbertos ? grupos : [])} style={{ fontSize: 10.5, padding: "2px 8px" }}>
+                    {todosAbertos ? <><ChevronUp size={12} /> Recolher todos</> : <><ChevronDown size={12} /> Expandir todos</>}
+                  </Btn>
+                </div>
+                {grupos.map((g) => {
+                  const aberto = !gruposFechados.includes(g);
+                  const variacoes = disciplinasDisponiveis.filter((d) => d.arquetipo === g);
+                  const escolhidaAqui = def && def.arquetipo === g ? def : null;
+                  return (
+                    <div key={g} style={{ marginBottom: 8, border: `1px solid ${escolhidaAqui ? PURPLE : LINE}`, borderRadius: 9, background: escolhidaAqui ? `${PURPLE}0D` : "transparent" }}>
+                      <button
+                        type="button" aria-expanded={aberto}
+                        onClick={() => setGruposFechados((prev) => (aberto ? [...prev, g] : prev.filter((x) => x !== g)))}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", background: "transparent", border: "none", cursor: "pointer", color: PARCHMENT, textAlign: "left" }}
+                      >
+                        {aberto ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        <span style={{ fontSize: 12.5, fontWeight: 700 }}>{g}</span>
+                        <span style={{ fontSize: 10.5, color: MUTED }}>· {variacoes.length} variações</span>
+                        {escolhidaAqui && (
+                          <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 10, background: PURPLE, color: "#fff" }}>
+                            ✓ {escolhidaAqui.variacao}
+                          </span>
+                        )}
+                      </button>
+                      {aberto && (
+                        <div style={{ padding: "0 10px 10px" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                            {variacoes.map((d) => {
+                              const selecionada = atual?.disciplinaId === d.id;
+                              return (
+                                <div
+                                  key={d.id} role="button" tabIndex={0} aria-pressed={selecionada}
+                                  onClick={() => { onEscolher(d.id); setDetalheAberto(true); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEscolher(d.id); setDetalheAberto(true); } }}
+                                  style={{ padding: 9, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}`, outline: "none" }}
+                                >
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: PARCHMENT, marginBottom: 2 }}>{selecionada ? "✓ " : ""}{d.variacao}</div>
+                                  <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.35 }}>{d.foco || d.descricao}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Detalhe da escolha, logo abaixo do grupo dela
+                              (04/11): proficiências primeiro, depois o resto. */}
+                          {escolhidaAqui && atual && (
+                            <div style={{ marginTop: 10, borderTop: `1px dashed ${PURPLE}66`, paddingTop: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: PURPLE }}>{nomeDaDisciplina(def)}</span>
+                                <Btn variant="ghost" onClick={() => setDetalheAberto((x) => !x)} style={{ fontSize: 10.5, padding: "2px 8px" }}>
+                                  {detalheAberto ? <><ChevronUp size={12} /> Minimizar</> : <><ChevronDown size={12} /> Ver detalhes</>}
+                                </Btn>
+                              </div>
+                              {detalheAberto && renderDetalhe()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
         </div>
 
         {atual && (

@@ -24,7 +24,7 @@ import {
   descritoresEfetivosDoAtaque, LIMIAR_SUCESSO, LIMIAR_BLINDADO, resolveAtaqueEmArea,
 } from "./engine.js";
 import {
-  MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
+  MAGIAS, getMagiaPorId, DISCIPLINAS, getDisciplinaPorId, nomeDaDisciplina, MAX_DISCIPLINAS, ENCANTAMENTOS, getEncantamentoPorId,
   ALQUIMIA, getItemAlquimicoPorId, CONDUITE_MAGICO, INVOCACAO, getInvocacaoPorId,
   PROFICIENCIAS_DE_OFICIO, getHabilidadeDeOficioPorId, PASSIVA_POR_OFICIO, periciaDeOficioCobreArma, periciaDeOficioCobreArmadura, treinoDeOficioNaProficiencia,
 } from "./data/magias.js";
@@ -65,7 +65,7 @@ import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
   comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE, disciplinasDoPersonagem,
 } from "./racasCatalogo.js";
-import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade } from "./data/arquetipos.js";
+import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade } from "./data/arquetipos.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
 import {
@@ -5516,38 +5516,21 @@ function DisciplinaSlotPicker({
         </div>
 
         <div style={{ overflowY: "auto", padding: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {disciplinasDisponiveis.filter((d) => d.tipo !== TIPO_DISCIPLINA_ARQUETIPO).map((d) => {
-              const selecionada = atual?.disciplinaId === d.id;
-              return (
-                <div
-                  key={d.id}
-                  onClick={() => onEscolher(d.id)}
-                  style={{ padding: 11, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}` }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT, marginBottom: 4 }}>{d.nome}</div>
-                  <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.4, marginBottom: 4 }}>{d.descricao}</div>
-                  <div style={{ fontSize: 10.5, color: PURPLE }}>{d.bonusTexto}</div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Arquétipos (04/11, docs/revisao/ATUALIZACAO_04-11.md): 24
-              disciplinas (8 arquétipos × 3 variações), agrupadas por
-              arquétipo. Cada variação ocupa 1 slot. */}
+          {/* Arquétipos (04/11, docs/revisao/ATUALIZACAO_04-11.md): todas
+              as disciplinas agrupadas por arquétipo — primeiro "Mago" (os
+              ofícios mágicos e a Magia Inata, ver data/magias.js:
+              ARQUETIPO_MAGO), depois os 8 arquétipos de data/arquetipos.json.
+              Cada variação ocupa 1 slot; o detalhe aparece embaixo. */}
           {(() => {
-            const arquetipos = disciplinasDisponiveis.filter((d) => d.tipo === TIPO_DISCIPLINA_ARQUETIPO);
-            if (arquetipos.length === 0) return null;
-            const grupos = [...new Set(arquetipos.map((d) => d.arquetipo))];
+            const grupos = [...new Set(disciplinasDisponiveis.map((d) => d.arquetipo))];
             return (
-              <div style={{ marginTop: 16 }}>
+              <div>
                 <div style={{ fontSize: 11, color: PURPLE, fontWeight: 700, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>Arquétipos</div>
                 {grupos.map((g) => (
                   <div key={g} style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 12, color: PARCHMENT, fontWeight: 700, margin: "0 0 4px" }}>{g}</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                      {arquetipos.filter((d) => d.arquetipo === g).map((d) => {
+                      {disciplinasDisponiveis.filter((d) => d.arquetipo === g).map((d) => {
                         const selecionada = atual?.disciplinaId === d.id;
                         return (
                           <div
@@ -5555,7 +5538,7 @@ function DisciplinaSlotPicker({
                             style={{ padding: 9, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}` }}
                           >
                             <div style={{ fontSize: 12, fontWeight: 700, color: PARCHMENT, marginBottom: 2 }}>{d.variacao}</div>
-                            <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.35 }}>{d.descricao}</div>
+                            <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.35 }}>{d.foco || d.descricao}</div>
                           </div>
                         );
                       })}
@@ -5565,6 +5548,16 @@ function DisciplinaSlotPicker({
               </div>
             );
           })()}
+
+          {/* Detalhe do Mago (ofício mágico ou Magia Inata) escolhido:
+              descrição, fixas e passiva — os arquétipos têm o próprio
+              detalhe logo abaixo. */}
+          {atual && def && def.tipo !== TIPO_DISCIPLINA_ARQUETIPO && (
+            <div style={{ marginTop: 12, fontSize: 11, color: PARCHMENT, lineHeight: 1.5 }}>
+              <div style={{ color: MUTED }}>{def.descricao}</div>
+              <div style={{ color: PURPLE, marginTop: 4 }}>{def.bonusTexto}</div>
+            </div>
+          )}
 
           {/* Escolha livre de Combate (24/10, docs/ATUALIZACAO_24-10.md seção
               0.4): toda disciplina dá +1 grau numa proficiência de Combate
@@ -5596,8 +5589,26 @@ function DisciplinaSlotPicker({
                   <div><b>Descritores do estilo:</b> {(v.descritores || []).join(", ")}</div>
                   <div style={{ color: MUTED }}><b>Fraqueza:</b> {v.fraqueza}</div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
-                  {(v.habilidades || []).map((h) => <CartaoHabilidadeArquetipo key={h.nome} h={h} />)}
+                {/* 04/11: o arquétipo não vem com todas as habilidades — marque
+                    as que o personagem já tem; dá pra desbloquear mais depois.
+                    Fica em slot.habilidadesAtivas (sem limite de 3). */}
+                <div style={{ fontSize: 10.5, color: PURPLE, fontWeight: 600, margin: "12px 0 6px" }}>
+                  Habilidades desbloqueadas ({habilidadesAtivas.filter((id) => (v.habilidades || []).some((h) => idDaHabilidade(h) === id)).length} de {(v.habilidades || []).length}) — marque as que o personagem já tem
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {(v.habilidades || []).map((h) => {
+                    const id = idDaHabilidade(h);
+                    const tem = habilidadesAtivas.includes(id);
+                    return (
+                      <div key={h.nome}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: PARCHMENT, marginBottom: 4, cursor: "pointer" }}>
+                          <input type="checkbox" checked={tem} onChange={() => onToggleMagia(id)} />
+                          {tem ? "Desbloqueada" : "Ainda não tem"}
+                        </label>
+                        <CartaoHabilidadeArquetipo h={h} usada={!tem} />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -7060,7 +7071,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                         if (!def) return null;
                         return (
                           <span key={i} style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 20, border: `1px solid ${PURPLE}`, color: PURPLE }}>
-                            {def.nome}{def.temTelaDeMana ? " · Tela de mana" : ""}
+                            {nomeDaDisciplina(def)}{def.temTelaDeMana ? " · Tela de mana" : ""}
                           </span>
                         );
                       })}
@@ -7221,7 +7232,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 cor={MUTED}
                 Icon={IconRaca}
                 vazio={secundariaVazia}
-                titulo={ehDisciplinaHumano ? extraDef?.nome : habSecundaria?.nome}
+                titulo={ehDisciplinaHumano ? nomeDaDisciplina(extraDef) : habSecundaria?.nome}
                 subtitulo={ehDisciplinaHumano ? (extraDef?.temTelaDeMana ? "Tela de mana" : null) : (racaInfo?.nome || null)}
                 corpo={ehDisciplinaHumano
                   ? (extraDef ? extraDef.bonusTexto : "Nenhuma disciplina escolhida ainda — clique pra escolher.")
@@ -7252,7 +7263,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   etiqueta={`Disciplina ${i + 1}`}
                   cor={PURPLE}
                   vazio={!def}
-                  titulo={def?.nome}
+                  titulo={nomeDaDisciplina(def)}
                   subtitulo={def?.temTelaDeMana ? "Tela de mana" : null}
                   corpo={def
                     ? `${slot?.escolhaCombate ? `Escolha de Combate: ${PROFICIENCIAS_LIST.find((p) => p.key === slot.escolhaCombate)?.label || slot.escolhaCombate}. ` : "Escolha de Combate ainda não feita. "}${def.bonusTexto}${(slot?.habilidadesAtivas || []).length === 0 && def.temMagias ? " · Nenhuma magia equipada ainda." : ""}`
@@ -7270,8 +7281,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             marca "usada na cena" (character.usosCena, zerado no "Fim de
             cena"). Nenhum efeito de combate é automatizado. */}
         {(() => {
-          const habilidades = habilidadesDeArquetipoDoPersonagem(disciplinasDoPersonagem(character));
-          if (habilidades.length === 0) return null;
+          const slotsArquetipo = disciplinasDoPersonagem(character).filter((sl) => getVariacaoPorId(sl.disciplinaId));
+          if (slotsArquetipo.length === 0) return null;
+          const habilidades = habilidadesDeArquetipoDoPersonagem(slotsArquetipo);
+          const totalPossivel = habilidadesDeArquetipoDoPersonagem(slotsArquetipo, { todas: true }).length;
           const usos = character.usosCena || {};
           const mpAtual = character.mp?.current ?? 0;
           const spAtual = character.sp?.current ?? 0;
@@ -7292,6 +7305,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
                 Habilidades de arquétipo — "Usar" só desconta o custo (MP/SP) ou marca o uso na cena; o efeito é aplicado na mesa. SP gasto e usos "1x por cena" voltam no "Fim de cena".
+              </div>
+              <div style={{ fontSize: 10.5, color: MUTED, margin: "0 0 6px" }}>
+                {habilidades.length} de {totalPossivel} desbloqueadas — pra desbloquear mais, clique na disciplina e marque as habilidades que o personagem já tem.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
                 {habilidades.map((h) => {

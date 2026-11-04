@@ -47,6 +47,9 @@ export const DISCIPLINAS_ARQUETIPO = ARQUETIPOS.flatMap((a) => (a.variacoes || [
   arquetipo: a.arquetipo,
   variacao: v.variacao,
   temMagias: false,
+  // 04/11: habilidades desbloqueadas aos poucos (ids em
+  // slot.habilidadesAtivas, ver idDaHabilidade) — até as 6 da variação.
+  habilidadesMax: (v.habilidades || []).length,
   bonusTexto: `Escolha: +1 grau numa proficiência de Combate à escolha. Fixas: ${fixasDaVariacao(v).join(", ")}, +1 grau cada (teto 3). Recurso: ${v.recurso}. Passiva: ${v.passiva}`,
   descricao: `${v.foco}. ${v.conceito}`,
 })));
@@ -87,21 +90,43 @@ export function tagDaHabilidade(h) {
   return "unica";
 }
 
+// Id de uma habilidade dentro da variação (o que fica salvo em
+// slot.habilidadesAtivas quando ela é desbloqueada).
+export function idDaHabilidade(h) {
+  return slug(h?.nome);
+}
+
 // Habilidades das disciplinas de arquétipo do personagem (lista de slots
 // já resolvida, ver racasCatalogo.js:disciplinasDoPersonagem), na ordem dos
 // slots. Gerais do mesmo arquétipo aparecem uma vez só (spec, regra 2).
 // `chave` identifica a habilidade pro controle de "1x por cena".
-export function habilidadesDeArquetipoDoPersonagem(slots) {
-  const out = [];
-  const vistas = new Set();
-  for (const slot of (slots || []).filter(Boolean)) {
+// 04/11 (pedido do Pedro): o arquétipo não vem com todas as habilidades —
+// elas são desbloqueadas com o tempo (ids em slot.habilidadesAtivas). Por
+// padrão só devolve as desbloqueadas; uma geral conta como desbloqueada se
+// estiver marcada em qualquer variação do mesmo arquétipo. `todas: true`
+// devolve todas, com `desbloqueada` em cada uma.
+export function habilidadesDeArquetipoDoPersonagem(slots, { todas = false } = {}) {
+  const lista = (slots || []).filter(Boolean);
+  const geraisDesbloqueadas = new Set();
+  for (const slot of lista) {
     const v = getVariacaoPorId(slot.disciplinaId);
     if (!v) continue;
     for (const h of v.habilidades || []) {
-      const chave = h.geral ? `${slug(v.arquetipo)}:${slug(h.nome)}` : `${slot.disciplinaId}:${slug(h.nome)}`;
+      if (h.geral && (slot.habilidadesAtivas || []).includes(idDaHabilidade(h))) geraisDesbloqueadas.add(`${slug(v.arquetipo)}:${idDaHabilidade(h)}`);
+    }
+  }
+  const out = [];
+  const vistas = new Set();
+  for (const slot of lista) {
+    const v = getVariacaoPorId(slot.disciplinaId);
+    if (!v) continue;
+    for (const h of v.habilidades || []) {
+      const chave = h.geral ? `${slug(v.arquetipo)}:${idDaHabilidade(h)}` : `${slot.disciplinaId}:${idDaHabilidade(h)}`;
       if (vistas.has(chave)) continue;
+      const desbloqueada = h.geral ? geraisDesbloqueadas.has(chave) : (slot.habilidadesAtivas || []).includes(idDaHabilidade(h));
+      if (!desbloqueada && !todas) continue;
       vistas.add(chave);
-      out.push({ ...h, chave, arquetipo: v.arquetipo, variacao: v.variacao, disciplinaId: slot.disciplinaId, tag: tagDaHabilidade(h), custoInfo: custoDaHabilidade(h.custo) });
+      out.push({ ...h, chave, desbloqueada, arquetipo: v.arquetipo, variacao: v.variacao, disciplinaId: slot.disciplinaId, tag: tagDaHabilidade(h), custoInfo: custoDaHabilidade(h.custo) });
     }
   }
   return out;

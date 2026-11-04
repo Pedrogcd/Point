@@ -101,10 +101,36 @@ export const DISCIPLINAS_OFICIOS = [
   },
 ];
 
+// 04/11 (pedido do Pedro): os ofícios mágicos (e a Magia Inata) aparecem
+// como o arquétipo "Mago", cada um uma variação — mesmo jeito de mostrar os
+// arquétipos de data/arquetipos.js no seletor. Só apresentação: ids,
+// bônus e regras dos ofícios não mudam. `foco` é o resumo curto do cartão.
+export const ARQUETIPO_MAGO = "Mago";
+const FOCO_DO_OFICIO = {
+  "oficio-magias-de-guerra": "Magias de ataque e de defesa.",
+  "magia-inata": "Magia que vem de dentro, sem estudo formal.",
+  "oficio-encantamentos": "Descritores pros próprios ataques, quebrando mana.",
+  "oficio-alquimia": "Poções, bombas e itens preparados.",
+  "oficio-constructo": "Servos, torres e armadilhas criados.",
+  "oficio-invocacao": "Armas espectrais e magias de invocação.",
+};
+for (const d of DISCIPLINAS_OFICIOS) {
+  d.arquetipo = ARQUETIPO_MAGO;
+  d.variacao = d.nome.replace(/^Ofício Mágico:\s*/i, "");
+  d.foco = FOCO_DO_OFICIO[d.id] || d.descricao;
+}
+
 // 04/11 (docs/revisao/ATUALIZACAO_04-11.md): os 24 arquétipos entram como
 // disciplinas também (data/arquetipos.js, dados em data/arquetipos.json),
-// depois dos ofícios — os ofícios acima não mudam.
+// depois dos ofícios.
 export const DISCIPLINAS = [...DISCIPLINAS_OFICIOS, ...DISCIPLINAS_ARQUETIPO];
+
+// Nome de exibição "Arquétipo: Variação" (ex.: "Mago: Encantamentos",
+// "Guerreiro: Modal").
+export function nomeDaDisciplina(d) {
+  if (!d) return "";
+  return d.arquetipo && d.variacao ? `${d.arquetipo}: ${d.variacao}` : d.nome;
+}
 
 export function getDisciplinaPorId(id) {
   return DISCIPLINAS.find((d) => d.id === id) || null;

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   ARQUETIPOS, DISCIPLINAS_ARQUETIPO, BONUS_GRAU_POR_ARQUETIPO, chaveDaProficiencia, idDaVariacao,
-  getVariacaoPorId, custoDaHabilidade, tagDaHabilidade, habilidadesDeArquetipoDoPersonagem,
+  getVariacaoPorId, custoDaHabilidade, tagDaHabilidade, habilidadesDeArquetipoDoPersonagem, idDaHabilidade,
 } from "./arquetipos.js";
 import { DISCIPLINAS, getDisciplinaPorId } from "./magias.js";
 import { bonusGrauDoPersonagem, comGrausEfetivos } from "../racasCatalogo.js";
@@ -64,9 +64,26 @@ describe("na ficha", () => {
     assert.equal(comGrausEfetivos(ch).character.proficiencias.combateCorpoACorpo, 3); // já no teto
   });
   it("duas variações do mesmo arquétipo: gerais aparecem uma vez só (10 habilidades, não 12)", () => {
-    const hs = habilidadesDeArquetipoDoPersonagem([slot("arquetipo-guerreiro-modal"), slot("arquetipo-guerreiro-poder")]);
+    const hs = habilidadesDeArquetipoDoPersonagem([slot("arquetipo-guerreiro-modal"), slot("arquetipo-guerreiro-poder")], { todas: true });
     assert.equal(hs.length, 10);
     assert.equal(hs.filter((h) => h.nome === "Guarda Alta").length, 1);
+  });
+  it("04/11: começa sem nenhuma habilidade; só as desbloqueadas aparecem", () => {
+    assert.equal(habilidadesDeArquetipoDoPersonagem([slot("arquetipo-guerreiro-modal")]).length, 0);
+    const hs = habilidadesDeArquetipoDoPersonagem([slot("arquetipo-guerreiro-modal", { habilidadesAtivas: [idDaHabilidade({ nome: "Postura Ofensiva" }), idDaHabilidade({ nome: "Guarda Alta" })] })]);
+    assert.deepEqual(hs.map((h) => h.nome).sort(), ["Guarda Alta", "Postura Ofensiva"]);
+  });
+  it("04/11: geral desbloqueada numa variação vale pra outra do mesmo arquétipo (uma vez só)", () => {
+    const hs = habilidadesDeArquetipoDoPersonagem([
+      slot("arquetipo-guerreiro-modal", { habilidadesAtivas: [idDaHabilidade({ nome: "Guarda Alta" })] }),
+      slot("arquetipo-guerreiro-poder"),
+    ]);
+    assert.deepEqual(hs.map((h) => h.nome), ["Guarda Alta"]);
+  });
+  it("04/11: a migração não corta as habilidades desbloqueadas em 3 (vai até as 6)", () => {
+    const ids = getVariacaoPorId("arquetipo-guerreiro-modal").habilidades.map(idDaHabilidade);
+    const m = migrarPersonagem({ id: "x", name: "X", disciplinas: [slot("arquetipo-guerreiro-modal", { habilidadesAtivas: ids }), null, null] });
+    assert.equal(m.disciplinas[0].habilidadesAtivas.length, 6);
   });
   it("slot de arquétipo sobrevive à migração da ficha", () => {
     const m = migrarPersonagem({ id: "x", name: "X", disciplinas: [slot("arquetipo-ladino-gatuno", { escolhaCombate: "esquiva" }), null, null] });
@@ -76,5 +93,17 @@ describe("na ficha", () => {
   it("getVariacaoPorId devolve os dados do JSON", () => {
     assert.equal(getVariacaoPorId("arquetipo-guerreiro-arcano-rúnico"), null);
     assert.equal(getVariacaoPorId("arquetipo-guerreiro-arcano-runico").fixaCombate, "Armas");
+  });
+});
+
+describe("Mago: ofícios mágicos como arquétipo (04/11)", () => {
+  it("os 5 ofícios e a Magia Inata ficam no arquétipo Mago, com nome 'Mago: <variação>'", async () => {
+    const { DISCIPLINAS, nomeDaDisciplina, ARQUETIPO_MAGO } = await import("./magias.js");
+    const mago = DISCIPLINAS.filter((d) => d.arquetipo === ARQUETIPO_MAGO);
+    assert.equal(mago.length, 6);
+    assert.equal(nomeDaDisciplina(DISCIPLINAS.find((d) => d.id === "oficio-encantamentos")), "Mago: Encantamentos");
+    assert.equal(nomeDaDisciplina(DISCIPLINAS.find((d) => d.id === "magia-inata")), "Mago: Magia Inata");
+    assert.equal(nomeDaDisciplina(DISCIPLINAS.find((d) => d.id === "arquetipo-guerreiro-modal")), "Guerreiro: Modal");
+    for (const d of mago) assert.ok(d.foco, d.id);
   });
 });

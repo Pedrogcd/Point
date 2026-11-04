@@ -65,7 +65,7 @@ import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
   comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE, disciplinasDoPersonagem,
 } from "./racasCatalogo.js";
-import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade } from "./data/arquetipos.js";
+import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade } from "./data/arquetipos.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
 import {
@@ -5589,8 +5589,26 @@ function DisciplinaSlotPicker({
                   <div><b>Descritores do estilo:</b> {(v.descritores || []).join(", ")}</div>
                   <div style={{ color: MUTED }}><b>Fraqueza:</b> {v.fraqueza}</div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
-                  {(v.habilidades || []).map((h) => <CartaoHabilidadeArquetipo key={h.nome} h={h} />)}
+                {/* 04/11: o arquétipo não vem com todas as habilidades — marque
+                    as que o personagem já tem; dá pra desbloquear mais depois.
+                    Fica em slot.habilidadesAtivas (sem limite de 3). */}
+                <div style={{ fontSize: 10.5, color: PURPLE, fontWeight: 600, margin: "12px 0 6px" }}>
+                  Habilidades desbloqueadas ({habilidadesAtivas.filter((id) => (v.habilidades || []).some((h) => idDaHabilidade(h) === id)).length} de {(v.habilidades || []).length}) — marque as que o personagem já tem
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {(v.habilidades || []).map((h) => {
+                    const id = idDaHabilidade(h);
+                    const tem = habilidadesAtivas.includes(id);
+                    return (
+                      <div key={h.nome}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: PARCHMENT, marginBottom: 4, cursor: "pointer" }}>
+                          <input type="checkbox" checked={tem} onChange={() => onToggleMagia(id)} />
+                          {tem ? "Desbloqueada" : "Ainda não tem"}
+                        </label>
+                        <CartaoHabilidadeArquetipo h={h} usada={!tem} />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -7263,8 +7281,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             marca "usada na cena" (character.usosCena, zerado no "Fim de
             cena"). Nenhum efeito de combate é automatizado. */}
         {(() => {
-          const habilidades = habilidadesDeArquetipoDoPersonagem(disciplinasDoPersonagem(character));
-          if (habilidades.length === 0) return null;
+          const slotsArquetipo = disciplinasDoPersonagem(character).filter((sl) => getVariacaoPorId(sl.disciplinaId));
+          if (slotsArquetipo.length === 0) return null;
+          const habilidades = habilidadesDeArquetipoDoPersonagem(slotsArquetipo);
+          const totalPossivel = habilidadesDeArquetipoDoPersonagem(slotsArquetipo, { todas: true }).length;
           const usos = character.usosCena || {};
           const mpAtual = character.mp?.current ?? 0;
           const spAtual = character.sp?.current ?? 0;
@@ -7285,6 +7305,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
                 Habilidades de arquétipo — "Usar" só desconta o custo (MP/SP) ou marca o uso na cena; o efeito é aplicado na mesa. SP gasto e usos "1x por cena" voltam no "Fim de cena".
+              </div>
+              <div style={{ fontSize: 10.5, color: MUTED, margin: "0 0 6px" }}>
+                {habilidades.length} de {totalPossivel} desbloqueadas — pra desbloquear mais, clique na disciplina e marque as habilidades que o personagem já tem.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
                 {habilidades.map((h) => {

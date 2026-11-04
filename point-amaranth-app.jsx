@@ -375,7 +375,11 @@ const CORE_RULES = {
 // Definida aqui (em vez de perto do resto das views) porque os dados semente
 // mais abaixo (Suth) já precisam montar imageUrl a partir de um caminho
 // relativo antes do app renderizar qualquer coisa.
-const assetUrl = (p) => `${import.meta.env?.BASE_URL || "/"}${p}`;
+// Caminho relativo da pasta public/ ("retratos-suth/x.jpg") ganha o BASE_URL
+// do site (/Point/). URL completa (imagem enviada pro Supabase, link externo,
+// data:/blob:) e caminho já absoluto passam intactos — antes ganhavam o
+// prefixo também e viravam "/Point/https://...", imagem quebrada (04/11).
+const assetUrl = (p) => (!p || /^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(p) ? p : `${import.meta.env?.BASE_URL || "/"}${p}`);
 
 /* ---------------------------------------------------------------
    DADOS SEMENTE — os 13 dossiês já existentes do Grupo C e aliados.

@@ -63,8 +63,9 @@ import { KATALAO_INFO, FRONTIER, NPC_GRUPOS, NPCS } from "./mundoDados.js";
 import { iconePara, ICONES } from "./icones-racas.jsx";
 import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
-  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE,
+  comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE, disciplinasDoPersonagem,
 } from "./racasCatalogo.js";
+import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade } from "./data/arquetipos.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
 import {
@@ -5237,6 +5238,43 @@ function AttackCard({ atk, onClick, selected, character }) {
 // Passivas) continua só com a coluna de texto, sem buraco. `efeito` é sempre
 // em INK (preto), nunca na cor da habilidade — a cor do texto em cima de um
 // fundo já tingido com a mesma cor ficava difícil de ler.
+// Cartão de habilidade de arquétipo (04/11, docs/revisao/ATUALIZACAO_04-11.md
+// tarefa 4): nome, tipo, custo, descritores, texto e a tag geral/única/
+// compartilhada — tudo vindo de data/arquetipos.json. Com `onUsar`, mostra o
+// botão que desconta o custo (MP/SP) ou marca "usada na cena" (1x por cena).
+// Nenhum efeito de combate é aplicado: só custo e uso.
+const TAG_HABILIDADE_ARQUETIPO = {
+  geral: { label: "Geral", cor: PURPLE },
+  unica: { label: "Única", cor: BRASS },
+  compartilhada: { label: "Compartilhada", cor: "#2F8577" },
+};
+function CartaoHabilidadeArquetipo({ h, usada, podeUsar, onUsar }) {
+  const tag = TAG_HABILIDADE_ARQUETIPO[h.tag || tagDaHabilidade(h)];
+  const custo = h.custoInfo || custoDaHabilidade(h.custo);
+  const temDescritores = h.descritores && h.descritores !== "—";
+  return (
+    <div style={{ padding: 10, borderRadius: 8, background: usada ? "#00000018" : "#00000008", border: `1px solid ${LINE}`, opacity: usada ? 0.7 : 1 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: PARCHMENT }}>{h.nome}</span>
+        <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>{h.tipo} · {h.custo}</span>
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", margin: "4px 0", fontSize: 10 }}>
+        {tag && <span title={h.origem} style={{ padding: "1px 7px", borderRadius: 10, border: `1px solid ${tag.cor}`, color: tag.cor }}>{tag.label}</span>}
+        {h.tag === "compartilhada" && <span style={{ color: MUTED }}>{h.origem}</span>}
+        {temDescritores && <span style={{ color: MUTED }}>Descritores: {h.descritores}</span>}
+      </div>
+      <div style={{ fontSize: 11, color: PARCHMENT, lineHeight: 1.45 }}><TextoComDescritores texto={h.texto} /></div>
+      {onUsar && (
+        <div style={{ marginTop: 6 }}>
+          <Btn onClick={onUsar} disabled={!podeUsar} style={{ fontSize: 10.5, padding: "3px 10px" }}>
+            {custo.porCena ? (usada ? "Usada na cena (desmarcar)" : "Usar (1x por cena)") : custo.mp ? `Usar (−${custo.mp} MP)` : custo.sp ? `Usar (−${custo.sp} SP)` : "Usar"}
+          </Btn>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SlotBox({ etiqueta, cor, Icon, titulo, subtitulo, corpo, efeito, vazio, onClick, acao }) {
   const clicavel = !!onClick;
   const corIcone = vazio ? MUTED : cor;
@@ -5479,7 +5517,7 @@ function DisciplinaSlotPicker({
 
         <div style={{ overflowY: "auto", padding: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {disciplinasDisponiveis.map((d) => {
+            {disciplinasDisponiveis.filter((d) => d.tipo !== TIPO_DISCIPLINA_ARQUETIPO).map((d) => {
               const selecionada = atual?.disciplinaId === d.id;
               return (
                 <div
@@ -5494,6 +5532,39 @@ function DisciplinaSlotPicker({
               );
             })}
           </div>
+
+          {/* Arquétipos (04/11, docs/revisao/ATUALIZACAO_04-11.md): 24
+              disciplinas (8 arquétipos × 3 variações), agrupadas por
+              arquétipo. Cada variação ocupa 1 slot. */}
+          {(() => {
+            const arquetipos = disciplinasDisponiveis.filter((d) => d.tipo === TIPO_DISCIPLINA_ARQUETIPO);
+            if (arquetipos.length === 0) return null;
+            const grupos = [...new Set(arquetipos.map((d) => d.arquetipo))];
+            return (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 11, color: PURPLE, fontWeight: 700, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: 0.5 }}>Arquétipos</div>
+                {grupos.map((g) => (
+                  <div key={g} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: PARCHMENT, fontWeight: 700, margin: "0 0 4px" }}>{g}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                      {arquetipos.filter((d) => d.arquetipo === g).map((d) => {
+                        const selecionada = atual?.disciplinaId === d.id;
+                        return (
+                          <div
+                            key={d.id} onClick={() => onEscolher(d.id)}
+                            style={{ padding: 9, borderRadius: 8, cursor: "pointer", background: selecionada ? `${PURPLE}20` : "#00000012", border: `1px solid ${selecionada ? PURPLE : LINE}` }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 700, color: PARCHMENT, marginBottom: 2 }}>{d.variacao}</div>
+                            <div style={{ fontSize: 10.5, color: MUTED, lineHeight: 1.35 }}>{d.descricao}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Escolha livre de Combate (24/10, docs/ATUALIZACAO_24-10.md seção
               0.4): toda disciplina dá +1 grau numa proficiência de Combate
@@ -5513,6 +5584,24 @@ function DisciplinaSlotPicker({
               </select>
             </div>
           )}
+
+          {atual && def?.tipo === TIPO_DISCIPLINA_ARQUETIPO && (() => {
+            const v = getVariacaoPorId(def.id);
+            if (!v) return null;
+            return (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 11, color: PARCHMENT, lineHeight: 1.5 }}>
+                  <div><b>Recurso:</b> {v.recurso}</div>
+                  <div><b>Passiva:</b> <TextoComDescritores texto={v.passiva} /></div>
+                  <div><b>Descritores do estilo:</b> {(v.descritores || []).join(", ")}</div>
+                  <div style={{ color: MUTED }}><b>Fraqueza:</b> {v.fraqueza}</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+                  {(v.habilidades || []).map((h) => <CartaoHabilidadeArquetipo key={h.nome} h={h} />)}
+                </div>
+              </div>
+            );
+          })()}
 
           {atual && def?.temMagias && (() => {
             // 23/10: filtra pela própria disciplina (Sensor, sem disciplinaId,
@@ -6170,7 +6259,16 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     // Mana quebrada (21/10): mesmo no fim de cena, só a mana GASTA normal
     // volta ao máximo — a quebrada continua quebrada até reparar.
     const teto = Math.max(0, max - (mpAtual.quebrada || 0));
-    onUpdateCharacter(character.id, { mp: { ...mpAtual, current: teto, recuperarPendente: 0 } });
+    // 04/11 (docs/revisao/ATUALIZACAO_04-11.md, regra 3): SP gasto volta
+    // no fim da cena (o quebrado continua quebrado) e os usos "1x por
+    // cena" das habilidades de arquétipo são liberados.
+    const spAtual = character.sp || { current: 0, max: computeMaxSP(character) };
+    const tetoSp = Math.max(0, computeMaxSP(character) - (spAtual.quebrada || 0));
+    onUpdateCharacter(character.id, {
+      mp: { ...mpAtual, current: teto, recuperarPendente: 0 },
+      sp: { ...spAtual, current: Math.max(spAtual.current ?? 0, tetoSp) },
+      usosCena: {},
+    });
   }
 
   // Grava a habilidade escolhida num dos espaços da tabela. A lista `procs`
@@ -7166,6 +7264,45 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             );
           })}
         </div>
+        {/* Habilidades de arquétipo (04/11, docs/revisao/ATUALIZACAO_04-11.md
+            tarefa 4): cartões das 6 habilidades de cada variação escolhida
+            (gerais do mesmo arquétipo uma vez só). "Usar" desconta MP/SP ou
+            marca "usada na cena" (character.usosCena, zerado no "Fim de
+            cena"). Nenhum efeito de combate é automatizado. */}
+        {(() => {
+          const habilidades = habilidadesDeArquetipoDoPersonagem(disciplinasDoPersonagem(character));
+          if (habilidades.length === 0) return null;
+          const usos = character.usosCena || {};
+          const mpAtual = character.mp?.current ?? 0;
+          const spAtual = character.sp?.current ?? 0;
+          function usar(h) {
+            if (!onUpdateCharacter) return;
+            const c = h.custoInfo;
+            if (c.porCena) {
+              onUpdateCharacter(character.id, { usosCena: { ...usos, [h.chave]: !usos[h.chave] } });
+            } else if (c.mp) {
+              if (mpAtual < c.mp) return;
+              onUpdateCharacter(character.id, { mp: { ...character.mp, current: mpAtual - c.mp } });
+            } else if (c.sp) {
+              if (spAtual < c.sp) return;
+              onUpdateCharacter(character.id, { sp: { ...character.sp, current: spAtual - c.sp } });
+            }
+          }
+          return (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 10.5, color: PURPLE, margin: "0 0 6px", fontWeight: 600 }}>
+                Habilidades de arquétipo — "Usar" só desconta o custo (MP/SP) ou marca o uso na cena; o efeito é aplicado na mesa. SP gasto e usos "1x por cena" voltam no "Fim de cena".
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+                {habilidades.map((h) => {
+                  const c = h.custoInfo;
+                  const podeUsar = !!onUpdateCharacter && (c.porCena || (c.mp ? mpAtual >= c.mp : c.sp ? spAtual >= c.sp : true));
+                  return <CartaoHabilidadeArquetipo key={h.chave} h={h} usada={!!usos[h.chave]} podeUsar={podeUsar} onUsar={c.porCena || c.mp || c.sp ? () => usar(h) : undefined} />;
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
         );
       })()}

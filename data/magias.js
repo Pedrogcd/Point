@@ -21,6 +21,7 @@
 // - emArea: true = usar resolveAtaqueEmArea (um alvo por vez é resolveAtaque).
 // - semRolagem / efeito: magias especiais sem pool de ataque (Escudo de Mana,
 //   Sensor).
+import { DISCIPLINAS_ARQUETIPO } from "./arquetipos.js";
 
 // Disciplinas — até 3 slots por personagem (character.disciplinas, array de
 // até 3 `{ disciplinaId, habilidadesAtivas }` ou `null`). Só as de tipo
@@ -53,7 +54,7 @@
 // - magiasIniciais/magiasAtivasMax/temTelaDeMana/trocaGratisComAcao: só
 //   Magias de guerra/Magia Inata (ver point-amaranth-app.jsx).
 // - bonusTexto: texto do bônus (proficiências + passiva) pra exibir na ficha.
-export const DISCIPLINAS = [
+export const DISCIPLINAS_OFICIOS = [
   {
     id: "oficio-magias-de-guerra",
     nome: "Ofício Mágico: Magias de guerra",
@@ -99,6 +100,11 @@ export const DISCIPLINAS = [
     descricao: "Disciplina de ofício mágico (separado de Encantamentos e Constructo em 21/10). Invoca armas espectrais e algumas magias de invocação (Chama Mágica).",
   },
 ];
+
+// 04/11 (docs/revisao/ATUALIZACAO_04-11.md): os 24 arquétipos entram como
+// disciplinas também (data/arquetipos.js, dados em data/arquetipos.json),
+// depois dos ofícios — os ofícios acima não mudam.
+export const DISCIPLINAS = [...DISCIPLINAS_OFICIOS, ...DISCIPLINAS_ARQUETIPO];
 
 export function getDisciplinaPorId(id) {
   return DISCIPLINAS.find((d) => d.id === id) || null;

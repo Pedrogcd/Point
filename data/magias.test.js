@@ -336,8 +336,9 @@ describe("DISCIPLINAS", () => {
       assert.equal("vazia" in d, false, id);
     }
   });
-  it("tem as 6 disciplinas (5 ofícios mágicos + Magia Inata), incluindo a nova Invocação", () => {
-    assert.equal(DISCIPLINAS.length, 6);
+  it("tem as 6 disciplinas de ofício (5 ofícios mágicos + Magia Inata), incluindo a nova Invocação; 04/11: + 24 arquétipos", () => {
+    assert.equal(DISCIPLINAS.filter((d) => d.tipo !== "arquetipo").length, 6);
+    assert.equal(DISCIPLINAS.length, 30);
     assert.ok(DISCIPLINAS.find((d) => d.id === "oficio-invocacao"));
   });
 });

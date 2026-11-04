@@ -51,7 +51,7 @@ describe("custo e tag", () => {
   });
   it("tagDaHabilidade", () => {
     assert.equal(tagDaHabilidade({ geral: true, origem: "Geral do arquétipo" }), "geral");
-    assert.equal(tagDaHabilidade({ geral: false, origem: "Compartilhada com Guardião Muralha" }), "compartilhada");
+    assert.equal(tagDaHabilidade({ geral: false, origem: "Compartilhada com Protetor Muralha" }), "compartilhada");
     assert.equal(tagDaHabilidade({ geral: false, origem: "Única" }), "unica");
   });
 });

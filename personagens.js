@@ -115,8 +115,12 @@ function casarClasseComDisciplina(nomeClasse) {
 function migrarDisciplinas(ch) {
   if (Array.isArray(ch.disciplinas)) {
     const normalizado = [0, 1, 2].map((i) => {
-      const slot = ch.disciplinas[i];
+      let slot = ch.disciplinas[i];
       if (!slot || !slot.disciplinaId) return null;
+      // 04/11 (Pedro): arquétipo Guardião renomeado pra Protetor — o id
+      // vem do nome (data/arquetipos.js:idDaVariacao), então os slots
+      // antigos são remapeados aqui em vez de descartados abaixo.
+      if (slot.disciplinaId.startsWith("arquetipo-guardiao-")) slot = { ...slot, disciplinaId: slot.disciplinaId.replace("arquetipo-guardiao-", "arquetipo-protetor-") };
       const def = DISCIPLINAS.find((d) => d.id === slot.disciplinaId);
       if (!def) return null; // disciplinaId desconhecido (catálogo mudou) — descarta o slot
       const limpo = { disciplinaId: slot.disciplinaId, habilidadesAtivas: Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas.slice(0, def.magiasAtivasMax || def.habilidadesMax || 3) : [] };

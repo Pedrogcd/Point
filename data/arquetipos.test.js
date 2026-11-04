@@ -78,3 +78,15 @@ describe("na ficha", () => {
     assert.equal(getVariacaoPorId("arquetipo-guerreiro-arcano-runico").fixaCombate, "Armas");
   });
 });
+
+describe("Mago: ofícios mágicos como arquétipo (04/11)", () => {
+  it("os 5 ofícios e a Magia Inata ficam no arquétipo Mago, com nome 'Mago: <variação>'", async () => {
+    const { DISCIPLINAS, nomeDaDisciplina, ARQUETIPO_MAGO } = await import("./magias.js");
+    const mago = DISCIPLINAS.filter((d) => d.arquetipo === ARQUETIPO_MAGO);
+    assert.equal(mago.length, 6);
+    assert.equal(nomeDaDisciplina(DISCIPLINAS.find((d) => d.id === "oficio-encantamentos")), "Mago: Encantamentos");
+    assert.equal(nomeDaDisciplina(DISCIPLINAS.find((d) => d.id === "magia-inata")), "Mago: Magia Inata");
+    assert.equal(nomeDaDisciplina(DISCIPLINAS.find((d) => d.id === "arquetipo-guerreiro-modal")), "Guerreiro: Modal");
+    for (const d of mago) assert.ok(d.foco, d.id);
+  });
+});

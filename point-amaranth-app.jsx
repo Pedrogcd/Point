@@ -251,7 +251,7 @@ const DESCRITOR_INFO = new Proxy({}, {
 // use um ataque catalogado ou a aba Magia).
 const CARACTERISTICAS_ATAQUE = [
   "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
-  "queimadura", "pesado", "arma_de_fogo", "envenenamento", "carga", "drenante",
+  "queimadura", "pesado", "arma_de_fogo", "envenenamento", "sangramento", "carga", "drenante",
 ];
 // Texto do resultado de ferimentos (29/10): com Arma de fogo pode vir
 // misto — 1 agravante + 1 superficial.
@@ -8284,7 +8284,7 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
       </div>
     );
   }
-  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal, queimadura, envenenamento, carga, drenante } = result;
+  const { rolagemAtaque, rolagemDefesa, sucessosLiquidos, tipoFerimento, feridas, limiar, letal, queimadura, envenenamento, sangramento, carga, drenante } = result;
   const tudoRevelado = ataqueRevelado && defesaRevelado;
   return (
     <>
@@ -8344,6 +8344,13 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
               Envenenamento: {envenenamento.dados}d10, {envenenamento.sucessos} sucesso{envenenamento.sucessos === 1 ? "" : "s"}, {envenenamento.aplicouFerimento
                 ? `1 ferimento superficial (limite de veneno: ${envenenamento.feridasDepois}/${envenenamento.limiteDepois})`
                 : (envenenamento.sucessos >= 1 ? `já no limite de veneno (${envenenamento.feridasDepois}/${envenenamento.limiteDepois}) — nada acontece` : "sem ferimento")}
+            </div>
+          )}
+          {sangramento && (
+            <div style={{ marginTop: 6, fontSize: 11, color: "#A0302A", fontFamily: "'IBM Plex Mono', monospace" }}>
+              Sangramento: {sangramento.dados}d10, {sangramento.sucessos} sucesso{sangramento.sucessos === 1 ? "" : "s"}, {sangramento.aplicouFerimento
+                ? `1 ferimento superficial (limite de sangramento: ${sangramento.feridasDepois}/${sangramento.limiteDepois})`
+                : (sangramento.sucessos >= 1 ? `já no limite de sangramento (${sangramento.feridasDepois}/${sangramento.limiteDepois}) — nada acontece` : "sem ferimento")}
             </div>
           )}
           {carga && (

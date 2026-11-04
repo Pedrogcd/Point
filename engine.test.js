@@ -20,7 +20,7 @@ import {
   resolveAtaqueEmArea, descritoresEfetivosDoAtaque, ferimentosDoAtaque,
   grauQueimadura, resolveQueimadura, LIMIAR_QUEIMADURA, LIMIAR_QUEIMADURA_BLINDADO,
   grauDescritorNumerico, grauPreciso, grauEsmagador, grauEnvenenamento, grauCarga,
-  LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveCarga, resolveDrenante,
+  LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveSangramento, resolveCarga, resolveDrenante,
   grauFirme, grauSelado, grauLento, quebrarSP, repararSP,
   aplicarAzarado, diceRecuperacaoMana,
 } from "./engine.js";
@@ -1668,5 +1668,32 @@ describe("Arma de fogo (29/10)", () => {
   it("todo ataque de arma de fogo ganha o descritor, inclusive ataque salvo antigo", () => {
     assert.ok(descritoresEfetivosDoAtaque({}, { tipo: "arma_de_fogo", descritores: ["letal"] }).includes("arma_de_fogo"));
     assert.ok(!descritoresEfetivosDoAtaque({}, { tipo: "marcial", descritores: ["letal"] }).includes("arma_de_fogo"));
+  });
+});
+
+describe("Sangramento (04/11, igual ao Envenenamento)", () => {
+  it("sem sucesso líquido no ataque, nada", () => {
+    assert.equal(resolveSangramento({ descritoresAtaque: ["sangramento_1"], sucessosLiquidosAtaque: 0 }), null);
+  });
+  it("Sangramento 1 com sucesso (7+): 1 ferimento superficial e limite 1", (t) => {
+    mockDice(t, [7]);
+    const r = resolveSangramento({ descritoresAtaque: ["sangramento_1"], sucessosLiquidosAtaque: 2 });
+    assert.equal(r.dados, 1);
+    assert.equal(r.aplicouFerimento, true);
+    assert.equal(r.limiteDepois, 1);
+  });
+  it("já no limite: nada acontece", (t) => {
+    mockDice(t, [9]);
+    const r = resolveSangramento({ descritoresAtaque: ["sangramento_1"], sucessosLiquidosAtaque: 1, limiteAtual: 1, feridasAtuais: 1 });
+    assert.equal(r.aplicouFerimento, false);
+  });
+  it("6 não é sucesso (precisa de 7+)", (t) => {
+    mockDice(t, [6]);
+    assert.equal(resolveSangramento({ descritoresAtaque: ["sangramento_1"], sucessosLiquidosAtaque: 1 }).aplicouFerimento, false);
+  });
+  it("Imune a Envenenamento não protege do Sangramento", (t) => {
+    mockDice(t, [8]);
+    const r = resolveSangramento({ defender: { descritores: ["imune_envenenamento"] }, descritoresAtaque: ["sangramento_1"], sucessosLiquidosAtaque: 1 });
+    assert.equal(r.aplicouFerimento, true);
   });
 });

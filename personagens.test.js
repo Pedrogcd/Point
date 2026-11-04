@@ -509,3 +509,12 @@ describe("migrarPersonagem — Armas à Distância saiu (27/10)", () => {
     assert.equal(m.disciplinas[0].escolhaCombate, "combateCorpoACorpo");
   });
 });
+
+describe("migrarPersonagem — arquétipo Guardião renomeado pra Protetor (04/11)", () => {
+  it("slot salvo com o id antigo vira o id novo, com habilidades e escolha preservadas", () => {
+    const ch = migrarPersonagem({ id: "t", name: "T", disciplinas: [{ disciplinaId: "arquetipo-guardiao-muralha", habilidadesAtivas: ["proteger"], escolhaCombate: "bloqueio" }] });
+    assert.equal(ch.disciplinas[0].disciplinaId, "arquetipo-protetor-muralha");
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas, ["proteger"]);
+    assert.equal(ch.disciplinas[0].escolhaCombate, "bloqueio");
+  });
+});

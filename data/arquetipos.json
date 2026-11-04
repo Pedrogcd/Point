@@ -167,7 +167,7 @@
       "custo": "1 MP",
       "descritores": "Esmagador 1",
       "texto": "Ataque de escudo ou ombro com Esmagador 1; o alvo sai da zona se perder o teste de Força. Se já tiver Esmagador, ele sobe +1.",
-      "origem": "Compartilhada com Guardião Muralha",
+      "origem": "Compartilhada com Protetor Muralha",
       "geral": false,
       "nota": ""
      }
@@ -652,7 +652,7 @@
       "custo": "1 MP",
       "descritores": "Firme 1",
       "texto": "Por uma cena, você e aliados na sua zona bloqueiam com Firme 1. Uma aura por vez. Quem já tiver Firme rola +1d10 ao bloquear.",
-      "origem": "Compartilhada com Guardião Muralha",
+      "origem": "Compartilhada com Protetor Muralha",
       "geral": false,
       "nota": ""
      },
@@ -1540,14 +1540,14 @@
   ]
  },
  {
-  "arquetipo": "Guardião",
+  "arquetipo": "Protetor",
   "gerais": [
    "Proteger",
    "Pele de Ferro"
   ],
   "variacoes": [
    {
-    "arquetipo": "Guardião",
+    "arquetipo": "Protetor",
     "variacao": "Muralha",
     "foco": "Bloqueio e defesa pesada",
     "conceito": "Parede viva: ninguém passa.",
@@ -1629,7 +1629,7 @@
     ]
    },
    {
-    "arquetipo": "Guardião",
+    "arquetipo": "Protetor",
     "variacao": "Protetor",
     "foco": "Assume ataques por aliados",
     "conceito": "Recebe o golpe que era do aliado.",
@@ -1711,7 +1711,7 @@
     ]
    },
    {
-    "arquetipo": "Guardião",
+    "arquetipo": "Protetor",
     "variacao": "Provocador",
     "foco": "Prende a atenção dos inimigos",
     "conceito": "Atrai ataques e castiga quem os ignora.",

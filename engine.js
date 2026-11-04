@@ -521,7 +521,7 @@ export function defaultAttacksForCharacter() {
 // Encantamento dá Esmagador a um personagem no guia (só Preciso), e
 // Esmagador descreve o ATAQUE sendo difícil de bloquear, não uma
 // característica do atacante — mantido fora até existir uma fonte real.
-const DESCRITORES_DE_ATAQUE_DO_PERSONAGEM = /^(letal|perfurante|sortudo|drenante|preciso(_\d+)?|queimadura(_\d+)?|carga(_\d+)?|envenenamento(_\d+)?)$/;
+const DESCRITORES_DE_ATAQUE_DO_PERSONAGEM = /^(letal|perfurante|sortudo|drenante|preciso(_\d+)?|queimadura(_\d+)?|carga(_\d+)?|envenenamento(_\d+)?|sangramento(_\d+)?)$/;
 
 export function descritoresEfetivosDoAtaque(attacker, attack) {
   const base = attack?.descritores || [];
@@ -840,6 +840,8 @@ export function grauQueimadura(descritores) { return grauDescritorNumerico(descr
 export function grauPreciso(descritores) { return grauDescritorNumerico(descritores, "preciso", "maior"); }
 export function grauEsmagador(descritores) { return grauDescritorNumerico(descritores, "esmagador", "maior"); }
 export function grauEnvenenamento(descritores) { return grauDescritorNumerico(descritores, "envenenamento", "soma"); }
+// Sangramento (04/11): mesmas regras do Envenenamento, inclusive o acúmulo.
+export function grauSangramento(descritores) { return grauDescritorNumerico(descritores, "sangramento", "soma"); }
 export function grauCarga(descritores) { return grauDescritorNumerico(descritores, "carga", "soma"); }
 // Descritores defensivos de ARMADURA (21/10, docs/ATUALIZACAO_21-10.md
 // seção 7.2, planilha armaduras.xlsx) — diferente dos acima, estes vêm do
@@ -1190,6 +1192,29 @@ export function resolveQueimadura({ attacker, defender, descritoresAtaque = [], 
 // nem gasto do limite). Zera na cura ou no descanso longo — NÃO no fim de
 // cena (por isso é um estado à parte de hp.superficiais, que não distingue
 // a origem do ferimento).
+// Sangramento N (04/11, pedido do Pedro: "Sangramento 1 vai ser
+// mecanicamente igual a Envenenamento 1"): mesma rolagem de
+// resolveEnvenenamento — com ao menos 1 sucesso líquido no ataque, N d10 a
+// 7+ (ignora defesa e Blindado); com 1 sucesso, exatamente 1 ferimento
+// superficial; o total de ferimentos de sangramento do alvo é limitado ao
+// maior N já recebido. Contagem própria (limite separado do de veneno).
+// Imune a Envenenamento e Selado NÃO afetam o Sangramento (os textos deles
+// falam só de Envenenamento/Queimadura).
+export function resolveSangramento({ descritoresAtaque = [], sucessosLiquidosAtaque, limiteAtual = 0, feridasAtuais = 0 }) {
+  const grau = grauSangramento(descritoresAtaque);
+  if (grau <= 0 || !sucessosLiquidosAtaque || sucessosLiquidosAtaque < 1) return null;
+  const rolagem = rollSuccessDice(grau, LIMIAR_ENVENENAMENTO);
+  const teveSucesso = rolagem.successes >= 1;
+  const novoLimite = teveSucesso ? Math.max(limiteAtual, grau) : limiteAtual;
+  const aplicouFerimento = teveSucesso && feridasAtuais < novoLimite;
+  return {
+    dados: grau, rolagem, sucessos: rolagem.successes,
+    limiteAntes: limiteAtual, limiteDepois: novoLimite,
+    feridasAntes: feridasAtuais, feridasDepois: aplicouFerimento ? feridasAtuais + 1 : feridasAtuais,
+    aplicouFerimento,
+  };
+}
+
 export function resolveEnvenenamento({ defender, descritoresAtaque = [], sucessosLiquidosAtaque, limiteAtual = 0, feridasAtuais = 0 }) {
   // Imunidade total (21/10, Descendentes de Sharkan — docs/ATUALIZACAO_21-10.md
   // seção 8.4: "imune a Envenenamento"): diferente de Selado N (que só
@@ -1292,6 +1317,7 @@ export function resolveAtaque({
   attacker, defender, tipoAtaque, totalDiceAtaque, descritoresAtaque = [], defesaAtributo,
   feridas = 1, superficial = false, limiarOverride, totalDiceDefesaManual,
   cargasAtuais = 0, envenenamentoLimiteAtual = 0, envenenamentoFeridasAtuais = 0,
+  sangramentoLimiteAtual = 0, sangramentoFeridasAtuais = 0,
 }) {
   const limiar = limiarOverride != null ? limiarOverride : limiarAtaque({ atacante: attacker, defensor: defender, descritoresAtaque });
   const ehMagia = descritoresAtaque.includes("magia");
@@ -1317,11 +1343,15 @@ export function resolveAtaque({
     defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos,
     limiteAtual: envenenamentoLimiteAtual, feridasAtuais: envenenamentoFeridasAtuais,
   });
+  const sangramento = resolveSangramento({
+    descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos,
+    limiteAtual: sangramentoLimiteAtual, feridasAtuais: sangramentoFeridasAtuais,
+  });
   const carga = resolveCarga({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos, cargasAtuais });
   const drenante = resolveDrenante({ defender, descritoresAtaque, sucessosLiquidosAtaque: sucessosLiquidos });
   return {
     limiar, rolagemAtaque, rolagemDefesa, sucessosLiquidos, letal, resistente,
-    tipoFerimento, ...ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque), queimadura, envenenamento, carga, drenante,
+    tipoFerimento, ...ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque), queimadura, envenenamento, sangramento, carga, drenante,
   };
 }
 

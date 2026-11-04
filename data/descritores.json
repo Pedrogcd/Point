@@ -117,6 +117,18 @@
       "acumulo": "soma"
     },
     {
+      "id": "sangramento",
+      "nome": "Sangramento",
+      "temN": true,
+      "tipo": "Efeito extra",
+      "status": "Definido",
+      "resumo": "Com 1 sucesso líquido, N dados a 7+; havendo sucesso, 1 superficial.",
+      "regra": "Mecanicamente igual ao Envenenamento (04/11). Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de sangramento do alvo é limitado ao maior N já recebido (contagem separada da do veneno). O limite zera na cura ou no descanso longo. Sangramento de fontes diferentes soma os N.",
+      "usadoEm": "—",
+      "linkEmTextoLivre": true,
+      "acumulo": "soma"
+    },
+    {
       "id": "carga",
       "nome": "Carga",
       "temN": true,

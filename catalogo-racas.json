@@ -229,9 +229,9 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Quanto mais ferido, mais perigoso.",
-          "efeito": "Uma vez por cena, o primeiro ferimento agravante que receberia vira superficial. Gastando 1 SP, reativa (pode valer de novo na mesma cena).",
+          "efeito": "Uma vez por cena, faça um teste de Vigor + Fortitude (Resistir à Dor). Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial. Gastando 1 SP, reativa (pode testar de novo na mesma cena).",
           "bonus": [
-            "1º agravante da cena vira superficial"
+            "1x por cena: teste de Vigor + Fortitude; com 1 sucesso, 1º agravante vira superficial"
           ],
           "descritores": []
         },

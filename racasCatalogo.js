@@ -815,9 +815,18 @@ export function comGrausEfetivos(character) {
   const descritoresEscolhidos = descritorEscolhidoDoPersonagem(character);
   const descritoresTransformacao = descritoresDeTransformacaoAtiva(character);
   const descritoresExtras = [...descritoresEncantamentos, ...descritoresInvocacoes, ...descritoresEquipamento, ...descritoresEscolhidos, ...descritoresTransformacao];
-  const descritores = descritoresExtras.length
+  const descritoresSomados = descritoresExtras.length
     ? [...new Set([...(character.descritores || []), ...descritoresExtras])]
     : character.descritores;
+  // 05/11 (docs/revisao/ATUALIZACAO_04-11.md, "Mudanças de regra de 05/11",
+  // item 3): Resistente só vale até o primeiro ferimento agravante que o
+  // personagem sofre na cena. A ficha guarda a marca em
+  // character.agravanteNaCena (marcada na ficha, zerada no "Fim de cena");
+  // com ela, o Resistente sai dos descritores efetivos — de qualquer fonte
+  // (raça, armadura, encantamento, arquétipo) — até a cena seguinte.
+  const descritores = character.agravanteNaCena && (descritoresSomados || []).includes("resistente")
+    ? descritoresSomados.filter((d) => d !== "resistente")
+    : descritoresSomados;
   // Potente Força/Potente Destreza (armadura, seção 7.2): "+1 grau, até C"
   // — lidos do character JÁ com os descritores do equipamento mesclados
   // (senão a própria armadura equipada nunca veria o bônus que ela dá).

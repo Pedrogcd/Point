@@ -6058,6 +6058,14 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // raça texto livre etc.) e pra abrir o formulário de edição — editar sempre
   // mexe no grau BASE, nunca no efetivo. Ver racasCatalogo.js:comGrausEfetivos.
   const { character: characterEfetivo, bonusAplicado } = useMemo(() => comGrausEfetivos(character), [character]);
+  // Tem Resistente de alguma fonte, ignorando a marca de 1º agravante da
+  // cena (que tira o Resistente do characterEfetivo) — pra ficha saber se
+  // mostra a marca.
+  const temResistenteBase = useMemo(() => (
+    character.agravanteNaCena
+      ? (comGrausEfetivos({ ...character, agravanteNaCena: false }).character.descritores || []).includes("resistente")
+      : (characterEfetivo.descritores || []).includes("resistente")
+  ), [character, characterEfetivo]);
   const [rollAttr, setRollAttr] = useState(ATRIBUTOS_GERAIS_LIST[0].key);
   const [rollProf, setRollProf] = useState(PROFICIENCIAS_LIST[0].key);
   // Limiar de sucesso do Teste — Atributo + Perícia: ajustável pelo jogador,
@@ -6349,6 +6357,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       mp: { ...mpAtual, current: teto, recuperarPendente: 0 },
       sp: { ...spAtual, current: Math.max(spAtual.current ?? 0, tetoSp) },
       usosCena: {},
+      // 05/11: a marca "já sofreu o 1º agravante da cena" (que desliga o
+      // Resistente, ver racasCatalogo.js:comGrausEfetivos) volta a zero.
+      agravanteNaCena: false,
     });
   }
 
@@ -6563,6 +6574,24 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     <Sparkles size={13} color={MP_COLOR} /> Fim de cena
                   </Btn>
                 </div>
+                {/* 05/11: Resistente só vale até o 1º agravante da cena. A
+                    marca fica na ficha (o site não aplica ferimentos sozinho),
+                    tira o Resistente dos cálculos (Confronto/Teste) e volta a
+                    zero no Fim de cena. Só aparece pra quem tem Resistente. */}
+                {temResistenteBase && (
+                  <label
+                    title="Resistente: o Vigor conta +1 para o agravante só até o primeiro ferimento agravante da cena. Marque quando ele acontecer; o Fim de cena desmarca."
+                    style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11.5, color: character.agravanteNaCena ? EMBER : PARCHMENT, cursor: "pointer" }}
+                  >
+                    <input
+                      type="checkbox" checked={!!character.agravanteNaCena}
+                      onChange={(e) => onUpdateCharacter(character.id, { agravanteNaCena: e.target.checked })}
+                    />
+                    {character.agravanteNaCena
+                      ? "Já sofreu o 1º agravante da cena — Resistente desligado até o Fim de cena"
+                      : "Resistente ativo — marcar ao sofrer o 1º ferimento agravante da cena"}
+                  </label>
+                )}
               </>
             )}
             {onUpdateCharacter && character.habilidadePrincipal === "cla-corvus" && (() => {

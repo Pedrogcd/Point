@@ -17,7 +17,7 @@ import {
   diceAtaqueAlquimia, diceAtaqueConstructo,
   contagemOficiosMagicos,
   resolveRolagemDefesa, determinarFerimento, aplicarFerimentos, resolveAtaque,
-  resolveAtaqueEmArea, descritoresEfetivosDoAtaque, ferimentosDoAtaque,
+  resolveAtaqueEmArea, descritoresEfetivosDoAtaque, grauSangramento, ferimentosDoAtaque,
   grauQueimadura, resolveQueimadura, LIMIAR_QUEIMADURA, LIMIAR_QUEIMADURA_BLINDADO,
   grauDescritorNumerico, grauPreciso, grauEsmagador, grauEnvenenamento, grauCarga,
   LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveSangramento, resolveCarga, resolveDrenante,
@@ -1695,5 +1695,26 @@ describe("Sangramento (04/11, igual ao Envenenamento)", () => {
     mockDice(t, [8]);
     const r = resolveSangramento({ defender: { descritores: ["imune_envenenamento"] }, descritoresAtaque: ["sangramento_1"], sucessosLiquidosAtaque: 1 });
     assert.equal(r.aplicouFerimento, true);
+  });
+});
+
+describe("Redundância de Letal → Sangramento 1 (05/11)", () => {
+  it("arma com Letal + Letal racial: o ataque ganha Sangramento 1", () => {
+    const d = descritoresEfetivosDoAtaque({ descritores: ["letal"] }, { descritores: ["letal"] });
+    assert.ok(d.includes("sangramento_1"));
+  });
+  it("arma sem Letal + Letal racial: só Letal, sem Sangramento", () => {
+    const d = descritoresEfetivosDoAtaque({ descritores: ["letal"] }, { descritores: [] });
+    assert.ok(d.includes("letal"));
+    assert.ok(!d.some((x) => x.startsWith("sangramento")));
+  });
+  it("arma com Letal e personagem sem Letal: nada muda", () => {
+    const d = descritoresEfetivosDoAtaque({ descritores: [] }, { descritores: ["letal"] });
+    assert.deepEqual(d, ["letal"]);
+  });
+  it("teto de 2 por ataque e soma com Sangramento que o ataque já tenha", () => {
+    const d = descritoresEfetivosDoAtaque({ descritores: ["letal"] }, { descritores: ["letal", "letal", "letal", "sangramento_1"] });
+    assert.ok(d.includes("sangramento_2"));
+    assert.equal(grauSangramento(d), 3);
   });
 });

@@ -550,8 +550,27 @@ export function descritoresEfetivosDoAtaque(attacker, attack) {
   if (doPersonagem.length) {
     resultado = [...resultado, ...doPersonagem];
   }
+  // 05/11 (docs/revisao/ATUALIZACAO_04-11.md, "Mudanças de regra de 05/11",
+  // itens 1 e 2): redundância de Letal. Se o ataque já tem Letal (da arma,
+  // do próprio ataque ou do desarmado letal) e o personagem dá Letal de novo
+  // (raça — Leonino, Reptiliano, Lobo/Canino, Agressividade Oni — ou outra
+  // fonte de personagem, como Encantamento: Letal), o ataque causa também
+  // Sangramento 1. Sangramento de redundância de Letal: teto de 2 por ataque
+  // (SANGRAMENTO_REDUNDANCIA_LETAL_MAX); soma com outro Sangramento que o
+  // ataque já tenha (grauSangramento soma os N).
+  const letalDoAtaque = resultado.length - doPersonagem.length;
+  const letaisNoAtaque = resultado.slice(0, letalDoAtaque).filter((d) => d === "letal").length;
+  const letaisDoPersonagem = doPersonagem.filter((d) => d === "letal").length;
+  const repeticoesLetal = letaisNoAtaque > 0 ? letaisNoAtaque + letaisDoPersonagem - 1 : 0;
+  const sangramentoRedundancia = Math.min(SANGRAMENTO_REDUNDANCIA_LETAL_MAX, repeticoesLetal);
+  if (sangramentoRedundancia > 0) {
+    resultado = [...resultado, `sangramento_${sangramentoRedundancia}`];
+  }
   return resultado;
 }
+
+// Teto do Sangramento que vem de Letal repetido no mesmo ataque (05/11).
+export const SANGRAMENTO_REDUNDANCIA_LETAL_MAX = 2;
 
 export function attrBonus(grade) {
   // E=0, D=1, C=2, B=3, A=4 (F também cai em 0 — piso em 0, não desconta HP/

@@ -1072,3 +1072,15 @@ describe("descritoresDeTransformacaoAtiva", () => {
     assert.equal(character.atributosGerais.destreza, 3);
   });
 });
+
+describe("Resistente só até o 1º agravante da cena (05/11)", () => {
+  const base = { id: "r", name: "R", raca: "ningen", habilidadePrincipal: "reptiliano", descritores: ["resistente", "letal"] };
+  it("sem a marca, o Resistente vale", () => {
+    assert.ok(comGrausEfetivos(base).character.descritores.includes("resistente"));
+  });
+  it("com a marca agravanteNaCena, o Resistente sai dos descritores efetivos (o resto fica)", () => {
+    const ef = comGrausEfetivos({ ...base, agravanteNaCena: true }).character.descritores;
+    assert.ok(!ef.includes("resistente"));
+    assert.ok(ef.includes("letal"));
+  });
+});

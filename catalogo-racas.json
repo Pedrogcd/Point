@@ -214,7 +214,7 @@
           "icone": "neutro",
           "cor": null,
           "descricao": "Niosh são naturalmente fortes.",
-          "efeito": "Todos os seus ataques, físicos e mágicos, ganham o descritor Letal (reduz em 1, mínimo 1, o Vigor necessário pro ferimento virar agravante).",
+          "efeito": "Todos os seus ataques, físicos e mágicos, ganham o descritor Letal (reduz em 1, mínimo 1, o Vigor necessário pro ferimento virar agravante). Se o ataque já tiver Letal (da arma ou de outra fonte), causa também Sangramento 1.",
           "bonus": [
             "Letal (todos os ataques)"
           ],
@@ -311,7 +311,7 @@
           "icone": "juba",
           "cor": "#D08B1E",
           "descricao": "Orelhas e cauda de felinos.",
-          "efeito": "+1 grau em Investigação. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. +1 SP máximo.",
+          "efeito": "+1 grau em Investigação. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. Se o ataque já tiver Letal (da arma ou de outra fonte), causa também Sangramento 1. +1 SP máximo.",
           "bonus": [
             "Investigação +1 grau",
             "Letal (todos os ataques)",
@@ -329,7 +329,7 @@
           "icone": "olho-pupila-fendida",
           "cor": "#1F8A70",
           "descricao": "Escamas, cauda e rosto longo com muitos dentes.",
-          "efeito": "+1 grau em Intimidação. Ganha o descritor Resistente. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal.",
+          "efeito": "+1 grau em Intimidação. Ganha o descritor Resistente. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. Se o ataque já tiver Letal (da arma ou de outra fonte), causa também Sangramento 1.",
           "bonus": [
             "Intimidação +1 grau",
             "Resistente",
@@ -347,7 +347,7 @@
           "icone": "lobo-uivando",
           "cor": "#5E7C9A",
           "descricao": "Caça em grupo, de faro apurado e voz de alcateia.",
-          "efeito": "+1 grau em Liderança. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. Com um aliado na mesma zona do alvo, seus ataques ganham Preciso 1 (não mecanizado no app — não há controle de zona/posição no motor). +1 SP máximo.",
+          "efeito": "+1 grau em Liderança. Todos os seus ataques (físicos e mágicos) ganham o descritor Letal. Se o ataque já tiver Letal (da arma ou de outra fonte), causa também Sangramento 1. Com um aliado na mesma zona do alvo, seus ataques ganham Preciso 1 (não mecanizado no app — não há controle de zona/posição no motor). +1 SP máximo.",
           "bonus": [
             "Liderança +1 grau",
             "Letal (todos os ataques)",

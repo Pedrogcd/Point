@@ -66,7 +66,7 @@
       "tipo": "Ataque",
       "status": "Definido",
       "resumo": "O Vigor do alvo conta −1 para o agravante.",
-      "regra": "Reduz em 1 o Vigor necessário para o ferimento ser agravante (mínimo 1). Letal e Resistente se anulam.",
+      "regra": "Reduz em 1 o Vigor necessário para o ferimento ser agravante (mínimo 1). Letal e Resistente se anulam. Redundância (05/11): se o ataque já tem Letal e uma habilidade ou a raça dá Letal de novo, o ataque causa também Sangramento 1 (teto de Sangramento 2 por ataque vindo de Letal repetido).",
       "usadoEm": "Torrente Mágica, Shin-kay, Katalão, Encantamento: Letal, lâminas, Agressividade Oni, Leonino, Lobo",
       "linkEmTextoLivre": true
     },
@@ -123,8 +123,8 @@
       "tipo": "Efeito extra",
       "status": "Definido",
       "resumo": "Com 1 sucesso líquido, N dados a 7+; havendo sucesso, 1 superficial.",
-      "regra": "Mecanicamente igual ao Envenenamento (04/11). Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de sangramento do alvo é limitado ao maior N já recebido (contagem separada da do veneno). O limite zera na cura ou no descanso longo. Sangramento de fontes diferentes soma os N.",
-      "usadoEm": "—",
+      "regra": "Mecanicamente igual ao Envenenamento (04/11). Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de sangramento do alvo é limitado ao maior N já recebido (contagem separada da do veneno). O limite zera na cura ou no descanso longo. Sangramento de fontes diferentes soma os N. O Sangramento que vem de redundância de Letal (Letal repetido no mesmo ataque) tem teto de 2 por ataque (05/11). A confirmar: se Sangramento e Envenenamento somam um com o outro (hoje contam separados).",
+      "usadoEm": "Redundância de Letal (Leonino, Reptiliano, Lobo/Canino, Agressividade Oni, habilidades de arquétipo), Sanguinário",
       "linkEmTextoLivre": true,
       "acumulo": "soma"
     },
@@ -191,8 +191,8 @@
       "temN": false,
       "tipo": "Defesa",
       "status": "Definido",
-      "resumo": "Seu Vigor conta +1 para o agravante.",
-      "regra": "Para decidir se o ferimento é agravante, o Vigor do defensor conta como +1 (vale para qualquer comparação com o Vigor, inclusive a Queimadura). Não acumula nem muda HP ou dados. Letal e Resistente se anulam.",
+      "resumo": "Seu Vigor conta +1 para o agravante, até o 1º agravante da cena.",
+      "regra": "Para decidir se o ferimento é agravante, o Vigor do defensor conta como +1 (vale para qualquer comparação com o Vigor, inclusive a Queimadura), mas só até o primeiro ferimento agravante que ele sofrer na cena; depois o bônus acaba até a cena seguinte (05/11; na ficha, marca \"1º agravante da cena\", zerada no Fim de cena). Não acumula nem muda HP ou dados. Letal e Resistente se anulam.",
       "usadoEm": "Encantamento: Resistente, Elixir de Vigor, Humanos, Niosh, Reptiliano, Goethiano, armaduras",
       "linkEmTextoLivre": true,
       "acumulo": "nao-acumula"

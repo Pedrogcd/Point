@@ -33,7 +33,7 @@
       "tipo": "Suporte",
       "custo": "1 MP",
       "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal dá +1d10 no ataque; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": "aprovado"
@@ -53,7 +53,7 @@
       "tipo": "Postura",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Até trocar de postura: seus ataques ganham +1d10 e Letal (se já tiverem Letal, o +1d10 é o único ganho), e sua defesa rola 1 dado a menos.",
+      "texto": "Até trocar de postura: seus ataques ganham +1d10 e Letal (se já tiverem Letal, causam também Sangramento 1), e sua defesa rola 1 dado a menos.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -116,7 +116,7 @@
       "tipo": "Suporte",
       "custo": "1 MP",
       "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal dá +1d10 no ataque; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -146,7 +146,7 @@
       "tipo": "Ataque",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "O ataque ganha Letal; se não causar ferimento, a próxima defesa dele rola 1 dado a menos. Se o ataque já tiver Letal, rola +1d10 no ataque.",
+      "texto": "O ataque ganha Letal; se não causar ferimento, a próxima defesa dele rola 1 dado a menos. Se o ataque já tiver Letal, causa também Sangramento 1.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -199,7 +199,7 @@
       "tipo": "Suporte",
       "custo": "1 MP",
       "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal dá +1d10 no ataque; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -301,7 +301,7 @@
       "tipo": "Reação",
       "custo": "1x por cena",
       "descritores": "—",
-      "texto": "O primeiro ferimento agravante que receber vira superficial.",
+      "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -384,7 +384,7 @@
       "tipo": "Reação",
       "custo": "1x por cena",
       "descritores": "—",
-      "texto": "O primeiro ferimento agravante que receber vira superficial.",
+      "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -424,7 +424,7 @@
       "tipo": "Ataque",
       "custo": "1 MP",
       "descritores": "Perfurante, Letal (Sangramento 1 pela passiva)",
-      "texto": "O ataque ganha Perfurante e Letal e, por isso, causa Sangramento 1 pela passiva. Para cada descritor (Perfurante, Letal) que o ataque já tinha, rola +1d10 (máx. +2).",
+      "texto": "O ataque ganha Perfurante e Letal e, por isso, causa Sangramento 1 pela passiva. Se o ataque já tinha Perfurante, rola +1d10.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -442,7 +442,7 @@
      "Atletismo",
      "Sobrevivência"
     ],
-    "passiva": "Uma vez por cena, o primeiro ferimento agravante vira superficial.",
+    "passiva": "Uma vez por cena, teste de Vigor + Fortitude; com 1 sucesso, o primeiro ferimento agravante vira superficial.",
     "descritores": [
      "Resistente",
      "Firme",
@@ -467,7 +467,7 @@
       "tipo": "Reação",
       "custo": "1x por cena",
       "descritores": "—",
-      "texto": "O primeiro ferimento agravante que receber vira superficial.",
+      "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -558,7 +558,7 @@
       "tipo": "Estado",
       "custo": "1x por cena",
       "descritores": "Letal | Preciso 1 | Firme 1",
-      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, rola +1d10. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
+      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, causa também Sangramento 1. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -578,7 +578,7 @@
       "tipo": "Suporte",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Sua arma ganha Letal por uma cena. Se a arma já tem Letal, rola +1d10 no primeiro ataque de cada rodada.",
+      "texto": "Sua arma ganha Letal por uma cena. Se a arma já tem Letal, seus ataques causam também Sangramento 1.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -641,7 +641,7 @@
       "tipo": "Estado",
       "custo": "1x por cena",
       "descritores": "Letal | Preciso 1 | Firme 1",
-      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, rola +1d10. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
+      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, causa também Sangramento 1. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -723,7 +723,7 @@
       "tipo": "Estado",
       "custo": "1x por cena",
       "descritores": "Letal | Preciso 1 | Firme 1",
-      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, rola +1d10. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
+      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, causa também Sangramento 1. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -763,7 +763,7 @@
       "tipo": "Estado",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Marca um alvo que feriu você ou um aliado; seus ataques contra ele ganham Letal até o fim da cena. Se já tiver Letal, rola +1d10 contra o alvo marcado.",
+      "texto": "Marca um alvo que feriu você ou um aliado; seus ataques contra ele ganham Letal até o fim da cena. Se já tiver Letal, causa também Sangramento 1 no alvo marcado.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -805,7 +805,7 @@
       "tipo": "Ataque",
       "custo": "1x por cena",
       "descritores": "Preciso 2, Letal",
-      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, rola +1d10 no ataque.",
+      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, causa também Sangramento 1.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -845,7 +845,7 @@
       "tipo": "Ataque",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Contra alvo ferido ou Azarado: o ataque ganha Letal e +1 dado. Se já tiver Letal, ganha +2 dados em vez de +1.",
+      "texto": "Contra alvo ferido ou Azarado: o ataque ganha Letal e +1 dado. Se já tiver Letal, causa também Sangramento 1.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -887,7 +887,7 @@
       "tipo": "Ataque",
       "custo": "1x por cena",
       "descritores": "Preciso 2, Letal",
-      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, rola +1d10 no ataque.",
+      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, causa também Sangramento 1.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -969,7 +969,7 @@
       "tipo": "Ataque",
       "custo": "1x por cena",
       "descritores": "Preciso 2, Letal",
-      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, rola +1d10 no ataque.",
+      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, causa também Sangramento 1.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -1530,7 +1530,7 @@
       "tipo": "Ataque",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Ao derrubar um inimigo, os demais fazem teste de Resolução ou ficam Azarados. Se o ataque já tiver Letal, rola +1d10 no ataque.",
+      "texto": "Ao derrubar um inimigo, os demais fazem teste de Resolução ou ficam Azarados. Se o ataque já tiver Letal, causa também Sangramento 1.",
       "origem": "Única",
       "geral": false,
       "nota": ""
@@ -1961,7 +1961,7 @@
       "tipo": "Ataque",
       "custo": "1 SP",
       "descritores": "Letal, Preciso 2",
-      "texto": "Só vale contra alvo Lento ou Azarado. Se já tiver Letal, rola +1d10; se já tiver Preciso, ele vira Preciso 3.",
+      "texto": "Só vale contra alvo Lento ou Azarado. Se já tiver Letal, causa também Sangramento 1; se já tiver Preciso, ele vira Preciso 3.",
       "origem": "Única",
       "geral": false,
       "nota": ""

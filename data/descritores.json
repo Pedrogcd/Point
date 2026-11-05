@@ -123,7 +123,7 @@
       "tipo": "Efeito extra",
       "status": "Definido",
       "resumo": "Com 1 sucesso líquido, N dados a 7+; havendo sucesso, 1 superficial.",
-      "regra": "Mecanicamente igual ao Envenenamento (04/11). Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de sangramento do alvo é limitado ao maior N já recebido (contagem separada da do veneno). O limite zera na cura ou no descanso longo. Sangramento de fontes diferentes soma os N. O Sangramento que vem de redundância de Letal (Letal repetido no mesmo ataque) tem teto de 2 por ataque (05/11). A confirmar: se Sangramento e Envenenamento somam um com o outro (hoje contam separados).",
+      "regra": "Mecanicamente igual ao Envenenamento (04/11). Se o ataque causar ao menos 1 sucesso líquido, rola N d10 extras (7+; ignora defesa e Blindado). Com pelo menos 1 sucesso, o alvo recebe exatamente 1 ferimento superficial. O total de ferimentos de sangramento do alvo é limitado ao maior N já recebido (contagem separada da do veneno). O limite zera na cura ou no descanso longo. Sangramento de fontes diferentes soma os N. O Sangramento que vem de redundância de Letal (Letal repetido no mesmo ataque) tem teto de 2 por ataque (05/11). Sangramento e Envenenamento não somam um com o outro: cada um tem seu próprio limite e contagem (Pedro, 05/11).",
       "usadoEm": "Redundância de Letal (Leonino, Reptiliano, Lobo/Canino, Agressividade Oni, habilidades de arquétipo), Sanguinário",
       "linkEmTextoLivre": true,
       "acumulo": "soma"

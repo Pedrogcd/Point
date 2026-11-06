@@ -36,3 +36,12 @@ Arquétipos e variações: Guerreiro (Modal, Poder, Preciso); Bárbaro (Fúria, 
 - Graus numéricos (0 a 5) no lugar das letras.
 - Proficiências de combate (8): Armas, Desarmado, Armas de Fogo, Magia Ofensiva, Esquiva, Bloqueio, Fortitude, Vontade.
 - Regra de armas de 28/10: em cada ataque a pessoa escolhe UM dos dois descritores da arma.
+
+## Mudanças de 06/11 (Guerreiro, validação do Pedro)
+- Modal: passiva agora diz que começa com Maestria de Estilo, que custa 0 MP na primeira vez de cada turno; 2 MP para usar de novo no turno com um segundo modificador.
+- Poder: passiva passa de "+1 dado de ataque" para "Sortudo" em ataques com Pesado ou Esmagador.
+- Preciso: passiva passa de "Preciso 1" para "ataques desarmados ou com arma leve podem rolar com −1 grau nos dois atributos de ataque (mínimo 1 em cada), mas fazem dois ataques".
+- Guarda Alta (geral): 1 sucesso garantido na defesa (antes 2), mantendo −2 dados.
+- Postura Ofensiva: sem penalidade de defesa (+1d10 e Letal).
+- Maestria de Estilo nas outras variações: em discussão, sem mudança.
+- Dados completos em arquetipos.json (substituir a cópia antiga).

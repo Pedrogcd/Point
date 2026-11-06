@@ -17,7 +17,7 @@
      "Atletismo",
      "Intuição"
     ],
-    "passiva": "Uma vez por cena, troca de postura de graça (as demais trocas custam 2 MP).",
+    "passiva": "Começa com a habilidade Maestria de Estilo, que para o Modal custa 0 MP na primeira vez de cada turno. Pode pagar 2 MP para usá-la de novo no mesmo turno e ganhar um segundo modificador. Uma vez por cena, troca de postura de graça (as demais trocas custam 2 MP).",
     "descritores": [
      "Letal",
      "Firme",
@@ -31,19 +31,19 @@
      {
       "nome": "Maestria de Estilo",
       "tipo": "Suporte",
-      "custo": "1 MP",
+      "custo": "0 MP (1ª vez do turno); 2 MP para repetir",
       "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente. Para o Modal: custa 0 MP na primeira vez de cada turno e 2 MP para usar de novo, com um segundo modificador.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": "aprovado"
+      "nota": "Pedro 06/11: Modal começa com ela (passiva)"
      },
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
       "custo": "2 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 2 sucessos garantidos na defesa.",
+      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 1 sucesso garantido na defesa.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": "Rola defesas fisicas (isso afeta interpretação)"
@@ -53,10 +53,10 @@
       "tipo": "Postura",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Até trocar de postura: seus ataques ganham +1d10 e Letal (se já tiverem Letal, causam também Sangramento 1), e sua defesa rola 1 dado a menos.",
+      "texto": "Até trocar de postura: seus ataques ganham +1d10 e Letal (se já tiverem Letal, causam também Sangramento 1).",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 06/11: sem penalidade de defesa"
      },
      {
       "nome": "Postura Defensiva",
@@ -101,7 +101,7 @@
      "Atletismo",
      "Intimidação"
     ],
-    "passiva": "Ataques com Pesado ou Esmagador ganham +1 dado de ataque (teto 3).",
+    "passiva": "Ataques com Pesado ou Esmagador ganham Sortudo.",
     "descritores": [
      "Pesado",
      "Esmagador",
@@ -126,7 +126,7 @@
       "tipo": "Defesa",
       "custo": "2 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 2 sucessos garantidos na defesa.",
+      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 1 sucesso garantido na defesa.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""
@@ -184,7 +184,7 @@
      "Percepção",
      "Atletismo"
     ],
-    "passiva": "Ataques desarmados ou com arma leve ganham Preciso 1.",
+    "passiva": "Ataques desarmados ou com arma leve podem rolar com −1 grau nos dois atributos de ataque (atributo e proficiência, mínimo 1 em cada), mas fazem dois ataques.",
     "descritores": [
      "Preciso",
      "Veloz",
@@ -209,7 +209,7 @@
       "tipo": "Defesa",
       "custo": "2 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 2 sucessos garantidos na defesa.",
+      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 1 sucesso garantido na defesa.",
       "origem": "Geral do arquétipo",
       "geral": true,
       "nota": ""

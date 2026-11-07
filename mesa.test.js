@@ -138,3 +138,24 @@ describe("névoa de guerra (07/11)", async () => {
     assert.deepEqual(c.map((x) => x.id), ["c", "a"]);
   });
 });
+
+describe("névoa com formas (07/11)", async () => {
+  const { formaDaNevoa, encaixarPonto, circuloDeArraste, fecharPoligono } = await import("./mesa.js");
+  it("forma padrão é retângulo (objetos antigos)", () => {
+    assert.equal(formaDaNevoa({ tipo: "nevoa", x: 0 }), "retangulo");
+    assert.equal(formaDaNevoa({ forma: "poligono" }), "poligono");
+  });
+  it("encaixar ponto na grade, só se ligado", () => {
+    assert.deepEqual(encaixarPonto([104, 36], 70), [70, 70]);
+    assert.deepEqual(encaixarPonto([104, 36], 70, false), [104, 36]);
+  });
+  it("círculo pelo centro e raio; pequeno = null", () => {
+    assert.deepEqual(circuloDeArraste([100, 100], [130, 140]), { cx: 100, cy: 100, r: 50 });
+    assert.equal(circuloDeArraste([0, 0], [2, 2]), null);
+  });
+  it("polígono: tira duplicados (duplo clique) e exige 3 pontos com área", () => {
+    assert.deepEqual(fecharPoligono([[0, 0], [100, 0], [100, 100], [100, 100]]), [[0, 0], [100, 0], [100, 100]]);
+    assert.equal(fecharPoligono([[0, 0], [100, 0]]), null);
+    assert.equal(fecharPoligono([[0, 0], [50, 0], [100, 0]]), null); // colinear: sem área
+  });
+});

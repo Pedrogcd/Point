@@ -110,6 +110,50 @@ export function retanguloDeArraste([x1, y1], [x2, y2], minimo = 8) {
   return w >= minimo && h >= minimo ? { x, y, w, h } : null;
 }
 
+// 07/11 (Pedro: "linhas e retas que se conectam e formas" pra criar as
+// zonas que os personagens veem): além do retângulo, névoa em círculo e em
+// polígono (pontos clicados um a um). Campo `forma` no objeto:
+//   retangulo { x, y, w, h } (padrão, inclusive os antigos sem `forma`)
+//   circulo   { cx, cy, r }
+//   poligono  { pontos: [[x, y], ...] }
+export function formaDaNevoa(o) {
+  return o?.forma === "circulo" || o?.forma === "poligono" ? o.forma : "retangulo";
+}
+
+// Encaixa um ponto no canto mais próximo da grade (pra contornar salas).
+export function encaixarPonto([x, y], tamanho, ligado = true) {
+  if (!ligado || !tamanho) return [x, y];
+  return [encaixarNaGrade(x, tamanho), encaixarNaGrade(y, tamanho)];
+}
+
+export function circuloDeArraste([x1, y1], [x2, y2], minimo = 8) {
+  const r = Math.hypot(x2 - x1, y2 - y1);
+  return r >= minimo ? { cx: x1, cy: y1, r: Math.round(r * 10) / 10 } : null;
+}
+
+export function pontosPerto([x1, y1], [x2, y2], tolerancia) {
+  return Math.hypot(x2 - x1, y2 - y1) <= tolerancia;
+}
+
+// Fecha um polígono: tira pontos repetidos em sequência (o duplo clique
+// gera dois) e o último se ele voltou ao primeiro; precisa de 3 pontos e
+// alguma área. Devolve os pontos ou null.
+export function fecharPoligono(pontos, tolerancia = 1) {
+  const limpos = [];
+  for (const p of pontos || []) {
+    if (!limpos.length || !pontosPerto(limpos[limpos.length - 1], p, tolerancia)) limpos.push([p[0], p[1]]);
+  }
+  if (limpos.length > 3 && pontosPerto(limpos[0], limpos[limpos.length - 1], tolerancia)) limpos.pop();
+  if (limpos.length < 3) return null;
+  let area = 0;
+  for (let i = 0; i < limpos.length; i++) {
+    const [ax, ay] = limpos[i];
+    const [bx, by] = limpos[(i + 1) % limpos.length];
+    area += ax * by - bx * ay;
+  }
+  return Math.abs(area) / 2 >= 16 ? limpos : null;
+}
+
 export function camadasDeNevoa(objetos) {
   return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }

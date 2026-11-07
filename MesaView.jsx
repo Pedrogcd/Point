@@ -11,14 +11,23 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
   Trash2, Send, Dices, ArrowUpToLine, ArrowDownToLine, Plus, Minus, Wifi, WifiOff, Crown,
-  CloudFog, Cloud, CloudOff, Eye,
+  CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
   novoId, parseComandoRolagem, rolarDados, identidadesDaMesa, mensagemDeFala, mensagemDeRolagem,
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
+  formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
 } from "./mesa.js";
+
+// Uma forma de névoa (retângulo, círculo ou polígono) como elemento SVG.
+function FormaNevoa({ n, ...props }) {
+  const forma = formaDaNevoa(n);
+  if (forma === "circulo") return <circle cx={n.cx} cy={n.cy} r={n.r} {...props} />;
+  if (forma === "poligono") return <polygon points={(n.pontos || []).map((p) => p.join(",")).join(" ")} {...props} />;
+  return <rect x={n.x} y={n.y} width={n.w} height={n.h} {...props} />;
+}
 import { uploadImagemMesa } from "./imageUpload.js";
 
 // Mesma paleta do app (point-amaranth-app.jsx).
@@ -256,6 +265,12 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   // Névoa (07/11): retângulo sendo arrastado com a ferramenta "nevoa"
   // (cobrir) ou "revelar" (abrir buraco) — só o Mestre.
   const [retanguloAtual, setRetanguloAtual] = useState(null);
+  // 07/11: forma da névoa (retângulo, círculo ou polígono clicado ponto a
+  // ponto), ímã na grade e o polígono em construção.
+  const [formaNevoa, setFormaNevoa] = useState("retangulo");
+  const [imaNevoa, setImaNevoa] = useState(true);
+  const [poligonoAtual, setPoligonoAtual] = useState(null); // { modo, pontos }
+  const [cursorMundo, setCursorMundo] = useState(null);
   const gestoRef = useRef(null);
   const imagens = objetos.filter((o) => o.tipo === "imagem");
   const mapas = imagens.filter((o) => o.camada === "mapa");
@@ -283,9 +298,18 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       return;
     }
     if (gm && (ferramenta === "nevoa" || ferramenta === "revelar")) {
+      if (ev.button !== 0) return;
+      const p = pontoDaNevoa(ev);
+      if (formaNevoa === "poligono") {
+        // Clique a clique: cada clique é um vértice; clicar no primeiro
+        // ponto (ou duplo clique / Enter) fecha a forma.
+        const atual = poligonoAtual && poligonoAtual.modo === ferramenta ? poligonoAtual : { modo: ferramenta, pontos: [] };
+        if (atual.pontos.length >= 3 && pontosPerto(p, atual.pontos[0], 14 / cam.zoom)) { concluirPoligono(atual); return; }
+        setPoligonoAtual({ ...atual, pontos: [...atual.pontos, p] });
+        return;
+      }
       ev.currentTarget.setPointerCapture(ev.pointerId);
-      const p = paraMundo(ev);
-      setRetanguloAtual({ inicio: p, fim: p, modo: ferramenta });
+      setRetanguloAtual({ inicio: p, fim: p, modo: ferramenta, forma: formaNevoa });
       gestoRef.current = { tipo: "retangulo" };
       return;
     }
@@ -317,6 +341,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }
   function aoMover(ev) {
     const g = gestoRef.current;
+    if (poligonoAtual) setCursorMundo(pontoDaNevoa(ev));
     if (!g) return;
     if (g.tipo === "pan") {
       const [x0, y0] = g.inicio;
@@ -325,7 +350,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       const p = paraMundo(ev);
       setTracoAtual((t) => (t ? [...t, p] : [p]));
     } else if (g.tipo === "retangulo") {
-      const p = paraMundo(ev);
+      const p = pontoDaNevoa(ev);
       setRetanguloAtual((r) => (r ? { ...r, fim: p } : r));
     } else if (g.tipo === "arrastar") {
       const [x, y] = paraMundo(ev);
@@ -341,10 +366,17 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     gestoRef.current = null;
     if (!g) return;
     if (g.tipo === "retangulo") {
-      const r = retanguloAtual ? retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim) : null;
-      const modo = retanguloAtual?.modo;
+      const atual = retanguloAtual;
       setRetanguloAtual(null);
-      if (r) salvar({ id: novoId("n"), tipo: modo === "revelar" ? "revelado" : "nevoa", ordem: proximaOrdem(), ...r });
+      if (!atual) return;
+      const tipo = atual.modo === "revelar" ? "revelado" : "nevoa";
+      if (atual.forma === "circulo") {
+        const c = circuloDeArraste(atual.inicio, atual.fim);
+        if (c) salvar({ id: novoId("n"), tipo, forma: "circulo", ordem: proximaOrdem(), ...c });
+      } else {
+        const r = retanguloDeArraste(atual.inicio, atual.fim);
+        if (r) salvar({ id: novoId("n"), tipo, forma: "retangulo", ordem: proximaOrdem(), ...r });
+      }
       return;
     }
     if (g.tipo === "desenho" && tracoAtual) {
@@ -408,9 +440,41 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     }
   }
 
+  function pontoDaNevoa(ev) {
+    return encaixarPonto(paraMundo(ev), config.tamanhoGrade, imaNevoa && config.grade);
+  }
+  function concluirPoligono(atual = poligonoAtual) {
+    const pontos = atual ? fecharPoligono(atual.pontos, 2 / cam.zoom) : null;
+    setPoligonoAtual(null);
+    setCursorMundo(null);
+    if (pontos) salvar({ id: novoId("n"), tipo: atual.modo === "revelar" ? "revelado" : "nevoa", forma: "poligono", ordem: proximaOrdem(), pontos });
+  }
+  function desfazerUltimaNevoa() {
+    const ultima = nevoas[nevoas.length - 1];
+    if (ultima) apagar(ultima.id);
+  }
+  // Trocar de ferramenta ou de forma cancela o polígono em construção.
+  useEffect(() => { setPoligonoAtual(null); setCursorMundo(null); }, [ferramenta, formaNevoa]);
+  // Polígono: Enter fecha, Esc cancela, Backspace tira o último ponto.
+  useEffect(() => {
+    if (!poligonoAtual) return undefined;
+    function tecla(ev) {
+      const alvoTag = ev.target?.tagName;
+      if (alvoTag === "INPUT" || alvoTag === "TEXTAREA" || alvoTag === "SELECT") return;
+      if (ev.key === "Enter") { ev.preventDefault(); concluirPoligono(); }
+      else if (ev.key === "Escape") { setPoligonoAtual(null); setCursorMundo(null); }
+      else if (ev.key === "Backspace") {
+        ev.preventDefault();
+        setPoligonoAtual((pa) => (pa && pa.pontos.length > 1 ? { ...pa, pontos: pa.pontos.slice(0, -1) } : null));
+      }
+    }
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
   function cobrirTudo() {
     nevoas.forEach((n) => apagar(n.id));
-    salvar({ id: novoId("n"), tipo: "nevoa", ordem: proximaOrdem(), x: 0, y: 0, w: MESA_LARGURA, h: MESA_ALTURA });
+    salvar({ id: novoId("n"), tipo: "nevoa", forma: "retangulo", ordem: proximaOrdem(), x: 0, y: 0, w: MESA_LARGURA, h: MESA_ALTURA });
   }
   function tirarTodaNevoa() {
     if (nevoas.length && window.confirm("Tirar toda a névoa do tabuleiro? Os jogadores vão ver tudo.")) nevoas.forEach((n) => apagar(n.id));
@@ -470,6 +534,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       <div
         ref={areaRef} className="mesa-tabuleiro"
         onPointerDown={aoApertar} onPointerMove={aoMover} onPointerUp={aoSoltar} onPointerCancel={aoSoltar}
+        onDoubleClick={() => { if (poligonoAtual) concluirPoligono(); }}
         style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${LINE}`, background: "#CDBF9C", cursor, touchAction: "none", userSelect: "none" }}
       >
         <svg width="100%" height="100%" viewBox={viewBox} style={{ display: "block" }}>
@@ -499,7 +564,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             <>
               <mask id="mesa-nevoa" maskUnits="userSpaceOnUse" x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA}>
                 <rect x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA} fill="black" />
-                {nevoas.map((n) => <rect key={n.id} x={n.x} y={n.y} width={n.w} height={n.h} fill={n.tipo === "revelado" ? "black" : "white"} />)}
+                {nevoas.map((n) => <FormaNevoa key={n.id} n={n} fill={n.tipo === "revelado" ? "black" : "white"} />)}
               </mask>
               <rect
                 x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA} mask="url(#mesa-nevoa)" pointerEvents="none"
@@ -508,12 +573,32 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             </>
           )}
           {retanguloAtual && (() => {
-            const r = retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
-            if (!r) return null;
             const revelar = retanguloAtual.modo === "revelar";
+            const estilo = {
+              pointerEvents: "none", fill: revelar ? "#F3E9D255" : "#2B211655", stroke: revelar ? BRASS : PARCHMENT,
+              strokeWidth: 2 / cam.zoom, strokeDasharray: `${8 / cam.zoom} ${5 / cam.zoom}`,
+            };
+            if (retanguloAtual.forma === "circulo") {
+              const c = circuloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
+              return c ? <circle cx={c.cx} cy={c.cy} r={c.r} style={estilo} /> : null;
+            }
+            const r = retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
+            return r ? <rect x={r.x} y={r.y} width={r.w} height={r.h} style={estilo} /> : null;
+          })()}
+          {poligonoAtual && poligonoAtual.pontos.length > 0 && (() => {
+            const revelar = poligonoAtual.modo === "revelar";
+            const corLinha = revelar ? BRASS : PARCHMENT;
+            const pts = cursorMundo ? [...poligonoAtual.pontos, cursorMundo] : poligonoAtual.pontos;
+            const perto = cursorMundo && poligonoAtual.pontos.length >= 3 && pontosPerto(cursorMundo, poligonoAtual.pontos[0], 14 / cam.zoom);
             return (
-              <rect x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none"
-                fill={revelar ? "#F3E9D255" : "#2B211655"} stroke={revelar ? BRASS : PARCHMENT} strokeWidth={2 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} />
+              <g pointerEvents="none">
+                {pts.length >= 3 && <polygon points={pts.map((p) => p.join(",")).join(" ")} fill={revelar ? "#F3E9D244" : "#2B211644"} stroke="none" />}
+                <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke={corLinha} strokeWidth={2.5 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} />
+                {poligonoAtual.pontos.map((p, i) => (
+                  <circle key={i} cx={p[0]} cy={p[1]} r={(i === 0 ? (perto ? 11 : 8) : 5) / cam.zoom}
+                    fill={i === 0 ? (perto ? PURPLE : PANEL) : corLinha} stroke={PURPLE} strokeWidth={2 / cam.zoom} />
+                ))}
+              </g>
             );
           })()}
         </svg>
@@ -529,8 +614,8 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
               <BotaoFerramenta titulo="Adicionar token/imagem" onClick={() => pedirImagem("token")}><ImagePlus size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo="Adicionar mapa de fundo" onClick={() => pedirImagem("mapa")}><MapIcon size={18} /></BotaoFerramenta>
-              <BotaoFerramenta titulo="Névoa: arraste pra cobrir uma área" ativo={ferramenta === "nevoa"} onClick={() => setFerramenta("nevoa")}><CloudFog size={18} /></BotaoFerramenta>
-              <BotaoFerramenta titulo="Névoa: arraste pra revelar uma área" ativo={ferramenta === "revelar"} onClick={() => setFerramenta("revelar")}><Eye size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo="Névoa: cobrir uma área" ativo={ferramenta === "nevoa"} onClick={() => setFerramenta("nevoa")}><CloudFog size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo="Névoa: revelar uma área (o que os personagens veem)" ativo={ferramenta === "revelar"} onClick={() => setFerramenta("revelar")}><Eye size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo={config.grade ? "Esconder grade" : "Mostrar grade"} ativo={config.grade} onClick={() => mudarConfig({ grade: !config.grade })}><Grid3x3 size={18} /></BotaoFerramenta>
               <BotaoFerramenta
                 titulo="Limpar todos os desenhos" perigo
@@ -563,9 +648,24 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         {/* Ações de névoa (Mestre) */}
         {gm && (ferramenta === "nevoa" || ferramenta === "revelar") && (
           <div style={{ ...barraFlutuante, top: 10, left: 62, alignItems: "center", padding: "4px 6px", gap: 4 }} onPointerDown={(e) => e.stopPropagation()}>
-            <span style={{ fontSize: 11, color: MUTED, padding: "0 6px" }}>
-              {ferramenta === "nevoa" ? "Arraste pra cobrir" : "Arraste pra revelar"} · jogadores não veem o que está coberto
+            <BotaoFerramenta titulo="Forma: retângulo (arraste)" ativo={formaNevoa === "retangulo"} onClick={() => setFormaNevoa("retangulo")}><Square size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo="Forma: círculo (arraste do centro pra fora)" ativo={formaNevoa === "circulo"} onClick={() => setFormaNevoa("circulo")}><Circle size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo="Forma: polígono (clique ponto a ponto; clique no primeiro ponto, duplo clique ou Enter fecha)" ativo={formaNevoa === "poligono"} onClick={() => setFormaNevoa("poligono")}><Pentagon size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo={imaNevoa ? "Encaixar na grade: ligado" : "Encaixar na grade: desligado"} ativo={imaNevoa && config.grade} onClick={() => setImaNevoa((v) => !v)}><Magnet size={17} /></BotaoFerramenta>
+            <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+            <span style={{ fontSize: 11, color: MUTED, padding: "0 6px", maxWidth: 280, lineHeight: 1.3 }}>
+              {poligonoAtual
+                ? `${poligonoAtual.pontos.length} ponto${poligonoAtual.pontos.length === 1 ? "" : "s"} · clique no 1º ponto, duplo clique ou Enter fecha · Backspace volta · Esc cancela`
+                : `${formaNevoa === "poligono" ? "Clique ponto a ponto" : "Arraste"} pra ${ferramenta === "nevoa" ? "cobrir" : "revelar"} · jogadores não veem o que está coberto`}
             </span>
+            {poligonoAtual && (
+              <>
+                <BotaoFerramenta titulo="Fechar a forma (Enter)" onClick={() => concluirPoligono()}><Check size={17} /></BotaoFerramenta>
+                <BotaoFerramenta titulo="Cancelar (Esc)" onClick={() => { setPoligonoAtual(null); setCursorMundo(null); }}><XIcon size={17} /></BotaoFerramenta>
+              </>
+            )}
+            <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+            <BotaoFerramenta titulo="Desfazer a última névoa" onClick={desfazerUltimaNevoa}><Undo2 size={17} /></BotaoFerramenta>
             <BotaoFerramenta titulo="Cobrir a mesa toda" onClick={cobrirTudo}><Cloud size={17} /></BotaoFerramenta>
             <BotaoFerramenta titulo="Tirar toda a névoa" perigo onClick={tirarTodaNevoa}><CloudOff size={17} /></BotaoFerramenta>
           </div>

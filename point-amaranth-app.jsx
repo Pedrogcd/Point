@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useId } from "react";
 import { createPortal } from "react-dom";
 import {
-  Users, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
+  Users, UserCog, Swords, Map as MapIcon, Sparkles, Plus, X, Dices, ChevronLeft,
   Pencil, Trash2, Save, ShieldHalf, Shield, Flame, Droplet, BookOpen, Landmark,
   ChevronDown, ChevronRight, Star, Crown, Home, ScrollText, Target, Check,
   Upload, Download, ExternalLink, Eye, EyeOff, Route, RefreshCw,
@@ -69,6 +69,7 @@ import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPe
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
 import MesaView from "./MesaView.jsx";
+import JogadoresView from "./JogadoresView.jsx";
 import {
   carregarPersonagensRemotos, enviarPatchPersonagem, apagarPersonagemRemoto, assinarMudancas,
   diffPersonagens, aplicarLinhaRemota, removerLinhaRemota, aplicarRecarga,
@@ -14120,6 +14121,10 @@ export default function App() {
     );
   }
 
+  // A aba Jogadores só existe na visão de Mestre: trocando pra Jogador com
+  // ela aberta, volta pra Mesa.
+  useEffect(() => { if (!gm && tab === "jogadores") setTab("mesa"); }, [gm, tab]);
+
   // Mesa (07/11): NPCs do mundo pro "falar como" do Mestre — só nome e
   // retrato (com as edições do Mestre por cima), nada de segredo.
   const npcsDaMesa = useMemo(
@@ -14129,7 +14134,10 @@ export default function App() {
       const cidade = (reino?.cities || []).find((c) => c.id === n.cidade);
       const nomeCidade = cidade?.name || (n.cidade ? n.cidade.charAt(0).toUpperCase() + n.cidade.slice(1) : "");
       const local = nomeCidade ? (reino?.name ? `${nomeCidade} (${reino.name})` : nomeCidade) : (reino?.name || "Mundo");
-      return { id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img, local };
+      // Pop-up do token (07/11): só o que é público do NPC (papel e texto
+      // da visão de jogador), nunca o segredo.
+      const publico = npcVisivel({ ...n, ...(npcsOverrides?.[n.id] || {}) }, false) || {};
+      return { id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img, local, papel: publico.papel || "", texto: publico.texto || "" };
     }),
     [npcsOverrides, kingdoms],
   );
@@ -14140,6 +14148,8 @@ export default function App() {
     { id: "characters", label: "Personagens", icon: Users },
     { id: "compare", label: "Confronto", icon: Swords },
     { id: "mesa", label: "Mesa", icon: Dices },
+    // 07/11: administração dos jogadores da Mesa — só na visão de Mestre.
+    ...(gm ? [{ id: "jogadores", label: "Jogadores", icon: UserCog }] : []),
     { id: "abilities", label: "Habilidades", icon: BookOpen },
     { id: "rules", label: "Regras", icon: ScrollText },
     { id: "descritores", label: "Descritores", icon: Tags },
@@ -14527,8 +14537,10 @@ export default function App() {
           <MesaView
             gm={gm} personagens={characters} supabase={supabase} resolverImagem={assetUrl}
             npcs={npcsDaMesa}
+            onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
           />
         )}
+        {tab === "jogadores" && gm && <JogadoresView supabase={supabase} personagens={characters} />}
         {tab === "abilities" && <AbilitiesCatalogView />}
         {tab === "rules" && <RulesView />}
         {tab === "descritores" && <DescritoresView focoId={focoDescritorId} />}

@@ -67,15 +67,23 @@ function reinoDaFicha(p) {
   return !f || f === "—" ? SEM_REINO : f;
 }
 function pesoDoGrupo(grupo) {
-  return grupo === "Outra" ? 1 : grupo === SEM_REINO ? 2 : 0;
+  return grupo === GRUPO_MINHAS ? -1 : grupo === "Outra" ? 1 : grupo === SEM_REINO ? 2 : 0;
 }
 
-export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, resolverImagem = (x) => x } = {}) {
+// `minhas` (07/11): ids das fichas atribuídas ao jogador desta tela — vêm
+// primeiro, no grupo "Minhas fichas". Jogador só vê fichas visíveis pra
+// jogadores (visivelJogador, igual à aba Personagens) ou atribuídas a ele.
+export const GRUPO_MINHAS = "Minhas fichas";
+export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, resolverImagem = (x) => x, minhas = [] } = {}) {
   const porGrupoENome = (a, b) => (pesoDoGrupo(a.grupo) - pesoDoGrupo(b.grupo))
     || a.grupo.localeCompare(b.grupo, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR");
+  const minhasSet = new Set(minhas || []);
   const fichas = (personagens || [])
-    .filter((p) => p?.id && p.name)
-    .map((p) => ({ id: `ficha:${p.id}`, nome: p.name, img: p.imageUrl ? resolverImagem(p.imageUrl) : null, tipo: "ficha", grupo: reinoDaFicha(p) }))
+    .filter((p) => p?.id && p.name && (gm || p.visivelJogador || minhasSet.has(p.id)))
+    .map((p) => ({
+      id: `ficha:${p.id}`, nome: p.name, img: p.imageUrl ? resolverImagem(p.imageUrl) : null, tipo: "ficha",
+      grupo: minhasSet.has(p.id) ? GRUPO_MINHAS : reinoDaFicha(p),
+    }))
     .sort(porGrupoENome);
   if (!gm) return fichas;
   const doMundo = (npcs || [])
@@ -90,7 +98,7 @@ export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, res
 export function gruposDeIdentidades(identidades) {
   const grupos = [];
   for (const i of identidades || []) {
-    const rotulo = i.tipo === "mestre" ? "Mestre" : `${i.tipo === "npc" ? "NPCs" : "Fichas"} — ${i.grupo || SEM_REINO}`;
+    const rotulo = i.tipo === "mestre" ? "Mestre" : i.grupo === GRUPO_MINHAS ? GRUPO_MINHAS : `${i.tipo === "npc" ? "NPCs" : "Fichas"} — ${i.grupo || SEM_REINO}`;
     const ultimo = grupos[grupos.length - 1];
     if (ultimo && ultimo.rotulo === rotulo) ultimo.itens.push(i);
     else grupos.push({ rotulo, itens: [i] });
@@ -173,6 +181,92 @@ export function camadaDaImagem(o) {
 export function imagensDaCamada(objetos, camada, gm) {
   if (camada === "gm" && !gm) return [];
   return (objetos || []).filter((o) => o.tipo === "imagem" && camadaDaImagem(o) === camada);
+}
+
+// Borracha por área (07/11): um traço é apagado se algum ponto dele cai no
+// retângulo ou se algum segmento cruza o retângulo.
+function segmentosCruzam([ax, ay], [bx, by], [cx, cy], [dx, dy]) {
+  const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+  if (d === 0) return false;
+  const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
+  const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+export function tracoTocaRetangulo(pontos, { x, y, w, h }) {
+  const pts = pontos || [];
+  const dentro = ([px, py]) => px >= x && px <= x + w && py >= y && py <= y + h;
+  if (pts.some(dentro)) return true;
+  const lados = [[[x, y], [x + w, y]], [[x + w, y], [x + w, y + h]], [[x + w, y + h], [x, y + h]], [[x, y + h], [x, y]]];
+  for (let i = 1; i < pts.length; i++) {
+    if (lados.some(([a, b]) => segmentosCruzam(pts[i - 1], pts[i], a, b))) return true;
+  }
+  return false;
+}
+
+// ---- Jogadores e tokens de personagem (07/11) ----------------------
+// Sem login: cada navegador diz quem é (nome do jogador, salvo no
+// localStorage). Os jogadores ficam registrados como objetos "jogador" da
+// mesa — { id: "jogador:<slug>", nome, fichas: [ids de ficha] } — e o
+// Mestre atribui fichas a eles.
+export function slugJogador(nome) {
+  return String(nome || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+export function idDoJogador(nome) {
+  const s = slugJogador(nome);
+  return s ? `jogador:${s}` : null;
+}
+export function jogadoresDaMesa(objetos) {
+  return (objetos || []).filter((o) => o.tipo === "jogador").sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+}
+export function fichasDoJogador(objetos, nome) {
+  const id = idDoJogador(nome);
+  return (objetos || []).find((o) => o.id === id)?.fichas || [];
+}
+
+// Aba Jogadores do Mestre (07/11): tokens de cada jogador, renomear e
+// excluir. Funções puras que devolvem o que salvar/apagar.
+export function tokensDoJogador(objetos, nome) {
+  const s = slugJogador(nome);
+  return (objetos || []).filter((o) => o.tipo === "imagem" && o.dono && slugJogador(o.dono) === s);
+}
+
+// Renomear muda o id (vem do nome): cria o registro novo com as mesmas
+// fichas, apaga o antigo e passa os tokens dele pro nome novo. null se o
+// nome for vazio ou já for de outro jogador.
+export function renomearJogador(objetos, jogador, novoNome) {
+  const nome = String(novoNome || "").trim().slice(0, 40);
+  const idNovo = idDoJogador(nome);
+  if (!idNovo || !jogador) return null;
+  if (idNovo !== jogador.id && (objetos || []).some((o) => o.id === idNovo)) return null;
+  const salvar = [{ ...jogador, id: idNovo, nome }, ...tokensDoJogador(objetos, jogador.nome).map((t) => ({ ...t, dono: nome }))];
+  return { salvar, apagar: idNovo === jogador.id ? [] : [jogador.id] };
+}
+
+// Excluir: apaga o registro; com `comTokens`, também os tokens que ele
+// colocou na mesa.
+export function idsParaExcluirJogador(objetos, jogador, { comTokens = false } = {}) {
+  if (!jogador) return [];
+  return [jogador.id, ...(comTokens ? tokensDoJogador(objetos, jogador.nome).map((t) => t.id) : [])];
+}
+
+// Token de personagem: imagem na camada (padrão Jogadores) ligada a uma
+// ficha (fichaId) ou NPC (npcId), ou avatar de um jogador (só dono).
+// `dono` = nome do jogador que colocou (ele pode mover).
+export function tokenDePersonagem({ id, ficha, npc, avatarUrl, dono = null, x, y, tamanho, camada = "token", ordem = 0, resolverImagem = (u) => u }) {
+  const base = { id, tipo: "imagem", camada, ordem, x, y, w: tamanho, h: tamanho, dono: dono || null, redondo: true };
+  if (ficha) return { ...base, fichaId: ficha.id, nome: ficha.name, url: ficha.imageUrl ? resolverImagem(ficha.imageUrl) : null };
+  if (npc) return { ...base, npcId: npc.id, nome: npc.nome, url: npc.img ? resolverImagem(npc.img) : null };
+  return { ...base, nome: dono || "Avatar", url: avatarUrl || null };
+}
+
+// Quem pode mover uma imagem: o Mestre, só as da camada ativa; o jogador,
+// só tokens da camada Jogadores que ele colocou (dono) ou de fichas
+// atribuídas a ele.
+export function podeMoverImagem(o, { gm, camadaAtiva, eu, minhas = [] }) {
+  if (gm) return camadaDaImagem(o) === camadaAtiva;
+  if (camadaDaImagem(o) !== "token") return false;
+  if (eu && o.dono && slugJogador(o.dono) === slugJogador(eu)) return true;
+  return !!o.fichaId && (minhas || []).includes(o.fichaId);
 }
 
 export function camadasDeNevoa(objetos) {

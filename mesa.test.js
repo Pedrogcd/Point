@@ -32,7 +32,7 @@ describe("rolarDados", () => {
 });
 
 describe("identidadesDaMesa", () => {
-  const personagens = [{ id: "b", name: "Bruna", imageUrl: "x.jpg" }, { id: "a", name: "Almah" }];
+  const personagens = [{ id: "b", name: "Bruna", imageUrl: "x.jpg", visivelJogador: true }, { id: "a", name: "Almah", visivelJogador: true }];
   const npcs = [{ id: "veyla", nome: "Irmã Veyla", img: "mundo/retratos/veyla.jpg" }];
   it("jogador: só fichas, em ordem alfabética", () => {
     assert.deepEqual(identidadesDaMesa({ personagens, npcs }).map((x) => x.nome), ["Almah", "Bruna"]);
@@ -173,5 +173,77 @@ describe("camadas das imagens (07/11)", async () => {
     assert.deepEqual(imagensDaCamada(objs, "gm", true).map((o) => o.id), ["g"]);
     assert.deepEqual(imagensDaCamada(objs, "gm", false), []);
     assert.deepEqual(imagensDaCamada(objs, "token", false).map((o) => o.id), ["t", "v"]);
+  });
+});
+
+describe("borracha por área (07/11)", async () => {
+  const { tracoTocaRetangulo } = await import("./mesa.js");
+  const area = { x: 100, y: 100, w: 100, h: 100 };
+  it("traço com ponto dentro da área", () => {
+    assert.equal(tracoTocaRetangulo([[0, 0], [150, 150]], area), true);
+  });
+  it("traço que só atravessa a área (pontos fora)", () => {
+    assert.equal(tracoTocaRetangulo([[50, 150], [250, 150]], area), true);
+  });
+  it("traço longe da área", () => {
+    assert.equal(tracoTocaRetangulo([[0, 0], [50, 300]], area), false);
+  });
+});
+
+describe("jogadores e tokens de personagem (07/11)", async () => {
+  const { identidadesDaMesa, gruposDeIdentidades, idDoJogador, fichasDoJogador, tokenDePersonagem, podeMoverImagem } = await import("./mesa.js");
+  const personagens = [
+    { id: "a", name: "Almah", faction: "Suth", visivelJogador: true },
+    { id: "s", name: "Segredo", faction: "Suth", visivelJogador: false },
+    { id: "k", name: "Kiryu", faction: "Hetalion", visivelJogador: false },
+  ];
+  it("jogador não vê ficha 'só GM', a não ser que seja dele; as dele vêm primeiro", () => {
+    const g = gruposDeIdentidades(identidadesDaMesa({ personagens, minhas: ["k"] }));
+    assert.deepEqual(g.map((x) => x.rotulo), ["Minhas fichas", "Fichas — Suth"]);
+    assert.deepEqual(g.flatMap((x) => x.itens.map((i) => i.nome)), ["Kiryu", "Almah"]);
+  });
+  it("registro do jogador pelo nome (sem acento/maiúscula)", () => {
+    assert.equal(idDoJogador("Pedro Álvares"), "jogador:pedro-alvares");
+    const objs = [{ id: "jogador:ana", tipo: "jogador", nome: "Ana", fichas: ["k"] }];
+    assert.deepEqual(fichasDoJogador(objs, "ana"), ["k"]);
+    assert.deepEqual(fichasDoJogador(objs, "Bia"), []);
+  });
+  it("token de ficha guarda fichaId, nome e retrato", () => {
+    const t = tokenDePersonagem({ id: "t1", ficha: { id: "a", name: "Almah", imageUrl: "x.jpg" }, x: 0, y: 0, tamanho: 70, dono: "Ana" });
+    assert.equal(t.fichaId, "a"); assert.equal(t.nome, "Almah"); assert.equal(t.url, "x.jpg"); assert.equal(t.redondo, true);
+  });
+  it("quem move: Mestre na camada ativa; jogador só os dele ou de ficha dele", () => {
+    const meu = { camada: "token", dono: "Ana" };
+    const daFicha = { camada: "token", fichaId: "k" };
+    const outro = { camada: "token", dono: "Bia" };
+    assert.equal(podeMoverImagem(meu, { gm: false, eu: "ana" }), true);
+    assert.equal(podeMoverImagem(daFicha, { gm: false, eu: "Ana", minhas: ["k"] }), true);
+    assert.equal(podeMoverImagem(outro, { gm: false, eu: "Ana" }), false);
+    assert.equal(podeMoverImagem({ camada: "mapa" }, { gm: true, camadaAtiva: "token" }), false);
+  });
+});
+
+describe("aba Jogadores do Mestre (07/11)", async () => {
+  const { tokensDoJogador, renomearJogador, idsParaExcluirJogador } = await import("./mesa.js");
+  const ana = { id: "jogador:ana", tipo: "jogador", nome: "Ana", fichas: ["k"] };
+  const objs = [ana, { id: "jogador:bia", tipo: "jogador", nome: "Bia", fichas: [] },
+    { id: "t1", tipo: "imagem", dono: "ana" }, { id: "t2", tipo: "imagem", dono: "Bia" }, { id: "t3", tipo: "imagem" }];
+  it("tokens do jogador pelo nome (sem diferença de maiúscula)", () => {
+    assert.deepEqual(tokensDoJogador(objs, "Ana").map((t) => t.id), ["t1"]);
+  });
+  it("renomear: registro novo com as fichas, apaga o antigo e passa os tokens", () => {
+    const r = renomearJogador(objs, ana, "Ana Clara");
+    assert.deepEqual(r.apagar, ["jogador:ana"]);
+    assert.equal(r.salvar[0].id, "jogador:ana-clara");
+    assert.deepEqual(r.salvar[0].fichas, ["k"]);
+    assert.equal(r.salvar[1].dono, "Ana Clara");
+  });
+  it("renomear pra nome de outro jogador ou vazio: recusa", () => {
+    assert.equal(renomearJogador(objs, ana, "bia"), null);
+    assert.equal(renomearJogador(objs, ana, "  "), null);
+  });
+  it("excluir com e sem tokens", () => {
+    assert.deepEqual(idsParaExcluirJogador(objs, ana), ["jogador:ana"]);
+    assert.deepEqual(idsParaExcluirJogador(objs, ana, { comTokens: true }), ["jogador:ana", "t1"]);
   });
 });

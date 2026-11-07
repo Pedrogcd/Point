@@ -110,6 +110,71 @@ export function retanguloDeArraste([x1, y1], [x2, y2], minimo = 8) {
   return w >= minimo && h >= minimo ? { x, y, w, h } : null;
 }
 
+// 07/11 (Pedro: "linhas e retas que se conectam e formas" pra criar as
+// zonas que os personagens veem): além do retângulo, névoa em círculo e em
+// polígono (pontos clicados um a um). Campo `forma` no objeto:
+//   retangulo { x, y, w, h } (padrão, inclusive os antigos sem `forma`)
+//   circulo   { cx, cy, r }
+//   poligono  { pontos: [[x, y], ...] }
+export function formaDaNevoa(o) {
+  return o?.forma === "circulo" || o?.forma === "poligono" ? o.forma : "retangulo";
+}
+
+// Encaixa um ponto no canto mais próximo da grade (pra contornar salas).
+export function encaixarPonto([x, y], tamanho, ligado = true) {
+  if (!ligado || !tamanho) return [x, y];
+  return [encaixarNaGrade(x, tamanho), encaixarNaGrade(y, tamanho)];
+}
+
+export function circuloDeArraste([x1, y1], [x2, y2], minimo = 8) {
+  const r = Math.hypot(x2 - x1, y2 - y1);
+  return r >= minimo ? { cx: x1, cy: y1, r: Math.round(r * 10) / 10 } : null;
+}
+
+export function pontosPerto([x1, y1], [x2, y2], tolerancia) {
+  return Math.hypot(x2 - x1, y2 - y1) <= tolerancia;
+}
+
+// Fecha um polígono: tira pontos repetidos em sequência (o duplo clique
+// gera dois) e o último se ele voltou ao primeiro; precisa de 3 pontos e
+// alguma área. Devolve os pontos ou null.
+export function fecharPoligono(pontos, tolerancia = 1) {
+  const limpos = [];
+  for (const p of pontos || []) {
+    if (!limpos.length || !pontosPerto(limpos[limpos.length - 1], p, tolerancia)) limpos.push([p[0], p[1]]);
+  }
+  if (limpos.length > 3 && pontosPerto(limpos[0], limpos[limpos.length - 1], tolerancia)) limpos.pop();
+  if (limpos.length < 3) return null;
+  let area = 0;
+  for (let i = 0; i < limpos.length; i++) {
+    const [ax, ay] = limpos[i];
+    const [bx, by] = limpos[(i + 1) % limpos.length];
+    area += ax * by - bx * ay;
+  }
+  return Math.abs(area) / 2 >= 16 ? limpos : null;
+}
+
+// Camadas das imagens (07/11, pedido do Pedro: "layer de mapa, layer do
+// jogador e layer de gm"), no estilo do Roll20:
+//   mapa  — fundo (mapas, cenário); fica embaixo de tudo.
+//   token — Jogadores: tokens e imagens que todos veem (valor antigo mantido).
+//   gm    — só o Mestre vê (notas, armadilhas, inimigos escondidos); os
+//           jogadores nem recebem pra desenhar.
+export const CAMADAS_IMAGEM = [
+  { id: "mapa", nome: "Mapa" },
+  { id: "token", nome: "Jogadores" },
+  { id: "gm", nome: "Mestre" },
+];
+export function camadaDaImagem(o) {
+  return o?.camada === "mapa" || o?.camada === "gm" ? o.camada : "token";
+}
+// Imagens de uma camada que esta tela pode ver (a camada do Mestre some
+// pra quem não é Mestre).
+export function imagensDaCamada(objetos, camada, gm) {
+  if (camada === "gm" && !gm) return [];
+  return (objetos || []).filter((o) => o.tipo === "imagem" && camadaDaImagem(o) === camada);
+}
+
 export function camadasDeNevoa(objetos) {
   return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }
@@ -139,7 +204,7 @@ export function juntarMensagem(lista, msg) {
 }
 
 // Objetos do tabuleiro: { id, tipo: "imagem" | "traco" | "config", ordem, ... }.
-// imagem: { url, x, y, w, h, camada: "mapa" | "token" }
+// imagem: { url, x, y, w, h, camada: "mapa" | "token" | "gm" }
 // traco:  { pontos: [[x, y], ...], cor, largura }
 // config: id "config" — { grade: boolean, tamanhoGrade: number }
 export function juntarObjeto(lista, obj) {

@@ -10,15 +10,25 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
-  Trash2, Send, Dices, ArrowUpToLine, ArrowDownToLine, Plus, Minus, Wifi, WifiOff, Crown,
-  CloudFog, Cloud, CloudOff, Eye,
+  Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
+  CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
   novoId, parseComandoRolagem, rolarDados, identidadesDaMesa, mensagemDeFala, mensagemDeRolagem,
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
+  formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
+  CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada,
 } from "./mesa.js";
+
+// Uma forma de névoa (retângulo, círculo ou polígono) como elemento SVG.
+function FormaNevoa({ n, ...props }) {
+  const forma = formaDaNevoa(n);
+  if (forma === "circulo") return <circle cx={n.cx} cy={n.cy} r={n.r} {...props} />;
+  if (forma === "poligono") return <polygon points={(n.pontos || []).map((p) => p.join(",")).join(" ")} {...props} />;
+  return <rect x={n.x} y={n.y} width={n.w} height={n.h} {...props} />;
+}
 import { uploadImagemMesa } from "./imageUpload.js";
 
 // Mesma paleta do app (point-amaranth-app.jsx).
@@ -256,15 +266,27 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   // Névoa (07/11): retângulo sendo arrastado com a ferramenta "nevoa"
   // (cobrir) ou "revelar" (abrir buraco) — só o Mestre.
   const [retanguloAtual, setRetanguloAtual] = useState(null);
+  // 07/11: forma da névoa (retângulo, círculo ou polígono clicado ponto a
+  // ponto), ímã na grade e o polígono em construção.
+  const [formaNevoa, setFormaNevoa] = useState("retangulo");
+  const [imaNevoa, setImaNevoa] = useState(true);
+  const [poligonoAtual, setPoligonoAtual] = useState(null); // { modo, pontos }
+  const [cursorMundo, setCursorMundo] = useState(null);
   const gestoRef = useRef(null);
   const imagens = objetos.filter((o) => o.tipo === "imagem");
-  const mapas = imagens.filter((o) => o.camada === "mapa");
-  const tokens = imagens.filter((o) => o.camada !== "mapa");
+  // Camadas (07/11): Mapa, Jogadores ("token") e Mestre ("gm", só o Mestre
+  // vê). O Mestre mexe só nas imagens da camada ativa, como no Roll20 —
+  // assim não arrasta o mapa sem querer ao mover um token.
+  const [camadaAtiva, setCamadaAtiva] = useState("token");
+  const mapas = imagensDaCamada(objetos, "mapa", gm);
+  const tokens = imagensDaCamada(objetos, "token", gm);
+  const imagensMestre = imagensDaCamada(objetos, "gm", gm);
   const tracos = objetos.filter((o) => o.tipo === "traco");
   const nevoas = camadasDeNevoa(objetos);
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
-  const podeMexer = (o) => gm || o.camada !== "mapa";
+  const podeMexer = (o) => (gm ? camadaDaImagem(o) === camadaAtiva : camadaDaImagem(o) === "token");
+  useEffect(() => { setSelecionadoId(null); }, [camadaAtiva]);
 
   function salvar(obj) {
     setObjetos((l) => juntarObjeto(l, obj));
@@ -283,9 +305,18 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       return;
     }
     if (gm && (ferramenta === "nevoa" || ferramenta === "revelar")) {
+      if (ev.button !== 0) return;
+      const p = pontoDaNevoa(ev);
+      if (formaNevoa === "poligono") {
+        // Clique a clique: cada clique é um vértice; clicar no primeiro
+        // ponto (ou duplo clique / Enter) fecha a forma.
+        const atual = poligonoAtual && poligonoAtual.modo === ferramenta ? poligonoAtual : { modo: ferramenta, pontos: [] };
+        if (atual.pontos.length >= 3 && pontosPerto(p, atual.pontos[0], 14 / cam.zoom)) { concluirPoligono(atual); return; }
+        setPoligonoAtual({ ...atual, pontos: [...atual.pontos, p] });
+        return;
+      }
       ev.currentTarget.setPointerCapture(ev.pointerId);
-      const p = paraMundo(ev);
-      setRetanguloAtual({ inicio: p, fim: p, modo: ferramenta });
+      setRetanguloAtual({ inicio: p, fim: p, modo: ferramenta, forma: formaNevoa });
       gestoRef.current = { tipo: "retangulo" };
       return;
     }
@@ -317,6 +348,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }
   function aoMover(ev) {
     const g = gestoRef.current;
+    if (poligonoAtual) setCursorMundo(pontoDaNevoa(ev));
     if (!g) return;
     if (g.tipo === "pan") {
       const [x0, y0] = g.inicio;
@@ -325,7 +357,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       const p = paraMundo(ev);
       setTracoAtual((t) => (t ? [...t, p] : [p]));
     } else if (g.tipo === "retangulo") {
-      const p = paraMundo(ev);
+      const p = pontoDaNevoa(ev);
       setRetanguloAtual((r) => (r ? { ...r, fim: p } : r));
     } else if (g.tipo === "arrastar") {
       const [x, y] = paraMundo(ev);
@@ -341,10 +373,17 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     gestoRef.current = null;
     if (!g) return;
     if (g.tipo === "retangulo") {
-      const r = retanguloAtual ? retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim) : null;
-      const modo = retanguloAtual?.modo;
+      const atual = retanguloAtual;
       setRetanguloAtual(null);
-      if (r) salvar({ id: novoId("n"), tipo: modo === "revelar" ? "revelado" : "nevoa", ordem: proximaOrdem(), ...r });
+      if (!atual) return;
+      const tipo = atual.modo === "revelar" ? "revelado" : "nevoa";
+      if (atual.forma === "circulo") {
+        const c = circuloDeArraste(atual.inicio, atual.fim);
+        if (c) salvar({ id: novoId("n"), tipo, forma: "circulo", ordem: proximaOrdem(), ...c });
+      } else {
+        const r = retanguloDeArraste(atual.inicio, atual.fim);
+        if (r) salvar({ id: novoId("n"), tipo, forma: "retangulo", ordem: proximaOrdem(), ...r });
+      }
       return;
     }
     if (g.tipo === "desenho" && tracoAtual) {
@@ -355,7 +394,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       const o = objetos.find((x) => x.id === g.id);
       if (!o) return;
       let final = o;
-      if (o.camada !== "mapa" && config.grade && g.tipo === "arrastar") {
+      if (camadaDaImagem(o) !== "mapa" && config.grade && g.tipo === "arrastar") {
         final = { ...o, x: encaixarNaGrade(o.x, config.tamanhoGrade), y: encaixarNaGrade(o.y, config.tamanhoGrade) };
       }
       if (final.x !== g.original.x || final.y !== g.original.y || final.w !== g.original.w) salvar(final);
@@ -382,11 +421,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     setEnviando(true);
     try {
       const { url, width, height } = await uploadImagemMesa(arquivo);
-      const camada = camadaNovaRef.current;
+      const pedido = camadaNovaRef.current;
+      // "mapa" = mapa de fundo inteiro; "mapa-peca" = imagem pequena na
+      // camada do mapa (árvore, móvel...); "token"/"gm" = tamanho de token.
+      const camada = pedido === "mapa-peca" ? "mapa" : pedido;
       let w;
       let x;
       let y;
-      if (camada === "mapa") {
+      if (pedido === "mapa") {
         w = MESA_LARGURA; x = 0; y = 0;
       } else {
         w = config.tamanhoGrade * 2;
@@ -399,8 +441,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       const ordem = camada === "mapa" ? -1000 + mapas.length : proximaOrdem();
       const obj = { id: novoId("i"), tipo: "imagem", ordem, url, x, y, w, h, camada };
       salvar(obj);
-      setSelecionadoId(obj.id);
+      setCamadaAtiva(camada);
       setFerramenta("mover");
+      setTimeout(() => setSelecionadoId(obj.id), 0);
     } catch (e) {
       setErro(e.message || "Falhou ao enviar a imagem.");
     } finally {
@@ -408,9 +451,41 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     }
   }
 
+  function pontoDaNevoa(ev) {
+    return encaixarPonto(paraMundo(ev), config.tamanhoGrade, imaNevoa && config.grade);
+  }
+  function concluirPoligono(atual = poligonoAtual) {
+    const pontos = atual ? fecharPoligono(atual.pontos, 2 / cam.zoom) : null;
+    setPoligonoAtual(null);
+    setCursorMundo(null);
+    if (pontos) salvar({ id: novoId("n"), tipo: atual.modo === "revelar" ? "revelado" : "nevoa", forma: "poligono", ordem: proximaOrdem(), pontos });
+  }
+  function desfazerUltimaNevoa() {
+    const ultima = nevoas[nevoas.length - 1];
+    if (ultima) apagar(ultima.id);
+  }
+  // Trocar de ferramenta ou de forma cancela o polígono em construção.
+  useEffect(() => { setPoligonoAtual(null); setCursorMundo(null); }, [ferramenta, formaNevoa]);
+  // Polígono: Enter fecha, Esc cancela, Backspace tira o último ponto.
+  useEffect(() => {
+    if (!poligonoAtual) return undefined;
+    function tecla(ev) {
+      const alvoTag = ev.target?.tagName;
+      if (alvoTag === "INPUT" || alvoTag === "TEXTAREA" || alvoTag === "SELECT") return;
+      if (ev.key === "Enter") { ev.preventDefault(); concluirPoligono(); }
+      else if (ev.key === "Escape") { setPoligonoAtual(null); setCursorMundo(null); }
+      else if (ev.key === "Backspace") {
+        ev.preventDefault();
+        setPoligonoAtual((pa) => (pa && pa.pontos.length > 1 ? { ...pa, pontos: pa.pontos.slice(0, -1) } : null));
+      }
+    }
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
   function cobrirTudo() {
     nevoas.forEach((n) => apagar(n.id));
-    salvar({ id: novoId("n"), tipo: "nevoa", ordem: proximaOrdem(), x: 0, y: 0, w: MESA_LARGURA, h: MESA_ALTURA });
+    salvar({ id: novoId("n"), tipo: "nevoa", forma: "retangulo", ordem: proximaOrdem(), x: 0, y: 0, w: MESA_LARGURA, h: MESA_ALTURA });
   }
   function tirarTodaNevoa() {
     if (nevoas.length && window.confirm("Tirar toda a névoa do tabuleiro? Os jogadores vão ver tudo.")) nevoas.forEach((n) => apagar(n.id));
@@ -442,9 +517,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       <g key={o.id}>
         <image
           href={o.url} x={o.x} y={o.y} width={o.w} height={o.h} preserveAspectRatio="none"
+          opacity={camadaDaImagem(o) === "gm" ? 0.8 : 1}
+          pointerEvents={ferramenta === "mover" && podeMexer(o) ? "visiblePainted" : "none"}
           style={{ cursor: ferramenta === "mover" && podeMexer(o) ? "move" : "inherit" }}
           onPointerDown={(ev) => aoApertarImagem(ev, o)}
         />
+        {camadaDaImagem(o) === "gm" && !sel && (
+          <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="none" stroke={PURPLE} strokeWidth={1.5 / cam.zoom} strokeDasharray={`${3 / cam.zoom} ${3 / cam.zoom}`} pointerEvents="none" />
+        )}
         {sel && (
           <>
             <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="none" stroke={PURPLE} strokeWidth={2 / cam.zoom} strokeDasharray={`${6 / cam.zoom} ${4 / cam.zoom}`} pointerEvents="none" />
@@ -470,6 +550,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       <div
         ref={areaRef} className="mesa-tabuleiro"
         onPointerDown={aoApertar} onPointerMove={aoMover} onPointerUp={aoSoltar} onPointerCancel={aoSoltar}
+        onDoubleClick={() => { if (poligonoAtual) concluirPoligono(); }}
         style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${LINE}`, background: "#CDBF9C", cursor, touchAction: "none", userSelect: "none" }}
       >
         <svg width="100%" height="100%" viewBox={viewBox} style={{ display: "block" }}>
@@ -499,7 +580,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             <>
               <mask id="mesa-nevoa" maskUnits="userSpaceOnUse" x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA}>
                 <rect x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA} fill="black" />
-                {nevoas.map((n) => <rect key={n.id} x={n.x} y={n.y} width={n.w} height={n.h} fill={n.tipo === "revelado" ? "black" : "white"} />)}
+                {nevoas.map((n) => <FormaNevoa key={n.id} n={n} fill={n.tipo === "revelado" ? "black" : "white"} />)}
               </mask>
               <rect
                 x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA} mask="url(#mesa-nevoa)" pointerEvents="none"
@@ -508,14 +589,36 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             </>
           )}
           {retanguloAtual && (() => {
-            const r = retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
-            if (!r) return null;
             const revelar = retanguloAtual.modo === "revelar";
+            const estilo = {
+              pointerEvents: "none", fill: revelar ? "#F3E9D255" : "#2B211655", stroke: revelar ? BRASS : PARCHMENT,
+              strokeWidth: 2 / cam.zoom, strokeDasharray: `${8 / cam.zoom} ${5 / cam.zoom}`,
+            };
+            if (retanguloAtual.forma === "circulo") {
+              const c = circuloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
+              return c ? <circle cx={c.cx} cy={c.cy} r={c.r} style={estilo} /> : null;
+            }
+            const r = retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
+            return r ? <rect x={r.x} y={r.y} width={r.w} height={r.h} style={estilo} /> : null;
+          })()}
+          {poligonoAtual && poligonoAtual.pontos.length > 0 && (() => {
+            const revelar = poligonoAtual.modo === "revelar";
+            const corLinha = revelar ? BRASS : PARCHMENT;
+            const pts = cursorMundo ? [...poligonoAtual.pontos, cursorMundo] : poligonoAtual.pontos;
+            const perto = cursorMundo && poligonoAtual.pontos.length >= 3 && pontosPerto(cursorMundo, poligonoAtual.pontos[0], 14 / cam.zoom);
             return (
-              <rect x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none"
-                fill={revelar ? "#F3E9D255" : "#2B211655"} stroke={revelar ? BRASS : PARCHMENT} strokeWidth={2 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} />
+              <g pointerEvents="none">
+                {pts.length >= 3 && <polygon points={pts.map((p) => p.join(",")).join(" ")} fill={revelar ? "#F3E9D244" : "#2B211644"} stroke="none" />}
+                <polyline points={pts.map((p) => p.join(",")).join(" ")} fill="none" stroke={corLinha} strokeWidth={2.5 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} />
+                {poligonoAtual.pontos.map((p, i) => (
+                  <circle key={i} cx={p[0]} cy={p[1]} r={(i === 0 ? (perto ? 11 : 8) : 5) / cam.zoom}
+                    fill={i === 0 ? (perto ? PURPLE : PANEL) : corLinha} stroke={PURPLE} strokeWidth={2 / cam.zoom} />
+                ))}
+              </g>
             );
           })()}
+          {/* Camada do Mestre: por cima da névoa, só na tela do Mestre. */}
+          {imagensMestre.map(desenharImagem)}
         </svg>
 
         {/* Ferramentas (vertical, à esquerda) */}
@@ -527,10 +630,10 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           {gm && (
             <>
               <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
-              <BotaoFerramenta titulo="Adicionar token/imagem" onClick={() => pedirImagem("token")}><ImagePlus size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo={`Adicionar imagem na camada ${CAMADAS_IMAGEM.find((c) => c.id === camadaAtiva)?.nome}`} onClick={() => pedirImagem(camadaAtiva === "mapa" ? "mapa-peca" : camadaAtiva)}><ImagePlus size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo="Adicionar mapa de fundo" onClick={() => pedirImagem("mapa")}><MapIcon size={18} /></BotaoFerramenta>
-              <BotaoFerramenta titulo="Névoa: arraste pra cobrir uma área" ativo={ferramenta === "nevoa"} onClick={() => setFerramenta("nevoa")}><CloudFog size={18} /></BotaoFerramenta>
-              <BotaoFerramenta titulo="Névoa: arraste pra revelar uma área" ativo={ferramenta === "revelar"} onClick={() => setFerramenta("revelar")}><Eye size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo="Névoa: cobrir uma área" ativo={ferramenta === "nevoa"} onClick={() => setFerramenta("nevoa")}><CloudFog size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo="Névoa: revelar uma área (o que os personagens veem)" ativo={ferramenta === "revelar"} onClick={() => setFerramenta("revelar")}><Eye size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo={config.grade ? "Esconder grade" : "Mostrar grade"} ativo={config.grade} onClick={() => mudarConfig({ grade: !config.grade })}><Grid3x3 size={18} /></BotaoFerramenta>
               <BotaoFerramenta
                 titulo="Limpar todos os desenhos" perigo
@@ -563,24 +666,77 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         {/* Ações de névoa (Mestre) */}
         {gm && (ferramenta === "nevoa" || ferramenta === "revelar") && (
           <div style={{ ...barraFlutuante, top: 10, left: 62, alignItems: "center", padding: "4px 6px", gap: 4 }} onPointerDown={(e) => e.stopPropagation()}>
-            <span style={{ fontSize: 11, color: MUTED, padding: "0 6px" }}>
-              {ferramenta === "nevoa" ? "Arraste pra cobrir" : "Arraste pra revelar"} · jogadores não veem o que está coberto
+            <BotaoFerramenta titulo="Forma: retângulo (arraste)" ativo={formaNevoa === "retangulo"} onClick={() => setFormaNevoa("retangulo")}><Square size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo="Forma: círculo (arraste do centro pra fora)" ativo={formaNevoa === "circulo"} onClick={() => setFormaNevoa("circulo")}><Circle size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo="Forma: polígono (clique ponto a ponto; clique no primeiro ponto, duplo clique ou Enter fecha)" ativo={formaNevoa === "poligono"} onClick={() => setFormaNevoa("poligono")}><Pentagon size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo={imaNevoa ? "Encaixar na grade: ligado" : "Encaixar na grade: desligado"} ativo={imaNevoa && config.grade} onClick={() => setImaNevoa((v) => !v)}><Magnet size={17} /></BotaoFerramenta>
+            <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+            <span style={{ fontSize: 11, color: MUTED, padding: "0 6px", maxWidth: 280, lineHeight: 1.3 }}>
+              {poligonoAtual
+                ? `${poligonoAtual.pontos.length} ponto${poligonoAtual.pontos.length === 1 ? "" : "s"} · clique no 1º ponto, duplo clique ou Enter fecha · Backspace volta · Esc cancela`
+                : `${formaNevoa === "poligono" ? "Clique ponto a ponto" : "Arraste"} pra ${ferramenta === "nevoa" ? "cobrir" : "revelar"} · jogadores não veem o que está coberto`}
             </span>
+            {poligonoAtual && (
+              <>
+                <BotaoFerramenta titulo="Fechar a forma (Enter)" onClick={() => concluirPoligono()}><Check size={17} /></BotaoFerramenta>
+                <BotaoFerramenta titulo="Cancelar (Esc)" onClick={() => { setPoligonoAtual(null); setCursorMundo(null); }}><XIcon size={17} /></BotaoFerramenta>
+              </>
+            )}
+            <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+            <BotaoFerramenta titulo="Desfazer a última névoa" onClick={desfazerUltimaNevoa}><Undo2 size={17} /></BotaoFerramenta>
             <BotaoFerramenta titulo="Cobrir a mesa toda" onClick={cobrirTudo}><Cloud size={17} /></BotaoFerramenta>
             <BotaoFerramenta titulo="Tirar toda a névoa" perigo onClick={tirarTodaNevoa}><CloudOff size={17} /></BotaoFerramenta>
           </div>
         )}
 
+        {/* Camada ativa (Mestre) — como no Roll20: as imagens novas entram
+            nela e só as dela podem ser movidas. */}
+        {gm && (
+          <div style={{ ...barraFlutuante, top: 10, right: 10, alignItems: "center", padding: 4, gap: 2 }} onPointerDown={(e) => e.stopPropagation()} role="group" aria-label="Camada ativa">
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: MUTED, padding: "0 6px" }}><Layers size={14} /> Camada</span>
+            {CAMADAS_IMAGEM.map((c) => {
+              const ativa = camadaAtiva === c.id;
+              const Icone = c.id === "mapa" ? MapIcon : c.id === "gm" ? Crown : Users;
+              return (
+                <button
+                  key={c.id} type="button" aria-pressed={ativa} onClick={() => setCamadaAtiva(c.id)}
+                  title={c.id === "gm" ? "Camada do Mestre: só você vê" : c.id === "mapa" ? "Camada do mapa (fundo)" : "Camada dos jogadores (todos veem)"}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 7, cursor: "pointer",
+                    border: `1px solid ${ativa ? PURPLE : "transparent"}`, background: ativa ? PURPLE : "transparent",
+                    color: ativa ? PANEL : PARCHMENT, fontSize: 12, fontFamily: "'Spectral', serif",
+                  }}
+                >
+                  <Icone size={14} /> {c.nome}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Imagem selecionada */}
         {selecionado && ferramenta === "mover" && podeMexer(selecionado) && (
-          <div style={{ ...barraFlutuante, top: 10, left: "50%", transform: "translateX(-50%)", alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}>
+          <div style={{ ...barraFlutuante, bottom: 60, left: "50%", transform: "translateX(-50%)", alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}>
             <BotaoFerramenta titulo="Diminuir" onClick={() => salvar({ ...selecionado, w: Math.max(20, selecionado.w - config.tamanhoGrade), h: Math.max(20, selecionado.w - config.tamanhoGrade) * (selecionado.h / selecionado.w) })}><Minus size={16} /></BotaoFerramenta>
             <BotaoFerramenta titulo="Aumentar" onClick={() => salvar({ ...selecionado, w: selecionado.w + config.tamanhoGrade, h: (selecionado.w + config.tamanhoGrade) * (selecionado.h / selecionado.w) })}><Plus size={16} /></BotaoFerramenta>
             {gm && (
-              <BotaoFerramenta
-                titulo={selecionado.camada === "mapa" ? "Virar token (fica por cima do desenho)" : "Mandar pro fundo (vira mapa)"}
-                onClick={() => salvar({ ...selecionado, camada: selecionado.camada === "mapa" ? "token" : "mapa", ordem: selecionado.camada === "mapa" ? proximaOrdem() : -1000 + mapas.length })}
-              >{selecionado.camada === "mapa" ? <ArrowUpToLine size={16} /> : <ArrowDownToLine size={16} />}</BotaoFerramenta>
+              <>
+                <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+                <span style={{ fontSize: 10.5, color: MUTED, padding: "0 4px" }}>Mover pra:</span>
+                {CAMADAS_IMAGEM.filter((c) => c.id !== camadaDaImagem(selecionado)).map((c) => (
+                  <button
+                    key={c.id} type="button" title={`Mover pra camada ${c.nome}`}
+                    onClick={() => {
+                      const id = selecionado.id;
+                      salvar({ ...selecionado, camada: c.id, ordem: c.id === "mapa" ? -1000 + mapas.length : proximaOrdem() });
+                      setCamadaAtiva(c.id);
+                      setTimeout(() => setSelecionadoId(id), 0);
+                    }}
+                    style={{ padding: "5px 9px", borderRadius: 7, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontSize: 11.5, color: PARCHMENT, fontFamily: "'Spectral', serif" }}
+                  >{c.nome}</button>
+                ))}
+                <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+              </>
             )}
             <BotaoFerramenta titulo="Excluir (Delete)" perigo onClick={() => apagar(selecionado.id)}><Trash2 size={16} /></BotaoFerramenta>
           </div>

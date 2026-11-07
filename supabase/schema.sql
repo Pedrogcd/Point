@@ -187,3 +187,61 @@ begin
   end if;
 end;
 $$;
+
+-- ---------------------------------------------------------------------
+-- 4. Mesa (07/11) — chat, dados e tabuleiro em tempo real (aba "Mesa")
+-- ---------------------------------------------------------------------
+-- point_mesa_mensagens: uma linha por fala ou rolagem do chat (só insere;
+-- o Mestre pode limpar tudo). point_mesa_objetos: uma linha por coisa no
+-- tabuleiro (imagem, traço de desenho, e a linha "config" da grade), com o
+-- objeto em `data`. Mesmo acesso aberto das outras tabelas (sem login).
+-- Ver mesa.js.
+
+create table if not exists public.point_mesa_mensagens (
+  id text primary key,
+  criado_em timestamptz not null default now(),
+  tipo text not null default 'fala',
+  autor jsonb,
+  texto text,
+  rolagem jsonb,
+  gm boolean not null default false
+);
+create index if not exists point_mesa_mensagens_criado_em on public.point_mesa_mensagens (criado_em desc);
+
+create table if not exists public.point_mesa_objetos (
+  id text primary key,
+  tipo text not null,
+  data jsonb not null default '{}'::jsonb,
+  ordem double precision not null default 0,
+  atualizado_em timestamptz not null default now()
+);
+
+alter table public.point_mesa_mensagens enable row level security;
+alter table public.point_mesa_objetos enable row level security;
+
+drop policy if exists "point_mesa_mensagens select" on public.point_mesa_mensagens;
+create policy "point_mesa_mensagens select" on public.point_mesa_mensagens for select to anon, authenticated using (true);
+drop policy if exists "point_mesa_mensagens insert" on public.point_mesa_mensagens;
+create policy "point_mesa_mensagens insert" on public.point_mesa_mensagens for insert to anon, authenticated with check (true);
+drop policy if exists "point_mesa_mensagens delete" on public.point_mesa_mensagens;
+create policy "point_mesa_mensagens delete" on public.point_mesa_mensagens for delete to anon, authenticated using (true);
+
+drop policy if exists "point_mesa_objetos select" on public.point_mesa_objetos;
+create policy "point_mesa_objetos select" on public.point_mesa_objetos for select to anon, authenticated using (true);
+drop policy if exists "point_mesa_objetos insert" on public.point_mesa_objetos;
+create policy "point_mesa_objetos insert" on public.point_mesa_objetos for insert to anon, authenticated with check (true);
+drop policy if exists "point_mesa_objetos update" on public.point_mesa_objetos;
+create policy "point_mesa_objetos update" on public.point_mesa_objetos for update to anon, authenticated using (true) with check (true);
+drop policy if exists "point_mesa_objetos delete" on public.point_mesa_objetos;
+create policy "point_mesa_objetos delete" on public.point_mesa_objetos for delete to anon, authenticated using (true);
+
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'point_mesa_mensagens') then
+    alter publication supabase_realtime add table public.point_mesa_mensagens;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'point_mesa_objetos') then
+    alter publication supabase_realtime add table public.point_mesa_objetos;
+  end if;
+end;
+$$;

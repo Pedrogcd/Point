@@ -154,6 +154,27 @@ export function fecharPoligono(pontos, tolerancia = 1) {
   return Math.abs(area) / 2 >= 16 ? limpos : null;
 }
 
+// Camadas das imagens (07/11, pedido do Pedro: "layer de mapa, layer do
+// jogador e layer de gm"), no estilo do Roll20:
+//   mapa  — fundo (mapas, cenário); fica embaixo de tudo.
+//   token — Jogadores: tokens e imagens que todos veem (valor antigo mantido).
+//   gm    — só o Mestre vê (notas, armadilhas, inimigos escondidos); os
+//           jogadores nem recebem pra desenhar.
+export const CAMADAS_IMAGEM = [
+  { id: "mapa", nome: "Mapa" },
+  { id: "token", nome: "Jogadores" },
+  { id: "gm", nome: "Mestre" },
+];
+export function camadaDaImagem(o) {
+  return o?.camada === "mapa" || o?.camada === "gm" ? o.camada : "token";
+}
+// Imagens de uma camada que esta tela pode ver (a camada do Mestre some
+// pra quem não é Mestre).
+export function imagensDaCamada(objetos, camada, gm) {
+  if (camada === "gm" && !gm) return [];
+  return (objetos || []).filter((o) => o.tipo === "imagem" && camadaDaImagem(o) === camada);
+}
+
 export function camadasDeNevoa(objetos) {
   return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }
@@ -183,7 +204,7 @@ export function juntarMensagem(lista, msg) {
 }
 
 // Objetos do tabuleiro: { id, tipo: "imagem" | "traco" | "config", ordem, ... }.
-// imagem: { url, x, y, w, h, camada: "mapa" | "token" }
+// imagem: { url, x, y, w, h, camada: "mapa" | "token" | "gm" }
 // traco:  { pontos: [[x, y], ...], cor, largura }
 // config: id "config" — { grade: boolean, tamanhoGrade: number }
 export function juntarObjeto(lista, obj) {

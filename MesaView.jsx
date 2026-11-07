@@ -10,8 +10,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
-  Trash2, Send, Dices, ArrowUpToLine, ArrowDownToLine, Plus, Minus, Wifi, WifiOff, Crown,
-  CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon,
+  Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
+  CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -19,6 +19,7 @@ import {
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
   formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
+  CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada,
 } from "./mesa.js";
 
 // Uma forma de névoa (retângulo, círculo ou polígono) como elemento SVG.
@@ -273,13 +274,19 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const [cursorMundo, setCursorMundo] = useState(null);
   const gestoRef = useRef(null);
   const imagens = objetos.filter((o) => o.tipo === "imagem");
-  const mapas = imagens.filter((o) => o.camada === "mapa");
-  const tokens = imagens.filter((o) => o.camada !== "mapa");
+  // Camadas (07/11): Mapa, Jogadores ("token") e Mestre ("gm", só o Mestre
+  // vê). O Mestre mexe só nas imagens da camada ativa, como no Roll20 —
+  // assim não arrasta o mapa sem querer ao mover um token.
+  const [camadaAtiva, setCamadaAtiva] = useState("token");
+  const mapas = imagensDaCamada(objetos, "mapa", gm);
+  const tokens = imagensDaCamada(objetos, "token", gm);
+  const imagensMestre = imagensDaCamada(objetos, "gm", gm);
   const tracos = objetos.filter((o) => o.tipo === "traco");
   const nevoas = camadasDeNevoa(objetos);
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
-  const podeMexer = (o) => gm || o.camada !== "mapa";
+  const podeMexer = (o) => (gm ? camadaDaImagem(o) === camadaAtiva : camadaDaImagem(o) === "token");
+  useEffect(() => { setSelecionadoId(null); }, [camadaAtiva]);
 
   function salvar(obj) {
     setObjetos((l) => juntarObjeto(l, obj));
@@ -387,7 +394,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       const o = objetos.find((x) => x.id === g.id);
       if (!o) return;
       let final = o;
-      if (o.camada !== "mapa" && config.grade && g.tipo === "arrastar") {
+      if (camadaDaImagem(o) !== "mapa" && config.grade && g.tipo === "arrastar") {
         final = { ...o, x: encaixarNaGrade(o.x, config.tamanhoGrade), y: encaixarNaGrade(o.y, config.tamanhoGrade) };
       }
       if (final.x !== g.original.x || final.y !== g.original.y || final.w !== g.original.w) salvar(final);
@@ -414,11 +421,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     setEnviando(true);
     try {
       const { url, width, height } = await uploadImagemMesa(arquivo);
-      const camada = camadaNovaRef.current;
+      const pedido = camadaNovaRef.current;
+      // "mapa" = mapa de fundo inteiro; "mapa-peca" = imagem pequena na
+      // camada do mapa (árvore, móvel...); "token"/"gm" = tamanho de token.
+      const camada = pedido === "mapa-peca" ? "mapa" : pedido;
       let w;
       let x;
       let y;
-      if (camada === "mapa") {
+      if (pedido === "mapa") {
         w = MESA_LARGURA; x = 0; y = 0;
       } else {
         w = config.tamanhoGrade * 2;
@@ -431,8 +441,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       const ordem = camada === "mapa" ? -1000 + mapas.length : proximaOrdem();
       const obj = { id: novoId("i"), tipo: "imagem", ordem, url, x, y, w, h, camada };
       salvar(obj);
-      setSelecionadoId(obj.id);
+      setCamadaAtiva(camada);
       setFerramenta("mover");
+      setTimeout(() => setSelecionadoId(obj.id), 0);
     } catch (e) {
       setErro(e.message || "Falhou ao enviar a imagem.");
     } finally {
@@ -506,9 +517,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       <g key={o.id}>
         <image
           href={o.url} x={o.x} y={o.y} width={o.w} height={o.h} preserveAspectRatio="none"
+          opacity={camadaDaImagem(o) === "gm" ? 0.8 : 1}
+          pointerEvents={ferramenta === "mover" && podeMexer(o) ? "visiblePainted" : "none"}
           style={{ cursor: ferramenta === "mover" && podeMexer(o) ? "move" : "inherit" }}
           onPointerDown={(ev) => aoApertarImagem(ev, o)}
         />
+        {camadaDaImagem(o) === "gm" && !sel && (
+          <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="none" stroke={PURPLE} strokeWidth={1.5 / cam.zoom} strokeDasharray={`${3 / cam.zoom} ${3 / cam.zoom}`} pointerEvents="none" />
+        )}
         {sel && (
           <>
             <rect x={o.x} y={o.y} width={o.w} height={o.h} fill="none" stroke={PURPLE} strokeWidth={2 / cam.zoom} strokeDasharray={`${6 / cam.zoom} ${4 / cam.zoom}`} pointerEvents="none" />
@@ -601,6 +617,8 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               </g>
             );
           })()}
+          {/* Camada do Mestre: por cima da névoa, só na tela do Mestre. */}
+          {imagensMestre.map(desenharImagem)}
         </svg>
 
         {/* Ferramentas (vertical, à esquerda) */}
@@ -612,7 +630,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           {gm && (
             <>
               <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
-              <BotaoFerramenta titulo="Adicionar token/imagem" onClick={() => pedirImagem("token")}><ImagePlus size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo={`Adicionar imagem na camada ${CAMADAS_IMAGEM.find((c) => c.id === camadaAtiva)?.nome}`} onClick={() => pedirImagem(camadaAtiva === "mapa" ? "mapa-peca" : camadaAtiva)}><ImagePlus size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo="Adicionar mapa de fundo" onClick={() => pedirImagem("mapa")}><MapIcon size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo="Névoa: cobrir uma área" ativo={ferramenta === "nevoa"} onClick={() => setFerramenta("nevoa")}><CloudFog size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo="Névoa: revelar uma área (o que os personagens veem)" ativo={ferramenta === "revelar"} onClick={() => setFerramenta("revelar")}><Eye size={18} /></BotaoFerramenta>
@@ -671,16 +689,54 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           </div>
         )}
 
+        {/* Camada ativa (Mestre) — como no Roll20: as imagens novas entram
+            nela e só as dela podem ser movidas. */}
+        {gm && (
+          <div style={{ ...barraFlutuante, top: 10, right: 10, alignItems: "center", padding: 4, gap: 2 }} onPointerDown={(e) => e.stopPropagation()} role="group" aria-label="Camada ativa">
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: MUTED, padding: "0 6px" }}><Layers size={14} /> Camada</span>
+            {CAMADAS_IMAGEM.map((c) => {
+              const ativa = camadaAtiva === c.id;
+              const Icone = c.id === "mapa" ? MapIcon : c.id === "gm" ? Crown : Users;
+              return (
+                <button
+                  key={c.id} type="button" aria-pressed={ativa} onClick={() => setCamadaAtiva(c.id)}
+                  title={c.id === "gm" ? "Camada do Mestre: só você vê" : c.id === "mapa" ? "Camada do mapa (fundo)" : "Camada dos jogadores (todos veem)"}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 7, cursor: "pointer",
+                    border: `1px solid ${ativa ? PURPLE : "transparent"}`, background: ativa ? PURPLE : "transparent",
+                    color: ativa ? PANEL : PARCHMENT, fontSize: 12, fontFamily: "'Spectral', serif",
+                  }}
+                >
+                  <Icone size={14} /> {c.nome}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Imagem selecionada */}
         {selecionado && ferramenta === "mover" && podeMexer(selecionado) && (
-          <div style={{ ...barraFlutuante, top: 10, left: "50%", transform: "translateX(-50%)", alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}>
+          <div style={{ ...barraFlutuante, bottom: 60, left: "50%", transform: "translateX(-50%)", alignItems: "center" }} onPointerDown={(e) => e.stopPropagation()}>
             <BotaoFerramenta titulo="Diminuir" onClick={() => salvar({ ...selecionado, w: Math.max(20, selecionado.w - config.tamanhoGrade), h: Math.max(20, selecionado.w - config.tamanhoGrade) * (selecionado.h / selecionado.w) })}><Minus size={16} /></BotaoFerramenta>
             <BotaoFerramenta titulo="Aumentar" onClick={() => salvar({ ...selecionado, w: selecionado.w + config.tamanhoGrade, h: (selecionado.w + config.tamanhoGrade) * (selecionado.h / selecionado.w) })}><Plus size={16} /></BotaoFerramenta>
             {gm && (
-              <BotaoFerramenta
-                titulo={selecionado.camada === "mapa" ? "Virar token (fica por cima do desenho)" : "Mandar pro fundo (vira mapa)"}
-                onClick={() => salvar({ ...selecionado, camada: selecionado.camada === "mapa" ? "token" : "mapa", ordem: selecionado.camada === "mapa" ? proximaOrdem() : -1000 + mapas.length })}
-              >{selecionado.camada === "mapa" ? <ArrowUpToLine size={16} /> : <ArrowDownToLine size={16} />}</BotaoFerramenta>
+              <>
+                <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+                <span style={{ fontSize: 10.5, color: MUTED, padding: "0 4px" }}>Mover pra:</span>
+                {CAMADAS_IMAGEM.filter((c) => c.id !== camadaDaImagem(selecionado)).map((c) => (
+                  <button
+                    key={c.id} type="button" title={`Mover pra camada ${c.nome}`}
+                    onClick={() => {
+                      const id = selecionado.id;
+                      salvar({ ...selecionado, camada: c.id, ordem: c.id === "mapa" ? -1000 + mapas.length : proximaOrdem() });
+                      setCamadaAtiva(c.id);
+                      setTimeout(() => setSelecionadoId(id), 0);
+                    }}
+                    style={{ padding: "5px 9px", borderRadius: 7, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontSize: 11.5, color: PARCHMENT, fontFamily: "'Spectral', serif" }}
+                  >{c.nome}</button>
+                ))}
+                <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
+              </>
             )}
             <BotaoFerramenta titulo="Excluir (Delete)" perigo onClick={() => apagar(selecionado.id)}><Trash2 size={16} /></BotaoFerramenta>
           </div>

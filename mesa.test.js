@@ -159,3 +159,19 @@ describe("névoa com formas (07/11)", async () => {
     assert.equal(fecharPoligono([[0, 0], [50, 0], [100, 0]]), null); // colinear: sem área
   });
 });
+
+describe("camadas das imagens (07/11)", async () => {
+  const { camadaDaImagem, imagensDaCamada } = await import("./mesa.js");
+  const objs = [
+    { id: "m", tipo: "imagem", camada: "mapa" }, { id: "t", tipo: "imagem", camada: "token" },
+    { id: "v", tipo: "imagem" }, { id: "g", tipo: "imagem", camada: "gm" }, { id: "x", tipo: "traco" },
+  ];
+  it("sem camada (antigos) conta como Jogadores", () => {
+    assert.equal(camadaDaImagem({}), "token");
+  });
+  it("camada do Mestre só aparece pro Mestre", () => {
+    assert.deepEqual(imagensDaCamada(objs, "gm", true).map((o) => o.id), ["g"]);
+    assert.deepEqual(imagensDaCamada(objs, "gm", false), []);
+    assert.deepEqual(imagensDaCamada(objs, "token", false).map((o) => o.id), ["t", "v"]);
+  });
+});

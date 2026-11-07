@@ -68,6 +68,7 @@ import {
 import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade, BONUS_GRAU_POR_ARQUETIPO, habilidadesIniciaisDaVariacao } from "./data/arquetipos.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
+import MesaView from "./MesaView.jsx";
 import {
   carregarPersonagensRemotos, enviarPatchPersonagem, apagarPersonagemRemoto, assinarMudancas,
   diffPersonagens, aplicarLinhaRemota, removerLinhaRemota, aplicarRecarga,
@@ -14119,11 +14120,19 @@ export default function App() {
     );
   }
 
+  // Mesa (07/11): NPCs do mundo pro "falar como" do Mestre — só nome e
+  // retrato (com as edições do Mestre por cima), nada de segredo.
+  const npcsDaMesa = useMemo(
+    () => NPCS.map((n) => ({ id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img })),
+    [npcsOverrides],
+  );
+
   const TABS = [
     { id: "home", label: "Início", icon: Home },
     { id: "objectives", label: "Objetivos", icon: Target },
     { id: "characters", label: "Personagens", icon: Users },
     { id: "compare", label: "Confronto", icon: Swords },
+    { id: "mesa", label: "Mesa", icon: Dices },
     { id: "abilities", label: "Habilidades", icon: BookOpen },
     { id: "rules", label: "Regras", icon: ScrollText },
     { id: "descritores", label: "Descritores", icon: Tags },
@@ -14505,6 +14514,12 @@ export default function App() {
           <CompareView
             characters={characters} onUpdateCharacter={updateCharacterFields}
             gm={gm} askConfirm={askConfirm} encontro={encontro} setEncontro={setEncontro}
+          />
+        )}
+        {tab === "mesa" && (
+          <MesaView
+            gm={gm} personagens={characters} supabase={supabase} resolverImagem={assetUrl}
+            npcs={npcsDaMesa}
           />
         )}
         {tab === "abilities" && <AbilitiesCatalogView />}

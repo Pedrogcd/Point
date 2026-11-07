@@ -75,3 +75,40 @@ export async function removePortrait(publicUrl) {
     // ver comentário acima
   }
 }
+
+// Mesa (07/11): imagens do tabuleiro (mapas e tokens) — maiores que o
+// retrato (até 1600 px). Sem Supabase (modo local), devolve um data URL
+// menor (até 1000 px) pra caber no localStorage.
+function blobParaDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(leitor.result);
+    leitor.onerror = () => reject(new Error("Não foi possível ler a imagem."));
+    leitor.readAsDataURL(blob);
+  });
+}
+
+export async function uploadImagemMesa(file) {
+  if (!supabase) {
+    const blob = await resizeToJpeg(file, 1000, 0.8);
+    const { width, height } = await dimensoesDoBlob(blob);
+    return { url: await blobParaDataUrl(blob), width, height };
+  }
+  const blob = await resizeToJpeg(file, 1600, 0.85);
+  const { width, height } = await dimensoesDoBlob(blob);
+  const path = `mesa/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: "image/jpeg", upsert: false });
+  if (error) throw error;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: data.publicUrl, width, height };
+}
+
+function dimensoesDoBlob(blob) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve({ width: img.naturalWidth, height: img.naturalHeight }); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve({ width: 512, height: 512 }); };
+    img.src = url;
+  });
+}

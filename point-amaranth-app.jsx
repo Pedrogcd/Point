@@ -250,8 +250,10 @@ const DESCRITOR_INFO = new Proxy({}, {
 // 21/10: ganhou os descritores novos do glossário — todos aqui entram como
 // grau 1 fixo (sem campo pra digitar N nessa UI simplificada; pra N maior,
 // use um ataque catalogado ou a aba Magia).
+// 07/11 (Pedro): "Em área" saiu desta lista — não muda a rolagem de um
+// ataque contra um alvo só.
 const CARACTERISTICAS_ATAQUE = [
-  "letal", "preciso", "esmagador", "perfurante", "sortudo", "em_area",
+  "letal", "preciso", "esmagador", "perfurante", "sortudo",
   "queimadura", "pesado", "arma_de_fogo", "envenenamento", "sangramento", "carga", "drenante",
 ];
 // Texto do resultado de ferimentos (29/10): com Arma de fogo pode vir
@@ -6124,6 +6126,11 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   // possui... e aplique").
   const [ataqueVigorGrau, setAtaqueVigorGrau] = useState(1);
   const [ataqueDadosDefesa, setAtaqueDadosDefesa] = useState(2);
+  // 07/11 (Pedro): dados extras no ataque (nd10 a mais) e o tipo de defesa
+  // do alvo — esquiva (Preciso desconta), bloqueio (Esmagador desconta) ou
+  // outra (nenhum dos dois).
+  const [ataqueDadosExtras, setAtaqueDadosExtras] = useState(0);
+  const [ataqueTipoDefesa, setAtaqueTipoDefesa] = useState("outra");
   const [ataqueCaracteristicasAlvo, setAtaqueCaracteristicasAlvo] = useState([]);
   const [ataqueResult, setAtaqueResult] = useState(null);
   const [ataqueHistory, setAtaqueHistory] = useState([]);
@@ -6271,7 +6278,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
   };
 
   function rollAtaque() {
-    const totalDiceAtaque = diceAtaqueFisico(characterEfetivo, ataqueAtributo, ataqueProf, 0);
+    const totalDiceAtaque = diceAtaqueFisico(characterEfetivo, ataqueAtributo, ataqueProf, 0) + (ataqueDadosExtras || 0);
     // descritoresEfetivosDoAtaque soma a Queimadura concedida pelo PERSONAGEM
     // (Encantamento Flamejante, 19/10) às características escolhidas aqui.
     const r = resolveAtaque({
@@ -6279,6 +6286,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       totalDiceAtaque, descritoresAtaque: descritoresEfetivosDoAtaque(characterEfetivo, { descritores: ataqueCaracteristicas }),
       feridas: 1, superficial: false,
       totalDiceDefesaManual: ataqueDadosDefesa,
+      defesaAtributo: ataqueTipoDefesa === "esquiva" ? "destreza" : ataqueTipoDefesa === "bloqueio" ? "forca" : undefined,
     });
     setAtaqueResult(r);
     const atkNome = `${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === ataqueAtributo)?.label || ataqueAtributo} + ${PROFICIENCIAS_LIST.find((p) => p.key === ataqueProf)?.label || ataqueProf}`;
@@ -7085,6 +7093,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     </select>
                   </Field>
                 </div>
+                <Field label="Dados extras no ataque (+d10)">
+                  <input type="number" min={0} style={inputStyle} value={ataqueDadosExtras} onChange={(e) => setAtaqueDadosExtras(Math.max(0, Number(e.target.value) || 0))} />
+                </Field>
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
                     Característica do ataque
@@ -7115,6 +7126,13 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                     <input type="number" min={0} style={inputStyle} value={ataqueDadosDefesa} onChange={(e) => setAtaqueDadosDefesa(Math.max(0, Number(e.target.value)))} />
                   </Field>
                 </div>
+                <Field label="Tipo de defesa do alvo">
+                  <select value={ataqueTipoDefesa} onChange={(e) => setAtaqueTipoDefesa(e.target.value)} style={inputStyle}>
+                    <option value="esquiva">Esquiva (Preciso tira dados)</option>
+                    <option value="bloqueio">Bloqueio (Esmagador tira dados)</option>
+                    <option value="outra">Outra (sem Preciso nem Esmagador)</option>
+                  </select>
+                </Field>
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, textTransform: "uppercase" }}>
                     Característica do alvo
@@ -7135,7 +7153,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   </div>
                 </div>
                 <div style={{ fontSize: 10, color: MUTED, margin: "-2px 0 10px", fontStyle: "italic" }}>
-                  Sucessos líquidos = sucessos do ataque − sucessos da defesa (mínimo 0). Agravante se sucessos líquidos ≥ Vigor do alvo (grau cheio, Letal reduz em 1); senão, superficial.
+                  Sucessos líquidos = sucessos do ataque − sucessos da defesa (mínimo 0). Preciso N tira N dados de quem esquiva; Esmagador N, de quem bloqueia. Agravante se sucessos líquidos ≥ Vigor do alvo (grau cheio, Letal reduz em 1); senão, superficial.
                 </div>
 
                 <Btn variant="primary" onClick={rollAtaque} style={{ width: "100%", justifyContent: "center", padding: "10px 16px", fontSize: 13.5 }}>
@@ -8568,7 +8586,7 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
 
       <div style={{ textAlign: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-          DEFESA ({rolagemDefesa.totalDice}d10, {PROFICIENCIAS_LIST.find((p) => p.key === rolagemDefesa.profKey)?.label || "Resistência"})
+          DEFESA ({rolagemDefesa.totalDice}d10, {PROFICIENCIAS_LIST.find((p) => p.key === rolagemDefesa.profKey)?.label || "outra defesa"})
         </div>
         <AnimatedDiceRow dice={rolagemDefesa.dice} limiar={LIMIAR_SUCESSO} sortudoAplicado={rolagemDefesa.sortudoAplicado} reduced={reduced} onRevealed={() => setDefesaRevelado(true)} />
         {tudoRevelado && (

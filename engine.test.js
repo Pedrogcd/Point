@@ -1085,10 +1085,12 @@ describe("resolveRolagemDefesa", () => {
   // Pedro: "em vez de perguntar o vigor e atributo de defesa do alvo,
   // apenas dê a opção de quantos dados o jogador defensor rola") — pula o
   // cálculo por atributo+proficiência quando informado.
-  it("totalDiceManual ignora atributo/proficiência/Preciso e usa o número direto", (t) => {
+  // 07/11: com tipo de defesa informado, Preciso/Esmagador descontam dos
+  // dados digitados (ver o teste "Defesa com dados digitados" no fim).
+  it("totalDiceManual ignora atributo/proficiência e usa o número direto (sem tipo de defesa, Preciso não desconta)", (t) => {
     const defensor = withAttrs(makeCharacter(), { vigor: "A", destreza: "A" }); // ignorado
     mockDice(t, [1, 1, 1]);
-    const r = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza", descritoresAtaque: ["preciso_2"], totalDiceManual: 3 });
+    const r = resolveRolagemDefesa({ defensor, descritoresAtaque: ["preciso_2"], totalDiceManual: 3 });
     assert.equal(r.totalDice, 3);
   });
   it("totalDiceManual negativo clampa em 0 (rollSuccessDice ainda rola 1 dado)", (t) => {
@@ -1716,5 +1718,19 @@ describe("Redundância de Letal → Sangramento 1 (05/11)", () => {
     const d = descritoresEfetivosDoAtaque({ descritores: ["letal"] }, { descritores: ["letal", "letal", "letal", "sangramento_1"] });
     assert.ok(d.includes("sangramento_2"));
     assert.equal(grauSangramento(d), 3);
+  });
+});
+
+describe("Defesa com dados digitados + tipo de defesa (07/11)", () => {
+  it("Preciso tira dados só de quem esquiva; Esmagador só de quem bloqueia; 'outra' não desconta", (t) => {
+    mockDice(t, Array(20).fill(1));
+    const base = { defensor: { descritores: [] }, totalDiceManual: 4 };
+    assert.equal(resolveRolagemDefesa({ ...base, defesaAtributo: "destreza", descritoresAtaque: ["preciso_2"] }).totalDice, 2);
+    assert.equal(resolveRolagemDefesa({ ...base, defesaAtributo: "forca", descritoresAtaque: ["preciso_2"] }).totalDice, 4);
+    assert.equal(resolveRolagemDefesa({ ...base, defesaAtributo: "forca", descritoresAtaque: ["esmagador_1"] }).totalDice, 3);
+    assert.equal(resolveRolagemDefesa({ ...base, defesaAtributo: "destreza", descritoresAtaque: ["esmagador_1"] }).totalDice, 4);
+    const outra = resolveRolagemDefesa({ ...base, descritoresAtaque: ["preciso_2", "esmagador_1"] });
+    assert.equal(outra.totalDice, 4);
+    assert.equal(outra.profKey, null);
   });
 });

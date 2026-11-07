@@ -1042,6 +1042,14 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
   let firmeGarantidos = 0;
   if (totalDiceManual != null) {
     totalDice = Math.max(0, totalDiceManual);
+    // 07/11 (painel Teste, aba Ataque): com os dados da defesa digitados à
+    // mão, a pessoa escolhe o tipo de defesa — Preciso N tira N dados de
+    // quem esquiva (defesaAtributo "destreza"), Esmagador N de quem bloqueia
+    // ("forca"). Sem tipo (outra defesa), nenhum dos dois desconta.
+    const precisoManual = grauPreciso(descritoresAtaque);
+    if (precisoManual && defesaAtributo === "destreza") totalDice = Math.max(0, totalDice - precisoManual);
+    const esmagadorManual = grauEsmagador(descritoresAtaque);
+    if (esmagadorManual && defesaAtributo === "forca") totalDice = Math.max(0, totalDice - esmagadorManual);
   } else {
     const grauProf = defensor?.proficiencias?.[profKey] ?? defensor?.proficiencias?.defesaProf;
     totalDice = grauNumero(getAttrGrade(defensor, defesaAtributo)) + grauNumero(grauProf);
@@ -1089,7 +1097,9 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
   const rolagem = rolarComSortudo(totalDice, limiar, temSortudo);
   if (firmeGarantidos) rolagem.successes += firmeGarantidos; // sucessos garantidos do Firme N somam direto, sem rolar
   if (resisteAMagia && rolagem.successes < 1) rolagem.successes = 1; // 1 sucesso sempre garantido
-  return { ...rolagem, totalDice, profKey, resisteAMagia, firmeGarantidos };
+  // Defesa manual sem tipo (07/11, "outra"): não é esquiva nem bloqueio.
+  const profKeyFinal = totalDiceManual != null && !defesaAtributo ? null : profKey;
+  return { ...rolagem, totalDice, profKey: profKeyFinal, resisteAMagia, firmeGarantidos };
 }
 
 // Determina o tipo de ferimento causado pelos sucessos líquidos de um ataque

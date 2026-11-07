@@ -175,3 +175,17 @@ describe("camadas das imagens (07/11)", async () => {
     assert.deepEqual(imagensDaCamada(objs, "token", false).map((o) => o.id), ["t", "v"]);
   });
 });
+
+describe("borracha por área (07/11)", async () => {
+  const { tracoTocaRetangulo } = await import("./mesa.js");
+  const area = { x: 100, y: 100, w: 100, h: 100 };
+  it("traço com ponto dentro da área", () => {
+    assert.equal(tracoTocaRetangulo([[0, 0], [150, 150]], area), true);
+  });
+  it("traço que só atravessa a área (pontos fora)", () => {
+    assert.equal(tracoTocaRetangulo([[50, 150], [250, 150]], area), true);
+  });
+  it("traço longe da área", () => {
+    assert.equal(tracoTocaRetangulo([[0, 0], [50, 300]], area), false);
+  });
+});

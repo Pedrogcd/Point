@@ -19,7 +19,7 @@ import {
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
   formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
-  CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada,
+  CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada, tracoTocaRetangulo,
 } from "./mesa.js";
 
 // Uma forma de névoa (retângulo, círculo ou polígono) como elemento SVG.
@@ -272,6 +272,8 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const [imaNevoa, setImaNevoa] = useState(true);
   const [poligonoAtual, setPoligonoAtual] = useState(null); // { modo, pontos }
   const [cursorMundo, setCursorMundo] = useState(null);
+  // 07/11: borracha por área — retângulo arrastado com a borracha.
+  const [areaApagar, setAreaApagar] = useState(null); // { inicio, fim }
   const gestoRef = useRef(null);
   const imagens = objetos.filter((o) => o.tipo === "imagem");
   // Camadas (07/11): Mapa, Jogadores ("token") e Mestre ("gm", só o Mestre
@@ -320,6 +322,16 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       gestoRef.current = { tipo: "retangulo" };
       return;
     }
+    if (ferramenta === "borracha") {
+      // Clique num traço apaga só ele (ver aoClicarTraco); arrastar no
+      // fundo marca uma área e apaga todos os traços que ela toca.
+      if (ev.button !== 0) return;
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      const p = paraMundo(ev);
+      setAreaApagar({ inicio: p, fim: p });
+      gestoRef.current = { tipo: "apagarArea" };
+      return;
+    }
     if (ferramenta === "lapis") {
       ev.currentTarget.setPointerCapture(ev.pointerId);
       setTracoAtual([paraMundo(ev)]);
@@ -356,6 +368,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     } else if (g.tipo === "desenho") {
       const p = paraMundo(ev);
       setTracoAtual((t) => (t ? [...t, p] : [p]));
+    } else if (g.tipo === "apagarArea") {
+      const p = paraMundo(ev);
+      setAreaApagar((a) => (a ? { ...a, fim: p } : a));
     } else if (g.tipo === "retangulo") {
       const p = pontoDaNevoa(ev);
       setRetanguloAtual((r) => (r ? { ...r, fim: p } : r));
@@ -372,6 +387,12 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     const g = gestoRef.current;
     gestoRef.current = null;
     if (!g) return;
+    if (g.tipo === "apagarArea") {
+      const area = areaApagar ? retanguloDeArraste(areaApagar.inicio, areaApagar.fim, 4 / cam.zoom) : null;
+      setAreaApagar(null);
+      if (area) tracos.filter((t) => tracoTocaRetangulo(t.pontos, area)).forEach((t) => apagar(t.id));
+      return;
+    }
     if (g.tipo === "retangulo") {
       const atual = retanguloAtual;
       setRetanguloAtual(null);
@@ -508,7 +529,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const viewBox = `${cam.x} ${cam.y} ${Math.max(1, tamanho.w) / cam.zoom} ${Math.max(1, tamanho.h) / cam.zoom}`;
-  const cursor = ferramenta === "lapis" || ferramenta === "nevoa" || ferramenta === "revelar" ? "crosshair" : ferramenta === "mao" ? (gestoRef.current ? "grabbing" : "grab") : ferramenta === "borracha" ? "not-allowed" : "default";
+  const cursor = ferramenta === "lapis" || ferramenta === "nevoa" || ferramenta === "revelar" ? "crosshair" : ferramenta === "mao" ? (gestoRef.current ? "grabbing" : "grab") : ferramenta === "borracha" ? "crosshair" : "default";
   const online = status === "SUBSCRIBED";
 
   function desenharImagem(o) {
@@ -571,6 +592,19 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               onPointerDown={(ev) => aoClicarTraco(ev, t)}
             />
           ))}
+          {areaApagar && (() => {
+            const area = retanguloDeArraste(areaApagar.inicio, areaApagar.fim, 0);
+            if (!area) return null;
+            const alvos = tracos.filter((t) => tracoTocaRetangulo(t.pontos, area));
+            return (
+              <g pointerEvents="none">
+                {alvos.map((t) => (
+                  <path key={`x-${t.id}`} d={caminhoDoTraco(t.pontos)} fill="none" stroke={EMBER} strokeOpacity={0.55} strokeWidth={(t.largura || 5) + 6 / cam.zoom} strokeLinecap="round" strokeLinejoin="round" />
+                ))}
+                <rect x={area.x} y={area.y} width={area.w} height={area.h} fill={`${EMBER}18`} stroke={EMBER} strokeWidth={2 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} />
+              </g>
+            );
+          })()}
           {tracoAtual && <path d={caminhoDoTraco(tracoAtual)} fill="none" stroke={cor} strokeWidth={largura} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} pointerEvents="none" />}
           {tokens.map(desenharImagem)}
           {/* Névoa: máscara com os retângulos na ordem (cobrir = branco,
@@ -626,7 +660,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           <BotaoFerramenta titulo="Selecionar e mover (arraste o fundo pra mover a tela)" ativo={ferramenta === "mover"} onClick={() => setFerramenta("mover")}><MousePointer2 size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Mover a tela" ativo={ferramenta === "mao"} onClick={() => setFerramenta("mao")}><Hand size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Desenhar" ativo={ferramenta === "lapis"} onClick={() => setFerramenta("lapis")}><Pencil size={18} /></BotaoFerramenta>
-          <BotaoFerramenta titulo="Apagar um traço (clique nele)" ativo={ferramenta === "borracha"} onClick={() => setFerramenta("borracha")}><Eraser size={18} /></BotaoFerramenta>
+          <BotaoFerramenta titulo="Borracha: clique num traço, ou arraste pra apagar uma área" ativo={ferramenta === "borracha"} onClick={() => setFerramenta("borracha")}><Eraser size={18} /></BotaoFerramenta>
           {gm && (
             <>
               <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />

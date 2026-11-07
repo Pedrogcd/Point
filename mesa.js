@@ -175,6 +175,26 @@ export function imagensDaCamada(objetos, camada, gm) {
   return (objetos || []).filter((o) => o.tipo === "imagem" && camadaDaImagem(o) === camada);
 }
 
+// Borracha por área (07/11): um traço é apagado se algum ponto dele cai no
+// retângulo ou se algum segmento cruza o retângulo.
+function segmentosCruzam([ax, ay], [bx, by], [cx, cy], [dx, dy]) {
+  const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+  if (d === 0) return false;
+  const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
+  const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+export function tracoTocaRetangulo(pontos, { x, y, w, h }) {
+  const pts = pontos || [];
+  const dentro = ([px, py]) => px >= x && px <= x + w && py >= y && py <= y + h;
+  if (pts.some(dentro)) return true;
+  const lados = [[[x, y], [x + w, y]], [[x + w, y], [x + w, y + h]], [[x + w, y + h], [x, y + h]], [[x, y + h], [x, y]]];
+  for (let i = 1; i < pts.length; i++) {
+    if (lados.some(([a, b]) => segmentosCruzam(pts[i - 1], pts[i], a, b))) return true;
+  }
+  return false;
+}
+
 export function camadasDeNevoa(objetos) {
   return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }

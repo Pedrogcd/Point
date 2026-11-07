@@ -21,7 +21,7 @@ import {
   grauQueimadura, resolveQueimadura, LIMIAR_QUEIMADURA, LIMIAR_QUEIMADURA_BLINDADO,
   grauDescritorNumerico, grauPreciso, grauEsmagador, grauEnvenenamento, grauCarga,
   LIMIAR_ENVENENAMENTO, resolveEnvenenamento, resolveSangramento, resolveCarga, resolveDrenante,
-  grauFirme, grauSelado, grauLento, quebrarSP, repararSP,
+  grauFirme, grauAgil, grauSelado, grauLento, quebrarSP, repararSP,
   aplicarAzarado, diceRecuperacaoMana,
 } from "./engine.js";
 
@@ -1732,5 +1732,22 @@ describe("Defesa com dados digitados + tipo de defesa (07/11)", () => {
     const outra = resolveRolagemDefesa({ ...base, descritoresAtaque: ["preciso_2", "esmagador_1"] });
     assert.equal(outra.totalDice, 4);
     assert.equal(outra.profKey, null);
+  });
+});
+
+describe("Ágil N igual ao Firme, na esquiva (07/11)", () => {
+  it("vale o maior N entre fontes", () => {
+    assert.equal(grauAgil(["agil_1", "agil_2"]), 2);
+  });
+  it("esquivando: tira N dados e soma N sucessos garantidos; bloqueando: nada", (t) => {
+    mockDice(t, Array(20).fill(1));
+    const defensor = withDescritores(withAttrs(makeCharacter(), { destreza: 3 }), ["agil_1"]);
+    const esq = resolveRolagemDefesa({ defensor, defesaAtributo: "destreza" });
+    const blq = resolveRolagemDefesa({ defensor, defesaAtributo: "forca" });
+    assert.equal(esq.agilGarantidos, 1);
+    assert.equal(esq.successes, 1); // dados todos 1: só o garantido
+    assert.equal(blq.agilGarantidos, 0);
+    const semAgil = resolveRolagemDefesa({ defensor: { ...defensor, descritores: [] }, defesaAtributo: "destreza" });
+    assert.equal(esq.totalDice, semAgil.totalDice - 1);
   });
 });

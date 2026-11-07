@@ -870,6 +870,9 @@ export function grauCarga(descritores) { return grauDescritorNumerico(descritore
 // acumula (23/10, lista explícita); Selado segue o mesmo tratamento por
 // categoria (ver nota acima).
 export function grauFirme(descritores) { return grauDescritorNumerico(descritores, "firme", "maior"); }
+// Ágil N (06/11; regra confirmada pelo Pedro em 07/11: "atua que nem o
+// Firme"): o mesmo do Firme, mas ao esquivar — vale o maior N entre fontes.
+export function grauAgil(descritores) { return grauDescritorNumerico(descritores, "agil", "maior"); }
 export function grauSelado(descritores) { return grauDescritorNumerico(descritores, "selado", "maior"); }
 export function grauLento(descritores) { return grauDescritorNumerico(descritores, "lento", "maior"); }
 
@@ -1040,6 +1043,7 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
   const profKey = profDeDefesa(defesaAtributo);
   let totalDice;
   let firmeGarantidos = 0;
+  let agilGarantidos = 0;
   if (totalDiceManual != null) {
     totalDice = Math.max(0, totalDiceManual);
     // 07/11 (painel Teste, aba Ataque): com os dados da defesa digitados à
@@ -1075,6 +1079,12 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
       firmeGarantidos = grauFirme(defensor?.descritores);
       if (firmeGarantidos) totalDice = Math.max(0, totalDice - firmeGarantidos);
     }
+    // Ágil N (07/11): igual ao Firme, só que ao esquivar (Destreza) — tira N
+    // dados da esquiva e considera N sucessos garantidos.
+    if (defesaAtributo === "destreza") {
+      agilGarantidos = grauAgil(defensor?.descritores);
+      if (agilGarantidos) totalDice = Math.max(0, totalDice - agilGarantidos);
+    }
     // Sem a perícia da família da armadura/escudo equipados (Regra 4, 21/10):
     // -1 dado por peça sem perícia — já vem somado em
     // `defensor.penalidadeDefesaSemPericia` (racasCatalogo.js:comGrausEfetivos,
@@ -1096,10 +1106,11 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
     || (defesaAtributo === "destreza" && temDescritor(defensor, "sortudo_esquiva"));
   const rolagem = rolarComSortudo(totalDice, limiar, temSortudo);
   if (firmeGarantidos) rolagem.successes += firmeGarantidos; // sucessos garantidos do Firme N somam direto, sem rolar
+  if (agilGarantidos) rolagem.successes += agilGarantidos; // idem, Ágil N na esquiva
   if (resisteAMagia && rolagem.successes < 1) rolagem.successes = 1; // 1 sucesso sempre garantido
   // Defesa manual sem tipo (07/11, "outra"): não é esquiva nem bloqueio.
   const profKeyFinal = totalDiceManual != null && !defesaAtributo ? null : profKey;
-  return { ...rolagem, totalDice, profKey: profKeyFinal, resisteAMagia, firmeGarantidos };
+  return { ...rolagem, totalDice, profKey: profKeyFinal, resisteAMagia, firmeGarantidos, agilGarantidos };
 }
 
 // Determina o tipo de ferimento causado pelos sucessos líquidos de um ataque

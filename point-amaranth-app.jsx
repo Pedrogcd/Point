@@ -14123,8 +14123,15 @@ export default function App() {
   // Mesa (07/11): NPCs do mundo pro "falar como" do Mestre — só nome e
   // retrato (com as edições do Mestre por cima), nada de segredo.
   const npcsDaMesa = useMemo(
-    () => NPCS.map((n) => ({ id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img })),
-    [npcsOverrides],
+    () => NPCS.map((n) => {
+      // Local do NPC pro separador do "Falar como": "Cidade (Reino)".
+      const reino = kingdoms.find((k) => k.id === n.reino);
+      const cidade = (reino?.cities || []).find((c) => c.id === n.cidade);
+      const nomeCidade = cidade?.name || (n.cidade ? n.cidade.charAt(0).toUpperCase() + n.cidade.slice(1) : "");
+      const local = nomeCidade ? (reino?.name ? `${nomeCidade} (${reino.name})` : nomeCidade) : (reino?.name || "Mundo");
+      return { id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img, local };
+    }),
+    [npcsOverrides, kingdoms],
   );
 
   const TABS = [

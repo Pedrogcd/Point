@@ -20,7 +20,7 @@ const ALIAS_BASE = {
   perfurante: "perfurante", letal: "letal", pesado: "pesado", arma_de_fogo: "arma-de-fogo", queimadura: "queimadura",
   envenenamento: "envenenamento", sangramento: "sangramento", carga: "carga", drenante: "drenante",
   repulsivo: "repulsivo", corrosivo: "corrosivo", blindado: "blindado",
-  resistente: "resistente", firme: "firme", selado: "selado",
+  resistente: "resistente", firme: "firme", agil: "agil", selado: "selado",
   campo_de_mana: "campo-de-mana", potente_forca: "potente-forca",
   potente_destreza: "potente-destreza", potente_oficio_magico: "potente-oficio",
   sortudo: "sortudo", azarado: "azarado", reabastecer: "reabastecer",

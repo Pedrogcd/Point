@@ -65,7 +65,7 @@ import {
   listaRacas, encontrarRaca, encontrarPrincipal, encontrarSecundaria, descritoresDeSelecao,
   comGrausEfetivos, BONUS_GRAU_ESCOLHA_POR_HABILIDADE, DESCRITOR_ESCOLHA_POR_HABILIDADE, disciplinasDoPersonagem,
 } from "./racasCatalogo.js";
-import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade, BONUS_GRAU_POR_ARQUETIPO } from "./data/arquetipos.js";
+import { TIPO_DISCIPLINA_ARQUETIPO, getVariacaoPorId, habilidadesDeArquetipoDoPersonagem, tagDaHabilidade, custoDaHabilidade, idDaHabilidade, BONUS_GRAU_POR_ARQUETIPO, habilidadesIniciaisDaVariacao } from "./data/arquetipos.js";
 import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js";
 import { supabase } from "./supabaseClient.js";
 import {
@@ -5252,7 +5252,7 @@ const TAG_HABILIDADE_ARQUETIPO = {
   unica: { label: "Única", cor: BRASS },
   compartilhada: { label: "Compartilhada", cor: "#2F8577" },
 };
-function CartaoHabilidadeArquetipo({ h, usada, podeUsar, onUsar }) {
+function CartaoHabilidadeArquetipo({ h, usada, gratis, podeUsar, onUsar }) {
   const tag = TAG_HABILIDADE_ARQUETIPO[h.tag || tagDaHabilidade(h)];
   const custo = h.custoInfo || custoDaHabilidade(h.custo);
   const temDescritores = h.descritores && h.descritores !== "—";
@@ -5271,7 +5271,7 @@ function CartaoHabilidadeArquetipo({ h, usada, podeUsar, onUsar }) {
       {onUsar && (
         <div style={{ marginTop: 6 }}>
           <Btn onClick={onUsar} disabled={!podeUsar} style={{ fontSize: 10.5, padding: "3px 10px" }}>
-            {custo.porCena ? (usada ? "Usada na cena (desmarcar)" : "Usar (1x por cena)") : custo.mp ? `Usar (−${custo.mp} MP)` : custo.sp ? `Usar (−${custo.sp} SP)` : "Usar"}
+            {gratis ? `Usar (grátis — 1ª vez ${custo.primeiraGratis === "turno" ? "do turno" : "da cena"})` : custo.porCena ? (usada ? "Usada na cena (desmarcar)" : "Usar (1x por cena)") : custo.mp ? `Usar (−${custo.mp} MP)` : custo.sp ? `Usar (−${custo.sp} SP)` : "Usar"}
           </Btn>
         </div>
       )}
@@ -6338,6 +6338,8 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
     const teto = Math.max(0, max - (mpAtual.quebrada || 0));
     onUpdateCharacter(character.id, {
       mp: { ...mpAtual, current: Math.min(teto, mpAtual.current + (mpAtual.recuperarPendente || 0)), recuperarPendente: 0 },
+      // 06/11: libera os usos "1ª vez do turno grátis" (Maestria de Estilo no Modal).
+      usosTurno: {},
     });
   }
 
@@ -6357,6 +6359,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
       mp: { ...mpAtual, current: teto, recuperarPendente: 0 },
       sp: { ...spAtual, current: Math.max(spAtual.current ?? 0, tetoSp) },
       usosCena: {},
+      usosTurno: {},
       // 05/11: a marca "já sofreu o 1º agravante da cena" (que desliga o
       // Resistente, ver racasCatalogo.js:comGrausEfetivos) volta a zero.
       agravanteNaCena: false,
@@ -6567,7 +6570,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                   <Sparkles size={13} color={MP_COLOR} /> Restaurar MP e SP
                 </Btn>
                 <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                  <Btn onClick={inicioDeTurno} disabled={!(character.mp?.recuperarPendente > 0)} style={{ flex: 1, justifyContent: "center" }}>
+                  <Btn onClick={inicioDeTurno} disabled={!(character.mp?.recuperarPendente > 0) && Object.keys(character.usosTurno || {}).length === 0} style={{ flex: 1, justifyContent: "center" }}>
                     <Sparkles size={13} color={MP_COLOR} /> Início de turno
                   </Btn>
                   <Btn onClick={fimDeCena} style={{ flex: 1, justifyContent: "center" }}>
@@ -7385,12 +7388,22 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
           const habilidades = habilidadesDeArquetipoDoPersonagem(slotsArquetipo);
           const totalPossivel = habilidadesDeArquetipoDoPersonagem(slotsArquetipo, { todas: true }).length;
           const usos = character.usosCena || {};
+          const usosTurno = character.usosTurno || {};
           const mpAtual = character.mp?.current ?? 0;
           const spAtual = character.sp?.current ?? 0;
+          // 06/11 (Maestria de Estilo): 1º uso da cena (usosCena) ou do
+          // turno (usosTurno, zerado no "Início de turno") sai de graça.
+          const gratisAgora = (h) => {
+            const g = h.custoInfo.primeiraGratis;
+            return g === "cena" ? !usos[h.chave] : g === "turno" ? !usosTurno[h.chave] : false;
+          };
           function usar(h) {
             if (!onUpdateCharacter) return;
             const c = h.custoInfo;
-            if (c.porCena) {
+            if (c.primeiraGratis && gratisAgora(h)) {
+              if (c.primeiraGratis === "cena") onUpdateCharacter(character.id, { usosCena: { ...usos, [h.chave]: true } });
+              else onUpdateCharacter(character.id, { usosTurno: { ...usosTurno, [h.chave]: true } });
+            } else if (c.porCena) {
               onUpdateCharacter(character.id, { usosCena: { ...usos, [h.chave]: !usos[h.chave] } });
             } else if (c.mp) {
               if (mpAtual < c.mp) return;
@@ -7411,8 +7424,9 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
                 {habilidades.map((h) => {
                   const c = h.custoInfo;
-                  const podeUsar = !!onUpdateCharacter && (c.porCena || (c.mp ? mpAtual >= c.mp : c.sp ? spAtual >= c.sp : true));
-                  return <CartaoHabilidadeArquetipo key={h.chave} h={h} usada={!!usos[h.chave]} podeUsar={podeUsar} onUsar={c.porCena || c.mp || c.sp ? () => usar(h) : undefined} />;
+                  const gratis = gratisAgora(h);
+                  const podeUsar = !!onUpdateCharacter && (c.porCena || gratis || (c.mp ? mpAtual >= c.mp : c.sp ? spAtual >= c.sp : true));
+                  return <CartaoHabilidadeArquetipo key={h.chave} h={h} usada={!!c.porCena && !!usos[h.chave]} gratis={gratis} podeUsar={podeUsar} onUsar={c.porCena || c.mp || c.sp ? () => usar(h) : undefined} />;
                 })}
               </div>
             </div>
@@ -7495,7 +7509,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             excluirIds={excluirIds}
             mpAtual={character.mp?.current}
             spAtual={character.sp?.current}
-            onEscolher={(id) => gravar({ disciplinaId: id, habilidadesAtivas: [] })}
+            onEscolher={(id) => gravar({ disciplinaId: id, habilidadesAtivas: habilidadesIniciaisDaVariacao(id) })}
             onEsvaziar={() => gravar(null)}
             outraFonteArmas={characterEfetivo.periciasOficio?.outraFonteArmas}
             onTogglePassivaAnterior={() => gravar({ ...atual, passivaAnterior: !atual?.passivaAnterior })}

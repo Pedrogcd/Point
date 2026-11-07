@@ -21,9 +21,12 @@
     "descritores": [
      "Letal",
      "Firme",
+     "Ágil",
      "Preciso",
+     "Esmagador",
      "Sortudo",
-     "Veloz"
+     "Veloz",
+     "Queimadura"
     ],
     "fraqueza": "Cada postura sozinha é modesta; vale pela troca certa na hora certa.",
     "notaPedro": "aprovado",
@@ -32,61 +35,61 @@
       "nome": "Maestria de Estilo",
       "tipo": "Suporte",
       "custo": "0 MP (1ª vez do turno); 2 MP para repetir",
-      "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente. Para o Modal: custa 0 MP na primeira vez de cada turno e 2 MP para usar de novo, com um segundo modificador.",
+      "descritores": "Letal | Preciso 1 | Perfurante | Esmagador 1",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque: Letal, Preciso 1, Perfurante ou Esmagador 1. Se o ataque já tiver o descritor escolhido, em vez do bônus normal ele causa Sangramento 1 (Letal, Preciso 1 e Esmagador 1) ou ignora também Resistente (Perfurante). O Sangramento vindo de redundância soma com outros e tem teto de 2 por ataque. Para o Modal: custa 0 MP na primeira vez de cada turno e 2 MP para usar de novo no mesmo turno, ganhando um segundo modificador. A lista cresce conforme a postura ativa: Postura Defensiva (Firme 1 ou Ágil 1), Postura Veloz (Veloz) e Postura de Fogo (Queimadura 1).",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": "Pedro 06/11: Modal começa com ela (passiva)"
+      "nota": "Pedro 06/11: Modal começa com ela"
      },
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
-      "custo": "2 MP",
+      "custo": "1 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 1 sucesso garantido na defesa.",
+      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": "Rola defesas fisicas (isso afeta interpretação)"
+      "nota": "Pedro 06/11: sem sucesso garantido"
      },
      {
       "nome": "Postura Ofensiva",
       "tipo": "Postura",
       "custo": "1 MP",
       "descritores": "Letal",
-      "texto": "Até trocar de postura: seus ataques ganham +1d10 e Letal (se já tiverem Letal, causam também Sangramento 1).",
+      "texto": "Só ativa quando você escolhe uma postura diferente da do turno anterior. Até trocar de postura: seus ataques ganham Letal; se já tiverem Letal, ganham +1d10 no ataque. Sem penalidade de defesa.",
       "origem": "Única",
       "geral": false,
-      "nota": "Pedro 06/11: sem penalidade de defesa"
+      "nota": "Pedro 06/11"
      },
      {
       "nome": "Postura Defensiva",
       "tipo": "Postura",
       "custo": "1 MP",
-      "descritores": "Firme 1, Resistente",
-      "texto": "Até trocar de postura: ganha Firme 1 ao bloquear e Resistente; seus ataques rolam 1 dado a menos. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário. Quem já tiver Firme rola +1d10 ao bloquear.",
+      "descritores": "Firme 1 | Ágil 1",
+      "texto": "Até trocar de postura: Maestria de Estilo ganha a opção Firme 1 (ao bloquear) ou Ágil 1 (ao esquivar). Se já tiver o descritor escolhido, rola +1d10 nessa defesa.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 06/11: Ágil 1 é descritor novo"
      },
      {
-      "nome": "Postura Ágil",
+      "nome": "Postura Veloz",
       "tipo": "Postura",
       "custo": "1 MP",
-      "descritores": "Veloz, Sortudo",
-      "texto": "Até trocar de postura: ganha Veloz e Sortudo na esquiva; não bloqueia. Se já tiver Veloz, rola +1d10 no primeiro ataque da cena; se já tiver Sortudo na esquiva, re-rola mais um dado 1 ou 2.",
+      "descritores": "Veloz",
+      "texto": "Até trocar de postura: ganha Veloz. No seu turno, precisa trocar de postura antes de agir. Se já tiver Veloz, ganha Sortudo; se já tiver Sortudo, ganha Potência de Destreza.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 06/11"
      },
      {
-      "nome": "Troca Fluida",
-      "tipo": "Reação",
-      "custo": "1x por cena",
-      "descritores": "—",
-      "texto": "Ao sofrer um ataque, troca de postura antes da defesa.",
+      "nome": "Postura de Fogo",
+      "tipo": "Postura",
+      "custo": "1 MP",
+      "descritores": "Queimadura 1",
+      "texto": "Até trocar de postura: Maestria de Estilo ganha a opção Queimadura 1 nos golpes. Se o ataque com Queimadura errar o alvo, no turno seguinte você pode escolher esta mesma postura de novo, e ela conta como troca de postura para as outras habilidades.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 06/11: substitui Troca Fluida"
      }
     ]
    },
@@ -114,22 +117,22 @@
      {
       "nome": "Maestria de Estilo",
       "tipo": "Suporte",
-      "custo": "1 MP",
-      "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
+      "custo": "0 MP (1ª vez da cena); depois 1 MP",
+      "descritores": "Letal | Preciso 1 | Perfurante | Esmagador 1",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque: Letal, Preciso 1, Perfurante ou Esmagador 1. Se o ataque já tiver o descritor escolhido, em vez do bônus normal ele causa Sangramento 1 (Letal, Preciso 1 e Esmagador 1) ou ignora também Resistente (Perfurante). O Sangramento vindo de redundância soma com outros e tem teto de 2 por ataque. Custa 0 MP na primeira vez da cena e 1 MP nas seguintes.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 06/11"
      },
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
-      "custo": "2 MP",
+      "custo": "1 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 1 sucesso garantido na defesa.",
+      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 06/11: sem sucesso garantido"
      },
      {
       "nome": "Golpe Devastador",
@@ -197,22 +200,22 @@
      {
       "nome": "Maestria de Estilo",
       "tipo": "Suporte",
-      "custo": "1 MP",
-      "descritores": "Letal | Preciso 1 | Perfurante",
-      "texto": "Escolhe 1 desses descritores para o próximo ataque. Se o ataque já tiver o descritor escolhido, ele sobe: Letal causa Sangramento 1; Preciso 1 vira Preciso 2; Perfurante também ignora Resistente.",
+      "custo": "0 MP (1ª vez da cena); depois 1 MP",
+      "descritores": "Letal | Preciso 1 | Perfurante | Esmagador 1",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque: Letal, Preciso 1, Perfurante ou Esmagador 1. Se o ataque já tiver o descritor escolhido, em vez do bônus normal ele causa Sangramento 1 (Letal, Preciso 1 e Esmagador 1) ou ignora também Resistente (Perfurante). O Sangramento vindo de redundância soma com outros e tem teto de 2 por ataque. Custa 0 MP na primeira vez da cena e 1 MP nas seguintes.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 06/11"
      },
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
-      "custo": "2 MP",
+      "custo": "1 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas com 2 dados a menos, mas conta com 1 sucesso garantido na defesa.",
+      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 06/11: sem sucesso garantido"
      },
      {
       "nome": "Golpe Rápido",

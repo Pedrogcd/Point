@@ -12,6 +12,7 @@ import {
 import { grupoDoPersonagem } from "./sidepoint.js";
 import { migrarSelecaoRacaLegado, disciplinasDoPersonagem } from "./racasCatalogo.js";
 import { DISCIPLINAS, MAX_DISCIPLINAS, BONUS_GRAU_POR_OFICIO } from "./data/magias.js";
+import { habilidadesIniciaisDaVariacao, HABILIDADES_ARQUETIPO_RENOMEADAS } from "./data/arquetipos.js";
 
 // 24/10 (seção 0.6): base de Magia Ofensiva na migração — ver nota no passo
 // 15 de migrarPersonagem. `antigos` = ofícios mágicos + Conduíte + clã que
@@ -123,7 +124,15 @@ function migrarDisciplinas(ch) {
       if (slot.disciplinaId.startsWith("arquetipo-guardiao-")) slot = { ...slot, disciplinaId: slot.disciplinaId.replace("arquetipo-guardiao-", "arquetipo-protetor-") };
       const def = DISCIPLINAS.find((d) => d.id === slot.disciplinaId);
       if (!def) return null; // disciplinaId desconhecido (catálogo mudou) — descarta o slot
-      const limpo = { disciplinaId: slot.disciplinaId, habilidadesAtivas: Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas.slice(0, def.magiasAtivasMax || def.habilidadesMax || 3) : [] };
+      let ativasSalvas = Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas : [];
+      // 06/11 (Guerreiro Modal): Postura Ágil virou Postura Veloz e Troca
+      // Fluida foi substituída por Postura de Fogo — remapeia os ids salvos;
+      // e a variação sempre tem as habilidades com que começa (passiva do
+      // Modal: "Começa com a habilidade Maestria de Estilo").
+      if (def.tipo === "arquetipo") {
+        ativasSalvas = [...new Set([...habilidadesIniciaisDaVariacao(def.id), ...ativasSalvas.map((id) => HABILIDADES_ARQUETIPO_RENOMEADAS[id] || id)])];
+      }
+      const limpo = { disciplinaId: slot.disciplinaId, habilidadesAtivas: ativasSalvas.slice(0, def.magiasAtivasMax || def.habilidadesMax || 3) };
       // 23/10 (segunda parte): escolha da passiva anterior de Magias de
       // guerra (data/magias.js:periciasDeOficio).
       if (slot.passivaAnterior) limpo.passivaAnterior = true;

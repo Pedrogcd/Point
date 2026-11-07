@@ -57,17 +57,61 @@ export function rolarDados(dados, alvo = ALVO_PADRAO, aleatorio = Math.random) {
 // mundo. `resolverImagem` transforma caminho relativo em URL (assetUrl).
 export const AUTOR_MESTRE = { id: "mestre", nome: "Mestre", img: null, tipo: "mestre" };
 
+// 07/11 (Pedro): cada identidade ganha `grupo` — de onde ela é — pra o
+// "Falar como" mostrar separadores: fichas pelo reino (faction) e NPCs pela
+// cidade/local (`local`, montado pelo app). Ordem: Mestre, fichas por reino
+// (A-Z, "Outra"/sem reino por último), NPCs por local (A-Z).
+const SEM_REINO = "Sem reino";
+function reinoDaFicha(p) {
+  const f = String(p?.faction || "").trim();
+  return !f || f === "—" ? SEM_REINO : f;
+}
+function pesoDoGrupo(grupo) {
+  return grupo === "Outra" ? 1 : grupo === SEM_REINO ? 2 : 0;
+}
+
 export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, resolverImagem = (x) => x } = {}) {
+  const porGrupoENome = (a, b) => (pesoDoGrupo(a.grupo) - pesoDoGrupo(b.grupo))
+    || a.grupo.localeCompare(b.grupo, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR");
   const fichas = (personagens || [])
     .filter((p) => p?.id && p.name)
-    .map((p) => ({ id: `ficha:${p.id}`, nome: p.name, img: p.imageUrl ? resolverImagem(p.imageUrl) : null, tipo: "ficha" }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    .map((p) => ({ id: `ficha:${p.id}`, nome: p.name, img: p.imageUrl ? resolverImagem(p.imageUrl) : null, tipo: "ficha", grupo: reinoDaFicha(p) }))
+    .sort(porGrupoENome);
   if (!gm) return fichas;
   const doMundo = (npcs || [])
     .filter((n) => n?.id && n.nome)
-    .map((n) => ({ id: `npc:${n.id}`, nome: n.nome, img: n.img ? resolverImagem(n.img) : null, tipo: "npc" }))
-    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  return [AUTOR_MESTRE, ...fichas, ...doMundo];
+    .map((n) => ({ id: `npc:${n.id}`, nome: n.nome, img: n.img ? resolverImagem(n.img) : null, tipo: "npc", grupo: n.local || "Mundo" }))
+    .sort(porGrupoENome);
+  return [{ ...AUTOR_MESTRE, grupo: "Mestre" }, ...fichas, ...doMundo];
+}
+
+// Separadores do "Falar como": [{ rotulo, itens }] na ordem das identidades.
+// Rótulo: "Mestre", "Fichas — Hetalion", "NPCs — Frontier".
+export function gruposDeIdentidades(identidades) {
+  const grupos = [];
+  for (const i of identidades || []) {
+    const rotulo = i.tipo === "mestre" ? "Mestre" : `${i.tipo === "npc" ? "NPCs" : "Fichas"} — ${i.grupo || SEM_REINO}`;
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.rotulo === rotulo) ultimo.itens.push(i);
+    else grupos.push({ rotulo, itens: [i] });
+  }
+  return grupos;
+}
+
+// Névoa de guerra (07/11): objetos "nevoa" (cobre) e "revelado" (abre um
+// buraco), aplicados na ordem — o mais novo vale por cima. Só retângulos
+// { x, y, w, h }. Normaliza um retângulo arrastado em qualquer direção e
+// recorta na mesa; devolve null se ficar pequeno demais.
+export function retanguloDeArraste([x1, y1], [x2, y2], minimo = 8) {
+  const x = Math.max(0, Math.min(x1, x2));
+  const y = Math.max(0, Math.min(y1, y2));
+  const w = Math.min(MESA_LARGURA, Math.max(x1, x2)) - x;
+  const h = Math.min(MESA_ALTURA, Math.max(y1, y2)) - y;
+  return w >= minimo && h >= minimo ? { x, y, w, h } : null;
+}
+
+export function camadasDeNevoa(objetos) {
+  return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }
 
 function autorResumido(autor) {

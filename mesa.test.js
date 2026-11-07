@@ -111,3 +111,30 @@ describe("conexão local (sem Supabase)", () => {
     delete globalThis.localStorage;
   });
 });
+
+describe("separadores do 'Falar como' (07/11)", async () => {
+  const { identidadesDaMesa, gruposDeIdentidades } = await import("./mesa.js");
+  it("fichas por reino (Outra/sem reino por último) e NPCs por local", () => {
+    const personagens = [
+      { id: "1", name: "Zed", faction: "Goethia" }, { id: "2", name: "Ana", faction: "Hetalion" },
+      { id: "3", name: "Bia", faction: "Outra" }, { id: "4", name: "Caio", faction: "Goethia" }, { id: "5", name: "Dan" },
+    ];
+    const npcs = [{ id: "v", nome: "Irmã Veyla", local: "Frontier (Katalão)" }];
+    const g = gruposDeIdentidades(identidadesDaMesa({ personagens, npcs, gm: true }));
+    assert.deepEqual(g.map((x) => x.rotulo), ["Mestre", "Fichas — Goethia", "Fichas — Hetalion", "Fichas — Outra", "Fichas — Sem reino", "NPCs — Frontier (Katalão)"]);
+    assert.deepEqual(g[1].itens.map((i) => i.nome), ["Caio", "Zed"]);
+  });
+});
+
+describe("névoa de guerra (07/11)", async () => {
+  const { retanguloDeArraste, camadasDeNevoa } = await import("./mesa.js");
+  it("retângulo normalizado em qualquer direção e recortado na mesa; pequeno demais = null", () => {
+    assert.deepEqual(retanguloDeArraste([300, 200], [100, 50]), { x: 100, y: 50, w: 200, h: 150 });
+    assert.deepEqual(retanguloDeArraste([-50, -50], [100, 100]), { x: 0, y: 0, w: 100, h: 100 });
+    assert.equal(retanguloDeArraste([10, 10], [12, 300]), null);
+  });
+  it("camadas de névoa só com nevoa/revelado, na ordem", () => {
+    const c = camadasDeNevoa([{ id: "a", tipo: "revelado", ordem: 3 }, { id: "b", tipo: "traco", ordem: 1 }, { id: "c", tipo: "nevoa", ordem: 2 }]);
+    assert.deepEqual(c.map((x) => x.id), ["c", "a"]);
+  });
+});

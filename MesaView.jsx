@@ -11,12 +11,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
   Trash2, Send, Dices, ArrowUpToLine, ArrowDownToLine, Plus, Minus, Wifi, WifiOff, Crown,
+  CloudFog, Cloud, CloudOff, Eye,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
   novoId, parseComandoRolagem, rolarDados, identidadesDaMesa, mensagemDeFala, mensagemDeRolagem,
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
-  caminhoDoTraco, criarConexaoMesa,
+  caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
 } from "./mesa.js";
 import { uploadImagemMesa } from "./imageUpload.js";
 
@@ -252,11 +253,15 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const [largura, setLargura] = useState(5);
   const [selecionadoId, setSelecionadoId] = useState(null);
   const [tracoAtual, setTracoAtual] = useState(null);
+  // Névoa (07/11): retângulo sendo arrastado com a ferramenta "nevoa"
+  // (cobrir) ou "revelar" (abrir buraco) — só o Mestre.
+  const [retanguloAtual, setRetanguloAtual] = useState(null);
   const gestoRef = useRef(null);
   const imagens = objetos.filter((o) => o.tipo === "imagem");
   const mapas = imagens.filter((o) => o.camada === "mapa");
   const tokens = imagens.filter((o) => o.camada !== "mapa");
   const tracos = objetos.filter((o) => o.tipo === "traco");
+  const nevoas = camadasDeNevoa(objetos);
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
   const podeMexer = (o) => gm || o.camada !== "mapa";
@@ -275,6 +280,13 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     if (ev.button === 1 || ferramenta === "mao") {
       gestoRef.current = { tipo: "pan", inicio: [ev.clientX, ev.clientY], cam };
       ev.currentTarget.setPointerCapture(ev.pointerId);
+      return;
+    }
+    if (gm && (ferramenta === "nevoa" || ferramenta === "revelar")) {
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      const p = paraMundo(ev);
+      setRetanguloAtual({ inicio: p, fim: p, modo: ferramenta });
+      gestoRef.current = { tipo: "retangulo" };
       return;
     }
     if (ferramenta === "lapis") {
@@ -312,6 +324,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     } else if (g.tipo === "desenho") {
       const p = paraMundo(ev);
       setTracoAtual((t) => (t ? [...t, p] : [p]));
+    } else if (g.tipo === "retangulo") {
+      const p = paraMundo(ev);
+      setRetanguloAtual((r) => (r ? { ...r, fim: p } : r));
     } else if (g.tipo === "arrastar") {
       const [x, y] = paraMundo(ev);
       setObjetos((l) => l.map((o) => (o.id === g.id ? { ...o, x: x - g.dx, y: y - g.dy } : o)));
@@ -325,6 +340,13 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     const g = gestoRef.current;
     gestoRef.current = null;
     if (!g) return;
+    if (g.tipo === "retangulo") {
+      const r = retanguloAtual ? retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim) : null;
+      const modo = retanguloAtual?.modo;
+      setRetanguloAtual(null);
+      if (r) salvar({ id: novoId("n"), tipo: modo === "revelar" ? "revelado" : "nevoa", ordem: proximaOrdem(), ...r });
+      return;
+    }
     if (g.tipo === "desenho" && tracoAtual) {
       const pontos = simplificarPontos(tracoAtual, 1.2 / cam.zoom);
       setTracoAtual(null);
@@ -386,6 +408,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     }
   }
 
+  function cobrirTudo() {
+    nevoas.forEach((n) => apagar(n.id));
+    salvar({ id: novoId("n"), tipo: "nevoa", ordem: proximaOrdem(), x: 0, y: 0, w: MESA_LARGURA, h: MESA_ALTURA });
+  }
+  function tirarTodaNevoa() {
+    if (nevoas.length && window.confirm("Tirar toda a névoa do tabuleiro? Os jogadores vão ver tudo.")) nevoas.forEach((n) => apagar(n.id));
+  }
+
   function mudarConfig(mudanca) {
     salvar({ id: "config", tipo: "config", ordem: -9999, ...config, ...mudanca });
   }
@@ -403,7 +433,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const viewBox = `${cam.x} ${cam.y} ${Math.max(1, tamanho.w) / cam.zoom} ${Math.max(1, tamanho.h) / cam.zoom}`;
-  const cursor = ferramenta === "lapis" ? "crosshair" : ferramenta === "mao" ? (gestoRef.current ? "grabbing" : "grab") : ferramenta === "borracha" ? "not-allowed" : "default";
+  const cursor = ferramenta === "lapis" || ferramenta === "nevoa" || ferramenta === "revelar" ? "crosshair" : ferramenta === "mao" ? (gestoRef.current ? "grabbing" : "grab") : ferramenta === "borracha" ? "not-allowed" : "default";
   const online = status === "SUBSCRIBED";
 
   function desenharImagem(o) {
@@ -462,6 +492,30 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           ))}
           {tracoAtual && <path d={caminhoDoTraco(tracoAtual)} fill="none" stroke={cor} strokeWidth={largura} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} pointerEvents="none" />}
           {tokens.map(desenharImagem)}
+          {/* Névoa: máscara com os retângulos na ordem (cobrir = branco,
+              revelar = preto). Jogador: opaca, esconde tudo embaixo; Mestre:
+              semitransparente, pra ver o que está coberto. */}
+          {nevoas.length > 0 && (
+            <>
+              <mask id="mesa-nevoa" maskUnits="userSpaceOnUse" x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA}>
+                <rect x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA} fill="black" />
+                {nevoas.map((n) => <rect key={n.id} x={n.x} y={n.y} width={n.w} height={n.h} fill={n.tipo === "revelado" ? "black" : "white"} />)}
+              </mask>
+              <rect
+                x={0} y={0} width={MESA_LARGURA} height={MESA_ALTURA} mask="url(#mesa-nevoa)" pointerEvents="none"
+                fill={gm ? "#2B2116" : "#1E1A14"} opacity={gm ? 0.42 : 1} data-nevoa="1"
+              />
+            </>
+          )}
+          {retanguloAtual && (() => {
+            const r = retanguloDeArraste(retanguloAtual.inicio, retanguloAtual.fim, 0);
+            if (!r) return null;
+            const revelar = retanguloAtual.modo === "revelar";
+            return (
+              <rect x={r.x} y={r.y} width={r.w} height={r.h} pointerEvents="none"
+                fill={revelar ? "#F3E9D255" : "#2B211655"} stroke={revelar ? BRASS : PARCHMENT} strokeWidth={2 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} />
+            );
+          })()}
         </svg>
 
         {/* Ferramentas (vertical, à esquerda) */}
@@ -475,6 +529,8 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
               <BotaoFerramenta titulo="Adicionar token/imagem" onClick={() => pedirImagem("token")}><ImagePlus size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo="Adicionar mapa de fundo" onClick={() => pedirImagem("mapa")}><MapIcon size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo="Névoa: arraste pra cobrir uma área" ativo={ferramenta === "nevoa"} onClick={() => setFerramenta("nevoa")}><CloudFog size={18} /></BotaoFerramenta>
+              <BotaoFerramenta titulo="Névoa: arraste pra revelar uma área" ativo={ferramenta === "revelar"} onClick={() => setFerramenta("revelar")}><Eye size={18} /></BotaoFerramenta>
               <BotaoFerramenta titulo={config.grade ? "Esconder grade" : "Mostrar grade"} ativo={config.grade} onClick={() => mudarConfig({ grade: !config.grade })}><Grid3x3 size={18} /></BotaoFerramenta>
               <BotaoFerramenta
                 titulo="Limpar todos os desenhos" perigo
@@ -501,6 +557,17 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
                 <span style={{ width: l + 2, height: l + 2, borderRadius: "50%", background: cor }} />
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Ações de névoa (Mestre) */}
+        {gm && (ferramenta === "nevoa" || ferramenta === "revelar") && (
+          <div style={{ ...barraFlutuante, top: 10, left: 62, alignItems: "center", padding: "4px 6px", gap: 4 }} onPointerDown={(e) => e.stopPropagation()}>
+            <span style={{ fontSize: 11, color: MUTED, padding: "0 6px" }}>
+              {ferramenta === "nevoa" ? "Arraste pra cobrir" : "Arraste pra revelar"} · jogadores não veem o que está coberto
+            </span>
+            <BotaoFerramenta titulo="Cobrir a mesa toda" onClick={cobrirTudo}><Cloud size={17} /></BotaoFerramenta>
+            <BotaoFerramenta titulo="Tirar toda a névoa" perigo onClick={tirarTodaNevoa}><CloudOff size={17} /></BotaoFerramenta>
           </div>
         )}
 
@@ -574,9 +641,11 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               value={autor.id} onChange={(e) => escolherAutor(e.target.value)} aria-label="Falar como"
               style={{ flex: 1, minWidth: 0, padding: "5px 6px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", color: PARCHMENT, fontFamily: "'Spectral', serif", fontSize: 13 }}
             >
-              {gm && <optgroup label="Mestre">{identidades.filter((i) => i.tipo === "mestre").map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</optgroup>}
-              <optgroup label="Fichas">{identidades.filter((i) => i.tipo === "ficha").map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</optgroup>
-              {gm && <optgroup label="NPCs do mundo">{identidades.filter((i) => i.tipo === "npc").map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</optgroup>}
+              {gruposDeIdentidades(identidades).map((g) => (
+                <optgroup key={g.rotulo} label={g.rotulo}>
+                  {g.itens.map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}
+                </optgroup>
+              ))}
             </select>
           </label>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>

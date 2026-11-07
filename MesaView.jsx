@@ -12,6 +12,7 @@ import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
   Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
   CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
+  UserPlus, UserRound, ExternalLink,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -20,7 +21,10 @@ import {
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
   formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
   CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada, tracoTocaRetangulo,
+  idDoJogador, jogadoresDaMesa, fichasDoJogador, tokenDePersonagem, podeMoverImagem,
 } from "./mesa.js";
+import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
+import { comGrausEfetivos } from "./racasCatalogo.js";
 
 // Uma forma de névoa (retângulo, círculo ou polígono) como elemento SVG.
 function FormaNevoa({ n, ...props }) {
@@ -42,6 +46,7 @@ const EMBER = "#A83A2E";
 const PURPLE = "#4B3B6B";
 const MESA_FUNDO = "#E4D7B5";
 const CHAVE_AUTOR = "point-mesa-autor";
+const CHAVE_JOGADOR = "point-mesa-jogador";
 
 function iniciais(nome) {
   return String(nome || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
@@ -134,7 +139,73 @@ function Mensagem({ m }) {
   );
 }
 
-export default function MesaView({ gm, personagens, npcs, resolverImagem, supabase }) {
+// Pop-up do token (07/11): duplo clique num token de personagem mostra a
+// ficha resumida (retrato, recursos, atributos e proficiências de combate,
+// com os bônus já aplicados) e um botão pra abrir a ficha completa. NPC:
+// só o que é público. Ficha "só GM" de outra pessoa: jogador vê só o nome.
+function PopupToken({ token, personagens, npcs, gm, minhas, resolverImagem, onAbrirFicha, onFechar }) {
+  const ficha = token.fichaId ? (personagens || []).find((p) => p.id === token.fichaId) : null;
+  const npc = token.npcId ? (npcs || []).find((n) => n.id === token.npcId) : null;
+  const podeVerFicha = !!ficha && (gm || ficha.visivelJogador || (minhas || []).includes(ficha.id));
+  const efetivo = useMemo(() => (podeVerFicha ? comGrausEfetivos(ficha).character : null), [podeVerFicha, ficha]);
+  const nome = ficha?.name || npc?.nome || token.nome || "Token";
+  const img = ficha?.imageUrl ? resolverImagem(ficha.imageUrl) : npc?.img ? resolverImagem(npc.img) : token.url;
+  const recurso = (rotulo, r, cor) => (r ? (
+    <div style={{ flex: 1, padding: "6px 8px", borderRadius: 8, background: PANEL_2, textAlign: "center" }}>
+      <div style={{ fontSize: 10, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{rotulo}</div>
+      <div style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, color: cor, fontSize: 16 }}>{r.current ?? "?"}/{r.max ?? "?"}</div>
+    </div>
+  ) : null);
+  const grade = (lista, valores) => (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "3px 10px", fontSize: 12 }}>
+      {lista.map((a) => (
+        <div key={a.key} style={{ display: "flex", justifyContent: "space-between", borderBottom: `1px dotted ${LINE}` }}>
+          <span style={{ color: MUTED }}>{a.label}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: PARCHMENT, fontWeight: 700 }}>{grauNumero(valores?.[a.key])}</span>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div role="dialog" aria-label={`Ficha de ${nome}`} onPointerDown={(e) => e.stopPropagation()} onClick={onFechar}
+      style={{ position: "absolute", inset: 0, background: "#00000040", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 92%)", maxHeight: "88%", overflowY: "auto", background: PANEL, borderRadius: 12, border: `1px solid ${LINE}`, boxShadow: "0 12px 40px #00000055", padding: 16 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <Avatar autor={{ nome, img, tipo: npc ? "npc" : "ficha" }} tamanho={64} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 19, fontWeight: 700, color: PARCHMENT }}>{nome}</div>
+            <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>
+              {podeVerFicha ? [ficha.epithet, ficha.race || ficha.raca, ficha.faction].filter((x) => x && x !== "—").join(" · ")
+                : npc ? [npc.papel, npc.local].filter(Boolean).join(" · ") : token.dono ? `Avatar de ${token.dono}` : ""}
+            </div>
+          </div>
+          <button type="button" onClick={onFechar} aria-label="Fechar" style={{ border: "none", background: "transparent", cursor: "pointer", color: MUTED }}><XIcon size={20} /></button>
+        </div>
+        {podeVerFicha && (
+          <>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              {recurso("HP", ficha.hp, EMBER)}{recurso("MP", ficha.mp, "#4A6B96")}{recurso("SP", ficha.sp, "#2F8577")}
+            </div>
+            <div style={{ fontSize: 10.5, color: PURPLE, fontWeight: 700, margin: "12px 0 4px", letterSpacing: 0.6 }}>ATRIBUTOS</div>
+            {grade(ATRIBUTOS_GERAIS_LIST, efetivo?.atributosGerais)}
+            <div style={{ fontSize: 10.5, color: PURPLE, fontWeight: 700, margin: "12px 0 4px", letterSpacing: 0.6 }}>PROFICIÊNCIAS DE COMBATE</div>
+            {grade(PROFICIENCIAS_LIST.filter((p) => p.categoria === "combate"), efetivo?.proficiencias)}
+            {onAbrirFicha && (
+              <button type="button" onClick={() => onAbrirFicha(ficha.id)}
+                style={{ marginTop: 14, width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: PURPLE, color: PANEL, cursor: "pointer", fontFamily: "'Cinzel', serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <ExternalLink size={15} /> Abrir ficha completa
+              </button>
+            )}
+          </>
+        )}
+        {npc && !ficha && npc.texto && <p style={{ fontSize: 13, color: PARCHMENT, lineHeight: 1.5, marginTop: 12 }}>{npc.texto}</p>}
+        {ficha && !podeVerFicha && <p style={{ fontSize: 12, color: MUTED, fontStyle: "italic", marginTop: 12 }}>Ficha guardada pelo Mestre.</p>}
+      </div>
+    </div>
+  );
+}
+
+export default function MesaView({ gm, personagens, npcs, resolverImagem, supabase, onAbrirFicha }) {
   const conexao = useMemo(() => criarConexaoMesa(supabase), [supabase]);
   const [mensagens, setMensagens] = useState([]);
   const [objetos, setObjetos] = useState([]);
@@ -170,10 +241,24 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     try { await promessa; setErro(null); } catch (e) { setErro("Falhou ao enviar pra mesa — tente de novo."); }
   }
 
+  // ---- quem é você (jogador, sem login — 07/11)
+  const [eu, setEu] = useState(() => { try { return localStorage.getItem(CHAVE_JOGADOR) || ""; } catch (e) { return ""; } });
+  const [nomeDigitado, setNomeDigitado] = useState("");
+  const jogadores = jogadoresDaMesa(objetos);
+  const minhas = gm ? [] : fichasDoJogador(objetos, eu);
+  function entrarComo(nome) {
+    const limpo = String(nome || "").trim().slice(0, 40);
+    const id = idDoJogador(limpo);
+    if (!id) return;
+    setEu(limpo);
+    try { localStorage.setItem(CHAVE_JOGADOR, limpo); } catch (e) { /* ignora */ }
+    if (!objetos.some((o) => o.id === id)) salvar({ id, tipo: "jogador", ordem: -5000, nome: limpo, fichas: [] });
+  }
+
   // ---- identidades ("falar como")
   const identidades = useMemo(
-    () => identidadesDaMesa({ personagens, npcs, gm, resolverImagem }),
-    [personagens, npcs, gm, resolverImagem],
+    () => identidadesDaMesa({ personagens, npcs, gm, resolverImagem, minhas }),
+    [personagens, npcs, gm, resolverImagem, minhas.join(",")], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const [autorId, setAutorId] = useState(() => { try { return localStorage.getItem(CHAVE_AUTOR) || ""; } catch (e) { return ""; } });
   const autor = identidades.find((i) => i.id === autorId) || identidades[0] || AUTOR_MESTRE;
@@ -287,7 +372,34 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const nevoas = camadasDeNevoa(objetos);
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
-  const podeMexer = (o) => (gm ? camadaDaImagem(o) === camadaAtiva : camadaDaImagem(o) === "token");
+  const podeMexer = (o) => podeMoverImagem(o, { gm, camadaAtiva, eu, minhas });
+  // Tokens de personagem (07/11): painel pra colocar, pop-up no duplo
+  // clique, painel do Mestre pra atribuir fichas aos jogadores.
+  const [painel, setPainel] = useState(null); // null | "token" | "jogadores"
+  const [buscaToken, setBuscaToken] = useState("");
+  const [tokenAberto, setTokenAberto] = useState(null);
+  function centroDaTela() {
+    return [cam.x + tamanho.w / 2 / cam.zoom, cam.y + tamanho.h / 2 / cam.zoom];
+  }
+  function colocarToken({ ficha, npc, avatarUrl }) {
+    const t = config.tamanhoGrade;
+    const [cx, cy] = centroDaTela();
+    const camada = gm && camadaAtiva !== "mapa" ? camadaAtiva : "token";
+    const obj = tokenDePersonagem({
+      id: novoId("i"), ficha, npc, avatarUrl, dono: gm ? null : eu, tamanho: t, camada, ordem: proximaOrdem(),
+      x: encaixarNaGrade(cx - t / 2, t), y: encaixarNaGrade(cy - t / 2, t), resolverImagem,
+    });
+    salvar(obj);
+    if (gm) setCamadaAtiva(camada);
+    setFerramenta("mover");
+    setPainel(null);
+    setTimeout(() => setSelecionadoId(obj.id), 0);
+  }
+  function atribuirFicha(jogador, fichaId, ligar) {
+    const fichas = new Set(jogador.fichas || []);
+    if (ligar) fichas.add(fichaId); else fichas.delete(fichaId);
+    salvar({ ...jogador, fichas: [...fichas] });
+  }
   useEffect(() => { setSelecionadoId(null); }, [camadaAtiva]);
 
   function salvar(obj) {
@@ -344,9 +456,25 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       ev.currentTarget.setPointerCapture(ev.pointerId);
     }
   }
+  // Duplo clique num token abre o pop-up. Detectado aqui (dois toques no
+  // mesmo token em 350 ms) porque, num token que pode ser arrastado, o
+  // primeiro toque captura o ponteiro e o navegador não entrega o
+  // "dblclick" ao token.
+  const ultimoToqueRef = useRef(null);
   function aoApertarImagem(ev, o) {
     if (ferramenta !== "mover" || ev.button !== 0) return;
     ev.stopPropagation();
+    if (o.redondo) {
+      const agora = Date.now();
+      const ultimo = ultimoToqueRef.current;
+      ultimoToqueRef.current = { id: o.id, t: agora };
+      if (ultimo && ultimo.id === o.id && agora - ultimo.t < 350) {
+        ultimoToqueRef.current = null;
+        gestoRef.current = null;
+        setTokenAberto(o);
+        return;
+      }
+    }
     if (!podeMexer(o)) return;
     setSelecionadoId(o.id);
     const [x, y] = paraMundo(ev);
@@ -443,6 +571,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     try {
       const { url, width, height } = await uploadImagemMesa(arquivo);
       const pedido = camadaNovaRef.current;
+      if (pedido === "avatar") { colocarToken({ avatarUrl: url }); return; }
       // "mapa" = mapa de fundo inteiro; "mapa-peca" = imagem pequena na
       // camada do mapa (árvore, móvel...); "token"/"gm" = tamanho de token.
       const camada = pedido === "mapa-peca" ? "mapa" : pedido;
@@ -534,6 +663,41 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
 
   function desenharImagem(o) {
     const sel = o.id === selecionadoId;
+    if (o.redondo) {
+      const r = Math.min(o.w, o.h) / 2;
+      const cx = o.x + o.w / 2;
+      const cy = o.y + o.h / 2;
+      const mexe = ferramenta === "mover" && podeMexer(o);
+      const clipId = `clip-${o.id}`;
+      const borda = camadaDaImagem(o) === "gm" ? PURPLE : o.npcId ? BRASS : o.dono ? "#2F8577" : PANEL;
+      return (
+        <g key={o.id} opacity={camadaDaImagem(o) === "gm" ? 0.85 : 1}
+          pointerEvents={ferramenta === "mover" ? "visiblePainted" : "none"}
+          style={{ cursor: mexe ? "move" : "pointer" }}
+          onPointerDown={(ev) => aoApertarImagem(ev, o)}
+        >
+          <defs><clipPath id={clipId}><circle cx={cx} cy={cy} r={r} /></clipPath></defs>
+          <circle cx={cx} cy={cy} r={r} fill={PANEL_2} />
+          {o.url
+            ? <image href={o.url} x={cx - r} y={cy - r} width={r * 2} height={r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
+            : <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={r * 0.8} fontFamily="'Cinzel', serif" fontWeight={700} fill={MUTED}>{iniciais(o.nome)}</text>}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={sel ? PURPLE : borda} strokeWidth={Math.max(3, r * 0.09)} />
+          {o.nome && (
+            <g pointerEvents="none">
+              <rect x={cx - Math.max(r, o.nome.length * r * 0.17)} y={cy + r + 2} width={Math.max(r, o.nome.length * r * 0.17) * 2} height={r * 0.5} rx={r * 0.12} fill="#2B2116CC" />
+              <text x={cx} y={cy + r + 2 + r * 0.25} textAnchor="middle" dominantBaseline="central" fontSize={r * 0.3} fontFamily="'Spectral', serif" fill={PANEL}>{o.nome}</text>
+            </g>
+          )}
+          {sel && (
+            <rect
+              x={o.x + o.w - 7 / cam.zoom} y={o.y + o.h - 7 / cam.zoom} width={14 / cam.zoom} height={14 / cam.zoom}
+              fill={PANEL} stroke={PURPLE} strokeWidth={2 / cam.zoom} style={{ cursor: "nwse-resize" }}
+              onPointerDown={(ev) => aoApertarAlca(ev, o)}
+            />
+          )}
+        </g>
+      );
+    }
     return (
       <g key={o.id}>
         <image
@@ -661,6 +825,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           <BotaoFerramenta titulo="Mover a tela" ativo={ferramenta === "mao"} onClick={() => setFerramenta("mao")}><Hand size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Desenhar" ativo={ferramenta === "lapis"} onClick={() => setFerramenta("lapis")}><Pencil size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Borracha: clique num traço, ou arraste pra apagar uma área" ativo={ferramenta === "borracha"} onClick={() => setFerramenta("borracha")}><Eraser size={18} /></BotaoFerramenta>
+          <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
+          <BotaoFerramenta titulo={gm ? "Colocar token de personagem" : "Colocar meu token (ficha ou avatar)"} ativo={painel === "token"} onClick={() => setPainel(painel === "token" ? null : "token")}><UserPlus size={18} /></BotaoFerramenta>
+          {gm && <BotaoFerramenta titulo="Jogadores e fichas atribuídas" ativo={painel === "jogadores"} onClick={() => setPainel(painel === "jogadores" ? null : "jogadores")}><Users size={18} /></BotaoFerramenta>}
           {gm && (
             <>
               <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
@@ -792,6 +959,115 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           <BotaoFerramenta titulo="Ver a mesa inteira" onClick={enquadrar}><Maximize size={16} /></BotaoFerramenta>
         </div>
 
+        {/* Painel: colocar token */}
+        {painel === "token" && (
+          <div style={{ ...barraFlutuante, top: 10, left: 62, flexDirection: "column", alignItems: "stretch", padding: 10, gap: 6, width: 280, maxHeight: "75%", overflowY: "auto" }} onPointerDown={(e) => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PURPLE, fontWeight: 700 }}>{gm ? "Colocar token de personagem" : "Colocar meu token"}</div>
+            {gm ? (
+              <>
+                <input value={buscaToken} onChange={(e) => setBuscaToken(e.target.value)} placeholder="Buscar ficha ou NPC…" aria-label="Buscar personagem"
+                  style={{ padding: "6px 8px", borderRadius: 7, border: `1px solid ${LINE}`, background: "#fff", fontSize: 13 }} />
+                {gruposDeIdentidades(identidades.filter((i) => i.tipo !== "mestre" && i.nome.toLowerCase().includes(buscaToken.trim().toLowerCase()))).map((g) => (
+                  <div key={g.rotulo}>
+                    <div style={{ fontSize: 10, color: MUTED, margin: "4px 0 2px", letterSpacing: 0.5 }}>{g.rotulo.toUpperCase()}</div>
+                    {g.itens.map((i) => (
+                      <button key={i.id} type="button"
+                        onClick={() => colocarToken(i.tipo === "npc" ? { npc: (npcs || []).find((n) => `npc:${n.id}` === i.id) } : { ficha: (personagens || []).find((p) => `ficha:${p.id}` === i.id) })}
+                        style={itemLista}><Avatar autor={i} tamanho={24} /> {i.nome}</button>
+                    ))}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                {identidades.filter((i) => i.grupo === "Minhas fichas").length === 0 && (
+                  <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic" }}>O Mestre ainda não te deu uma ficha. Você pode usar um avatar.</div>
+                )}
+                {identidades.filter((i) => i.grupo === "Minhas fichas").map((i) => (
+                  <button key={i.id} type="button" onClick={() => colocarToken({ ficha: (personagens || []).find((p) => `ficha:${p.id}` === i.id) })} style={itemLista}>
+                    <Avatar autor={i} tamanho={24} /> {i.nome}
+                  </button>
+                ))}
+                <button type="button" onClick={() => pedirImagem("avatar")} style={{ ...itemLista, justifyContent: "center", background: PANEL_2 }}>
+                  <UserRound size={16} /> Usar uma imagem como avatar
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Painel do Mestre: jogadores e fichas atribuídas */}
+        {gm && painel === "jogadores" && (
+          <div style={{ ...barraFlutuante, top: 10, left: 62, flexDirection: "column", alignItems: "stretch", padding: 10, gap: 8, width: 320, maxHeight: "75%", overflowY: "auto" }} onPointerDown={(e) => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, color: PURPLE, fontWeight: 700 }}>Jogadores</div>
+            <div style={{ fontSize: 11, color: MUTED }}>Cada jogador entra na Mesa com o nome. Dê a ele as fichas que ele controla: ele pode colocar o token, mover e abrir a ficha.</div>
+            {jogadores.length === 0 && <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic" }}>Ninguém entrou ainda.</div>}
+            {jogadores.map((j) => (
+              <div key={j.id} style={{ border: `1px solid ${LINE}`, borderRadius: 8, padding: 8, background: "#fff" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <strong style={{ fontSize: 13 }}>{j.nome}</strong>
+                  <button type="button" title={`Remover ${j.nome}`} onClick={() => { if (window.confirm(`Remover ${j.nome} da lista de jogadores?`)) apagar(j.id); }}
+                    style={{ border: "none", background: "transparent", color: EMBER, cursor: "pointer" }}><Trash2 size={14} /></button>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, margin: "6px 0" }}>
+                  {(j.fichas || []).map((fid) => {
+                    const f = (personagens || []).find((p) => p.id === fid);
+                    return (
+                      <span key={fid} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: PANEL_2, fontSize: 11.5 }}>
+                        {f?.name || fid}
+                        <button type="button" aria-label={`Tirar ${f?.name || fid} de ${j.nome}`} onClick={() => atribuirFicha(j, fid, false)} style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, color: MUTED }}><XIcon size={12} /></button>
+                      </span>
+                    );
+                  })}
+                </div>
+                <select value="" aria-label={`Dar ficha a ${j.nome}`} onChange={(e) => { if (e.target.value) atribuirFicha(j, e.target.value, true); }}
+                  style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1px solid ${LINE}`, fontSize: 12 }}>
+                  <option value="">+ dar uma ficha…</option>
+                  {[...(personagens || [])].filter((p) => p?.id && p.name && !(j.fichas || []).includes(p.id)).sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input value={nomeDigitado} onChange={(e) => setNomeDigitado(e.target.value)} placeholder="Adicionar jogador pelo nome" aria-label="Novo jogador"
+                style={{ flex: 1, padding: "5px 8px", borderRadius: 7, border: `1px solid ${LINE}`, fontSize: 12.5 }} />
+              <button type="button" onClick={() => { const id = idDoJogador(nomeDigitado); if (id && !objetos.some((o) => o.id === id)) salvar({ id, tipo: "jogador", ordem: -5000, nome: nomeDigitado.trim(), fichas: [] }); setNomeDigitado(""); }}
+                style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: PURPLE, color: PANEL, cursor: "pointer", fontSize: 12 }}>Adicionar</button>
+            </div>
+          </div>
+        )}
+
+        {tokenAberto && (
+          <PopupToken
+            token={tokenAberto} personagens={personagens} npcs={npcs} gm={gm} minhas={minhas} resolverImagem={resolverImagem}
+            onAbrirFicha={onAbrirFicha} onFechar={() => setTokenAberto(null)}
+          />
+        )}
+
+        {/* Quem é você (jogador, primeira vez) */}
+        {!gm && !eu && (
+          <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", inset: 0, background: "#2B2116AA", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 6 }}>
+            <form onSubmit={(e) => { e.preventDefault(); entrarComo(nomeDigitado); }}
+              style={{ width: "min(380px, 92%)", background: PANEL, borderRadius: 12, padding: 18, border: `1px solid ${LINE}`, boxShadow: "0 12px 40px #00000066" }}>
+              <div style={{ fontFamily: "'Cinzel', serif", fontSize: 18, color: PURPLE, fontWeight: 700 }}>Quem é você?</div>
+              <p style={{ fontSize: 12.5, color: MUTED, margin: "6px 0 12px" }}>Seu nome de jogador, pra o Mestre te dar suas fichas. Fica salvo neste navegador.</p>
+              {jogadores.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                  {jogadores.map((j) => (
+                    <button key={j.id} type="button" onClick={() => entrarComo(j.nome)} style={{ padding: "5px 12px", borderRadius: 16, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontSize: 13 }}>{j.nome}</button>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6 }}>
+                <input autoFocus value={nomeDigitado} onChange={(e) => setNomeDigitado(e.target.value)} placeholder="Seu nome" aria-label="Seu nome"
+                  style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14 }} />
+                <button type="submit" style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: PURPLE, color: PANEL, cursor: "pointer", fontFamily: "'Cinzel', serif" }}>Entrar</button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {/* Status */}
         <div style={{ ...barraFlutuante, bottom: 10, left: 10, alignItems: "center", gap: 6, padding: "4px 10px", fontSize: 11, color: online ? "#2F8577" : MUTED }}>
           {online ? <Wifi size={13} /> : <WifiOff size={13} />}
@@ -807,6 +1083,12 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       <div className="mesa-chat" style={{ display: "flex", flexDirection: "column", borderRadius: 10, border: `1px solid ${LINE}`, background: `${PANEL}CC`, overflow: "hidden", minHeight: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderBottom: `1px solid ${LINE}` }}>
           <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13, letterSpacing: 1, color: PURPLE, fontWeight: 700 }}>CHAT DA MESA</span>
+          {!gm && eu && (
+            <button type="button" title="Trocar de jogador" onClick={() => { setEu(""); try { localStorage.removeItem(CHAVE_JOGADOR); } catch (e) { /* ignora */ } }}
+              style={{ fontSize: 11, color: MUTED, background: "transparent", border: "none", cursor: "pointer" }}>
+              Você: <strong style={{ color: PARCHMENT }}>{eu}</strong> (trocar)
+            </button>
+          )}
           {gm && mensagens.length > 0 && (
             <button type="button" onClick={() => { if (window.confirm("Apagar todo o chat pra todos?")) { setMensagens([]); tentar(conexao.limparMensagens()); } }}
               style={{ fontSize: 10.5, color: EMBER, background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Cinzel', serif" }}>
@@ -872,4 +1154,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
 
 const passo = {
   width: 24, height: 24, borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", color: PARCHMENT, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0,
+};
+
+const itemLista = {
+  display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "5px 6px", borderRadius: 7, border: "1px solid transparent",
+  background: "transparent", cursor: "pointer", fontSize: 13, color: PARCHMENT, textAlign: "left", fontFamily: "'Spectral', serif",
 };

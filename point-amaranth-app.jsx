@@ -14129,7 +14129,10 @@ export default function App() {
       const cidade = (reino?.cities || []).find((c) => c.id === n.cidade);
       const nomeCidade = cidade?.name || (n.cidade ? n.cidade.charAt(0).toUpperCase() + n.cidade.slice(1) : "");
       const local = nomeCidade ? (reino?.name ? `${nomeCidade} (${reino.name})` : nomeCidade) : (reino?.name || "Mundo");
-      return { id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img, local };
+      // Pop-up do token (07/11): só o que é público do NPC (papel e texto
+      // da visão de jogador), nunca o segredo.
+      const publico = npcVisivel({ ...n, ...(npcsOverrides?.[n.id] || {}) }, false) || {};
+      return { id: n.id, nome: npcsOverrides?.[n.id]?.nome || n.nome, img: npcsOverrides?.[n.id]?.img ?? n.img, local, papel: publico.papel || "", texto: publico.texto || "" };
     }),
     [npcsOverrides, kingdoms],
   );
@@ -14527,6 +14530,7 @@ export default function App() {
           <MesaView
             gm={gm} personagens={characters} supabase={supabase} resolverImagem={assetUrl}
             npcs={npcsDaMesa}
+            onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
           />
         )}
         {tab === "abilities" && <AbilitiesCatalogView />}

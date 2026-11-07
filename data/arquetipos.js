@@ -74,9 +74,15 @@ export function ehDisciplinaDeArquetipo(id) {
 }
 
 // "1 MP" -> { mp: 1 }; "1 SP" -> { sp: 1 }; "1x por cena" -> { porCena: true }.
+// 06/11 (Maestria de Estilo): "0 MP (1ª vez da cena); depois 1 MP" ->
+// { mp: 1, primeiraGratis: "cena" } e "0 MP (1ª vez do turno); 2 MP para
+// repetir" -> { mp: 2, primeiraGratis: "turno" } — o primeiro uso da
+// cena/turno sai de graça, os seguintes custam o MP.
 // Qualquer outro texto: {} (só exibe).
 export function custoDaHabilidade(custo) {
   const t = String(custo || "").trim().toLowerCase();
+  const gratis = /^0\s*mp\s*\(1ª vez d[ao] (cena|turno)\)[;,]?\s*(?:depois\s*)?(\d+)\s*mp/.exec(t);
+  if (gratis) return { mp: parseInt(gratis[2], 10), primeiraGratis: gratis[1] };
   if (/por cena/.test(t)) return { porCena: true };
   const m = /^(\d+)\s*(mp|sp)$/.exec(t);
   if (m) return { [m[2]]: parseInt(m[1], 10) };
@@ -95,6 +101,25 @@ export function tagDaHabilidade(h) {
 export function idDaHabilidade(h) {
   return slug(h?.nome);
 }
+
+// 06/11 (Modal): habilidades com que a variação já começa, lidas da
+// passiva no JSON ("Começa com a habilidade Maestria de Estilo, ...") — só
+// valem nomes que existem entre as habilidades da variação. Devolve ids.
+export function habilidadesIniciaisDaVariacao(disciplinaId) {
+  const v = getVariacaoPorId(disciplinaId);
+  if (!v) return [];
+  const m = /come[cç]a com a habilidade ([^,.;]+)/i.exec(v.passiva || "");
+  if (!m) return [];
+  const alvo = slug(m[1]);
+  return (v.habilidades || []).filter((h) => idDaHabilidade(h) === alvo).map(idDaHabilidade);
+}
+
+// 06/11: habilidades renomeadas/substituídas no Modal (id antigo -> novo),
+// pra migrar slots salvos (personagens.js:migrarDisciplinas).
+export const HABILIDADES_ARQUETIPO_RENOMEADAS = {
+  "postura-agil": "postura-veloz",
+  "troca-fluida": "postura-de-fogo",
+};
 
 // Habilidades das disciplinas de arquétipo do personagem (lista de slots
 // já resolvida, ver racasCatalogo.js:disciplinasDoPersonagem), na ordem dos

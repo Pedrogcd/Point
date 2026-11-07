@@ -518,3 +518,10 @@ describe("migrarPersonagem — arquétipo Guardião renomeado pra Protetor (04/1
     assert.equal(ch.disciplinas[0].escolhaCombate, "bloqueio");
   });
 });
+
+describe("migrarPersonagem — Guerreiro Modal (06/11)", () => {
+  it("Postura Ágil -> Postura Veloz, Troca Fluida -> Postura de Fogo, e Maestria de Estilo sempre desbloqueada", () => {
+    const ch = migrarPersonagem({ id: "m", name: "M", disciplinas: [{ disciplinaId: "arquetipo-guerreiro-modal", habilidadesAtivas: ["postura-agil", "troca-fluida"] }] });
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["maestria-de-estilo", "postura-de-fogo", "postura-veloz"]);
+  });
+});

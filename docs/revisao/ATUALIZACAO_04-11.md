@@ -45,3 +45,12 @@ Arquétipos e variações: Guerreiro (Modal, Poder, Preciso); Bárbaro (Fúria, 
 - Postura Ofensiva: sem penalidade de defesa (+1d10 e Letal).
 - Maestria de Estilo nas outras variações: em discussão, sem mudança.
 - Dados completos em arquetipos.json (substituir a cópia antiga).
+
+## Mudanças de 06/11, segunda rodada (Guerreiro)
+- Maestria de Estilo (geral): opções Letal, Preciso 1, Perfurante ou Esmagador 1. Redundância de Letal, Preciso e Esmagador causa Sangramento 1 (teto 2 por ataque); Perfurante repetido ignora também Resistente. Custa 0 MP na primeira vez da cena e 1 MP nas seguintes. No Modal: 0 MP na primeira vez de cada turno, 2 MP para repetir com segundo modificador, e a lista cresce com a postura ativa.
+- Guarda Alta (geral): custa 1 MP e rola defesas físicas com +1d10. Não há mais sucesso garantido nem penalidade de dados.
+- Postura Ofensiva (Modal): só ativa ao escolher postura diferente da do turno anterior; ataques ganham Letal, ou +1d10 se já tiverem Letal. Sem penalidade de defesa.
+- Postura Defensiva (Modal): Maestria de Estilo ganha a opção Firme 1 ou Ágil 1. Ágil N é descritor novo: N sucessos garantidos ao esquivar. Redundância: +1d10 na defesa.
+- Postura Ágil vira Postura Veloz: dá Veloz; no seu turno precisa trocar de postura antes de agir; se já tiver Veloz ganha Sortudo; se já tiver Sortudo ganha Potência de Destreza.
+- Troca Fluida é substituída por Postura de Fogo: Maestria ganha a opção Queimadura 1; se o ataque errar, a mesma postura pode ser escolhida no turno seguinte e conta como troca.
+- Novo descritor Ágil N no glossário e na lista de descritores do Modal.

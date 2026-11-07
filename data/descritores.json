@@ -210,6 +210,17 @@
       "acumulo": "maior"
     },
     {
+      "id": "agil",
+      "nome": "Ágil",
+      "temN": true,
+      "tipo": "Defesa",
+      "status": "Definido",
+      "resumo": "Ao esquivar, N sucessos garantidos.",
+      "regra": "Só ao esquivar (Destreza + Esquiva): considera N sucessos como garantidos, que somam aos da defesa (06/11). Redundância: se já tiver Ágil e ganhar de novo, rola +1d10 nessa defesa.",
+      "usadoEm": "Guerreiro Modal (Maestria de Estilo na Postura Defensiva)",
+      "linkEmTextoLivre": true
+    },
+    {
       "id": "selado",
       "nome": "Selado",
       "temN": true,

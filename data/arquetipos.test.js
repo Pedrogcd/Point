@@ -107,3 +107,23 @@ describe("Mago: ofícios mágicos como arquétipo (04/11)", () => {
     for (const d of mago) assert.ok(d.foco, d.id);
   });
 });
+
+describe("Guerreiro — mudanças de 06/11", async () => {
+  const { custoDaHabilidade, habilidadesIniciaisDaVariacao, getVariacaoPorId, idDaHabilidade } = await import("./arquetipos.js");
+  it("custo '0 MP (1ª vez da cena); depois 1 MP': 1º uso da cena grátis, depois 1 MP", () => {
+    assert.deepEqual(custoDaHabilidade("0 MP (1ª vez da cena); depois 1 MP"), { mp: 1, primeiraGratis: "cena" });
+  });
+  it("custo do Modal '0 MP (1ª vez do turno); 2 MP para repetir'", () => {
+    assert.deepEqual(custoDaHabilidade("0 MP (1ª vez do turno); 2 MP para repetir"), { mp: 2, primeiraGratis: "turno" });
+  });
+  it("Modal começa com Maestria de Estilo; Poder e Preciso não começam com nada", () => {
+    assert.deepEqual(habilidadesIniciaisDaVariacao("arquetipo-guerreiro-modal"), ["maestria-de-estilo"]);
+    assert.deepEqual(habilidadesIniciaisDaVariacao("arquetipo-guerreiro-poder"), []);
+    assert.deepEqual(habilidadesIniciaisDaVariacao("arquetipo-guerreiro-preciso"), []);
+  });
+  it("Modal tem as quatro posturas (Ofensiva, Defensiva, Veloz, de Fogo) e não tem mais Troca Fluida", () => {
+    const ids = getVariacaoPorId("arquetipo-guerreiro-modal").habilidades.map(idDaHabilidade);
+    for (const id of ["postura-ofensiva", "postura-defensiva", "postura-veloz", "postura-de-fogo"]) assert.ok(ids.includes(id), id);
+    assert.ok(!ids.includes("troca-fluida") && !ids.includes("postura-agil"));
+  });
+});

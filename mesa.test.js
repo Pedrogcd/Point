@@ -222,3 +222,28 @@ describe("jogadores e tokens de personagem (07/11)", async () => {
     assert.equal(podeMoverImagem({ camada: "mapa" }, { gm: true, camadaAtiva: "token" }), false);
   });
 });
+
+describe("aba Jogadores do Mestre (07/11)", async () => {
+  const { tokensDoJogador, renomearJogador, idsParaExcluirJogador } = await import("./mesa.js");
+  const ana = { id: "jogador:ana", tipo: "jogador", nome: "Ana", fichas: ["k"] };
+  const objs = [ana, { id: "jogador:bia", tipo: "jogador", nome: "Bia", fichas: [] },
+    { id: "t1", tipo: "imagem", dono: "ana" }, { id: "t2", tipo: "imagem", dono: "Bia" }, { id: "t3", tipo: "imagem" }];
+  it("tokens do jogador pelo nome (sem diferença de maiúscula)", () => {
+    assert.deepEqual(tokensDoJogador(objs, "Ana").map((t) => t.id), ["t1"]);
+  });
+  it("renomear: registro novo com as fichas, apaga o antigo e passa os tokens", () => {
+    const r = renomearJogador(objs, ana, "Ana Clara");
+    assert.deepEqual(r.apagar, ["jogador:ana"]);
+    assert.equal(r.salvar[0].id, "jogador:ana-clara");
+    assert.deepEqual(r.salvar[0].fichas, ["k"]);
+    assert.equal(r.salvar[1].dono, "Ana Clara");
+  });
+  it("renomear pra nome de outro jogador ou vazio: recusa", () => {
+    assert.equal(renomearJogador(objs, ana, "bia"), null);
+    assert.equal(renomearJogador(objs, ana, "  "), null);
+  });
+  it("excluir com e sem tokens", () => {
+    assert.deepEqual(idsParaExcluirJogador(objs, ana), ["jogador:ana"]);
+    assert.deepEqual(idsParaExcluirJogador(objs, ana, { comTokens: true }), ["jogador:ana", "t1"]);
+  });
+});

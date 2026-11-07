@@ -211,6 +211,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const [objetos, setObjetos] = useState([]);
   const [status, setStatus] = useState(conexao.modo === "local" ? "LOCAL" : "CONECTANDO");
   const [erro, setErro] = useState(null);
+  const [carregado, setCarregado] = useState(false);
 
   // ---- carga + tempo real
   useEffect(() => {
@@ -219,6 +220,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       try {
         const s = await conexao.carregar();
         if (!vivo) return;
+        setCarregado(true);
         setMensagens((atual) => s.mensagens.reduce(juntarMensagem, atual.filter((m) => s.mensagens.some((x) => x.id === m.id) || m._pendente)));
         setObjetos(s.objetos);
       } catch (e) {
@@ -245,7 +247,10 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const [eu, setEu] = useState(() => { try { return localStorage.getItem(CHAVE_JOGADOR) || ""; } catch (e) { return ""; } });
   const [nomeDigitado, setNomeDigitado] = useState("");
   const jogadores = jogadoresDaMesa(objetos);
-  const minhas = gm ? [] : fichasDoJogador(objetos, eu);
+  // Se o Mestre excluiu este jogador (aba Jogadores), o nome salvo aqui
+  // deixa de valer e a Mesa pergunta de novo quem é.
+  const euValido = !!eu && (!carregado || jogadores.some((j) => j.id === idDoJogador(eu)));
+  const minhas = gm || !euValido ? [] : fichasDoJogador(objetos, eu);
   function entrarComo(nome) {
     const limpo = String(nome || "").trim().slice(0, 40);
     const id = idDoJogador(limpo);
@@ -1046,7 +1051,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         )}
 
         {/* Quem é você (jogador, primeira vez) */}
-        {!gm && !eu && (
+        {!gm && !euValido && (
           <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", inset: 0, background: "#2B2116AA", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 6 }}>
             <form onSubmit={(e) => { e.preventDefault(); entrarComo(nomeDigitado); }}
               style={{ width: "min(380px, 92%)", background: PANEL, borderRadius: 12, padding: 18, border: `1px solid ${LINE}`, boxShadow: "0 12px 40px #00000066" }}>

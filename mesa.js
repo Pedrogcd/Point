@@ -223,6 +223,32 @@ export function fichasDoJogador(objetos, nome) {
   return (objetos || []).find((o) => o.id === id)?.fichas || [];
 }
 
+// Aba Jogadores do Mestre (07/11): tokens de cada jogador, renomear e
+// excluir. Funções puras que devolvem o que salvar/apagar.
+export function tokensDoJogador(objetos, nome) {
+  const s = slugJogador(nome);
+  return (objetos || []).filter((o) => o.tipo === "imagem" && o.dono && slugJogador(o.dono) === s);
+}
+
+// Renomear muda o id (vem do nome): cria o registro novo com as mesmas
+// fichas, apaga o antigo e passa os tokens dele pro nome novo. null se o
+// nome for vazio ou já for de outro jogador.
+export function renomearJogador(objetos, jogador, novoNome) {
+  const nome = String(novoNome || "").trim().slice(0, 40);
+  const idNovo = idDoJogador(nome);
+  if (!idNovo || !jogador) return null;
+  if (idNovo !== jogador.id && (objetos || []).some((o) => o.id === idNovo)) return null;
+  const salvar = [{ ...jogador, id: idNovo, nome }, ...tokensDoJogador(objetos, jogador.nome).map((t) => ({ ...t, dono: nome }))];
+  return { salvar, apagar: idNovo === jogador.id ? [] : [jogador.id] };
+}
+
+// Excluir: apaga o registro; com `comTokens`, também os tokens que ele
+// colocou na mesa.
+export function idsParaExcluirJogador(objetos, jogador, { comTokens = false } = {}) {
+  if (!jogador) return [];
+  return [jogador.id, ...(comTokens ? tokensDoJogador(objetos, jogador.nome).map((t) => t.id) : [])];
+}
+
 // Token de personagem: imagem na camada (padrão Jogadores) ligada a uma
 // ficha (fichaId) ou NPC (npcId), ou avatar de um jogador (só dono).
 // `dono` = nome do jogador que colocou (ele pode mover).

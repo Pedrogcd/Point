@@ -12,7 +12,7 @@ import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
   Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
   CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
-  UserPlus, UserRound, ExternalLink,
+  UserPlus, UserRound, ExternalLink, Lock, Reply,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -22,6 +22,7 @@ import {
   formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
   CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada, tracoTocaRetangulo,
   idDoJogador, jogadoresDaMesa, fichasDoJogador, tokenDePersonagem, podeMoverImagem,
+  mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -53,7 +54,7 @@ function iniciais(nome) {
 }
 
 function Avatar({ autor, tamanho = 34 }) {
-  const cor = autor?.tipo === "mestre" ? PURPLE : autor?.tipo === "npc" ? BRASS : LINE;
+  const cor = autor?.tipo === "mestre" ? PURPLE : autor?.tipo === "npc" ? BRASS : autor?.tipo === "jogador" ? "#2F8577" : LINE;
   const [falhou, setFalhou] = useState(false);
   const base = {
     width: tamanho, height: tamanho, borderRadius: "50%", flexShrink: 0, border: `2px solid ${cor}`,
@@ -117,11 +118,27 @@ function CartaoRolagem({ r }) {
   );
 }
 
-function Mensagem({ m }) {
+// Sussurro (08/11): borda roxa tracejada, cadeado e "de quem pra quem";
+// "responder" já escolhe o destino de volta.
+function Mensagem({ m, rotuloPara, onResponder }) {
+  const sussurro = !!m.para;
   return (
-    <div style={{ display: "flex", gap: 8, padding: "7px 10px", animation: "mesaEntrada 0.25s ease" }}>
+    <div style={{
+      display: "flex", gap: 8, padding: "7px 10px", animation: "mesaEntrada 0.25s ease",
+      ...(sussurro ? { margin: "3px 8px", borderRadius: 10, border: `1.5px dashed ${PURPLE}88`, background: `${PURPLE}0D` } : {}),
+    }}>
       <Avatar autor={m.autor} />
       <div style={{ minWidth: 0, flex: 1 }}>
+        {sussurro && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10.5, color: PURPLE, fontWeight: 700, marginBottom: 2 }}>
+            <Lock size={11} /> Sussurro{m.autor?.jogador ? ` de ${m.autor.jogador}` : ""} para {rotuloPara}
+            {onResponder && (
+              <button type="button" onClick={onResponder} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, border: "none", background: "transparent", color: PURPLE, cursor: "pointer", fontSize: 10.5 }}>
+                <Reply size={11} /> responder
+              </button>
+            )}
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <span style={{ fontFamily: "'Cinzel', serif", fontSize: 12.5, fontWeight: 700, color: m.autor?.tipo === "mestre" ? PURPLE : PARCHMENT }}>{m.autor?.nome || "?"}</span>
           <span style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{hora(m.criado_em)}</span>
@@ -262,11 +279,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
 
   // ---- identidades ("falar como")
   const identidades = useMemo(
-    () => identidadesDaMesa({ personagens, npcs, gm, resolverImagem, minhas }),
-    [personagens, npcs, gm, resolverImagem, minhas.join(",")], // eslint-disable-line react-hooks/exhaustive-deps
+    () => identidadesDaMesa({ personagens, npcs, gm, resolverImagem, minhas, eu: euValido ? eu : "" }),
+    [personagens, npcs, gm, resolverImagem, minhas.join(","), euValido, eu], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const [autorId, setAutorId] = useState(() => { try { return localStorage.getItem(CHAVE_AUTOR) || ""; } catch (e) { return ""; } });
-  const autor = identidades.find((i) => i.id === autorId) || identidades[0] || AUTOR_MESTRE;
+  // Jogador nunca cai em "Mestre" (08/11): sem identidade nenhuma, fala
+  // como "Jogador".
+  const autor = identidades.find((i) => i.id === autorId) || identidades[0]
+    || (gm ? AUTOR_MESTRE : { id: "jogador", nome: "Jogador", img: null, tipo: "jogador" });
   function escolherAutor(id) {
     setAutorId(id);
     try { localStorage.setItem(CHAVE_AUTOR, id); } catch (e) { /* ignora */ }
@@ -282,22 +302,41 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     if (el) el.scrollTop = el.scrollHeight;
   }, [mensagens.length]);
 
+  // Sussurro (08/11): "Para:" (Todos, Mestre/"Só eu", cada jogador) ou o
+  // comando "/w Nome mensagem". Jogador sem nome válido não sussurra.
+  const [paraId, setParaId] = useState("");
+  const destinos = destinosDeSussurro(jogadores, { gm, eu: euValido ? eu : "" });
+  const paraAtual = destinos.some((d) => d.id === paraId) ? paraId : "";
+  const opcoesMsg = (para) => ({ gm, para: para || null, jogador: gm ? null : (euValido ? eu : null) });
   function publicar(msg) {
     if (!msg) return;
     setMensagens((l) => juntarMensagem(l, msg));
     tentar(conexao.enviarMensagem(msg));
   }
   function enviarTexto() {
-    const t = texto.trim();
+    let t = texto.trim();
     if (!t) return;
+    let para = paraAtual;
+    if (/^\/(?:w|s|sussurro)\s/i.test(t)) {
+      const sus = parseSussurro(t, jogadores);
+      if (!sus || !sus.texto) { setErro("Sussurro: use /w Nome mensagem (nome de um jogador da lista, ou mestre)."); return; }
+      if (!gm && sus.para !== "mestre" && !euValido) return;
+      para = sus.para;
+      t = sus.texto;
+    }
     const cmd = parseComandoRolagem(t);
-    if (cmd) publicar(mensagemDeRolagem(autor, rolarDados(cmd.dados, cmd.alvo), { rotulo: cmd.rotulo, gm }));
-    else publicar(mensagemDeFala(autor, t, { gm }));
+    if (cmd) publicar(mensagemDeRolagem(autor, rolarDados(cmd.dados, cmd.alvo), { rotulo: cmd.rotulo, ...opcoesMsg(para) }));
+    else publicar(mensagemDeFala(autor, t, opcoesMsg(para)));
     setTexto("");
   }
   function rolar() {
-    publicar(mensagemDeRolagem(autor, rolarDados(qtdDados, alvo), { gm }));
+    publicar(mensagemDeRolagem(autor, rolarDados(qtdDados, alvo), opcoesMsg(paraAtual)));
   }
+  function responderA(m) {
+    if (gm) setParaId(m.autor?.jogador ? idDoJogador(m.autor.jogador) : "");
+    else setParaId(m.autor?.jogador && idDoJogador(m.autor.jogador) !== idDoJogador(eu) ? idDoJogador(m.autor.jogador) : "mestre");
+  }
+  const mensagensVisiveis = mensagens.filter((m) => mensagemVisivel(m, { gm, eu: euValido ? eu : "" }));
 
   // ---- tabuleiro: câmera
   const areaRef = useRef(null);
@@ -1103,11 +1142,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         </div>
 
         <div ref={listaRef} style={{ flex: 1, overflowY: "auto", padding: "4px 0" }} aria-live="polite">
-          {mensagens.length === 0 ? (
+          {mensagensVisiveis.length === 0 ? (
             <div style={{ padding: 20, fontSize: 12, color: MUTED, fontStyle: "italic", textAlign: "center" }}>
               Nada por aqui ainda. Escolha quem fala no pé do chat e mande a primeira mensagem — ou role os dados.
             </div>
-          ) : mensagens.map((m) => <Mensagem key={m.id} m={m} />)}
+          ) : mensagensVisiveis.map((m) => (
+            <Mensagem key={m.id} m={m} rotuloPara={m.para ? (m.para === "mestre" && !m.autor?.jogador ? "o Mestre (só ele)" : rotuloDoDestino(m.para, jogadores)) : ""}
+              onResponder={m.para ? () => responderA(m) : undefined} />
+          ))}
         </div>
 
         <div style={{ borderTop: `1px solid ${LINE}`, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: PANEL }}>
@@ -1125,12 +1167,24 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               ))}
             </select>
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: paraAtual ? PURPLE : MUTED }}>
+            <span style={{ width: 28, display: "flex", justifyContent: "center" }}>{paraAtual ? <Lock size={15} /> : <Users size={15} />}</span>
+            <span style={{ whiteSpace: "nowrap" }}>Para</span>
+            <select
+              value={paraAtual} onChange={(e) => setParaId(e.target.value)} aria-label="Para"
+              style={{ flex: 1, minWidth: 0, padding: "5px 6px", borderRadius: 6, border: `1px solid ${paraAtual ? PURPLE : LINE}`, background: paraAtual ? `${PURPLE}0D` : "#fff", color: PARCHMENT, fontFamily: "'Spectral', serif", fontSize: 13 }}
+            >
+              {destinos.map((d) => <option key={d.id} value={d.id}>{d.nome}</option>)}
+            </select>
+          </label>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
             <textarea
               value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} aria-label="Mensagem"
-              placeholder={`Falar como ${autor.nome}… (Enter envia, /r 5 rola 5d10)`}
+              placeholder={paraAtual
+                ? `Sussurrar para ${destinos.find((d) => d.id === paraAtual)?.nome.replace(/ \((sussurro|secreto)\)$/, "")}… (só vocês veem)`
+                : `Falar como ${autor.nome}… (Enter envia, /r 5 rola, /w Nome sussurra)`}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarTexto(); } }}
-              style={{ flex: 1, resize: "none", padding: "7px 9px", borderRadius: 8, border: `1px solid ${LINE}`, background: "#fff", color: PARCHMENT, fontFamily: "'Spectral', serif", fontSize: 13.5 }}
+              style={{ flex: 1, resize: "none", padding: "7px 9px", borderRadius: 8, border: `1px solid ${paraAtual ? PURPLE : LINE}`, background: "#fff", color: PARCHMENT, fontFamily: "'Spectral', serif", fontSize: 13.5 }}
             />
             <button type="button" onClick={enviarTexto} title="Enviar" aria-label="Enviar"
               style={{ width: 40, height: 40, borderRadius: 8, border: "none", background: PURPLE, color: PANEL, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>

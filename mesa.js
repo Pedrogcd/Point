@@ -67,14 +67,18 @@ function reinoDaFicha(p) {
   return !f || f === "—" ? SEM_REINO : f;
 }
 function pesoDoGrupo(grupo) {
-  return grupo === GRUPO_MINHAS ? -1 : grupo === "Outra" ? 1 : grupo === SEM_REINO ? 2 : 0;
+  return grupo === GRUPO_VOCE ? -2 : grupo === GRUPO_MINHAS ? -1 : grupo === "Outra" ? 1 : grupo === SEM_REINO ? 2 : 0;
 }
 
 // `minhas` (07/11): ids das fichas atribuídas ao jogador desta tela — vêm
 // primeiro, no grupo "Minhas fichas". Jogador só vê fichas visíveis pra
 // jogadores (visivelJogador, igual à aba Personagens) ou atribuídas a ele.
 export const GRUPO_MINHAS = "Minhas fichas";
-export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, resolverImagem = (x) => x, minhas = [] } = {}) {
+// `eu` (08/11): o jogador sempre pode falar como ele mesmo (grupo
+// "Você", primeiro da lista) — antes, sem ficha nenhuma, ele caía em
+// "Mestre".
+export const GRUPO_VOCE = "Você";
+export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, resolverImagem = (x) => x, minhas = [], eu = "" } = {}) {
   const porGrupoENome = (a, b) => (pesoDoGrupo(a.grupo) - pesoDoGrupo(b.grupo))
     || a.grupo.localeCompare(b.grupo, "pt-BR") || a.nome.localeCompare(b.nome, "pt-BR");
   const minhasSet = new Set(minhas || []);
@@ -85,7 +89,10 @@ export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, res
       grupo: minhasSet.has(p.id) ? GRUPO_MINHAS : reinoDaFicha(p),
     }))
     .sort(porGrupoENome);
-  if (!gm) return fichas;
+  if (!gm) {
+    const id = idDoJogador(eu);
+    return id ? [{ id, nome: String(eu).trim(), img: null, tipo: "jogador", grupo: GRUPO_VOCE }, ...fichas] : fichas;
+  }
   const doMundo = (npcs || [])
     .filter((n) => n?.id && n.nome)
     .map((n) => ({ id: `npc:${n.id}`, nome: n.nome, img: n.img ? resolverImagem(n.img) : null, tipo: "npc", grupo: n.local || "Mundo" }))
@@ -98,7 +105,7 @@ export function identidadesDaMesa({ personagens = [], npcs = [], gm = false, res
 export function gruposDeIdentidades(identidades) {
   const grupos = [];
   for (const i of identidades || []) {
-    const rotulo = i.tipo === "mestre" ? "Mestre" : i.grupo === GRUPO_MINHAS ? GRUPO_MINHAS : `${i.tipo === "npc" ? "NPCs" : "Fichas"} — ${i.grupo || SEM_REINO}`;
+    const rotulo = i.tipo === "mestre" ? "Mestre" : i.tipo === "jogador" ? GRUPO_VOCE : i.grupo === GRUPO_MINHAS ? GRUPO_MINHAS : `${i.tipo === "npc" ? "NPCs" : "Fichas"} — ${i.grupo || SEM_REINO}`;
     const ultimo = grupos[grupos.length - 1];
     if (ultimo && ultimo.rotulo === rotulo) ultimo.itens.push(i);
     else grupos.push({ rotulo, itens: [i] });
@@ -273,19 +280,71 @@ export function camadasDeNevoa(objetos) {
   return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }
 
-function autorResumido(autor) {
+// `jogador` (07/11): nome do jogador que mandou (vazio pro Mestre) — pra
+// saber quem pode ver o sussurro que ele mandou e pra quem responder.
+function autorResumido(autor, jogador) {
   const a = autor || AUTOR_MESTRE;
-  return { id: a.id, nome: a.nome, img: a.img || null, tipo: a.tipo || "ficha" };
+  return { id: a.id, nome: a.nome, img: a.img || null, tipo: a.tipo || "ficha", ...(jogador ? { jogador } : {}) };
 }
 
-export function mensagemDeFala(autor, texto, { gm = false, agora = new Date() } = {}) {
+// Sussurro (08/11): `para` — null (todos), "mestre" ou "jogador:<slug>".
+export function mensagemDeFala(autor, texto, { gm = false, agora = new Date(), para = null, jogador = null } = {}) {
   const t = String(texto || "").trim();
   if (!t) return null;
-  return { id: novoId(""), criado_em: agora.toISOString(), tipo: "fala", autor: autorResumido(autor), texto: t.slice(0, 2000), rolagem: null, gm: !!gm };
+  return { id: novoId(""), criado_em: agora.toISOString(), tipo: "fala", autor: autorResumido(autor, jogador), texto: t.slice(0, 2000), rolagem: null, gm: !!gm, para: para || null };
 }
 
-export function mensagemDeRolagem(autor, rolagem, { rotulo = "", gm = false, agora = new Date() } = {}) {
-  return { id: novoId(""), criado_em: agora.toISOString(), tipo: "rolagem", autor: autorResumido(autor), texto: String(rotulo || "").slice(0, 200), rolagem, gm: !!gm };
+export function mensagemDeRolagem(autor, rolagem, { rotulo = "", gm = false, agora = new Date(), para = null, jogador = null } = {}) {
+  return { id: novoId(""), criado_em: agora.toISOString(), tipo: "rolagem", autor: autorResumido(autor, jogador), texto: String(rotulo || "").slice(0, 200), rolagem, gm: !!gm, para: para || null };
+}
+
+// Quem vê uma mensagem: sem `para`, todo mundo. Sussurro: o Mestre vê
+// todos (pra acompanhar a mesa); o jogador vê os que mandou e os que são
+// pra ele. Atenção: é só na tela — o banco não esconde (sem login).
+export function mensagemVisivel(m, { gm = false, eu = "" } = {}) {
+  if (!m?.para) return true;
+  if (gm) return true;
+  const meu = slugJogador(eu);
+  if (!meu) return false;
+  if (m.autor?.jogador && slugJogador(m.autor.jogador) === meu) return true;
+  return m.para === `jogador:${meu}`;
+}
+
+// Opções do "Para:" — Todos, Mestre (jogador) e cada jogador (menos eu).
+export function destinosDeSussurro(jogadores, { gm = false, eu = "" } = {}) {
+  const meu = slugJogador(eu);
+  const lista = [{ id: "", nome: "Todos" }];
+  // Pro Mestre, "mestre" é "só eu": nota ou rolagem secreta.
+  lista.push(gm ? { id: "mestre", nome: "Só eu (secreto)" } : { id: "mestre", nome: "Mestre (sussurro)" });
+  for (const j of jogadores || []) {
+    if (slugJogador(j.nome) !== meu) lista.push({ id: j.id, nome: `${j.nome} (sussurro)` });
+  }
+  return lista;
+}
+
+// "/w Nome mensagem" ou "/w mestre mensagem" -> { para, texto } (o nome
+// mais longo que bate ganha, pra nomes com espaço). null se não for /w ou
+// se o nome não existir.
+export function parseSussurro(texto, jogadores) {
+  const m = /^\/(?:w|s|sussurro)\s+(.+)$/i.exec(String(texto || "").trim());
+  if (!m) return null;
+  const resto = m[1];
+  const baixo = resto.toLowerCase();
+  const candidatos = [{ id: "mestre", nome: "mestre" }, { id: "mestre", nome: "gm" }, ...(jogadores || []).map((j) => ({ id: j.id, nome: j.nome }))]
+    .sort((a, b) => b.nome.length - a.nome.length);
+  for (const c of candidatos) {
+    const n = c.nome.toLowerCase();
+    if (baixo.startsWith(n) && (baixo.length === n.length || /\s/.test(baixo[n.length]))) {
+      return { para: c.id, texto: resto.slice(n.length).trim() };
+    }
+  }
+  return null;
+}
+
+export function rotuloDoDestino(para, jogadores) {
+  if (!para) return "";
+  if (para === "mestre") return "Mestre";
+  return (jogadores || []).find((j) => j.id === para)?.nome || para.replace(/^jogador:/, "");
 }
 
 // Junta uma mensagem (Realtime ou envio local) na lista: sem duplicar pelo
@@ -367,7 +426,7 @@ export function linhaParaObjeto(linha) {
 
 export function linhaParaMensagem(linha) {
   if (!linha?.id) return null;
-  return { id: linha.id, criado_em: linha.criado_em, tipo: linha.tipo, autor: linha.autor, texto: linha.texto || "", rolagem: linha.rolagem || null, gm: !!linha.gm };
+  return { id: linha.id, criado_em: linha.criado_em, tipo: linha.tipo, autor: linha.autor, texto: linha.texto || "", rolagem: linha.rolagem || null, gm: !!linha.gm, para: linha.para || null };
 }
 
 // ---------------------------------------------------------------------
@@ -411,6 +470,7 @@ function conexaoSupabase(supabase) {
     async enviarMensagem(msg) {
       const { error } = await supabase.from(TABELA_MENSAGENS).insert({
         id: msg.id, criado_em: msg.criado_em, tipo: msg.tipo, autor: msg.autor, texto: msg.texto, rolagem: msg.rolagem, gm: msg.gm,
+        ...(msg.para ? { para: msg.para } : {}),
       });
       if (error) throw error;
     },

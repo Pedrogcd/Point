@@ -247,3 +247,48 @@ describe("aba Jogadores do Mestre (07/11)", async () => {
     assert.deepEqual(idsParaExcluirJogador(objs, ana, { comTokens: true }), ["jogador:ana", "t1"]);
   });
 });
+
+describe("sussurro (08/11)", async () => {
+  const { mensagemDeFala, mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino } = await import("./mesa.js");
+  const jogadores = [{ id: "jogador:ana", nome: "Ana" }, { id: "jogador:ana-clara", nome: "Ana Clara" }, { id: "jogador:bia", nome: "Bia" }];
+  const autorAna = { id: "ficha:k", nome: "Kiryu", tipo: "ficha" };
+  it("mensagem pública: todos veem", () => {
+    const m = mensagemDeFala(autorAna, "oi", { jogador: "Ana" });
+    assert.equal(m.para, null);
+    assert.equal(mensagemVisivel(m, { eu: "Bia" }), true);
+  });
+  it("sussurro da Ana pro Mestre: Ana e Mestre veem, Bia não", () => {
+    const m = mensagemDeFala(autorAna, "segredo", { jogador: "Ana", para: "mestre" });
+    assert.equal(m.autor.jogador, "Ana");
+    assert.equal(mensagemVisivel(m, { gm: true }), true);
+    assert.equal(mensagemVisivel(m, { eu: "ana" }), true);
+    assert.equal(mensagemVisivel(m, { eu: "Bia" }), false);
+    assert.equal(mensagemVisivel(m, { eu: "" }), false);
+  });
+  it("sussurro do Mestre pra Bia: só Bia (e o Mestre)", () => {
+    const m = mensagemDeFala({ id: "mestre", nome: "Mestre", tipo: "mestre" }, "psst", { gm: true, para: "jogador:bia" });
+    assert.equal(mensagemVisivel(m, { eu: "Bia" }), true);
+    assert.equal(mensagemVisivel(m, { eu: "Ana" }), false);
+  });
+  it("opções do 'Para:' e comando /w com nome com espaço", () => {
+    assert.deepEqual(destinosDeSussurro(jogadores, { eu: "Ana" }).map((d) => d.id), ["", "mestre", "jogador:ana-clara", "jogador:bia"]);
+    assert.deepEqual(destinosDeSussurro(jogadores, { gm: true }).map((d) => d.id), ["", "mestre", "jogador:ana", "jogador:ana-clara", "jogador:bia"]);
+    assert.deepEqual(parseSussurro("/w Ana Clara vem cá", jogadores), { para: "jogador:ana-clara", texto: "vem cá" });
+    assert.deepEqual(parseSussurro("/w mestre posso roubar?", jogadores), { para: "mestre", texto: "posso roubar?" });
+    assert.equal(parseSussurro("/w Zé oi", jogadores), null);
+    assert.equal(rotuloDoDestino("jogador:bia", jogadores), "Bia");
+  });
+});
+
+describe("jogador fala como ele mesmo (08/11)", async () => {
+  const { identidadesDaMesa, gruposDeIdentidades } = await import("./mesa.js");
+  it("sem ficha nenhuma: só 'Você' (nunca Mestre)", () => {
+    const ids = identidadesDaMesa({ personagens: [{ id: "x", name: "Oculto" }], eu: "Bia" });
+    assert.deepEqual(ids.map((i) => [i.nome, i.tipo]), [["Bia", "jogador"]]);
+    assert.deepEqual(gruposDeIdentidades(ids).map((g) => g.rotulo), ["Você"]);
+  });
+  it("com fichas: 'Você' primeiro, depois 'Minhas fichas'", () => {
+    const g = gruposDeIdentidades(identidadesDaMesa({ personagens: [{ id: "k", name: "Kiryu" }], eu: "Ana", minhas: ["k"] }));
+    assert.deepEqual(g.map((x) => x.rotulo), ["Você", "Minhas fichas"]);
+  });
+});

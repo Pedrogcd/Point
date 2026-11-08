@@ -207,6 +207,9 @@ create table if not exists public.point_mesa_mensagens (
   gm boolean not null default false
 );
 create index if not exists point_mesa_mensagens_criado_em on public.point_mesa_mensagens (criado_em desc);
+-- 08/11: sussurro — destino da mensagem (null = todos; "mestre" ou
+-- "jogador:<slug>"). Esconder é só na tela (sem login, o banco é aberto).
+alter table public.point_mesa_mensagens add column if not exists para text;
 
 create table if not exists public.point_mesa_objetos (
   id text primary key,

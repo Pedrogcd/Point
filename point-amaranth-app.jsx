@@ -70,6 +70,7 @@ import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js
 import { supabase } from "./supabaseClient.js";
 import MesaView from "./MesaView.jsx";
 import JogadoresView from "./JogadoresView.jsx";
+import { linkDaFicha, fichaDoHash } from "./linkFicha.js";
 import {
   carregarPersonagensRemotos, enviarPatchPersonagem, apagarPersonagemRemoto, assinarMudancas,
   diffPersonagens, aplicarLinhaRemota, removerLinhaRemota, aplicarRecarga,
@@ -13636,6 +13637,28 @@ export default function App() {
   }, []);
   const [subView, setSubView] = useState("list");
   const [selectedId, setSelectedId] = useState(null);
+  // 08/11: endereço direto pra ficha (#ficha=<id>, ver linkFicha.js) — a
+  // Mesa abre "Abrir ficha completa" numa nova aba com esse link.
+  useEffect(() => {
+    function irPraFichaDoHash() {
+      const id = fichaDoHash(window.location.hash);
+      if (!id) return;
+      setSelectedId(id);
+      setTab("characters");
+      setSubView("detail");
+    }
+    irPraFichaDoHash();
+    window.addEventListener("hashchange", irPraFichaDoHash);
+    return () => window.removeEventListener("hashchange", irPraFichaDoHash);
+  }, []);
+  // Saindo da ficha, tira o #ficha do endereço (senão recarregar a página
+  // voltaria pra ela).
+  useEffect(() => {
+    if (tab === "characters" && subView === "detail") return;
+    if (fichaDoHash(window.location.hash)) {
+      try { window.history.replaceState(null, "", window.location.pathname + window.location.search); } catch (e) { /* ignora */ }
+    }
+  }, [tab, subView]);
   const [editingChar, setEditingChar] = useState(null);
   const [factionFilter, setFactionFilter] = useState("Todos");
   const [grupoFilter, setGrupoFilter] = useState("c"); // abre no Grupo C (campanha principal)
@@ -14537,7 +14560,7 @@ export default function App() {
           <MesaView
             gm={gm} personagens={characters} supabase={supabase} resolverImagem={assetUrl}
             npcs={npcsDaMesa}
-            onAbrirFicha={(characterId) => { setSelectedId(characterId); setTab("characters"); setSubView("detail"); }}
+            onAbrirFicha={(characterId) => { window.open(linkDaFicha(window.location.href, characterId), "_blank", "noopener"); }}
           />
         )}
         {tab === "jogadores" && gm && <JogadoresView supabase={supabase} personagens={characters} />}

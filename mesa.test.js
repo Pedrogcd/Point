@@ -302,3 +302,80 @@ describe("rolar da ficha (08/11)", async () => {
     assert.equal(dadosDaFicha({ atributosGerais: { forca: 0 }, proficiencias: { armas: 0 } }, "forca", "armas").total, 1);
   });
 });
+
+describe("lembrar a rolagem por ficha (09/11)", async () => {
+  const { escolhaDaFicha, guardarEscolhaDaFicha, ESCOLHA_FICHA_PADRAO } = await import("./mesa.js");
+  const listas = { atributos: ["destreza", "forca"], proficiencias: ["combateCorpoACorpo", "armas"] };
+  it("sem nada guardado usa o padrão", () => {
+    assert.deepEqual(escolhaDaFicha({}, "k", listas), ESCOLHA_FICHA_PADRAO);
+    assert.deepEqual(escolhaDaFicha(null, "k"), ESCOLHA_FICHA_PADRAO);
+  });
+  it("guarda e devolve por ficha, sem misturar", () => {
+    let m = guardarEscolhaDaFicha({}, "k", { atributo: "forca", proficiencia: "armas", extra: 2 });
+    m = guardarEscolhaDaFicha(m, "a", { atributo: "destreza", proficiencia: "armas", extra: 0 });
+    assert.deepEqual(escolhaDaFicha(m, "k", listas), { atributo: "forca", proficiencia: "armas", extra: 2 });
+    assert.deepEqual(escolhaDaFicha(m, "a", listas), { atributo: "destreza", proficiencia: "armas", extra: 0 });
+  });
+  it("chave que não existe mais e extra fora do limite caem no padrão/limite", () => {
+    const m = { k: { atributo: "sumiu", proficiencia: "armas", extra: 99 } };
+    assert.deepEqual(escolhaDaFicha(m, "k", listas), { atributo: "destreza", proficiencia: "armas", extra: 10 });
+  });
+});
+
+describe("planos / abas da Mesa (09/11)", async () => {
+  const m = await import("./mesa.js");
+  const base = [
+    { id: "cena:masmorra", tipo: "cena", nome: "Masmorra", ordem: 2 },
+    { id: "cena:cidade", tipo: "cena", nome: "Cidade", ordem: 1 },
+    { id: "a", tipo: "imagem" },
+    { id: "b", tipo: "imagem", cena: "masmorra" },
+    { id: "config", tipo: "config", tamanhoGrade: 50 },
+    { id: "config:masmorra", tipo: "config", cena: "masmorra", tamanhoGrade: 80 },
+    { id: "jogador:ana", tipo: "jogador", nome: "Ana", fichas: [] },
+    { id: "jogador:bia", tipo: "jogador", nome: "Bia", fichas: [], cena: "cidade" },
+  ];
+  it("principal sempre primeiro, depois por ordem", () => {
+    assert.deepEqual(m.cenasDaMesa(base).map((c) => c.id), ["principal", "cidade", "masmorra"]);
+    assert.equal(m.cenasDaMesa([]).length, 1);
+  });
+  it("objetos sem cena são do principal; cada plano tem sua grade", () => {
+    assert.deepEqual(m.objetosDaCena(base, "principal").filter((o) => o.tipo === "imagem").map((o) => o.id), ["a"]);
+    assert.deepEqual(m.objetosDaCena(base, "masmorra").filter((o) => o.tipo === "imagem").map((o) => o.id), ["b"]);
+    assert.equal(m.configDaMesa(m.objetosDaCena(base, "masmorra")).tamanhoGrade, 80);
+    assert.equal(m.configDaMesa(m.objetosDaCena(base, "principal")).tamanhoGrade, 50);
+    assert.equal(m.idDaConfig("masmorra"), "config:masmorra");
+    assert.equal(m.objetosDaCena(base, "masmorra").some((o) => o.id === "jogador:ana"), true);
+  });
+  it("comCena só marca objeto novo do tabuleiro fora do principal", () => {
+    assert.equal(m.comCena({ id: "t", tipo: "traco" }, "masmorra").cena, "masmorra");
+    assert.equal(m.comCena({ id: "t", tipo: "traco" }, "principal").cena, undefined);
+    assert.equal(m.comCena({ id: "j", tipo: "jogador" }, "masmorra").cena, undefined);
+    assert.equal(m.comCena({ id: "t", tipo: "traco", cena: "cidade" }, "masmorra").cena, "cidade");
+  });
+  it("onde cada jogador está: exceção > plano de todos > principal", () => {
+    assert.equal(m.cenaDoJogador(base, "Ana"), "principal");
+    assert.equal(m.cenaDoJogador(base, "Bia"), "cidade");
+    const comEstado = [...base, { id: "estado", tipo: "estado", cenaJogadores: "masmorra" }];
+    assert.equal(m.cenaDoJogador(comEstado, "Ana"), "masmorra");
+    assert.deepEqual(m.jogadoresNaCena(comEstado, "cidade").map((j) => j.nome), ["Bia"]);
+    const plano = [...base, { id: "estado", tipo: "estado", cenaJogadores: "sumiu" }];
+    assert.equal(m.cenaDoJogador(plano, "Ana"), "principal");
+  });
+  it("mover um jogador e levar todos", () => {
+    const ana = base.find((o) => o.id === "jogador:ana");
+    assert.equal(m.moverJogadorDeCena(base, ana, "masmorra").cena, "masmorra");
+    const bia = base.find((o) => o.id === "jogador:bia");
+    assert.equal("cena" in m.moverJogadorDeCena(base, bia, "principal"), false);
+    const salvar = m.levarTodosParaCena(base, "masmorra");
+    assert.equal(salvar[0].cenaJogadores, "masmorra");
+    assert.deepEqual(salvar.slice(1).map((j) => [j.id, j.cena]), [["jogador:bia", undefined]]);
+  });
+  it("apagar plano leva junto os objetos e devolve jogadores ao principal", () => {
+    const r = m.apagarCena([...base, { id: "estado", tipo: "estado", cenaJogadores: "cidade" }], "cidade");
+    assert.deepEqual(r.apagar, ["cena:cidade"]);
+    assert.equal(r.salvar.find((o) => o.id === "estado").cenaJogadores, "principal");
+    assert.equal(r.salvar.find((o) => o.id === "jogador:bia").cena, undefined);
+    assert.deepEqual(m.apagarCena(base, "masmorra").apagar.sort(), ["b", "cena:masmorra", "config:masmorra"]);
+    assert.deepEqual(m.apagarCena(base, "principal"), { apagar: [], salvar: [] });
+  });
+});

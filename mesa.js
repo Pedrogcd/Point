@@ -934,3 +934,38 @@ export function tirarMacro(obj, id) {
 export function podeEditarMacros(fichaId, { gm, minhas = [] }) {
   return !!fichaId && (!!gm || (minhas || []).includes(fichaId));
 }
+
+// ---- Re-rolar um dado (09/11) ----------------------------------------
+// Clicar num dado de uma rolagem do chat rola só ele de novo. O banco não
+// edita mensagens (só cria/apaga), então sai uma mensagem NOVA com a
+// rolagem atualizada e o registro do que mudou ({ indice, de, para }) —
+// todo mundo vê. Pode re-rolar: o Mestre (qualquer rolagem) e o jogador
+// (as rolagens que ele mesmo mandou).
+export function podeRerrolar(m, { gm = false, eu = "" } = {}) {
+  if (m?.tipo !== "rolagem" || !Array.isArray(m.rolagem?.faces) || !m.rolagem.faces.length) return false;
+  if (gm) return true;
+  const meu = slugJogador(eu);
+  return !!meu && !!m.autor?.jogador && slugJogador(m.autor.jogador) === meu;
+}
+export function rerrolarDado(rolagem, indice, aleatorio = Math.random) {
+  const faces = [...(rolagem?.faces || [])];
+  if (indice < 0 || indice >= faces.length) return rolagem;
+  const de = faces[indice];
+  const para = Math.floor(aleatorio() * 10) + 1;
+  faces[indice] = para;
+  const alvo = rolagem.alvo ?? ALVO_PADRAO;
+  return {
+    ...rolagem, faces, alvo,
+    sucessos: faces.filter((d) => d === 10 || d >= alvo).length,
+    criticos: faces.filter((d) => d === 10).length,
+    rerrolagem: { indice, de, para },
+  };
+}
+export function mensagemDeRerrolagem(m, indice, { gm = false, porMestre = false, aleatorio = Math.random, agora = new Date() } = {}) {
+  const rolagem = rerrolarDado(m.rolagem, indice, aleatorio);
+  const r = rolagem.rerrolagem;
+  if (!r) return null;
+  const base = String(m.texto || "").replace(/^Re-rolagem[^—]*—\s*/, "");
+  const rotulo = `Re-rolagem do dado ${r.indice + 1} (${r.de} → ${r.para})${porMestre ? " pelo Mestre" : ""}${base ? ` — ${base}` : ""}`;
+  return mensagemDeRolagem(m.autor, rolagem, { rotulo, gm, agora, para: m.para || null, jogador: m.autor?.jogador || null });
+}

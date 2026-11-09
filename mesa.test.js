@@ -555,3 +555,29 @@ describe("limiar do dado no chat (09/11)", async () => {
     assert.equal(m.rolarDados(4, 2, () => 0.15).sucessos, 4);
   });
 });
+
+describe("re-rolar um dado do chat (09/11)", async () => {
+  const m = await import("./mesa.js");
+  const msg = { id: "x", tipo: "rolagem", texto: "Destreza + Armas", autor: { id: "ficha:k", nome: "Kiryu", tipo: "ficha", jogador: "Ana" }, rolagem: { faces: [1, 4, 8], alvo: 6, sucessos: 1, criticos: 0 }, para: "mestre" };
+  it("re-rola só o dado clicado e recalcula os sucessos", () => {
+    const r = m.rerrolarDado(msg.rolagem, 0, () => 0.95);
+    assert.deepEqual(r.faces, [10, 4, 8]);
+    assert.equal(r.sucessos, 2); assert.equal(r.criticos, 1);
+    assert.deepEqual(r.rerrolagem, { indice: 0, de: 1, para: 10 });
+    assert.deepEqual(msg.rolagem.faces, [1, 4, 8]);
+  });
+  it("vira mensagem nova, mesmo autor e mesmo destino, com o rótulo do que mudou", () => {
+    const n = m.mensagemDeRerrolagem(msg, 1, { aleatorio: () => 0.65 });
+    assert.notEqual(n.id, "x");
+    assert.equal(n.para, "mestre"); assert.equal(n.autor.jogador, "Ana");
+    assert.equal(n.texto, "Re-rolagem do dado 2 (4 → 7) — Destreza + Armas");
+    const n2 = m.mensagemDeRerrolagem(n, 2, { aleatorio: () => 0.05, porMestre: true });
+    assert.equal(n2.texto, "Re-rolagem do dado 3 (8 → 1) pelo Mestre — Destreza + Armas");
+  });
+  it("quem pode: Mestre sempre; jogador só as próprias", () => {
+    assert.equal(m.podeRerrolar(msg, { gm: true }), true);
+    assert.equal(m.podeRerrolar(msg, { eu: "Ana" }), true);
+    assert.equal(m.podeRerrolar(msg, { eu: "Bia" }), false);
+    assert.equal(m.podeRerrolar({ ...msg, tipo: "fala" }, { gm: true }), false);
+  });
+});

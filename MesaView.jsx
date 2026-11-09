@@ -13,6 +13,7 @@ import {
   Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
   CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
   UserPlus, UserRound, ExternalLink, Lock, Reply, ScrollText, Flag, PencilLine,
+  Copy, EyeOff, Focus, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -25,6 +26,7 @@ import {
   mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino, dadosDaFicha, escolhaDaFicha, guardarEscolhaDaFicha,
   CENA_PRINCIPAL, cenasDaMesa, objetosDaCena, idDaCena, idDaConfig, comCena, estadoDaMesa,
   cenaDoJogador, jogadoresNaCena, moverJogadorDeCena, levarTodosParaCena, apagarCena,
+  reordenarCenas, duplicarCena, idDaCamera, cameraDaCena, camParaTela,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -229,8 +231,10 @@ function PopupToken({ token, personagens, npcs, gm, minhas, resolverImagem, onAb
 // Planos (09/11): abas acima do tabuleiro. O Mestre troca de plano, cria,
 // renomeia, apaga e diz onde cada jogador está; o jogador só vê o nome do
 // plano em que está (quando há mais de um).
-function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores, aoVer, aoNova, aoRenomear, aoExcluir, aoMoverJogador, aoLevarTodos }) {
+function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores, aoVer, aoNova, aoRenomear, aoExcluir, aoMoverJogador, aoLevarTodos, aoReordenar, aoDuplicar, aoOcultar, aoPuxarCamera }) {
   const [aberto, setAberto] = useState(false);
+  const [arrastando, setArrastando] = useState(null);
+  const [sobre, setSobre] = useState(null);
   const atual = cenas.find((c) => c.id === cenaAtual) || cenas[0];
   if (!gm) {
     if (cenas.length < 2) return null;
@@ -241,21 +245,34 @@ function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores
     );
   }
   const aqui = jogadoresNaCena(objetos, cenaAtual);
-  const aba = (ativa) => ({
+  const outras = cenas.filter((c) => !c.principal);
+  const posicao = outras.findIndex((c) => c.id === cenaAtual);
+  const aba = (ativa, c) => ({
     display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap",
-    border: `1px solid ${ativa ? PURPLE : LINE}`, background: ativa ? PURPLE : PANEL, color: ativa ? PANEL : PARCHMENT,
+    border: `1px ${c?.oculto ? "dashed" : "solid"} ${sobre === c?.id && arrastando && arrastando !== c?.id ? BRASS : ativa ? PURPLE : LINE}`,
+    boxShadow: sobre === c?.id && arrastando && arrastando !== c?.id ? `inset 3px 0 0 ${BRASS}` : "none",
+    opacity: arrastando === c?.id ? 0.5 : 1,
+    background: ativa ? PURPLE : PANEL, color: ativa ? PANEL : PARCHMENT,
     fontFamily: "'Spectral', serif", fontSize: 12.5, cursor: "pointer",
   });
   const mini = { border: `1px solid ${LINE}`, background: PANEL, color: PARCHMENT, borderRadius: 8, padding: "5px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 };
   return (
     <div style={{ position: "relative" }}>
-      <div role="tablist" aria-label="Planos da mesa" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+      <div role="tablist" aria-label="Planos da mesa" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", paddingBottom: 2 }}>
         {cenas.map((c) => {
           const n = jogadoresNaCena(objetos, c.id).length;
           return (
             <button key={c.id} type="button" role="tab" aria-selected={c.id === cenaAtual} onClick={() => aoVer(c.id)} onDoubleClick={() => aoRenomear(c)}
-              title={`${c.nome}${c.id === cenaJogadores ? " — plano dos jogadores" : ""} (duplo clique renomeia)`} style={aba(c.id === cenaAtual)}>
+              draggable={!c.principal}
+              onDragStart={(ev) => { setArrastando(c.id); try { ev.dataTransfer.setData("text/plain", c.id); ev.dataTransfer.effectAllowed = "move"; } catch (e) { /* ignora */ } }}
+              onDragOver={(ev) => { if (arrastando && !c.principal) { ev.preventDefault(); setSobre(c.id); } }}
+              onDragLeave={() => setSobre((x) => (x === c.id ? null : x))}
+              onDrop={(ev) => { ev.preventDefault(); if (arrastando && !c.principal) aoReordenar(arrastando, c.id); setArrastando(null); setSobre(null); }}
+              onDragEnd={() => { setArrastando(null); setSobre(null); }}
+              title={`${c.nome}${c.id === cenaJogadores ? " — plano dos jogadores" : ""}${c.oculto ? " — oculto dos jogadores" : ""} (duplo clique renomeia${c.principal ? "" : ", arraste para reordenar"})`}
+              style={aba(c.id === cenaAtual, c)}>
               {c.id === cenaJogadores && <Flag size={12} aria-label="plano dos jogadores" />}
+              {c.oculto && <EyeOff size={12} aria-label="oculto" />}
               {c.nome}
               {n > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, opacity: 0.85 }}><Users size={11} />{n}</span>}
             </button>
@@ -266,6 +283,17 @@ function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores
         <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} title="Onde estão os jogadores" style={mini}>
           <Users size={14} /> Neste plano: {aqui.length}
         </button>
+        <button type="button" onClick={aoPuxarCamera} title="Puxar a visão dos jogadores deste plano para onde você está olhando" aria-label="Puxar a visão dos jogadores" style={mini}><Focus size={14} /></button>
+        {!atual?.principal && (
+          <>
+            <button type="button" disabled={posicao <= 0} onClick={() => aoReordenar(atual.id, outras[posicao - 1].id)} title="Mover aba para a esquerda" aria-label="Mover aba para a esquerda" style={{ ...mini, opacity: posicao <= 0 ? 0.4 : 1 }}><ChevronLeft size={14} /></button>
+            <button type="button" disabled={posicao >= outras.length - 1} onClick={() => aoReordenar(atual.id, outras[posicao + 1].id)} title="Mover aba para a direita" aria-label="Mover aba para a direita" style={{ ...mini, opacity: posicao >= outras.length - 1 ? 0.4 : 1 }}><ChevronRight size={14} /></button>
+            <button type="button" onClick={() => aoOcultar(atual)} title={atual.oculto ? "Liberar este plano para os jogadores" : "Esconder este plano dos jogadores"} aria-label={atual.oculto ? "Liberar este plano" : "Esconder este plano"} style={{ ...mini, color: atual.oculto ? BRASS : PARCHMENT }}>
+              {atual.oculto ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </>
+        )}
+        <button type="button" onClick={() => aoDuplicar(atual)} title="Duplicar este plano" aria-label="Duplicar este plano" style={mini}><Copy size={14} /></button>
         <button type="button" onClick={() => aoRenomear(atual)} title="Renomear este plano" aria-label="Renomear este plano" style={mini}><PencilLine size={14} /></button>
         {!atual?.principal && (
           <button type="button" onClick={() => aoExcluir(atual)} title="Apagar este plano" aria-label="Apagar este plano" style={{ ...mini, color: EMBER }}><Trash2 size={14} /></button>
@@ -277,16 +305,17 @@ function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores
             <strong style={{ fontFamily: "'Cinzel', serif", fontSize: 13 }}>Jogadores por plano</strong>
             <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" style={{ border: "none", background: "transparent", cursor: "pointer", color: MUTED }}><XIcon size={14} /></button>
           </div>
-          <button type="button" onClick={() => aoLevarTodos(cenaAtual)} style={{ ...mini, width: "100%", justifyContent: "center", background: PURPLE, color: PANEL, border: "none", marginBottom: 8 }}>
+          <button type="button" disabled={!!atual?.oculto} onClick={() => aoLevarTodos(cenaAtual)} style={{ ...mini, width: "100%", justifyContent: "center", background: PURPLE, color: PANEL, border: "none", marginBottom: 8, opacity: atual?.oculto ? 0.5 : 1 }}>
             <Flag size={13} /> Levar todos para “{atual?.nome}”
           </button>
+          {atual?.oculto && <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 8px" }}>Plano oculto: libere (ícone do olho) para levar jogadores.</p>}
           {jogadores.length === 0 && <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>Nenhum jogador entrou na mesa ainda.</p>}
           {jogadores.map((j) => (
             <label key={j.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12.5, padding: "3px 0" }}>
               <span>{j.nome}</span>
               <select aria-label={`Plano de ${j.nome}`} value={cenaDoJogador(objetos, j.nome)} onChange={(e) => aoMoverJogador(j, e.target.value)}
                 style={{ border: `1px solid ${LINE}`, borderRadius: 6, background: "#FFF8E8", fontSize: 12, padding: "2px 4px", maxWidth: 160 }}>
-                {cenas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                {cenas.map((c) => <option key={c.id} value={c.id} disabled={c.oculto}>{c.nome}{c.oculto ? " (oculto)" : ""}</option>)}
               </select>
             </label>
           ))}
@@ -386,6 +415,26 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }
   function moverJogador(j, cena) { salvar(moverJogadorDeCena(objetos, j, cena)); }
   function levarTodos(cena) { levarTodosParaCena(objetos, cena).forEach(salvar); }
+  // 09/11: reordenar, duplicar, esconder e puxar a câmera dos jogadores.
+  function reordenarCena(de, para) { reordenarCenas(objetos, de, para).forEach(salvar); }
+  function duplicarPlano(c) {
+    const r = duplicarCena(objetos, c.id);
+    if (!r.chave) return;
+    r.salvar.forEach(salvar);
+    verCena(r.chave);
+  }
+  function alternarOculto(c) {
+    if (c.principal) return;
+    const salvo = objetos.find((o) => o.id === idDaCena(c.id)) || { id: idDaCena(c.id), tipo: "cena", nome: c.nome, ordem: c.ordem };
+    if (!c.oculto) {
+      const la = jogadoresNaCena(objetos, c.id);
+      if (la.length && !window.confirm(`Esconder "${c.nome}"? ${la.map((j) => j.nome).join(", ")} ${la.length > 1 ? "voltam" : "volta"} pro plano dos jogadores até você liberar.`)) return;
+    }
+    salvar({ ...salvo, oculto: !c.oculto });
+  }
+  function puxarCamera() {
+    salvar({ id: idDaCamera(cenaAtual), tipo: "camera", ordem: -9997, centro: centroDaTela(), zoom: cam.zoom, t: Date.now() });
+  }
   const cenaJogadores = cenaDoJogador(objetos.filter((o) => o.tipo !== "jogador"), "");
 
   // ---- identidades ("falar como")
@@ -511,6 +560,24 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   useEffect(() => {
     if (!enquadrouRef.current && tamanho.w > 100) { enquadrouRef.current = true; enquadrar(); }
   }, [tamanho.w]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 09/11: quando o Mestre puxa a visão, a tela do jogador vai pro mesmo
+  // centro e zoom (uma vez por puxada; depois o jogador mexe à vontade).
+  const cameraMestre = cameraDaCena(objetos, cenaAtual);
+  const camAplicadaRef = useRef(null);
+  const montadaEmRef = useRef(Date.now());
+  const [avisoCamera, setAvisoCamera] = useState(false);
+  useEffect(() => {
+    if (gm || !cameraMestre || tamanho.w < 100) return undefined;
+    const chave = `${cenaAtual}:${cameraMestre.t}`;
+    if (camAplicadaRef.current === chave) return undefined;
+    camAplicadaRef.current = chave;
+    const c = camParaTela(cameraMestre, tamanho);
+    if (c) setCam(c);
+    if (!(cameraMestre.t > montadaEmRef.current)) return undefined;
+    setAvisoCamera(true);
+    const t = setTimeout(() => setAvisoCamera(false), 2500);
+    return () => clearTimeout(t);
+  }, [gm, cenaAtual, cameraMestre?.t, tamanho.w, tamanho.h]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const el = areaRef.current;
     if (!el) return undefined;
@@ -924,6 +991,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         gm={gm} cenas={cenas} cenaAtual={cenaAtual} cenaJogadores={cenaJogadores} objetos={objetos} jogadores={jogadores}
         aoVer={verCena} aoNova={novaCena} aoRenomear={renomearCena} aoExcluir={excluirCena}
         aoMoverJogador={moverJogador} aoLevarTodos={levarTodos}
+        aoReordenar={reordenarCena} aoDuplicar={duplicarPlano} aoOcultar={alternarOculto} aoPuxarCamera={puxarCamera}
       />
       {/* Tabuleiro */}
       <div
@@ -1268,6 +1336,11 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           {online ? "Ao vivo — todos veem" : status === "LOCAL" ? "Modo local (só este navegador)" : "Conectando…"}
           {enviando && <span style={{ color: BRASS }}>· enviando imagem…</span>}
         </div>
+        {avisoCamera && (
+          <div role="status" style={{ ...barraFlutuante, top: 10, left: "50%", transform: "translateX(-50%)", padding: "6px 12px", fontSize: 12, color: PURPLE }}>
+            <Focus size={13} style={{ verticalAlign: -2, marginRight: 4 }} />O Mestre trouxe sua visão pra cá
+          </div>
+        )}
         {erro && (
           <div role="alert" style={{ ...barraFlutuante, bottom: 54, left: 10, padding: "6px 10px", fontSize: 11.5, color: EMBER }}>{erro}</div>
         )}

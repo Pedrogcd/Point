@@ -532,3 +532,10 @@ describe("migrarPersonagem — Guerreiro Poder (07/11)", () => {
     assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["maos-fortes", "tudo-ou-nada"]);
   });
 });
+
+describe("migrarPersonagem — Guerreiro Preciso (09/11, 2ª rodada)", () => {
+  it("Contragolpe -> Borrão", () => {
+    const ch = migrarPersonagem({ id: "q", name: "Q", disciplinas: [{ disciplinaId: "arquetipo-guerreiro-preciso", habilidadesAtivas: ["contragolpe", "estocada"] }] });
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["borrao", "estocada"]);
+  });
+});

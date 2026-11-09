@@ -66,3 +66,13 @@ Arquétipos e variações: Guerreiro (Modal, Poder, Preciso); Bárbaro (Fúria, 
 - Armas Leves (as que têm Veloz): Lâmina curta, Contundente leve, Contundente de punho, Arma de fogo curta, Arma de arremesso e Arma flexível. O Desarmado não é Leve por padrão.
 - Guerreiro Preciso, passiva: "ataques desarmados ou com arma Leve" (antes "arma leve", sem definição).
 - Em aberto: Contundente leve, Contundente de punho e Arma de arremesso já tinham a nota "1 superficial" no catálogo; foi mantida junto de Leve até Pedro decidir.
+
+## Mudanças de 09/11, segunda rodada (Guerreiro revisado de novo)
+- Guarda Alta (geral): agora custa 2 MP e rola o BLOQUEIO com +2d10 (antes: 1 MP, +1d10 em Esquiva ou Bloqueio).
+- Mãos Fortes (Poder): além de usar Pesadas com uma mão, pode optar por tirar o efeito de Pesado de uma arma pesada e fazê-la atacar normalmente.
+- Preciso, passiva: pode usar armas Leves ignorando o descritor Leve (ataque normal) e pode adicionar o descritor Leve a qualquer arma que não seja Pesada. Substitui a passiva dos dois ataques.
+- Golpe Rápido: 2 MP; dois ataques com arma Leve; o segundo com 1 grau a menos no atributo e na proficiência (mínimo 1 em cada).
+- Estocada: ganha Perfurante; se já tiver, causa também Sangramento 1 (antes: +1d10).
+- Olho na Brecha: vira ataque; até o fim do turno todos os seus ataques ganham Sortudo, mas todo ferimento causado no turno é superficial.
+- Contragolpe é substituído por Borrão: 2 MP; ao rolar a esquiva, rola com +2d10.
+- Ainda a revisar no Guerreiro: Empurrão.

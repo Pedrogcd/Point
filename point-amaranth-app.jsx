@@ -14597,6 +14597,7 @@ export default function App() {
             gm={gm} personagens={characters} supabase={supabase} resolverImagem={assetUrl}
             npcs={npcsDaMesa}
             onAbrirFicha={(characterId) => { window.open(linkDaFicha(window.location.href, characterId), "_blank", "noopener"); }}
+            onAtualizarFicha={updateCharacterFields}
           />
         )}
         {tab === "jogadores" && gm && <JogadoresView supabase={supabase} personagens={characters} />}

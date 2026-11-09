@@ -29,6 +29,7 @@ import {
   reordenarCenas, duplicarCena, idDaCamera, cameraDaCena, camParaTela,
   centroDoQuadrado, medirDistancia, textoDistancia, iniciativaDaCena, adicionarNaIniciativa, valorNaIniciativa,
   tirarDaIniciativa, passarVez, limparIniciativa, pontosDeVida, podeVerVida, deveAnimarRolagem,
+  velozNaIniciativa, rolarIniciativa, textoDaIniciativa, INICIATIVA_PADRAO,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -258,8 +259,12 @@ function PopupToken({ token, personagens, npcs, gm, minhas, resolverImagem, onAb
 // Ordem de turno (09/11): sem regra de rolagem (iniciativa ainda pendente
 // no vault) — o Mestre digita o valor e a lista se ordena; todos veem de
 // quem é a vez e a rodada.
-function PainelTurnos({ ini, gm, aoSalvar, aoFechar, tokensLivres, aoAdicionarToken }) {
+function PainelTurnos({ ini, gm, aoSalvar, aoFechar, tokensLivres, aoAdicionarToken, aoRolar }) {
   const [nomeLivre, setNomeLivre] = useState("");
+  const [atrib, setAtrib] = useState(INICIATIVA_PADRAO.atributo);
+  const [prof, setProf] = useState(INICIATIVA_PADRAO.proficiencia);
+  const temFicha = ini.entradas.some((e) => e.fichaId);
+  const seletor = { minWidth: 0, flex: "1 1 90px", padding: "3px 4px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", fontSize: 11.5 };
   const botao = { border: `1px solid ${LINE}`, background: PANEL, color: PARCHMENT, borderRadius: 7, padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5 };
   return (
     <section aria-label="Ordem de turno" style={{ borderBottom: `1px solid ${LINE}`, padding: "8px 10px", background: `${PANEL_2}AA`, maxHeight: "42%", overflowY: "auto" }}>
@@ -278,6 +283,19 @@ function PainelTurnos({ ini, gm, aoSalvar, aoFechar, tokensLivres, aoAdicionarTo
         )}
       </div>
       {ini.entradas.length === 0 && <p style={{ fontSize: 11.5, color: MUTED, margin: "0 0 6px", fontStyle: "italic" }}>Selecione um token e use o botão de espadas, ou adicione abaixo.</p>}
+      {gm && temFicha && (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
+          <select value={atrib} onChange={(e) => setAtrib(e.target.value)} aria-label="Atributo da iniciativa" style={seletor}>
+            {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+          </select>
+          <span style={{ fontSize: 11, color: MUTED }}>+</span>
+          <select value={prof} onChange={(e) => setProf(e.target.value)} aria-label="Proficiência da iniciativa" style={seletor}>
+            {PROFICIENCIAS_LIST.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+          <button type="button" onClick={() => aoRolar(atrib, prof)} title="Rola a iniciativa das fichas (sucessos 6+, Veloz +1; empate por Destreza)"
+            style={{ ...botao, background: BRASS, color: PANEL, border: "none" }}><Dices size={12} /> Rolar</button>
+        </div>
+      )}
       <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 3 }}>
         {ini.entradas.map((e) => {
           const vez = e.id === ini.vez;
@@ -288,6 +306,10 @@ function PainelTurnos({ ini, gm, aoSalvar, aoFechar, tokensLivres, aoAdicionarTo
             }}>
               <Avatar autor={{ nome: e.nome, img: e.img }} tamanho={20} />
               <span style={{ flex: 1, fontSize: 12.5, fontWeight: vez ? 700 : 400, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.nome}</span>
+              {gm ? (
+                <button type="button" aria-pressed={!!e.veloz} aria-label={`Veloz: ${e.nome}`} title="Veloz (+1 na iniciativa)" onClick={() => aoSalvar(velozNaIniciativa(ini, e.id, !e.veloz))}
+                  style={{ border: `1px solid ${e.veloz ? BRASS : LINE}`, background: e.veloz ? BRASS : "transparent", color: e.veloz ? PANEL : MUTED, borderRadius: 5, fontSize: 9.5, padding: "1px 4px", cursor: "pointer", fontFamily: "'Cinzel', serif" }}>Veloz</button>
+              ) : e.veloz ? <span style={{ fontSize: 9.5, color: BRASS, fontFamily: "'Cinzel', serif" }}>Veloz</span> : null}
               {gm ? (
                 <input type="number" value={e.valor} aria-label={`Iniciativa de ${e.nome}`} onChange={(ev) => aoSalvar(valorNaIniciativa(ini, e.id, ev.target.value))}
                   style={{ width: 46, padding: "2px 4px", borderRadius: 5, border: `1px solid ${LINE}`, background: "#fff", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" }} />
@@ -726,8 +748,22 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const entradaDaVez = iniciativa.entradas.find((e) => e.id === iniciativa.vez) || null;
   const [mostrarTurnos, setMostrarTurnos] = useState(false);
   function colocarNaIniciativa(o) {
-    salvar(adicionarNaIniciativa(iniciativa, { id: novoId("e"), nome: o.nome || "Token", img: o.url || null, tokenId: o.id, valor: 0 }));
+    salvar(adicionarNaIniciativa(iniciativa, { id: novoId("e"), nome: o.nome || "Token", img: o.url || null, tokenId: o.id, fichaId: o.fichaId || null, valor: 0 }));
     setMostrarTurnos(true);
+  }
+  // Rolar iniciativa (regra de 09/11): só fichas rolam; NPC/nome livre fica
+  // com o valor digitado. O resultado vai pro chat, do Mestre, para todos.
+  function rolarIniciativaDaMesa(atributo, proficiencia) {
+    const fichaDe = (e) => {
+      const fid = e.fichaId || objetos.find((o) => o.id === e.tokenId)?.fichaId;
+      const f = fid ? (personagens || []).find((p) => p.id === fid) : null;
+      return f ? comGrausEfetivos(f).character : null;
+    };
+    const { ini, resumo } = rolarIniciativa(iniciativa, { fichaDe, atributo, proficiencia });
+    if (!resumo.length) { setErro("Nenhuma ficha na ordem de turno — NPC e nome livre têm o valor digitado."); return; }
+    salvar(ini);
+    const rotulo = `${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === atributo)?.label} + ${PROFICIENCIAS_LIST.find((p) => p.key === proficiencia)?.label}`;
+    publicar(mensagemDeFala(AUTOR_MESTRE, textoDaIniciativa(resumo, rotulo), opcoesMsg("")));
   }
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
@@ -1545,7 +1581,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           <PainelTurnos
             ini={iniciativa} gm={gm} aoSalvar={salvar} aoFechar={() => setMostrarTurnos(false)}
             tokensLivres={tokens.concat(imagensMestre).filter((o) => o.redondo && !iniciativa.entradas.some((e) => e.tokenId === o.id))}
-            aoAdicionarToken={colocarNaIniciativa}
+            aoAdicionarToken={colocarNaIniciativa} aoRolar={rolarIniciativaDaMesa}
           />
         )}
         <div ref={listaRef} style={{ flex: 1, overflowY: "auto", padding: "4px 0" }} aria-live="polite">

@@ -469,3 +469,38 @@ describe("régua, iniciativa, vida e animação (09/11)", async () => {
     assert.equal(m.deveAnimarRolagem({ criado_em: msg.criado_em }, { abertaEm: 0, agora }), false);
   });
 });
+
+describe("rolar iniciativa (09/11)", async () => {
+  const m = await import("./mesa.js");
+  const sempre = (v) => () => v; // aleatorio fixo: 0.7 → face 8 (sucesso); 0.1 → face 2
+  const fichas = {
+    a: { atributosGerais: { destreza: 3 }, proficiencias: { percepcao: 1 }, descritores: [] },
+    k: { atributosGerais: { destreza: 2 }, proficiencias: { percepcao: 2 }, descritores: ["veloz"] },
+  };
+  let base = m.iniciativaDaCena([], "principal");
+  base = m.adicionarNaIniciativa(base, { id: "a", nome: "Almah", fichaId: "a" });
+  base = m.adicionarNaIniciativa(base, { id: "k", nome: "Kiryu", fichaId: "k" });
+  base = m.adicionarNaIniciativa(base, { id: "g", nome: "Goblin", valor: 4 });
+  it("ficha rola Destreza + Percepção (padrão); Veloz +1; NPC fica com o valor digitado", () => {
+    const { ini, resumo } = m.rolarIniciativa(base, { fichaDe: (e) => fichas[e.fichaId] || null, aleatorio: sempre(0.7) });
+    assert.deepEqual(resumo.map((r) => [r.nome, r.dados, r.sucessos, r.valor]), [["Almah", 4, 4, 4], ["Kiryu", 4, 4, 5]]);
+    // Kiryu 5; Almah 4 e Goblin 4 empatam → Destreza (Almah 3) e ficha antes de NPC
+    assert.deepEqual(ini.entradas.map((e) => e.id), ["k", "a", "g"]);
+    assert.equal(ini.vez, null); assert.equal(ini.rodada, 1);
+    assert.match(m.textoDaIniciativa(resumo, "Destreza + Percepção"), /^Iniciativa \(Destreza \+ Percepção\): Almah 4 \[8 8 8 8\] · Kiryu 5 \(Veloz \+1\)/);
+  });
+  it("empate: maior Destreza primeiro; depois ficha antes de NPC", () => {
+    const e = m.ordenarIniciativa([
+      { id: "npc", valor: 2 }, { id: "d1", valor: 2, fichaId: "x", desempate: 1 }, { id: "d3", valor: 2, fichaId: "y", desempate: 3 },
+    ]);
+    assert.deepEqual(e.map((x) => x.id), ["d3", "d1", "npc"]);
+  });
+  it("Mestre escolhe outro Atributo + Proficiência; Veloz manual liga/desliga", () => {
+    const { resumo } = m.rolarIniciativa(base, { fichaDe: (e) => fichas[e.fichaId] || null, atributo: "destreza", proficiencia: "esquiva", aleatorio: sempre(0.1) });
+    assert.deepEqual(resumo.map((r) => [r.dados, r.sucessos]), [[4, 0], [3, 0]]); // proficiência ausente conta como grau mínimo (1)
+    let ini = m.velozNaIniciativa(base, "g", true);
+    assert.equal(ini.entradas.find((x) => x.id === "g").valor, 5);
+    ini = m.velozNaIniciativa(ini, "g", false);
+    assert.equal(ini.entradas.find((x) => x.id === "g").valor, 4);
+  });
+});

@@ -287,6 +287,26 @@ export function dadosDaFicha(efetivo, atributo, proficiencia, extra = 0) {
   return { atributo: a, proficiencia: p, total: Math.max(1, a + p + (Number(extra) || 0)) };
 }
 
+// Lembrar por ficha (09/11): a última combinação Atributo + Proficiência
+// (e extras) de cada ficha, guardada no aparelho. Chaves inválidas caem no
+// padrão.
+export const ESCOLHA_FICHA_PADRAO = { atributo: "destreza", proficiencia: "combateCorpoACorpo", extra: 0 };
+export function escolhaDaFicha(mapa, fichaId, { atributos = null, proficiencias = null } = {}) {
+  const salva = (mapa && typeof mapa === "object" && fichaId != null ? mapa[fichaId] : null) || {};
+  const ok = (lista, v) => typeof v === "string" && (!lista || lista.includes(v));
+  const extra = Math.max(0, Math.min(10, Math.round(Number(salva.extra) || 0)));
+  return {
+    atributo: ok(atributos, salva.atributo) ? salva.atributo : ESCOLHA_FICHA_PADRAO.atributo,
+    proficiencia: ok(proficiencias, salva.proficiencia) ? salva.proficiencia : ESCOLHA_FICHA_PADRAO.proficiencia,
+    extra,
+  };
+}
+export function guardarEscolhaDaFicha(mapa, fichaId, escolha) {
+  const base = mapa && typeof mapa === "object" ? mapa : {};
+  if (fichaId == null) return base;
+  return { ...base, [fichaId]: { atributo: escolha.atributo, proficiencia: escolha.proficiencia, extra: Number(escolha.extra) || 0 } };
+}
+
 export function camadasDeNevoa(objetos) {
   return (objetos || []).filter((o) => o.tipo === "nevoa" || o.tipo === "revelado").sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
 }

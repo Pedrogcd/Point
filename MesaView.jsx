@@ -22,7 +22,7 @@ import {
   formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
   CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada, tracoTocaRetangulo,
   idDoJogador, jogadoresDaMesa, fichasDoJogador, tokenDePersonagem, podeMoverImagem,
-  mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino, dadosDaFicha,
+  mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino, dadosDaFicha, escolhaDaFicha, guardarEscolhaDaFicha,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -47,6 +47,7 @@ const EMBER = "#A83A2E";
 const PURPLE = "#4B3B6B";
 const MESA_FUNDO = "#E4D7B5";
 const CHAVE_AUTOR = "point-mesa-autor";
+const CHAVE_ROLAGEM_FICHA = "point-mesa-rolagem-ficha";
 const CHAVE_JOGADOR = "point-mesa-jogador";
 
 function iniciais(nome) {
@@ -333,9 +334,28 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   // + Proficiência dela (com os bônus) e rola no chat com o rótulo.
   const fichaQueFala = autor?.tipo === "ficha" ? (personagens || []).find((p) => `ficha:${p.id}` === autor.id) : null;
   const fichaEfetiva = useMemo(() => (fichaQueFala ? comGrausEfetivos(fichaQueFala).character : null), [fichaQueFala]);
-  const [atribFicha, setAtribFicha] = useState("destreza");
-  const [profFicha, setProfFicha] = useState("combateCorpoACorpo");
-  const [extraFicha, setExtraFicha] = useState(0);
+  // Lembrar por ficha (09/11): cada ficha volta com a última combinação.
+  const [escolhasFicha, setEscolhasFicha] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CHAVE_ROLAGEM_FICHA) || "{}") || {}; } catch (e) { return {}; }
+  });
+  const escolhaAtual = escolhaDaFicha(escolhasFicha, fichaQueFala?.id, {
+    atributos: ATRIBUTOS_GERAIS_LIST.map((a) => a.key),
+    proficiencias: PROFICIENCIAS_LIST.map((p) => p.key),
+  });
+  const atribFicha = escolhaAtual.atributo;
+  const profFicha = escolhaAtual.proficiencia;
+  const extraFicha = escolhaAtual.extra;
+  function mudarEscolhaFicha(parcial) {
+    if (!fichaQueFala) return;
+    setEscolhasFicha((m) => {
+      const novo = guardarEscolhaDaFicha(m, fichaQueFala.id, { ...escolhaDaFicha(m, fichaQueFala.id), ...parcial });
+      try { localStorage.setItem(CHAVE_ROLAGEM_FICHA, JSON.stringify(novo)); } catch (e) { /* ignora */ }
+      return novo;
+    });
+  }
+  const setAtribFicha = (v) => mudarEscolhaFicha({ atributo: v });
+  const setProfFicha = (v) => mudarEscolhaFicha({ proficiencia: v });
+  const setExtraFicha = (v) => mudarEscolhaFicha({ extra: v });
   const contaFicha = fichaEfetiva ? dadosDaFicha(fichaEfetiva, atribFicha, profFicha, extraFicha) : null;
   function rolarDaFicha() {
     if (!contaFicha) return;

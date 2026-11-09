@@ -302,3 +302,22 @@ describe("rolar da ficha (08/11)", async () => {
     assert.equal(dadosDaFicha({ atributosGerais: { forca: 0 }, proficiencias: { armas: 0 } }, "forca", "armas").total, 1);
   });
 });
+
+describe("lembrar a rolagem por ficha (09/11)", async () => {
+  const { escolhaDaFicha, guardarEscolhaDaFicha, ESCOLHA_FICHA_PADRAO } = await import("./mesa.js");
+  const listas = { atributos: ["destreza", "forca"], proficiencias: ["combateCorpoACorpo", "armas"] };
+  it("sem nada guardado usa o padrão", () => {
+    assert.deepEqual(escolhaDaFicha({}, "k", listas), ESCOLHA_FICHA_PADRAO);
+    assert.deepEqual(escolhaDaFicha(null, "k"), ESCOLHA_FICHA_PADRAO);
+  });
+  it("guarda e devolve por ficha, sem misturar", () => {
+    let m = guardarEscolhaDaFicha({}, "k", { atributo: "forca", proficiencia: "armas", extra: 2 });
+    m = guardarEscolhaDaFicha(m, "a", { atributo: "destreza", proficiencia: "armas", extra: 0 });
+    assert.deepEqual(escolhaDaFicha(m, "k", listas), { atributo: "forca", proficiencia: "armas", extra: 2 });
+    assert.deepEqual(escolhaDaFicha(m, "a", listas), { atributo: "destreza", proficiencia: "armas", extra: 0 });
+  });
+  it("chave que não existe mais e extra fora do limite caem no padrão/limite", () => {
+    const m = { k: { atributo: "sumiu", proficiencia: "armas", extra: 99 } };
+    assert.deepEqual(escolhaDaFicha(m, "k", listas), { atributo: "destreza", proficiencia: "armas", extra: 10 });
+  });
+});

@@ -120,6 +120,9 @@ describe("Leve (09/11)", () => {
     for (const a of ARMAS) assert.equal(!!a.leve, a.descritor1 === "veloz" || a.descritor2 === "veloz", a.id);
     assert.ok(!ARMAS.some((a) => a.leve && a.extra === "pesado"));
   });
+  it("09/11: nenhuma arma Leve é mais \"1 superficial\" (Pedro tirou a nota)", () => {
+    for (const id of ["contundente_leve", "contundente_de_punho", "arma_de_arremesso"]) assert.equal(getArmaPorId(id).superficial, false, id);
+  });
   it("Leve entra sempre nos descritores efetivos", () => {
     assert.deepEqual(descritoresEfetivosArma(getArmaPorId("lamina_curta"), [1]), ["letal", "leve"]);
     assert.deepEqual(descritoresEfetivosArma(getArmaPorId("arma_de_fogo_curta"), []), ["arma_de_fogo", "leve"]);

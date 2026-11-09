@@ -16,7 +16,7 @@ import {
   Copy, EyeOff, Focus, ChevronLeft, ChevronRight, Ruler, Swords, SkipForward, SkipBack,
 } from "lucide-react";
 import {
-  MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
+  MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE, ALVOS_DE_ROLAGEM,
   novoId, parseComandoRolagem, rolarDados, identidadesDaMesa, mensagemDeFala, mensagemDeRolagem,
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
@@ -1715,7 +1715,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             <button type="button" aria-label="Mais dados" onClick={() => setQtdDados((n) => Math.min(MAX_DADOS, n + 1))} style={passo}>+</button>
             <select value={alvo} onChange={(e) => setAlvo(Number(e.target.value))} aria-label="Sucesso a partir de" title="Sucesso a partir de"
               style={{ padding: "4px 4px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", fontSize: 12, color: PARCHMENT }}>
-              {[6, 7, 8, 9].map((a) => <option key={a} value={a}>{a}+</option>)}
+              {ALVOS_DE_ROLAGEM.map((a) => <option key={a} value={a}>{a}+</option>)}
             </select>
             <button type="button" onClick={rolar}
               style={{ marginLeft: "auto", padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: `linear-gradient(180deg, #8B6914, ${BRASS})`, color: "#fff", fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 12.5 }}>

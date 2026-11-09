@@ -45,6 +45,9 @@ export function parseComandoRolagem(texto) {
   return { dados, alvo, rotulo: (m[3] || "").trim() };
 }
 
+// 09/11 (Pedro): o seletor do chat vai de 2+ a 10+ (antes parava em 6+),
+// pra rolagens como a do Leve (5+). Mesmo intervalo do "/r N alvo".
+export const ALVOS_DE_ROLAGEM = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 // Rola N d10; sucesso quando o dado >= alvo (10 sempre conta). `aleatorio`
 // é injetável pra teste.
 export function rolarDados(dados, alvo = ALVO_PADRAO, aleatorio = Math.random) {

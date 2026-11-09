@@ -544,3 +544,14 @@ describe("dano, condições e macros no token (09/11)", async () => {
     assert.equal(m.podeEditarMacros("k", { gm: false, minhas: [] }), false);
   });
 });
+
+describe("limiar do dado no chat (09/11)", async () => {
+  const m = await import("./mesa.js");
+  it("seletor vai de 2+ a 10+ e o /r aceita o mesmo intervalo", () => {
+    assert.deepEqual(m.ALVOS_DE_ROLAGEM, [2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert.equal(m.parseComandoRolagem("/r 3 5+").alvo, 5);
+    assert.equal(m.parseComandoRolagem("/r 3 1+").alvo, 2);
+    assert.equal(m.rolarDados(4, 3, () => 0.15).sucessos, 0);
+    assert.equal(m.rolarDados(4, 2, () => 0.15).sucessos, 4);
+  });
+});

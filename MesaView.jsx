@@ -16,7 +16,7 @@ import {
   Copy, EyeOff, Focus, ChevronLeft, ChevronRight, Ruler, Swords, SkipForward, SkipBack,
 } from "lucide-react";
 import {
-  MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
+  MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE, ALVOS_DE_ROLAGEM,
   novoId, parseComandoRolagem, rolarDados, identidadesDaMesa, mensagemDeFala, mensagemDeRolagem,
   juntarMensagem, juntarObjeto, tirarObjeto, configDaMesa, encaixarNaGrade, simplificarPontos,
   caminhoDoTraco, criarConexaoMesa, gruposDeIdentidades, retanguloDeArraste, camadasDeNevoa,
@@ -31,7 +31,7 @@ import {
   tirarDaIniciativa, passarVez, limparIniciativa, pontosDeVida, podeVerVida, deveAnimarRolagem,
   velozNaIniciativa, rolarIniciativa, textoDaIniciativa, INICIATIVA_PADRAO,
   ferimentoNoHp, textoDoFerimento, CONDICOES, condicoesDoToken, alternarCondicao,
-  macrosDaFicha, adicionarMacro, tirarMacro, podeEditarMacros,
+  macrosDaFicha, adicionarMacro, tirarMacro, podeEditarMacros, podeRerrolar, mensagemDeRerrolagem,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -109,7 +109,7 @@ function hora(iso) {
 function semMovimento() {
   try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
 }
-function CartaoRolagem({ r, animar = false }) {
+function CartaoRolagem({ r, animar = false, onRerrolar }) {
   const [rolando, setRolando] = useState(() => animar && !semMovimento());
   const [sorteio, setSorteio] = useState(() => (r.faces || []).map(() => 1 + Math.floor(Math.random() * 10)));
   useEffect(() => {
@@ -133,15 +133,26 @@ function CartaoRolagem({ r, animar = false }) {
           }
           const d = dReal;
           const sucesso = d === 10 || d >= r.alvo;
-          return (
-            <span key={i} style={{
-              width: 26, height: 26, borderRadius: 5, display: "inline-flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 700,
-              background: d === 10 ? PURPLE : sucesso ? BRASS : "transparent", color: sucesso ? PANEL : MUTED,
-              border: `1px solid ${sucesso ? "transparent" : LINE}`,
-              animation: animar ? "mesaDadoPouso 0.3s ease-out" : undefined,
-            }}>{d}</span>
-          );
+          // 09/11: o dado que acabou de ser re-rolado ganha contorno
+          // tracejado; com permissão, cada dado é um botão de re-rolar.
+          const rerrolado = r.rerrolagem?.indice === i;
+          const estilo = {
+            width: 26, height: 26, borderRadius: 5, display: "inline-flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 700, padding: 0,
+            background: d === 10 ? PURPLE : sucesso ? BRASS : "transparent", color: sucesso ? PANEL : MUTED,
+            border: `1px solid ${sucesso ? "transparent" : LINE}`,
+            outline: rerrolado ? `2px dashed ${PURPLE}` : "none", outlineOffset: 2,
+            animation: animar ? "mesaDadoPouso 0.3s ease-out" : undefined,
+          };
+          const dica = rerrolado ? `Re-rolado (era ${r.rerrolagem.de})` : undefined;
+          if (onRerrolar) {
+            return (
+              <button key={i} type="button" className="mesa-dado" onClick={() => onRerrolar(i)} aria-label={`Re-rolar o dado ${i + 1} (${d})`}
+                title={`${dica ? `${dica}. ` : ""}Clique para re-rolar este dado`} data-rerrolado={rerrolado ? "sim" : undefined}
+                style={{ ...estilo, cursor: "pointer" }}>{d}</button>
+            );
+          }
+          return <span key={i} title={dica} data-rerrolado={rerrolado ? "sim" : undefined} style={estilo}>{d}</span>;
         })}
       </div>
       <div style={{ marginTop: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
@@ -156,7 +167,7 @@ function CartaoRolagem({ r, animar = false }) {
 
 // Sussurro (08/11): borda roxa tracejada, cadeado e "de quem pra quem";
 // "responder" já escolhe o destino de volta.
-function Mensagem({ m, rotuloPara, onResponder, animar }) {
+function Mensagem({ m, rotuloPara, onResponder, animar, onRerrolar }) {
   const sussurro = !!m.para;
   return (
     <div style={{
@@ -182,7 +193,7 @@ function Mensagem({ m, rotuloPara, onResponder, animar }) {
         {m.tipo === "rolagem" ? (
           <>
             {m.texto && <div style={{ fontSize: 12, color: PARCHMENT, fontStyle: "italic" }}>{m.texto}</div>}
-            {m.rolagem && <CartaoRolagem r={m.rolagem} animar={animar} />}
+            {m.rolagem && <CartaoRolagem r={m.rolagem} animar={animar} onRerrolar={onRerrolar} />}
           </>
         ) : (
           <div style={{ fontSize: 13, color: PARCHMENT, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{m.texto}</div>
@@ -1206,6 +1217,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       <style>{`
         @keyframes mesaEntrada { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
         @keyframes mesaDado { 0% { transform: rotate(0deg) translateY(0); } 30% { transform: rotate(-14deg) translateY(-3px); } 70% { transform: rotate(12deg) translateY(1px); } 100% { transform: rotate(0deg) translateY(0); } }
+        .mesa-dado:hover { transform: translateY(-1px); box-shadow: 0 2px 6px #2B211633; }
         @keyframes mesaDadoPouso { from { transform: scale(1.25); } to { transform: scale(1); } }
         @keyframes mesaVez { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
         @media (max-width: 900px) { .mesa-layout { grid-template-columns: 1fr !important; height: auto !important; } .mesa-tabuleiro { height: 62vh; flex: none !important; } .mesa-chat { height: 70vh; } }
@@ -1665,7 +1677,8 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             </div>
           ) : mensagensVisiveis.map((m) => (
             <Mensagem key={m.id} m={m} animar={deveAnimarRolagem(m, { abertaEm: abertaEmRef.current })} rotuloPara={m.para ? (m.para === "mestre" && !m.autor?.jogador ? "o Mestre (só ele)" : rotuloDoDestino(m.para, jogadores)) : ""}
-              onResponder={m.para ? () => responderA(m) : undefined} />
+              onResponder={m.para ? () => responderA(m) : undefined}
+              onRerrolar={podeRerrolar(m, { gm, eu: euValido ? eu : "" }) ? (i) => publicar(mensagemDeRerrolagem(m, i, { gm, porMestre: gm && m.autor?.tipo !== "mestre" })) : undefined} />
           ))}
         </div>
 
@@ -1715,7 +1728,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             <button type="button" aria-label="Mais dados" onClick={() => setQtdDados((n) => Math.min(MAX_DADOS, n + 1))} style={passo}>+</button>
             <select value={alvo} onChange={(e) => setAlvo(Number(e.target.value))} aria-label="Sucesso a partir de" title="Sucesso a partir de"
               style={{ padding: "4px 4px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", fontSize: 12, color: PARCHMENT }}>
-              {[6, 7, 8, 9].map((a) => <option key={a} value={a}>{a}+</option>)}
+              {ALVOS_DE_ROLAGEM.map((a) => <option key={a} value={a}>{a}+</option>)}
             </select>
             <button type="button" onClick={rolar}
               style={{ marginLeft: "auto", padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: `linear-gradient(180deg, #8B6914, ${BRASS})`, color: "#fff", fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 12.5 }}>

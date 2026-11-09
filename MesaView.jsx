@@ -13,7 +13,7 @@ import {
   Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
   CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
   UserPlus, UserRound, ExternalLink, Lock, Reply, ScrollText, Flag, PencilLine,
-  Copy, EyeOff, Focus, ChevronLeft, ChevronRight,
+  Copy, EyeOff, Focus, ChevronLeft, ChevronRight, Ruler, Swords, SkipForward, SkipBack,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -27,6 +27,8 @@ import {
   CENA_PRINCIPAL, cenasDaMesa, objetosDaCena, idDaCena, idDaConfig, comCena, estadoDaMesa,
   cenaDoJogador, jogadoresNaCena, moverJogadorDeCena, levarTodosParaCena, apagarCena,
   reordenarCenas, duplicarCena, idDaCamera, cameraDaCena, camParaTela,
+  centroDoQuadrado, medirDistancia, textoDistancia, iniciativaDaCena, adicionarNaIniciativa, valorNaIniciativa,
+  tirarDaIniciativa, passarVez, limparIniciativa, pontosDeVida, podeVerVida, deveAnimarRolagem,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -98,11 +100,35 @@ function hora(iso) {
   try { return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; }
 }
 
-function CartaoRolagem({ r }) {
+// Animação de dados (09/11): rolagem nova "chacoalha" ~0,8 s mostrando
+// faces aleatórias antes do resultado. Quem pede menos movimento no
+// sistema vê o resultado direto.
+function semMovimento() {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; }
+}
+function CartaoRolagem({ r, animar = false }) {
+  const [rolando, setRolando] = useState(() => animar && !semMovimento());
+  const [sorteio, setSorteio] = useState(() => (r.faces || []).map(() => 1 + Math.floor(Math.random() * 10)));
+  useEffect(() => {
+    if (!rolando) return undefined;
+    const giro = setInterval(() => setSorteio((r.faces || []).map(() => 1 + Math.floor(Math.random() * 10))), 70);
+    const fim = setTimeout(() => setRolando(false), 800);
+    return () => { clearInterval(giro); clearTimeout(fim); };
+  }, [rolando]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div style={{ marginTop: 4, padding: "8px 10px", borderRadius: 8, background: PANEL, border: `1px solid ${LINE}` }}>
+    <div data-rolando={rolando ? "sim" : "nao"} style={{ marginTop: 4, padding: "8px 10px", borderRadius: 8, background: PANEL, border: `1px solid ${LINE}` }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        {(r.faces || []).map((d, i) => {
+        {(r.faces || []).map((dReal, i) => {
+          if (rolando) {
+            return (
+              <span key={i} style={{
+                width: 26, height: 26, borderRadius: 5, display: "inline-flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 700, color: MUTED, border: `1px solid ${LINE}`,
+                animation: `mesaDado 0.32s ${(i % 4) * 0.05}s ease-in-out infinite`,
+              }}>{sorteio[i]}</span>
+            );
+          }
+          const d = dReal;
           const sucesso = d === 10 || d >= r.alvo;
           return (
             <span key={i} style={{
@@ -110,13 +136,14 @@ function CartaoRolagem({ r }) {
               fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, fontWeight: 700,
               background: d === 10 ? PURPLE : sucesso ? BRASS : "transparent", color: sucesso ? PANEL : MUTED,
               border: `1px solid ${sucesso ? "transparent" : LINE}`,
+              animation: animar ? "mesaDadoPouso 0.3s ease-out" : undefined,
             }}>{d}</span>
           );
         })}
       </div>
       <div style={{ marginTop: 6, display: "flex", alignItems: "baseline", gap: 6 }}>
-        <span style={{ fontFamily: "'Cinzel', serif", fontSize: 17, fontWeight: 700, color: r.sucessos ? BRASS : MUTED }}>
-          {r.sucessos} {r.sucessos === 1 ? "sucesso" : "sucessos"}
+        <span style={{ fontFamily: "'Cinzel', serif", fontSize: 17, fontWeight: 700, color: rolando ? MUTED : r.sucessos ? BRASS : MUTED }}>
+          {rolando ? "rolando…" : `${r.sucessos} ${r.sucessos === 1 ? "sucesso" : "sucessos"}`}
         </span>
         <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>{(r.faces || []).length}d10 · {r.alvo}+</span>
       </div>
@@ -126,7 +153,7 @@ function CartaoRolagem({ r }) {
 
 // Sussurro (08/11): borda roxa tracejada, cadeado e "de quem pra quem";
 // "responder" já escolhe o destino de volta.
-function Mensagem({ m, rotuloPara, onResponder }) {
+function Mensagem({ m, rotuloPara, onResponder, animar }) {
   const sussurro = !!m.para;
   return (
     <div style={{
@@ -152,7 +179,7 @@ function Mensagem({ m, rotuloPara, onResponder }) {
         {m.tipo === "rolagem" ? (
           <>
             {m.texto && <div style={{ fontSize: 12, color: PARCHMENT, fontStyle: "italic" }}>{m.texto}</div>}
-            {m.rolagem && <CartaoRolagem r={m.rolagem} />}
+            {m.rolagem && <CartaoRolagem r={m.rolagem} animar={animar} />}
           </>
         ) : (
           <div style={{ fontSize: 13, color: PARCHMENT, lineHeight: 1.45, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{m.texto}</div>
@@ -225,6 +252,71 @@ function PopupToken({ token, personagens, npcs, gm, minhas, resolverImagem, onAb
         {ficha && !podeVerFicha && <p style={{ fontSize: 12, color: MUTED, fontStyle: "italic", marginTop: 12 }}>Ficha guardada pelo Mestre.</p>}
       </div>
     </div>
+  );
+}
+
+// Ordem de turno (09/11): sem regra de rolagem (iniciativa ainda pendente
+// no vault) — o Mestre digita o valor e a lista se ordena; todos veem de
+// quem é a vez e a rodada.
+function PainelTurnos({ ini, gm, aoSalvar, aoFechar, tokensLivres, aoAdicionarToken }) {
+  const [nomeLivre, setNomeLivre] = useState("");
+  const botao = { border: `1px solid ${LINE}`, background: PANEL, color: PARCHMENT, borderRadius: 7, padding: "3px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11.5 };
+  return (
+    <section aria-label="Ordem de turno" style={{ borderBottom: `1px solid ${LINE}`, padding: "8px 10px", background: `${PANEL_2}AA`, maxHeight: "42%", overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <Swords size={13} color={PURPLE} />
+        <strong style={{ fontFamily: "'Cinzel', serif", fontSize: 12, color: PURPLE, whiteSpace: "nowrap" }}>Turnos</strong>
+        <span style={{ fontSize: 11, color: MUTED, whiteSpace: "nowrap" }} data-rodada={ini.rodada || 1}>· rodada {ini.rodada || 1}</span>
+        {gm && (
+          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4 }}>
+            <button type="button" title="Vez anterior" aria-label="Vez anterior" disabled={!ini.entradas.length} onClick={() => aoSalvar(passarVez(ini, -1))} style={botao}><SkipBack size={12} /></button>
+            <button type="button" title="Próxima vez" disabled={!ini.entradas.length} onClick={() => aoSalvar(passarVez(ini, 1))} style={{ ...botao, background: PURPLE, color: PANEL, border: "none" }}>
+              {ini.vez ? "Próximo" : "Começar"} <SkipForward size={12} />
+            </button>
+            <button type="button" title="Limpar a ordem de turno" aria-label="Limpar a ordem de turno" onClick={() => { if (!ini.entradas.length || window.confirm("Limpar a ordem de turno?")) { aoSalvar(limparIniciativa(ini)); aoFechar(); } }} style={{ ...botao, color: EMBER }}><Trash2 size={12} /></button>
+          </span>
+        )}
+      </div>
+      {ini.entradas.length === 0 && <p style={{ fontSize: 11.5, color: MUTED, margin: "0 0 6px", fontStyle: "italic" }}>Selecione um token e use o botão de espadas, ou adicione abaixo.</p>}
+      <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        {ini.entradas.map((e) => {
+          const vez = e.id === ini.vez;
+          return (
+            <li key={e.id} data-vez={vez ? "sim" : "nao"} style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", borderRadius: 7,
+              background: vez ? `${BRASS}33` : "transparent", border: `1px solid ${vez ? BRASS : "transparent"}`,
+            }}>
+              <Avatar autor={{ nome: e.nome, img: e.img }} tamanho={20} />
+              <span style={{ flex: 1, fontSize: 12.5, fontWeight: vez ? 700 : 400, color: PARCHMENT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.nome}</span>
+              {gm ? (
+                <input type="number" value={e.valor} aria-label={`Iniciativa de ${e.nome}`} onChange={(ev) => aoSalvar(valorNaIniciativa(ini, e.id, ev.target.value))}
+                  style={{ width: 46, padding: "2px 4px", borderRadius: 5, border: `1px solid ${LINE}`, background: "#fff", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" }} />
+              ) : (
+                <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>{e.valor}</span>
+              )}
+              {gm && <button type="button" aria-label={`Tirar ${e.nome} da ordem`} onClick={() => aoSalvar(tirarDaIniciativa(ini, e.id))} style={{ border: "none", background: "transparent", color: MUTED, cursor: "pointer", padding: 0 }}><XIcon size={13} /></button>}
+            </li>
+          );
+        })}
+      </ol>
+      {gm && (
+        <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+          {tokensLivres.length > 0 && (
+            <select value="" aria-label="Adicionar token do plano" onChange={(ev) => { const o = tokensLivres.find((t) => t.id === ev.target.value); if (o) aoAdicionarToken(o); }}
+              style={{ flex: "1 1 120px", minWidth: 0, padding: "3px 4px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", fontSize: 11.5 }}>
+              <option value="">+ token do plano…</option>
+              {tokensLivres.map((t) => <option key={t.id} value={t.id}>{t.nome || "Token"}</option>)}
+            </select>
+          )}
+          <form onSubmit={(ev) => { ev.preventDefault(); const n = nomeLivre.trim(); if (!n) return; aoSalvar(adicionarNaIniciativa(ini, { id: novoId("e"), nome: n.slice(0, 40), valor: 0 })); setNomeLivre(""); }}
+            style={{ display: "flex", gap: 4, flex: "1 1 140px", minWidth: 0 }}>
+            <input value={nomeLivre} onChange={(ev) => setNomeLivre(ev.target.value)} placeholder="+ nome livre" aria-label="Adicionar nome na ordem"
+              style={{ flex: 1, minWidth: 0, padding: "3px 6px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", fontSize: 11.5 }} />
+            <button type="submit" style={botao} aria-label="Adicionar"><Plus size={12} /></button>
+          </form>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -564,6 +656,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   // centro e zoom (uma vez por puxada; depois o jogador mexe à vontade).
   const cameraMestre = cameraDaCena(objetos, cenaAtual);
   const camAplicadaRef = useRef(null);
+  const abertaEmRef = useRef(Date.now());
   const montadaEmRef = useRef(Date.now());
   const [avisoCamera, setAvisoCamera] = useState(false);
   useEffect(() => {
@@ -611,6 +704,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const [imaNevoa, setImaNevoa] = useState(true);
   const [poligonoAtual, setPoligonoAtual] = useState(null); // { modo, pontos }
   const [cursorMundo, setCursorMundo] = useState(null);
+  // 09/11: régua — arraste mostra a distância (só na sua tela).
+  const [regua, setRegua] = useState(null); // { inicio, fim }
+  const pontoDaRegua = (ev) => (config.grade ? centroDoQuadrado(paraMundo(ev), config.tamanhoGrade) : paraMundo(ev));
   // 07/11: borracha por área — retângulo arrastado com a borracha.
   const [areaApagar, setAreaApagar] = useState(null); // { inicio, fim }
   const gestoRef = useRef(null);
@@ -624,6 +720,15 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const imagensMestre = imagensDaCamada(objetosCena, "gm", gm);
   const tracos = objetosCena.filter((o) => o.tipo === "traco");
   const nevoas = camadasDeNevoa(objetosCena);
+  // 09/11: ordem de turno (iniciativa) do plano atual — o Mestre monta e
+  // passa a vez; todos veem.
+  const iniciativa = iniciativaDaCena(objetos, cenaAtual);
+  const entradaDaVez = iniciativa.entradas.find((e) => e.id === iniciativa.vez) || null;
+  const [mostrarTurnos, setMostrarTurnos] = useState(false);
+  function colocarNaIniciativa(o) {
+    salvar(adicionarNaIniciativa(iniciativa, { id: novoId("e"), nome: o.nome || "Token", img: o.url || null, tokenId: o.id, valor: 0 }));
+    setMostrarTurnos(true);
+  }
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
   const podeMexer = (o) => podeMoverImagem(o, { gm, camadaAtiva, eu, minhas });
@@ -699,6 +804,14 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
       gestoRef.current = { tipo: "apagarArea" };
       return;
     }
+    if (ferramenta === "regua") {
+      if (ev.button !== 0) return;
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      const p = pontoDaRegua(ev);
+      setRegua({ inicio: p, fim: p });
+      gestoRef.current = { tipo: "regua" };
+      return;
+    }
     if (ferramenta === "lapis") {
       ev.currentTarget.setPointerCapture(ev.pointerId);
       setTracoAtual([paraMundo(ev)]);
@@ -751,6 +864,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     } else if (g.tipo === "desenho") {
       const p = paraMundo(ev);
       setTracoAtual((t) => (t ? [...t, p] : [p]));
+    } else if (g.tipo === "regua") {
+      const p = pontoDaRegua(ev);
+      setRegua((r) => (r ? { ...r, fim: p } : r));
     } else if (g.tipo === "apagarArea") {
       const p = paraMundo(ev);
       setAreaApagar((a) => (a ? { ...a, fim: p } : a));
@@ -770,6 +886,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     const g = gestoRef.current;
     gestoRef.current = null;
     if (!g) return;
+    if (g.tipo === "regua") { setRegua(null); return; }
     if (g.tipo === "apagarArea") {
       const area = areaApagar ? retanguloDeArraste(areaApagar.inicio, areaApagar.fim, 4 / cam.zoom) : null;
       setAreaApagar(null);
@@ -913,7 +1030,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   const viewBox = `${cam.x} ${cam.y} ${Math.max(1, tamanho.w) / cam.zoom} ${Math.max(1, tamanho.h) / cam.zoom}`;
-  const cursor = ferramenta === "lapis" || ferramenta === "nevoa" || ferramenta === "revelar" ? "crosshair" : ferramenta === "mao" ? (gestoRef.current ? "grabbing" : "grab") : ferramenta === "borracha" ? "crosshair" : "default";
+  const cursor = ferramenta === "regua" || ferramenta === "lapis" || ferramenta === "nevoa" || ferramenta === "revelar" ? "crosshair" : ferramenta === "mao" ? (gestoRef.current ? "grabbing" : "grab") : ferramenta === "borracha" ? "crosshair" : "default";
   const online = status === "SUBSCRIBED";
 
   function desenharImagem(o) {
@@ -937,6 +1054,29 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             ? <image href={o.url} x={cx - r} y={cy - r} width={r * 2} height={r * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
             : <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={r * 0.8} fontFamily="'Cinzel', serif" fontWeight={700} fill={MUTED}>{iniciais(o.nome)}</text>}
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={sel ? PURPLE : borda} strokeWidth={Math.max(3, r * 0.09)} />
+          {entradaDaVez?.tokenId === o.id && (
+            <circle cx={cx} cy={cy} r={r + Math.max(4, r * 0.14)} fill="none" stroke={BRASS} strokeWidth={Math.max(3, r * 0.1)}
+              strokeDasharray={`${r * 0.35} ${r * 0.18}`} pointerEvents="none" data-vez="sim" style={{ animation: "mesaVez 1.4s ease-in-out infinite" }} />
+          )}
+          {podeVerVida(o, { gm, minhas }) && (() => {
+            const ficha = (personagens || []).find((p) => p.id === o.fichaId);
+            const pts = pontosDeVida(ficha?.hp);
+            if (!pts.length) return null;
+            const larg = r * 1.8;
+            const alt = Math.max(6, r * 0.16);
+            const gap = Math.min(2, larg / pts.length / 5);
+            const seg = (larg - gap * (pts.length - 1)) / pts.length;
+            const x0 = cx - larg / 2;
+            const y0 = cy - r - alt - Math.max(4, r * 0.1);
+            const cores = { inteiro: "#3F8F4E", quebrado: "#D9A441", perdido: "#2B211633" };
+            const vivos = pts.filter((x) => x !== "perdido").length;
+            return (
+              <g pointerEvents="none" aria-label={`Vida ${vivos} de ${pts.length}`} data-vida={`${vivos}/${pts.length}`}>
+                <rect x={x0 - 2} y={y0 - 2} width={larg + 4} height={alt + 4} rx={3} fill="#2B2116AA" />
+                {pts.map((t, i) => <rect key={i} x={x0 + i * (seg + gap)} y={y0} width={seg} height={alt} rx={1.5} fill={cores[t]} />)}
+              </g>
+            );
+          })()}
           {o.nome && (
             <g pointerEvents="none">
               <rect x={cx - Math.max(r, o.nome.length * r * 0.17)} y={cy + r + 2} width={Math.max(r, o.nome.length * r * 0.17) * 2} height={r * 0.5} rx={r * 0.12} fill="#2B2116CC" />
@@ -983,6 +1123,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     <div className="mesa-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 12, height: "calc(100vh - 210px)", minHeight: 560 }}>
       <style>{`
         @keyframes mesaEntrada { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        @keyframes mesaDado { 0% { transform: rotate(0deg) translateY(0); } 30% { transform: rotate(-14deg) translateY(-3px); } 70% { transform: rotate(12deg) translateY(1px); } 100% { transform: rotate(0deg) translateY(0); } }
+        @keyframes mesaDadoPouso { from { transform: scale(1.25); } to { transform: scale(1); } }
+        @keyframes mesaVez { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
         @media (max-width: 900px) { .mesa-layout { grid-template-columns: 1fr !important; height: auto !important; } .mesa-tabuleiro { height: 62vh; flex: none !important; } .mesa-chat { height: 70vh; } }
       `}</style>
 
@@ -1018,6 +1161,24 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               onPointerDown={(ev) => aoClicarTraco(ev, t)}
             />
           ))}
+          {regua && (() => {
+            const { inicio: a, fim: b } = regua;
+            const d = medirDistancia(a, b, config);
+            const texto = textoDistancia(d);
+            const fs = 14 / cam.zoom;
+            const mx = (a[0] + b[0]) / 2;
+            const my = (a[1] + b[1]) / 2 - 18 / cam.zoom;
+            const larg = texto.length * fs * 0.56 + 14 / cam.zoom;
+            return (
+              <g pointerEvents="none" aria-label={`Distância: ${texto}`}>
+                <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={PURPLE} strokeWidth={3 / cam.zoom} strokeDasharray={`${8 / cam.zoom} ${5 / cam.zoom}`} strokeLinecap="round" />
+                <circle cx={a[0]} cy={a[1]} r={5 / cam.zoom} fill={PURPLE} />
+                <circle cx={b[0]} cy={b[1]} r={5 / cam.zoom} fill={PANEL} stroke={PURPLE} strokeWidth={2 / cam.zoom} />
+                <rect x={mx - larg / 2} y={my - fs * 0.8} width={larg} height={fs * 1.6} rx={6 / cam.zoom} fill={PARCHMENT} opacity={0.9} />
+                <text x={mx} y={my} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontFamily="'IBM Plex Mono', monospace" fill={PANEL} data-regua="texto">{texto}</text>
+              </g>
+            );
+          })()}
           {areaApagar && (() => {
             const area = retanguloDeArraste(areaApagar.inicio, areaApagar.fim, 0);
             if (!area) return null;
@@ -1085,6 +1246,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         <div style={{ ...barraFlutuante, top: 10, left: 10, flexDirection: "column" }} onPointerDown={(e) => e.stopPropagation()}>
           <BotaoFerramenta titulo="Selecionar e mover (arraste o fundo pra mover a tela)" ativo={ferramenta === "mover"} onClick={() => setFerramenta("mover")}><MousePointer2 size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Mover a tela" ativo={ferramenta === "mao"} onClick={() => setFerramenta("mao")}><Hand size={18} /></BotaoFerramenta>
+          <BotaoFerramenta titulo="Régua: arraste para medir a distância" ativo={ferramenta === "regua"} onClick={() => setFerramenta("regua")}><Ruler size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Desenhar" ativo={ferramenta === "lapis"} onClick={() => setFerramenta("lapis")}><Pencil size={18} /></BotaoFerramenta>
           <BotaoFerramenta titulo="Borracha: clique num traço, ou arraste pra apagar uma área" ativo={ferramenta === "borracha"} onClick={() => setFerramenta("borracha")}><Eraser size={18} /></BotaoFerramenta>
           <div style={{ height: 1, background: LINE, margin: "3px 4px" }} />
@@ -1201,6 +1363,9 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
                 <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
               </>
             )}
+            {gm && selecionado.redondo && !iniciativa.entradas.some((e) => e.tokenId === selecionado.id) && (
+              <BotaoFerramenta titulo="Pôr na ordem de turno" onClick={() => colocarNaIniciativa(selecionado)}><Swords size={16} /></BotaoFerramenta>
+            )}
             <BotaoFerramenta titulo="Excluir (Delete)" perigo onClick={() => apagar(selecionado.id)}><Trash2 size={16} /></BotaoFerramenta>
           </div>
         )}
@@ -1212,6 +1377,11 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               <BotaoFerramenta titulo="Grade menor" onClick={() => mudarConfig({ tamanhoGrade: Math.max(30, config.tamanhoGrade - 10) })}><Minus size={14} /></BotaoFerramenta>
               <span style={{ fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", minWidth: 40, textAlign: "center" }} title="Tamanho do quadrado da grade">▦ {config.tamanhoGrade}</span>
               <BotaoFerramenta titulo="Grade maior" onClick={() => mudarConfig({ tamanhoGrade: Math.min(200, config.tamanhoGrade + 10) })}><Plus size={14} /></BotaoFerramenta>
+              <label title="Quantos metros vale um quadrado (régua)" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", padding: "0 4px" }}>
+                <input type="number" min={0.5} max={30} step={0.5} value={config.metrosPorQuadrado} aria-label="Metros por quadrado"
+                  onChange={(e) => { const v = Number(e.target.value); if (v > 0) mudarConfig({ metrosPorQuadrado: v }); }}
+                  style={{ width: 44, padding: "2px 4px", borderRadius: 5, border: `1px solid ${LINE}`, background: "#fff", fontSize: 11 }} />m
+              </label>
               <div style={{ width: 1, alignSelf: "stretch", background: LINE, margin: "0 2px" }} />
             </>
           )}
@@ -1357,6 +1527,12 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               Você: <strong style={{ color: PARCHMENT }}>{eu}</strong> (trocar)
             </button>
           )}
+          {gm && (
+            <button type="button" onClick={() => setMostrarTurnos((v) => !v)} title="Ordem de turno (iniciativa)" aria-label="Ordem de turno"
+              style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: PURPLE, background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Cinzel', serif" }}>
+              <Swords size={12} /> Turnos
+            </button>
+          )}
           {gm && mensagens.length > 0 && (
             <button type="button" onClick={() => { if (window.confirm("Apagar todo o chat pra todos?")) { setMensagens([]); tentar(conexao.limparMensagens()); } }}
               style={{ fontSize: 10.5, color: EMBER, background: "transparent", border: "none", cursor: "pointer", fontFamily: "'Cinzel', serif" }}>
@@ -1365,13 +1541,20 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
           )}
         </div>
 
+        {(iniciativa.entradas.length > 0 || (gm && mostrarTurnos)) && (
+          <PainelTurnos
+            ini={iniciativa} gm={gm} aoSalvar={salvar} aoFechar={() => setMostrarTurnos(false)}
+            tokensLivres={tokens.concat(imagensMestre).filter((o) => o.redondo && !iniciativa.entradas.some((e) => e.tokenId === o.id))}
+            aoAdicionarToken={colocarNaIniciativa}
+          />
+        )}
         <div ref={listaRef} style={{ flex: 1, overflowY: "auto", padding: "4px 0" }} aria-live="polite">
           {mensagensVisiveis.length === 0 ? (
             <div style={{ padding: 20, fontSize: 12, color: MUTED, fontStyle: "italic", textAlign: "center" }}>
               Nada por aqui ainda. Escolha quem fala no pé do chat e mande a primeira mensagem — ou role os dados.
             </div>
           ) : mensagensVisiveis.map((m) => (
-            <Mensagem key={m.id} m={m} rotuloPara={m.para ? (m.para === "mestre" && !m.autor?.jogador ? "o Mestre (só ele)" : rotuloDoDestino(m.para, jogadores)) : ""}
+            <Mensagem key={m.id} m={m} animar={deveAnimarRolagem(m, { abertaEm: abertaEmRef.current })} rotuloPara={m.para ? (m.para === "mestre" && !m.autor?.jogador ? "o Mestre (só ele)" : rotuloDoDestino(m.para, jogadores)) : ""}
               onResponder={m.para ? () => responderA(m) : undefined} />
           ))}
         </div>

@@ -73,8 +73,8 @@ describe("objetos do tabuleiro", () => {
     assert.deepEqual(tirarObjeto(l, "y").map((o) => o.id), ["x"]);
   });
   it("config padrão: grade ligada, tamanho padrão", () => {
-    assert.deepEqual(configDaMesa([]), { grade: true, tamanhoGrade: GRADE_PADRAO });
-    assert.deepEqual(configDaMesa([{ id: "config", grade: false, tamanhoGrade: 50 }]), { grade: false, tamanhoGrade: 50 });
+    assert.deepEqual(configDaMesa([]), { grade: true, tamanhoGrade: GRADE_PADRAO, metrosPorQuadrado: 1.5 });
+    assert.deepEqual(configDaMesa([{ id: "config", grade: false, tamanhoGrade: 50, metrosPorQuadrado: 2 }]), { grade: false, tamanhoGrade: 50, metrosPorQuadrado: 2 });
   });
   it("encaixar na grade", () => {
     assert.equal(encaixarNaGrade(104, 70), 70);
@@ -422,5 +422,50 @@ describe("planos: reordenar, duplicar, esconder, câmera (09/11)", async () => {
     assert.equal(m.cameraDaCena(objs, "a"), null);
     assert.deepEqual(m.camParaTela(m.cameraDaCena(objs, "b"), { w: 400, h: 200 }), { zoom: 2, x: 400, y: 350 });
     assert.ok(m.apagarCena(objs, "b").apagar.includes("camera:b"));
+  });
+});
+
+describe("régua, iniciativa, vida e animação (09/11)", async () => {
+  const m = await import("./mesa.js");
+  it("régua: quadrados e metros (1,5 m por quadrado)", () => {
+    assert.deepEqual(m.medirDistancia([35, 35], [35 + 70 * 4, 35], { tamanhoGrade: 70 }), { quadrados: 4, metros: 6 });
+    assert.deepEqual(m.medirDistancia([0, 0], [210, 280], { tamanhoGrade: 70, metrosPorQuadrado: 1 }), { quadrados: 5, metros: 5 });
+    assert.equal(m.textoDistancia({ quadrados: 1, metros: 1.5 }), "1 quadrado · 1,5 m");
+    assert.deepEqual(m.centroDoQuadrado([80, 10], 70), [105, 35]);
+  });
+  it("iniciativa: ordena por valor, empate na ordem de entrada, sem repetir token", () => {
+    let ini = m.iniciativaDaCena([], "principal");
+    ini = m.adicionarNaIniciativa(ini, { id: "a", nome: "Almah", valor: 3, tokenId: "t1" });
+    ini = m.adicionarNaIniciativa(ini, { id: "k", nome: "Kiryu", valor: 5, tokenId: "t2" });
+    ini = m.adicionarNaIniciativa(ini, { id: "v", nome: "Veyla", valor: 3 });
+    ini = m.adicionarNaIniciativa(ini, { id: "x", nome: "Almah de novo", valor: 9, tokenId: "t1" });
+    assert.deepEqual(ini.entradas.map((e) => e.id), ["k", "a", "v"]);
+    ini = m.valorNaIniciativa(ini, "v", 7);
+    assert.deepEqual(ini.entradas.map((e) => e.id), ["v", "k", "a"]);
+  });
+  it("iniciativa: passar a vez dá a volta e conta a rodada; tirar a da vez passa pra próxima", () => {
+    let ini = { ...m.iniciativaDaCena([], "c"), entradas: [{ id: "a" }, { id: "b" }, { id: "c" }] };
+    ini = m.passarVez(ini); assert.equal(ini.vez, "a"); assert.equal(ini.rodada, 1);
+    ini = m.passarVez(m.passarVez(ini)); assert.equal(ini.vez, "c");
+    ini = m.passarVez(ini); assert.equal(ini.vez, "a"); assert.equal(ini.rodada, 2);
+    ini = m.passarVez(ini, -1); assert.equal(ini.vez, "c"); assert.equal(ini.rodada, 1);
+    ini = m.tirarDaIniciativa(ini, "c"); assert.equal(ini.vez, "a");
+    ini = m.tirarDaIniciativa(m.tirarDaIniciativa(ini, "a"), "b"); assert.equal(ini.vez, null);
+    assert.equal(m.idDaIniciativa("c"), "iniciativa:c");
+  });
+  it("vida: inteiros, quebrados (superficial) e perdidos (agravante)", () => {
+    assert.deepEqual(m.pontosDeVida({ current: 3, max: 5, superficiais: 1 }), ["inteiro", "inteiro", "quebrado", "perdido", "perdido"]);
+    assert.deepEqual(m.pontosDeVida({ max: 2 }), ["inteiro", "inteiro"]);
+    assert.deepEqual(m.pontosDeVida(null), []);
+    assert.equal(m.podeVerVida({ fichaId: "k" }, { gm: false, minhas: ["k"] }), true);
+    assert.equal(m.podeVerVida({ fichaId: "k" }, { gm: false, minhas: [] }), false);
+    assert.equal(m.podeVerVida({ npcId: "n" }, { gm: true }), false);
+  });
+  it("animação só em rolagem nova", () => {
+    const agora = Date.parse("2026-11-09T12:00:05Z");
+    const msg = { rolagem: {}, criado_em: "2026-11-09T12:00:04Z" };
+    assert.equal(m.deveAnimarRolagem(msg, { abertaEm: agora - 60000, agora }), true);
+    assert.equal(m.deveAnimarRolagem({ ...msg, criado_em: "2026-11-09T12:00:00Z" }, { abertaEm: agora, agora }), false);
+    assert.equal(m.deveAnimarRolagem({ criado_em: msg.criado_em }, { abertaEm: 0, agora }), false);
   });
 });

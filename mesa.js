@@ -401,9 +401,15 @@ export function tirarObjeto(lista, id) {
   return (lista || []).some((o) => o.id === id) ? lista.filter((o) => o.id !== id) : lista;
 }
 
+export const METROS_POR_QUADRADO_PADRAO = 1.5;
 export function configDaMesa(objetos) {
   const c = (objetos || []).find((o) => o.id === "config" || o.tipo === "config") || {};
-  return { grade: c.grade !== false, tamanhoGrade: Number(c.tamanhoGrade) > 10 ? Number(c.tamanhoGrade) : GRADE_PADRAO };
+  const metros = Number(c.metrosPorQuadrado);
+  return {
+    grade: c.grade !== false,
+    tamanhoGrade: Number(c.tamanhoGrade) > 10 ? Number(c.tamanhoGrade) : GRADE_PADRAO,
+    metrosPorQuadrado: metros > 0 ? metros : METROS_POR_QUADRADO_PADRAO,
+  };
 }
 
 // Encaixa uma posição na grade (canto do quadrado).
@@ -710,4 +716,101 @@ export function camParaTela(camera, tamanho) {
   const zoom = Math.min(3, Math.max(0.15, Number(camera.zoom) || 1));
   const [cx, cy] = camera.centro || [0, 0];
   return { zoom, x: cx - tamanho.w / 2 / zoom, y: cy - tamanho.h / 2 / zoom };
+}
+
+// ---- Régua (09/11) ---------------------------------------------------
+// Distância em linha reta, em quadrados (1 casa decimal) e metros
+// (1 quadrado = config.metrosPorQuadrado, padrão 1,5 m). Com grade, as
+// pontas encaixam no centro do quadrado.
+export function centroDoQuadrado([x, y], tamanho) {
+  if (!tamanho) return [x, y];
+  return [Math.floor(x / tamanho) * tamanho + tamanho / 2, Math.floor(y / tamanho) * tamanho + tamanho / 2];
+}
+export function medirDistancia(a, b, { tamanhoGrade, metrosPorQuadrado = METROS_POR_QUADRADO_PADRAO } = {}) {
+  const px = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const quadrados = Math.round((px / (tamanhoGrade || GRADE_PADRAO)) * 10) / 10;
+  const metros = Math.round(quadrados * metrosPorQuadrado * 10) / 10;
+  return { quadrados, metros };
+}
+export function textoDistancia({ quadrados, metros }) {
+  const n = (v) => String(v).replace(".", ",");
+  return `${n(quadrados)} ${quadrados === 1 ? "quadrado" : "quadrados"} · ${n(metros)} m`;
+}
+
+// ---- Ordem de turno / iniciativa (09/11) -----------------------------
+// Sem regra de rolagem (iniciativa ainda pendente no vault): o Mestre
+// digita o valor de cada um e a lista se ordena (maior primeiro; empate
+// fica na ordem em que entrou). Um objeto por plano:
+// { id: "iniciativa:<plano>", tipo: "iniciativa", entradas: [{ id, nome,
+//   img, valor, tokenId }], vez: id da entrada da vez, rodada }.
+export function idDaIniciativa(cena) {
+  return `iniciativa:${cena || CENA_PRINCIPAL}`;
+}
+export function iniciativaDaCena(objetos, cena) {
+  const o = (objetos || []).find((x) => x.id === idDaIniciativa(cena));
+  return o || { id: idDaIniciativa(cena), tipo: "iniciativa", ordem: -9996, entradas: [], vez: null, rodada: 1 };
+}
+export function ordenarIniciativa(entradas) {
+  return (entradas || []).map((e, i) => ({ e, i }))
+    .sort((a, b) => (Number(b.e.valor) || 0) - (Number(a.e.valor) || 0) || a.i - b.i)
+    .map(({ e }) => e);
+}
+export function adicionarNaIniciativa(ini, entrada) {
+  if (entrada.tokenId && ini.entradas.some((e) => e.tokenId === entrada.tokenId)) return ini;
+  const nova = { id: entrada.id, nome: entrada.nome || "?", img: entrada.img || null, valor: Number(entrada.valor) || 0, tokenId: entrada.tokenId || null };
+  const entradas = ordenarIniciativa([...ini.entradas, nova]);
+  return { ...ini, entradas, vez: ini.vez ?? null };
+}
+export function valorNaIniciativa(ini, id, valor) {
+  return { ...ini, entradas: ordenarIniciativa(ini.entradas.map((e) => (e.id === id ? { ...e, valor: Number(valor) || 0 } : e))) };
+}
+export function tirarDaIniciativa(ini, id) {
+  const lista = ini.entradas;
+  const i = lista.findIndex((e) => e.id === id);
+  if (i < 0) return ini;
+  const entradas = lista.filter((e) => e.id !== id);
+  let vez = ini.vez;
+  if (vez === id) vez = entradas.length ? entradas[i % entradas.length].id : null;
+  return { ...ini, entradas, vez };
+}
+// Avança (+1) ou volta (-1) a vez; ao passar do último, nova rodada.
+export function passarVez(ini, passo = 1) {
+  const lista = ini.entradas;
+  if (!lista.length) return { ...ini, vez: null };
+  const i = lista.findIndex((e) => e.id === ini.vez);
+  if (i < 0) return { ...ini, vez: lista[passo > 0 ? 0 : lista.length - 1].id, rodada: ini.rodada || 1 };
+  let j = i + passo;
+  let rodada = ini.rodada || 1;
+  if (j >= lista.length) { j = 0; rodada += 1; }
+  if (j < 0) { j = lista.length - 1; rodada = Math.max(1, rodada - 1); }
+  return { ...ini, vez: lista[j].id, rodada };
+}
+export function limparIniciativa(ini) {
+  return { ...ini, entradas: [], vez: null, rodada: 1 };
+}
+
+// ---- Vida no token (09/11) -------------------------------------------
+// hp da ficha = { current, max, superficiais }. Devolve os pontos para a
+// barra: "inteiro", "quebrado" (superficial) ou "perdido" (agravante).
+export function pontosDeVida(hp) {
+  const max = Math.max(0, Math.round(Number(hp?.max) || 0));
+  if (!max) return [];
+  const atual = Math.max(0, Math.min(max, Math.round(Number(hp?.current ?? max))));
+  const quebrados = Math.max(0, Math.min(atual, Math.round(Number(hp?.superficiais) || 0)));
+  return Array.from({ length: max }, (_, i) => (i >= atual ? "perdido" : i >= atual - quebrados ? "quebrado" : "inteiro"));
+}
+// Quem vê a vida de um token: o Mestre vê todas; o jogador, só a das
+// fichas dele.
+export function podeVerVida(o, { gm, minhas = [] }) {
+  if (!o?.fichaId) return false;
+  return !!gm || (minhas || []).includes(o.fichaId);
+}
+
+// ---- Animação de dados (09/11) ---------------------------------------
+// Só anima rolagem nova (chegou depois que a Mesa abriu e é recente).
+export function deveAnimarRolagem(msg, { abertaEm, agora = Date.now(), janela = 8000 }) {
+  if (!msg?.rolagem) return false;
+  const t = Date.parse(msg.criado_em);
+  if (!Number.isFinite(t)) return !!msg._pendente;
+  return t >= abertaEm - 1000 && agora - t < janela;
 }

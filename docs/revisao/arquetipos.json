@@ -44,12 +44,12 @@
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
-      "custo": "1 MP",
+      "custo": "2 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
+      "texto": "Rola o bloqueio com +2d10.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": "Pedro 06/11: sem sucesso garantido"
+      "nota": "Pedro 09/11: só Bloqueio, +2d10"
      },
      {
       "nome": "Postura Ofensiva",
@@ -127,19 +127,19 @@
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
-      "custo": "1 MP",
+      "custo": "2 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
+      "texto": "Rola o bloqueio com +2d10.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": "Pedro 06/11: sem sucesso garantido"
+      "nota": "Pedro 09/11: só Bloqueio, +2d10"
      },
      {
       "nome": "Mãos Fortes",
       "tipo": "Passiva",
       "custo": "—",
       "descritores": "—",
-      "texto": "Armas Pesadas podem ser usadas com uma mão.",
+      "texto": "Armas Pesadas podem ser usadas com uma mão. Você pode optar por tirar o efeito de Pesado de uma arma pesada e fazê-la atacar normalmente.",
       "origem": "Única",
       "geral": false,
       "nota": "Pedro 07/11: substitui Golpe Devastador"
@@ -187,12 +187,13 @@
      "Percepção",
      "Atletismo"
     ],
-    "passiva": "Ataques desarmados ou com arma Leve podem rolar com −1 grau nos dois atributos de ataque (atributo e proficiência, mínimo 1 em cada), mas fazem dois ataques.",
+    "passiva": "Armas Leves podem ser usadas ignorando o descritor Leve (o ataque rola normal, com 6+ e sem o teto de ferimento). Também pode adicionar o descritor Leve a qualquer arma que não seja Pesada.",
     "descritores": [
      "Preciso",
      "Veloz",
      "Sortudo",
-     "Perfurante"
+     "Perfurante",
+     "Leve"
     ],
     "fraqueza": "Golpe isolado causa pouco dano; depende de brechas.",
     "notaPedro": "aprovado",
@@ -210,52 +211,52 @@
      {
       "nome": "Guarda Alta",
       "tipo": "Defesa",
-      "custo": "1 MP",
+      "custo": "2 MP",
       "descritores": "—",
-      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
+      "texto": "Rola o bloqueio com +2d10.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": "Pedro 06/11: sem sucesso garantido"
+      "nota": "Pedro 09/11: só Bloqueio, +2d10"
      },
      {
       "nome": "Golpe Rápido",
       "tipo": "Ataque",
-      "custo": "1 MP",
-      "descritores": "Veloz, Preciso 1",
-      "texto": "O ataque ganha Veloz e Preciso 1. Se já tiver Veloz, rola +1d10; se já tiver Preciso, ele sobe +1 (máx. 3).",
+      "custo": "2 MP",
+      "descritores": "Leve",
+      "texto": "Realiza dois ataques com uma arma com o descritor Leve. O segundo ataque é feito com 1 grau a menos no atributo e na proficiência (mínimo 1 em cada).",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11: alterado completamente"
      },
      {
       "nome": "Estocada",
       "tipo": "Ataque",
       "custo": "1 MP",
       "descritores": "Perfurante",
-      "texto": "Com arma de haste ou lâmina: o ataque ganha Perfurante. Se o ataque já tiver Perfurante, rola +1d10 no ataque.",
+      "texto": "O ataque ganha Perfurante. Se o ataque já tiver Perfurante, causa também Sangramento 1.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11"
      },
      {
       "nome": "Olho na Brecha",
-      "tipo": "Suporte",
+      "tipo": "Ataque",
       "custo": "1 MP",
       "descritores": "Sortudo",
-      "texto": "Se o alvo errou o último ataque, seu próximo ataque contra ele ganha Sortudo. Se o ataque já tiver Sortudo, rola +1d10 no ataque.",
+      "texto": "Até o fim do turno, todos os seus ataques ganham Sortudo, mas todo ferimento que você causar no turno é superficial. Se o ataque já tiver Sortudo, rola +1d10 no ataque.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11"
      },
      {
-      "nome": "Contragolpe",
-      "tipo": "Reação",
-      "custo": "1x por cena",
-      "descritores": "Preciso 1",
-      "texto": "Após defesa bem-sucedida, ataque imediato contra o atacante com Preciso 1. Se já tiver Preciso, ele sobe +1.",
+      "nome": "Borrão",
+      "tipo": "Defesa",
+      "custo": "2 MP",
+      "descritores": "—",
+      "texto": "Ao rolar a esquiva, rola com +2d10.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11: substitui Contragolpe"
      }
     ]
    }

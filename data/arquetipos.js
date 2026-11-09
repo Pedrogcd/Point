@@ -121,6 +121,8 @@ export const HABILIDADES_ARQUETIPO_RENOMEADAS = {
   "troca-fluida": "postura-de-fogo",
   // 07/11 (Guerreiro Poder): Golpe Devastador foi substituído por Mãos Fortes.
   "golpe-devastador": "maos-fortes",
+  // 09/11, segunda rodada (Guerreiro Preciso): Contragolpe foi substituído por Borrão.
+  "contragolpe": "borrao",
 };
 
 // Habilidades das disciplinas de arquétipo do personagem (lista de slots

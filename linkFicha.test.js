@@ -13,3 +13,15 @@ describe("link direto pra ficha (08/11)", () => {
     assert.equal(fichaDoHash(""), null);
   });
 });
+
+describe("visibilidade da ficha pelo link (08/11)", async () => {
+  const { fichaVisivelPara } = await import("./linkFicha.js");
+  it("Mestre vê tudo; Jogador só visível ou atribuída", () => {
+    const soGm = { id: "s", visivelJogador: false };
+    assert.equal(fichaVisivelPara(soGm, { gm: true }), true);
+    assert.equal(fichaVisivelPara(soGm, { gm: false }), false);
+    assert.equal(fichaVisivelPara(soGm, { gm: false, minhas: ["s"] }), true);
+    assert.equal(fichaVisivelPara({ id: "v", visivelJogador: true }, {}), true);
+    assert.equal(fichaVisivelPara(null, { gm: true }), false);
+  });
+});

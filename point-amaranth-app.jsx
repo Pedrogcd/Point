@@ -70,7 +70,8 @@ import { storage, checkSeedOpportunity, commitSeedFromLocal } from "./storage.js
 import { supabase } from "./supabaseClient.js";
 import MesaView from "./MesaView.jsx";
 import JogadoresView from "./JogadoresView.jsx";
-import { linkDaFicha, fichaDoHash } from "./linkFicha.js";
+import { linkDaFicha, fichaDoHash, fichaVisivelPara } from "./linkFicha.js";
+import { criarConexaoMesa, fichasDoJogador } from "./mesa.js";
 import {
   carregarPersonagensRemotos, enviarPatchPersonagem, apagarPersonagemRemoto, assinarMudancas,
   diffPersonagens, aplicarLinhaRemota, removerLinhaRemota, aplicarRecarga,
@@ -13674,6 +13675,27 @@ export default function App() {
     try { localStorage.setItem(CHAVE_MODO, v); } catch (e) {}
   };
   const gm = modoVisao === "gm";
+  // 08/11: na visão de Jogador, uma ficha só abre se estiver visível pra
+  // jogadores ou se o Mestre deu ela a este jogador na Mesa (nome salvo no
+  // navegador, ver MesaView/mesa.js). As fichas dadas são lidas da mesa
+  // quando o jogador tenta abrir uma ficha "só GM".
+  const [fichasDoJogadorMesa, setFichasDoJogadorMesa] = useState({ ids: [], carregado: false, chave: "" });
+  const fichaAbertaId = tab === "characters" && subView === "detail" ? selectedId : null;
+  const fichaAberta = fichaAbertaId ? characters.find((c) => c.id === fichaAbertaId) : null;
+  const precisaConferir = !gm && !!fichaAberta && !fichaAberta.visivelJogador;
+  useEffect(() => {
+    if (!precisaConferir) return undefined;
+    let vivo = true;
+    const chave = fichaAbertaId;
+    setFichasDoJogadorMesa((f) => (f.chave === chave ? f : { ids: f.ids, carregado: false, chave }));
+    let nome = "";
+    try { nome = localStorage.getItem("point-mesa-jogador") || ""; } catch (e) { /* ignora */ }
+    criarConexaoMesa(supabase).carregar()
+      .then((st) => { if (vivo) setFichasDoJogadorMesa({ ids: nome ? fichasDoJogador(st.objetos, nome) : [], carregado: true, chave }); })
+      .catch(() => { if (vivo) setFichasDoJogadorMesa({ ids: [], carregado: true, chave }); });
+    return () => { vivo = false; };
+  }, [precisaConferir, fichaAbertaId]);
+
   const [loaded, setLoaded] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
   const backupInputRef = useRef(null);
@@ -14529,7 +14551,21 @@ export default function App() {
           </div>
         )}
 
-        {tab === "characters" && subView === "detail" && selected && (
+        {tab === "characters" && subView === "detail" && selected && !fichaVisivelPara(selected, { gm, minhas: fichasDoJogadorMesa.ids }) && (
+          <div style={{ maxWidth: 520, margin: "40px auto", padding: 24, textAlign: "center", border: `1px solid ${LINE}`, borderRadius: 10, background: `${PANEL}CC` }}>
+            <Shield size={28} color={MUTED} />
+            <div style={{ fontFamily: "'Cinzel', serif", fontSize: 18, color: PURPLE, margin: "8px 0" }}>
+              {fichasDoJogadorMesa.carregado && fichasDoJogadorMesa.chave === selected.id ? "Ficha guardada pelo Mestre" : "Conferindo acesso…"}
+            </div>
+            {fichasDoJogadorMesa.carregado && fichasDoJogadorMesa.chave === selected.id && (
+              <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+                Esta ficha não está visível para jogadores. Se ela é sua, peça ao Mestre pra te dar a ficha na aba Mesa (e entre na Mesa com o seu nome).
+              </p>
+            )}
+            <Btn onClick={() => setSubView("list")}><ChevronLeft size={14} /> Voltar pra lista</Btn>
+          </div>
+        )}
+        {tab === "characters" && subView === "detail" && selected && fichaVisivelPara(selected, { gm, minhas: fichasDoJogadorMesa.ids }) && (
           <CharacterSheet
             character={selected}
             onBack={() => setSubView("list")}

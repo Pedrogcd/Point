@@ -16,13 +16,10 @@
 // `extra: "pesado"` é um terceiro descritor à parte (não entra nos dois
 // normais): dados de ataque precisam de 7+ (não soma com Blindado — mesmo
 // limiar, não sobe pra 8+) e a arma causa 2 feridas por ataque que acerta.
-// Ambas as feridas seguem o Vigor juntas (as duas agravantes ou as duas
-// superficiais) — regra provisória da própria planilha ("Falta definir
-// como os 2 ferimentos seguem o Vigor" / "Provisório: ... se os sucessos
-// líquidos forem iguais ou maiores que o Vigor do alvo, os 2 são
-// agravantes; senão, superficiais"); é exatamente o que determinarFerimento
-// já faz hoje (engine.js) pra qualquer ataque com feridas>1, então não há
-// nada a mudar lá — só usar feridas:2 nestes 5 tipos.
+// 09/11 (Pedro): as 2 feridas do Pesado nunca são 2 agravantes — passando
+// do Vigor, 1 agravante + 1 superficial; abaixo, 2 superficiais (ver
+// engine.js:ferimentosDoAtaque). Antes (provisório da planilha) as duas
+// seguiam o Vigor juntas.
 //
 // `leve: true` (09/11, Pedro): descritor Leve, oposto do Pesado — acerta
 // com 5+ (6+ contra Blindado) e causa no máximo 1 agravante por ataque; se

@@ -150,7 +150,7 @@
       "custo": "2 MP",
       "descritores": "Letal",
       "texto": "O ataque ganha Letal e +1d10. Se errar (não causar ferimento), fica Azarado na defesa. Se o ataque já tiver Letal, causa também Sangramento 1.",
-      "origem": "Única",
+      "origem": "Compartilhada com Bárbaro Fúria",
       "geral": false,
       "nota": "Pedro 07/11"
      },
@@ -165,14 +165,14 @@
       "nota": "Pedro 07/11"
      },
      {
-      "nome": "Empurrão",
-      "tipo": "Ataque",
-      "custo": "1 MP",
-      "descritores": "Esmagador 1",
-      "texto": "Ataque de escudo ou ombro com Esmagador 1; o alvo sai da zona se perder o teste de Força. Se já tiver Esmagador, ele sobe +1.",
-      "origem": "Compartilhada com Protetor Muralha",
+      "nome": "Poder",
+      "tipo": "Passiva",
+      "custo": "—",
+      "descritores": "—",
+      "texto": "Ganha +1 grau em Força (teto 3).",
+      "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11: substitui Empurrão"
      }
     ]
    },
@@ -303,22 +303,22 @@
      {
       "nome": "Resistir à Dor",
       "tipo": "Reação",
-      "custo": "1x por cena",
+      "custo": "1 SP (1x por cena)",
       "descritores": "—",
       "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 09/11: custa 1 SP, além de 1x por cena"
      },
      {
-      "nome": "Golpe Descontrolado",
+      "nome": "Tudo ou Nada",
       "tipo": "Ataque",
-      "custo": "1 MP",
-      "descritores": "Pesado",
-      "texto": "O ataque ganha Pesado. Se o ataque já for Pesado, ganha Esmagador 1 em vez disso.",
-      "origem": "Única",
+      "custo": "2 MP",
+      "descritores": "Letal",
+      "texto": "O ataque ganha Letal e +1d10. Se errar (não causar ferimento), fica Azarado na defesa. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "origem": "Compartilhada com Guerreiro Poder",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11: substitui Golpe Descontrolado"
      },
      {
       "nome": "Brutalidade",
@@ -386,12 +386,12 @@
      {
       "nome": "Resistir à Dor",
       "tipo": "Reação",
-      "custo": "1x por cena",
+      "custo": "1 SP (1x por cena)",
       "descritores": "—",
       "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 09/11: custa 1 SP, além de 1x por cena"
      },
      {
       "nome": "Cheiro de Sangue",
@@ -446,7 +446,7 @@
      "Atletismo",
      "Sobrevivência"
     ],
-    "passiva": "Uma vez por cena, teste de Vigor + Fortitude; com 1 sucesso, o primeiro ferimento agravante vira superficial.",
+    "passiva": "Uma vez por dia, pode começar um combate já com 1 ponto de vida temporário.",
     "descritores": [
      "Resistente",
      "Firme",
@@ -469,12 +469,12 @@
      {
       "nome": "Resistir à Dor",
       "tipo": "Reação",
-      "custo": "1x por cena",
+      "custo": "1 SP (1x por cena)",
       "descritores": "—",
       "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
       "origem": "Geral do arquétipo",
       "geral": true,
-      "nota": ""
+      "nota": "Pedro 09/11: custa 1 SP, além de 1x por cena"
      },
      {
       "nome": "Pele de Pedra",
@@ -1616,7 +1616,7 @@
       "custo": "1 MP",
       "descritores": "Esmagador 1",
       "texto": "Ataque de escudo com Esmagador 1. Se já tiver Esmagador, ele sobe +1.",
-      "origem": "Compartilhada com Guerreiro Poder",
+      "origem": "Única",
       "geral": false,
       "nota": ""
      },

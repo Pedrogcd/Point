@@ -1084,3 +1084,12 @@ describe("Resistente só até o 1º agravante da cena (05/11)", () => {
     assert.ok(ef.includes("letal"));
   });
 });
+
+describe("Guerreiro Poder — passiva Poder (09/11)", () => {
+  it("+1 grau em Força quando desbloqueada, teto 3", () => {
+    const base = { id: "x", name: "X", atributosGerais: { forca: 1 }, proficiencias: {}, disciplinas: [{ disciplinaId: "arquetipo-guerreiro-poder", habilidadesAtivas: ["poder"] }] };
+    assert.equal(comGrausEfetivos(base).character.atributosGerais.forca, 2);
+    assert.equal(comGrausEfetivos({ ...base, disciplinas: [{ disciplinaId: "arquetipo-guerreiro-poder", habilidadesAtivas: [] }] }).character.atributosGerais.forca, 1);
+    assert.equal(comGrausEfetivos({ ...base, atributosGerais: { forca: 3 } }).character.atributosGerais.forca, 3);
+  });
+});

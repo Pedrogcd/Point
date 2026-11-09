@@ -4,7 +4,7 @@
 import catalogo from "./catalogo-racas.json" with { type: "json" };
 import { PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { DISCIPLINAS, getDisciplinaPorId, descritoresDeEncantamentosAtivos, descritoresDeInvocacoesAtivas, BONUS_GRAU_POR_OFICIO, escolhaCombateDoSlot, getProficienciaDeOficioPorId, periciasDeOficio, periciaDeOficioCobreArmadura } from "./data/magias.js";
-import { BONUS_GRAU_POR_ARQUETIPO } from "./data/arquetipos.js";
+import { BONUS_GRAU_POR_ARQUETIPO, BONUS_GRAU_POR_HABILIDADE_ARQUETIPO } from "./data/arquetipos.js";
 import { descritoresDeEquipamentoDefensivo, penalidadeDefesaSemPericiaDoPersonagem, bonusDefesaDeEquipamento } from "./data/armaduras.js";
 
 export const CATALOGO_RACAS = catalogo;
@@ -718,6 +718,15 @@ export function bonusGrauDoPersonagem(character) {
   for (const slot of disciplinasDoPersonagem(character)) {
     for (const b of BONUS_GRAU_POR_ARQUETIPO[slot.disciplinaId] || []) {
       resultado.proficiencias[b.chave] = (resultado.proficiencias[b.chave] || 0) + 1;
+    }
+    // 09/11: passiva desbloqueada que dá grau (Guerreiro Poder: "Poder",
+    // +1 Força, teto 3).
+    const porHabilidade = BONUS_GRAU_POR_HABILIDADE_ARQUETIPO[slot.disciplinaId] || {};
+    for (const hid of slot.habilidadesAtivas || []) {
+      for (const b of porHabilidade[hid] || []) {
+        const alvo = b.tipo === "atributo" ? resultado.atributos : resultado.proficiencias;
+        alvo[b.chave] = (alvo[b.chave] || 0) + 1;
+      }
     }
   }
   // 24/10 (docs/ATUALIZACAO_24-10.md seção 0.4): toda disciplina (ofícios e

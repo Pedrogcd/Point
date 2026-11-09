@@ -402,7 +402,7 @@ export function tirarObjeto(lista, id) {
 }
 
 export function configDaMesa(objetos) {
-  const c = (objetos || []).find((o) => o.id === "config") || {};
+  const c = (objetos || []).find((o) => o.id === "config" || o.tipo === "config") || {};
   return { grade: c.grade !== false, tamanhoGrade: Number(c.tamanhoGrade) > 10 ? Number(c.tamanhoGrade) : GRADE_PADRAO };
 }
 
@@ -583,4 +583,86 @@ function conexaoLocal() {
       return () => { canal.removeEventListener("message", ouvir); canal.close(); };
     },
   };
+}
+
+// ---- Planos (09/11): abas da Mesa ----------------------------------
+// Cada plano é um tabuleiro próprio (mapa, tokens, desenhos, névoa e grade).
+// O plano "principal" sempre existe; objetos antigos sem `cena` são dele.
+// Plano: { id: "cena:<chave>", tipo: "cena", nome, ordem }.
+// Onde estão os jogadores: { id: "estado", tipo: "estado", cenaJogadores }
+// (plano de todos) e, por jogador, `cena` no objeto "jogador" (exceção).
+export const CENA_PRINCIPAL = "principal";
+export const TIPOS_DO_TABULEIRO = ["imagem", "traco", "nevoa", "revelado", "config"];
+export function cenaDoObjeto(o) {
+  return o?.cena || CENA_PRINCIPAL;
+}
+export function idDaCena(chave) {
+  return `cena:${chave}`;
+}
+export function cenasDaMesa(objetos) {
+  const salvas = (objetos || []).filter((o) => o.tipo === "cena" && typeof o.id === "string" && o.id.startsWith("cena:"));
+  const chave = (o) => o.id.slice(5);
+  const principal = salvas.find((o) => chave(o) === CENA_PRINCIPAL);
+  const outras = salvas.filter((o) => chave(o) !== CENA_PRINCIPAL)
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+  return [
+    { id: CENA_PRINCIPAL, nome: principal?.nome || "Principal", principal: true },
+    ...outras.map((o) => ({ id: chave(o), nome: o.nome || "Plano", ordem: o.ordem ?? 0 })),
+  ];
+}
+// Só os objetos do tabuleiro deste plano (o resto — jogadores, planos,
+// estado — passa direto).
+export function objetosDaCena(objetos, cena) {
+  return (objetos || []).filter((o) => !TIPOS_DO_TABULEIRO.includes(o.tipo) || cenaDoObjeto(o) === cena);
+}
+export function idDaConfig(cena) {
+  return !cena || cena === CENA_PRINCIPAL ? "config" : `config:${cena}`;
+}
+// Objeto novo do tabuleiro ganha o plano em que foi criado.
+export function comCena(obj, cena) {
+  if (!obj || !TIPOS_DO_TABULEIRO.includes(obj.tipo) || obj.cena) return obj;
+  return cena && cena !== CENA_PRINCIPAL ? { ...obj, cena } : obj;
+}
+export function estadoDaMesa(objetos) {
+  return (objetos || []).find((o) => o.id === "estado") || { id: "estado", tipo: "estado", ordem: -9998 };
+}
+// Plano em que um jogador está: o dele (se o Mestre separou), senão o de
+// todos, senão o principal. Plano apagado cai no principal.
+export function cenaDoJogador(objetos, nome) {
+  const existe = new Set(cenasDaMesa(objetos).map((c) => c.id));
+  const id = idDoJogador(nome);
+  const proprio = (objetos || []).find((o) => o.id === id)?.cena;
+  if (proprio && existe.has(proprio)) return proprio;
+  const geral = estadoDaMesa(objetos).cenaJogadores;
+  return geral && existe.has(geral) ? geral : CENA_PRINCIPAL;
+}
+export function jogadoresNaCena(objetos, cena) {
+  return jogadoresDaMesa(objetos).filter((j) => cenaDoJogador(objetos, j.nome) === cena);
+}
+// Mover um jogador: se for pro plano de todos, tira a exceção.
+export function moverJogadorDeCena(objetos, jogador, cena) {
+  const geral = cenaDoJogador([...(objetos || []).filter((o) => o.tipo !== "jogador")], "");
+  const { cena: _velha, ...resto } = jogador;
+  return cena === geral ? resto : { ...resto, cena };
+}
+// Levar todos: muda o plano de todos e tira as exceções. Devolve o que
+// salvar.
+export function levarTodosParaCena(objetos, cena) {
+  const estado = { ...estadoDaMesa(objetos), cenaJogadores: cena };
+  const jogadores = jogadoresDaMesa(objetos).filter((j) => j.cena).map(({ cena: _c, ...resto }) => resto);
+  return [estado, ...jogadores];
+}
+// Apagar um plano: ids de tudo que é dele (objetos + o próprio plano) e
+// os jogadores/estado que precisam voltar pro principal.
+export function apagarCena(objetos, cena) {
+  if (!cena || cena === CENA_PRINCIPAL) return { apagar: [], salvar: [] };
+  const apagar = [
+    ...(objetos || []).filter((o) => TIPOS_DO_TABULEIRO.includes(o.tipo) && cenaDoObjeto(o) === cena).map((o) => o.id),
+    idDaCena(cena),
+  ];
+  const salvar = [];
+  const estado = estadoDaMesa(objetos);
+  if (estado.cenaJogadores === cena) salvar.push({ ...estado, cenaJogadores: CENA_PRINCIPAL });
+  jogadoresDaMesa(objetos).filter((j) => j.cena === cena).forEach(({ cena: _c, ...resto }) => salvar.push(resto));
+  return { apagar, salvar };
 }

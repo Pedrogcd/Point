@@ -12,7 +12,7 @@ import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
   Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
   CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
-  UserPlus, UserRound, ExternalLink, Lock, Reply, ScrollText,
+  UserPlus, UserRound, ExternalLink, Lock, Reply, ScrollText, Flag, PencilLine,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -23,6 +23,8 @@ import {
   CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada, tracoTocaRetangulo,
   idDoJogador, jogadoresDaMesa, fichasDoJogador, tokenDePersonagem, podeMoverImagem,
   mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino, dadosDaFicha, escolhaDaFicha, guardarEscolhaDaFicha,
+  CENA_PRINCIPAL, cenasDaMesa, objetosDaCena, idDaCena, idDaConfig, comCena, estadoDaMesa,
+  cenaDoJogador, jogadoresNaCena, moverJogadorDeCena, levarTodosParaCena, apagarCena,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -48,6 +50,7 @@ const PURPLE = "#4B3B6B";
 const MESA_FUNDO = "#E4D7B5";
 const CHAVE_AUTOR = "point-mesa-autor";
 const CHAVE_ROLAGEM_FICHA = "point-mesa-rolagem-ficha";
+const CHAVE_CENA = "point-mesa-cena";
 const CHAVE_JOGADOR = "point-mesa-jogador";
 
 function iniciais(nome) {
@@ -223,6 +226,76 @@ function PopupToken({ token, personagens, npcs, gm, minhas, resolverImagem, onAb
   );
 }
 
+// Planos (09/11): abas acima do tabuleiro. O Mestre troca de plano, cria,
+// renomeia, apaga e diz onde cada jogador está; o jogador só vê o nome do
+// plano em que está (quando há mais de um).
+function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores, aoVer, aoNova, aoRenomear, aoExcluir, aoMoverJogador, aoLevarTodos }) {
+  const [aberto, setAberto] = useState(false);
+  const atual = cenas.find((c) => c.id === cenaAtual) || cenas[0];
+  if (!gm) {
+    if (cenas.length < 2) return null;
+    return (
+      <div aria-label="Plano atual" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: MUTED, padding: "0 4px" }}>
+        <Layers size={13} /> Plano: <strong style={{ color: PARCHMENT }}>{atual?.nome}</strong>
+      </div>
+    );
+  }
+  const aqui = jogadoresNaCena(objetos, cenaAtual);
+  const aba = (ativa) => ({
+    display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap",
+    border: `1px solid ${ativa ? PURPLE : LINE}`, background: ativa ? PURPLE : PANEL, color: ativa ? PANEL : PARCHMENT,
+    fontFamily: "'Spectral', serif", fontSize: 12.5, cursor: "pointer",
+  });
+  const mini = { border: `1px solid ${LINE}`, background: PANEL, color: PARCHMENT, borderRadius: 8, padding: "5px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12 };
+  return (
+    <div style={{ position: "relative" }}>
+      <div role="tablist" aria-label="Planos da mesa" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+        {cenas.map((c) => {
+          const n = jogadoresNaCena(objetos, c.id).length;
+          return (
+            <button key={c.id} type="button" role="tab" aria-selected={c.id === cenaAtual} onClick={() => aoVer(c.id)} onDoubleClick={() => aoRenomear(c)}
+              title={`${c.nome}${c.id === cenaJogadores ? " — plano dos jogadores" : ""} (duplo clique renomeia)`} style={aba(c.id === cenaAtual)}>
+              {c.id === cenaJogadores && <Flag size={12} aria-label="plano dos jogadores" />}
+              {c.nome}
+              {n > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, opacity: 0.85 }}><Users size={11} />{n}</span>}
+            </button>
+          );
+        })}
+        <button type="button" onClick={aoNova} title="Novo plano" aria-label="Novo plano" style={mini}><Plus size={14} /></button>
+        <span style={{ flex: 1 }} />
+        <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto} title="Onde estão os jogadores" style={mini}>
+          <Users size={14} /> Neste plano: {aqui.length}
+        </button>
+        <button type="button" onClick={() => aoRenomear(atual)} title="Renomear este plano" aria-label="Renomear este plano" style={mini}><PencilLine size={14} /></button>
+        {!atual?.principal && (
+          <button type="button" onClick={() => aoExcluir(atual)} title="Apagar este plano" aria-label="Apagar este plano" style={{ ...mini, color: EMBER }}><Trash2 size={14} /></button>
+        )}
+      </div>
+      {aberto && (
+        <div role="dialog" aria-label="Jogadores por plano" style={{ position: "absolute", right: 0, top: "100%", marginTop: 4, zIndex: 20, width: 300, maxWidth: "calc(100vw - 32px)", background: PANEL, border: `1px solid ${LINE}`, borderRadius: 10, boxShadow: "0 8px 24px #2B211633", padding: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <strong style={{ fontFamily: "'Cinzel', serif", fontSize: 13 }}>Jogadores por plano</strong>
+            <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" style={{ border: "none", background: "transparent", cursor: "pointer", color: MUTED }}><XIcon size={14} /></button>
+          </div>
+          <button type="button" onClick={() => aoLevarTodos(cenaAtual)} style={{ ...mini, width: "100%", justifyContent: "center", background: PURPLE, color: PANEL, border: "none", marginBottom: 8 }}>
+            <Flag size={13} /> Levar todos para “{atual?.nome}”
+          </button>
+          {jogadores.length === 0 && <p style={{ fontSize: 12, color: MUTED, margin: 0 }}>Nenhum jogador entrou na mesa ainda.</p>}
+          {jogadores.map((j) => (
+            <label key={j.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12.5, padding: "3px 0" }}>
+              <span>{j.nome}</span>
+              <select aria-label={`Plano de ${j.nome}`} value={cenaDoJogador(objetos, j.nome)} onChange={(e) => aoMoverJogador(j, e.target.value)}
+                style={{ border: `1px solid ${LINE}`, borderRadius: 6, background: "#FFF8E8", fontSize: 12, padding: "2px 4px", maxWidth: 160 }}>
+                {cenas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MesaView({ gm, personagens, npcs, resolverImagem, supabase, onAbrirFicha }) {
   const conexao = useMemo(() => criarConexaoMesa(supabase), [supabase]);
   const [mensagens, setMensagens] = useState([]);
@@ -277,6 +350,43 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     try { localStorage.setItem(CHAVE_JOGADOR, limpo); } catch (e) { /* ignora */ }
     if (!objetos.some((o) => o.id === id)) salvar({ id, tipo: "jogador", ordem: -5000, nome: limpo, fichas: [] });
   }
+
+  // ---- planos (09/11): abas da Mesa. O Mestre olha qualquer plano; cada
+  // jogador vê só o plano em que o Mestre o colocou.
+  const cenas = cenasDaMesa(objetos);
+  const [cenaVista, setCenaVista] = useState(() => { try { return localStorage.getItem(CHAVE_CENA) || CENA_PRINCIPAL; } catch (e) { return CENA_PRINCIPAL; } });
+  const cenaAtual = gm
+    ? (cenas.some((c) => c.id === cenaVista) ? cenaVista : CENA_PRINCIPAL)
+    : cenaDoJogador(objetos, euValido ? eu : "");
+  const objetosCena = useMemo(() => objetosDaCena(objetos, cenaAtual), [objetos, cenaAtual]);
+  function verCena(id) {
+    setCenaVista(id);
+    try { localStorage.setItem(CHAVE_CENA, id); } catch (e) { /* ignora */ }
+  }
+  function novaCena() {
+    const nome = (window.prompt("Nome do novo plano:", `Plano ${cenas.length + 1}`) || "").trim().slice(0, 40);
+    if (!nome) return;
+    const chave = novoId("c");
+    salvar({ id: idDaCena(chave), tipo: "cena", nome, ordem: Math.max(0, ...cenas.map((c) => c.ordem ?? 0)) + 1 });
+    verCena(chave);
+  }
+  function renomearCena(c) {
+    const nome = (window.prompt("Novo nome do plano:", c.nome) || "").trim().slice(0, 40);
+    if (!nome || nome === c.nome) return;
+    const salvo = objetos.find((o) => o.id === idDaCena(c.id));
+    salvar({ ...(salvo || { id: idDaCena(c.id), tipo: "cena", ordem: c.principal ? -1 : c.ordem }), nome });
+  }
+  function excluirCena(c) {
+    if (c.principal) return;
+    if (!window.confirm(`Apagar o plano "${c.nome}" com tudo o que está nele (mapa, tokens, desenhos, névoa)? Quem estiver lá volta pro principal.`)) return;
+    const r = apagarCena(objetos, c.id);
+    r.salvar.forEach(salvar);
+    r.apagar.forEach(apagar);
+    verCena(CENA_PRINCIPAL);
+  }
+  function moverJogador(j, cena) { salvar(moverJogadorDeCena(objetos, j, cena)); }
+  function levarTodos(cena) { levarTodosParaCena(objetos, cena).forEach(salvar); }
+  const cenaJogadores = cenaDoJogador(objetos.filter((o) => o.tipo !== "jogador"), "");
 
   // ---- identidades ("falar como")
   const identidades = useMemo(
@@ -419,7 +529,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }, []);
 
   // ---- tabuleiro: ferramentas
-  const config = configDaMesa(objetos);
+  const config = configDaMesa(objetosCena);
   const [ferramenta, setFerramenta] = useState("mover");
   const [cor, setCor] = useState(CORES_DESENHO[1]);
   const [largura, setLargura] = useState(5);
@@ -437,16 +547,16 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   // 07/11: borracha por área — retângulo arrastado com a borracha.
   const [areaApagar, setAreaApagar] = useState(null); // { inicio, fim }
   const gestoRef = useRef(null);
-  const imagens = objetos.filter((o) => o.tipo === "imagem");
+  const imagens = objetosCena.filter((o) => o.tipo === "imagem");
   // Camadas (07/11): Mapa, Jogadores ("token") e Mestre ("gm", só o Mestre
   // vê). O Mestre mexe só nas imagens da camada ativa, como no Roll20 —
   // assim não arrasta o mapa sem querer ao mover um token.
   const [camadaAtiva, setCamadaAtiva] = useState("token");
-  const mapas = imagensDaCamada(objetos, "mapa", gm);
-  const tokens = imagensDaCamada(objetos, "token", gm);
-  const imagensMestre = imagensDaCamada(objetos, "gm", gm);
-  const tracos = objetos.filter((o) => o.tipo === "traco");
-  const nevoas = camadasDeNevoa(objetos);
+  const mapas = imagensDaCamada(objetosCena, "mapa", gm);
+  const tokens = imagensDaCamada(objetosCena, "token", gm);
+  const imagensMestre = imagensDaCamada(objetosCena, "gm", gm);
+  const tracos = objetosCena.filter((o) => o.tipo === "traco");
+  const nevoas = camadasDeNevoa(objetosCena);
   const selecionado = imagens.find((o) => o.id === selecionadoId) || null;
   const proximaOrdem = () => (objetos.reduce((m, o) => Math.max(m, o.ordem ?? 0), 0) + 1);
   const podeMexer = (o) => podeMoverImagem(o, { gm, camadaAtiva, eu, minhas });
@@ -477,9 +587,10 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     if (ligar) fichas.add(fichaId); else fichas.delete(fichaId);
     salvar({ ...jogador, fichas: [...fichas] });
   }
-  useEffect(() => { setSelecionadoId(null); }, [camadaAtiva]);
+  useEffect(() => { setSelecionadoId(null); }, [camadaAtiva, cenaAtual]);
 
-  function salvar(obj) {
+  function salvar(objCru) {
+    const obj = comCena(objCru, cenaAtual);
     setObjetos((l) => juntarObjeto(l, obj));
     tentar(conexao.salvarObjeto(obj));
   }
@@ -719,7 +830,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   }
 
   function mudarConfig(mudanca) {
-    salvar({ id: "config", tipo: "config", ordem: -9999, ...config, ...mudanca });
+    salvar({ id: idDaConfig(cenaAtual), tipo: "config", ordem: -9999, ...config, ...mudanca });
   }
 
   // Delete/Backspace apaga a imagem selecionada.
@@ -805,15 +916,21 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     <div className="mesa-layout" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 12, height: "calc(100vh - 210px)", minHeight: 560 }}>
       <style>{`
         @keyframes mesaEntrada { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-        @media (max-width: 900px) { .mesa-layout { grid-template-columns: 1fr !important; height: auto !important; } .mesa-tabuleiro { height: 62vh; } .mesa-chat { height: 70vh; } }
+        @media (max-width: 900px) { .mesa-layout { grid-template-columns: 1fr !important; height: auto !important; } .mesa-tabuleiro { height: 62vh; flex: none !important; } .mesa-chat { height: 70vh; } }
       `}</style>
 
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 0, minWidth: 0 }}>
+      <BarraDePlanos
+        gm={gm} cenas={cenas} cenaAtual={cenaAtual} cenaJogadores={cenaJogadores} objetos={objetos} jogadores={jogadores}
+        aoVer={verCena} aoNova={novaCena} aoRenomear={renomearCena} aoExcluir={excluirCena}
+        aoMoverJogador={moverJogador} aoLevarTodos={levarTodos}
+      />
       {/* Tabuleiro */}
       <div
         ref={areaRef} className="mesa-tabuleiro"
         onPointerDown={aoApertar} onPointerMove={aoMover} onPointerUp={aoSoltar} onPointerCancel={aoSoltar}
         onDoubleClick={() => { if (poligonoAtual) concluirPoligono(); }}
-        style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${LINE}`, background: "#CDBF9C", cursor, touchAction: "none", userSelect: "none" }}
+        style={{ position: "relative", flex: 1, minHeight: 0, borderRadius: 10, overflow: "hidden", border: `1px solid ${LINE}`, background: "#CDBF9C", cursor, touchAction: "none", userSelect: "none" }}
       >
         <svg width="100%" height="100%" viewBox={viewBox} style={{ display: "block" }}>
           <defs>
@@ -1154,6 +1271,7 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
         {erro && (
           <div role="alert" style={{ ...barraFlutuante, bottom: 54, left: 10, padding: "6px 10px", fontSize: 11.5, color: EMBER }}>{erro}</div>
         )}
+      </div>
       </div>
 
       {/* Chat */}

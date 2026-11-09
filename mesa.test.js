@@ -292,3 +292,13 @@ describe("jogador fala como ele mesmo (08/11)", async () => {
     assert.deepEqual(g.map((x) => x.rotulo), ["Você", "Minhas fichas"]);
   });
 });
+
+describe("rolar da ficha (08/11)", async () => {
+  const { dadosDaFicha } = await import("./mesa.js");
+  it("soma Atributo + Proficiência (+ extra), mínimo 1", () => {
+    const f = { atributosGerais: { destreza: 4 }, proficiencias: { combateCorpoACorpo: 2 } };
+    assert.deepEqual(dadosDaFicha(f, "destreza", "combateCorpoACorpo"), { atributo: 4, proficiencia: 2, total: 6 });
+    assert.equal(dadosDaFicha(f, "destreza", "combateCorpoACorpo", 2).total, 8);
+    assert.equal(dadosDaFicha({ atributosGerais: { forca: 0 }, proficiencias: { armas: 0 } }, "forca", "armas").total, 1);
+  });
+});

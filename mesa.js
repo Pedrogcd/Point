@@ -15,6 +15,8 @@
 // 1. Funções puras
 // ---------------------------------------------------------------------
 
+import { grauNumero } from "./engine.js";
+
 export const MESA_LARGURA = 3000;
 export const MESA_ALTURA = 2000;
 export const GRADE_PADRAO = 70;
@@ -274,6 +276,15 @@ export function podeMoverImagem(o, { gm, camadaAtiva, eu, minhas = [] }) {
   if (camadaDaImagem(o) !== "token") return false;
   if (eu && o.dono && slugJogador(o.dono) === slugJogador(eu)) return true;
   return !!o.fichaId && (minhas || []).includes(o.fichaId);
+}
+
+// Rolar da ficha (08/11): dados = grau do Atributo + grau da Proficiência
+// (+ extra), igual ao painel Teste da ficha. `efetivo` é a ficha com os
+// bônus já aplicados (racasCatalogo.js:comGrausEfetivos). Mínimo 1 dado.
+export function dadosDaFicha(efetivo, atributo, proficiencia, extra = 0) {
+  const a = grauNumero(efetivo?.atributosGerais?.[atributo]);
+  const p = grauNumero(efetivo?.proficiencias?.[proficiencia]);
+  return { atributo: a, proficiencia: p, total: Math.max(1, a + p + (Number(extra) || 0)) };
 }
 
 export function camadasDeNevoa(objetos) {

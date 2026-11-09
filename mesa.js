@@ -15,7 +15,7 @@
 // 1. Funções puras
 // ---------------------------------------------------------------------
 
-import { grauNumero } from "./engine.js";
+import { grauNumero, aplicarFerimentos } from "./engine.js";
 
 export const MESA_LARGURA = 3000;
 export const MESA_ALTURA = 2000;
@@ -857,4 +857,77 @@ export function textoDaIniciativa(resumo, rotulo) {
   if (!resumo.length) return "";
   const partes = resumo.map((r) => `${r.nome} ${r.valor}${r.veloz ? " (Veloz +1)" : ""} [${r.faces.join(" ")}]`);
   return `Iniciativa (${rotulo}): ${partes.join(" · ")}`;
+}
+
+// ---- Dano no token (09/11) -------------------------------------------
+// O Mestre aplica ferimento direto no token de ficha; grava no hp da ficha
+// com a regra de sempre (engine.js:aplicarFerimentos — com todos os pontos
+// quebrados, o superficial vira agravante). "tirarQuebrado" e
+// "recuperarPonto" são correções manuais (desfazem 1 superficial / 1
+// agravante), não uma regra de cura.
+export function ferimentoNoHp(hp, acao) {
+  const max = Math.max(0, Number(hp?.max) || 0);
+  const base = { ...hp, current: Math.max(0, Math.min(max, Number(hp?.current ?? max))), superficiais: Math.max(0, Number(hp?.superficiais) || 0) };
+  if (acao === "superficial" || acao === "agravante") return aplicarFerimentos(base, acao, 1);
+  if (acao === "tirarQuebrado") return { ...base, superficiais: Math.max(0, base.superficiais - 1) };
+  if (acao === "recuperarPonto") return { ...base, current: Math.min(max, base.current + 1) };
+  return base;
+}
+export function textoDoFerimento(nome, acao, antes, depois) {
+  const vida = `vida ${depois.current}/${depois.max}${depois.superficiais ? `, ${depois.superficiais} ${depois.superficiais === 1 ? "quebrado" : "quebrados"}` : ""}`;
+  if (acao === "superficial") {
+    const virou = depois.current < antes.current;
+    return virou
+      ? `${nome} sofreu 1 ferimento superficial — virou agravante (todos os pontos já estavam quebrados) (${vida}).`
+      : `${nome} sofreu 1 ferimento superficial (${vida}).`;
+  }
+  if (acao === "agravante") return `${nome} sofreu 1 ferimento agravante (${vida}).`;
+  if (acao === "tirarQuebrado") return `${nome}: 1 ponto quebrado desfeito (${vida}).`;
+  if (acao === "recuperarPonto") return `${nome}: 1 ponto de vida recuperado (${vida}).`;
+  return "";
+}
+
+// ---- Condições no token (09/11) --------------------------------------
+// Marcadores visuais que o Mestre liga/desliga; não mexem em regra.
+export const CONDICOES = [
+  { id: "envenenado", nome: "Envenenado", letra: "V", cor: "#4C8A3A" },
+  { id: "sangrando", nome: "Sangrando", letra: "S", cor: "#A83A2E" },
+  { id: "queimando", nome: "Queimando", letra: "Q", cor: "#D9682A" },
+  { id: "carregado", nome: "Carregado (Carga)", letra: "C", cor: "#3F6FB0" },
+  { id: "atordoado", nome: "Atordoado", letra: "A", cor: "#7A5BA8" },
+  { id: "caido", nome: "Caído", letra: "↓", cor: "#6B5D45" },
+  { id: "marcado", nome: "Marcado", letra: "M", cor: "#A9762C" },
+];
+export function condicoesDoToken(o) {
+  const ids = new Set(o?.condicoes || []);
+  return CONDICOES.filter((c) => ids.has(c.id));
+}
+export function alternarCondicao(o, id) {
+  const atuais = o?.condicoes || [];
+  const condicoes = atuais.includes(id) ? atuais.filter((x) => x !== id) : [...atuais, id];
+  return { ...o, condicoes };
+}
+
+// ---- Macros de rolagem por ficha (09/11) -----------------------------
+// Um objeto por ficha: { id: "macros:<fichaId>", tipo: "macros", fichaId,
+// macros: [{ id, nome, atributo, proficiencia, extra }] }. O Mestre edita
+// as de qualquer ficha; o jogador, as das fichas dele.
+export function idDosMacros(fichaId) {
+  return `macros:${fichaId}`;
+}
+export function macrosDaFicha(objetos, fichaId) {
+  const o = (objetos || []).find((x) => x.id === idDosMacros(fichaId));
+  return o || { id: idDosMacros(fichaId), tipo: "macros", ordem: -9995, fichaId, macros: [] };
+}
+export function adicionarMacro(obj, macro) {
+  const nome = String(macro.nome || "").trim().slice(0, 40);
+  if (!nome) return obj;
+  const novo = { id: macro.id, nome, atributo: macro.atributo, proficiencia: macro.proficiencia, extra: Math.max(0, Math.min(10, Number(macro.extra) || 0)) };
+  return { ...obj, macros: [...(obj.macros || []).filter((m) => m.nome.toLowerCase() !== nome.toLowerCase()), novo].slice(-12) };
+}
+export function tirarMacro(obj, id) {
+  return { ...obj, macros: (obj.macros || []).filter((m) => m.id !== id) };
+}
+export function podeEditarMacros(fichaId, { gm, minhas = [] }) {
+  return !!fichaId && (!!gm || (minhas || []).includes(fichaId));
 }

@@ -30,6 +30,8 @@ import {
   centroDoQuadrado, medirDistancia, textoDistancia, iniciativaDaCena, adicionarNaIniciativa, valorNaIniciativa,
   tirarDaIniciativa, passarVez, limparIniciativa, pontosDeVida, podeVerVida, deveAnimarRolagem,
   velozNaIniciativa, rolarIniciativa, textoDaIniciativa, INICIATIVA_PADRAO,
+  ferimentoNoHp, textoDoFerimento, CONDICOES, condicoesDoToken, alternarCondicao,
+  macrosDaFicha, adicionarMacro, tirarMacro, podeEditarMacros,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -439,7 +441,7 @@ function BarraDePlanos({ gm, cenas, cenaAtual, cenaJogadores, objetos, jogadores
   );
 }
 
-export default function MesaView({ gm, personagens, npcs, resolverImagem, supabase, onAbrirFicha }) {
+export default function MesaView({ gm, personagens, npcs, resolverImagem, supabase, onAbrirFicha, onAtualizarFicha }) {
   const conexao = useMemo(() => criarConexaoMesa(supabase), [supabase]);
   const [mensagens, setMensagens] = useState([]);
   const [objetos, setObjetos] = useState([]);
@@ -630,10 +632,31 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const setProfFicha = (v) => mudarEscolhaFicha({ proficiencia: v });
   const setExtraFicha = (v) => mudarEscolhaFicha({ extra: v });
   const contaFicha = fichaEfetiva ? dadosDaFicha(fichaEfetiva, atribFicha, profFicha, extraFicha) : null;
+  const rotuloDaConta = (a, p, extra) => `${ATRIBUTOS_GERAIS_LIST.find((x) => x.key === a)?.label} + ${PROFICIENCIAS_LIST.find((x) => x.key === p)?.label}${extra ? ` + ${extra} extra` : ""}`;
   function rolarDaFicha() {
     if (!contaFicha) return;
-    const rotulo = `${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === atribFicha)?.label} + ${PROFICIENCIAS_LIST.find((p) => p.key === profFicha)?.label}${extraFicha ? ` + ${extraFicha} extra` : ""}`;
+    const rotulo = rotuloDaConta(atribFicha, profFicha, extraFicha);
     publicar(mensagemDeRolagem(autor, rolarDados(contaFicha.total, alvo), { rotulo, ...opcoesMsg(paraAtual) }));
+  }
+  // Macros por ficha (09/11): combinações salvas (compartilhadas entre
+  // aparelhos) que rolam com um clique.
+  const macrosObj = fichaQueFala ? macrosDaFicha(objetos, fichaQueFala.id) : null;
+  const podeMacros = fichaQueFala ? podeEditarMacros(fichaQueFala.id, { gm, minhas }) : false;
+  function rolarMacro(mac) {
+    if (!fichaEfetiva) return;
+    const conta = dadosDaFicha(fichaEfetiva, mac.atributo, mac.proficiencia, mac.extra);
+    const rotulo = `${mac.nome} (${rotuloDaConta(mac.atributo, mac.proficiencia, mac.extra)})`;
+    publicar(mensagemDeRolagem(autor, rolarDados(conta.total, alvo), { rotulo, ...opcoesMsg(paraAtual) }));
+  }
+  function salvarMacro() {
+    if (!macrosObj || !podeMacros) return;
+    const nome = window.prompt("Nome da macro:", rotuloDaConta(atribFicha, profFicha, extraFicha));
+    if (!nome || !nome.trim()) return;
+    salvar(adicionarMacro(macrosObj, { id: novoId("mc"), nome, atributo: atribFicha, proficiencia: profFicha, extra: extraFicha }));
+  }
+  function apagarMacro(mac) {
+    if (!macrosObj || !podeMacros) return;
+    if (window.confirm(`Apagar a macro "${mac.nome}"?`)) salvar(tirarMacro(macrosObj, mac.id));
   }
   function rolar() {
     publicar(mensagemDeRolagem(autor, rolarDados(qtdDados, alvo), opcoesMsg(paraAtual)));
@@ -747,6 +770,16 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
   const iniciativa = iniciativaDaCena(objetos, cenaAtual);
   const entradaDaVez = iniciativa.entradas.find((e) => e.id === iniciativa.vez) || null;
   const [mostrarTurnos, setMostrarTurnos] = useState(false);
+  // 09/11: dano direto no token de ficha (grava na ficha) e condições.
+  function ferirToken(o, acao) {
+    const ficha = (personagens || []).find((p) => p.id === o.fichaId);
+    if (!ficha || !onAtualizarFicha || !(Number(ficha.hp?.max) > 0)) return;
+    const antes = { current: ficha.hp?.current ?? ficha.hp?.max, max: ficha.hp?.max, superficiais: ficha.hp?.superficiais || 0 };
+    const depois = ferimentoNoHp(ficha.hp, acao);
+    onAtualizarFicha(ficha.id, { hp: depois });
+    publicar(mensagemDeFala(AUTOR_MESTRE, textoDoFerimento(ficha.name, acao, antes, depois), opcoesMsg("")));
+  }
+  function alternarCondicaoDoToken(o, id) { salvar(alternarCondicao(o, id)); }
   function colocarNaIniciativa(o) {
     salvar(adicionarNaIniciativa(iniciativa, { id: novoId("e"), nome: o.nome || "Token", img: o.url || null, tokenId: o.id, fichaId: o.fichaId || null, valor: 0 }));
     setMostrarTurnos(true);
@@ -1094,6 +1127,19 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             <circle cx={cx} cy={cy} r={r + Math.max(4, r * 0.14)} fill="none" stroke={BRASS} strokeWidth={Math.max(3, r * 0.1)}
               strokeDasharray={`${r * 0.35} ${r * 0.18}`} pointerEvents="none" data-vez="sim" style={{ animation: "mesaVez 1.4s ease-in-out infinite" }} />
           )}
+          {condicoesDoToken(o).map((c, i) => {
+            const ang = (-50 + i * 28) * (Math.PI / 180);
+            const rc = Math.max(7, r * 0.2);
+            const px = cx + Math.cos(ang) * (r + rc * 0.2);
+            const py = cy + Math.sin(ang) * (r + rc * 0.2);
+            return (
+              <g key={c.id} pointerEvents="none" data-condicao={c.id}>
+                <title>{c.nome}</title>
+                <circle cx={px} cy={py} r={rc} fill={c.cor} stroke={PANEL} strokeWidth={Math.max(1.5, rc * 0.18)} />
+                <text x={px} y={py} textAnchor="middle" dominantBaseline="central" fontSize={rc * 1.1} fontFamily="'Cinzel', serif" fontWeight={700} fill="#fff">{c.letra}</text>
+              </g>
+            );
+          })}
           {podeVerVida(o, { gm, minhas }) && (() => {
             const ficha = (personagens || []).find((p) => p.id === o.fichaId);
             const pts = pontosDeVida(ficha?.hp);
@@ -1374,6 +1420,34 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
             })}
           </div>
         )}
+
+        {/* 09/11: vida e condições do token selecionado (Mestre) */}
+        {gm && selecionado && selecionado.redondo && ferramenta === "mover" && podeMexer(selecionado) && (() => {
+          const ficha = selecionado.fichaId ? (personagens || []).find((p) => p.id === selecionado.fichaId) : null;
+          const temVida = !!ficha && Number(ficha.hp?.max) > 0 && !!onAtualizarFicha;
+          const ativas = new Set(selecionado.condicoes || []);
+          const bt = { padding: "4px 8px", borderRadius: 7, border: `1px solid ${LINE}`, background: "#fff", cursor: "pointer", fontSize: 11.5, color: PARCHMENT, fontFamily: "'Spectral', serif", whiteSpace: "nowrap" };
+          return (
+            <div aria-label="Vida e condições do token" style={{ ...barraFlutuante, bottom: 112, left: "50%", transform: "translateX(-50%)", flexDirection: "column", alignItems: "stretch", gap: 6, padding: 8, maxWidth: "calc(100% - 24px)" }} onPointerDown={(e) => e.stopPropagation()}>
+              {temVida && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 10.5, color: MUTED, padding: "0 4px" }}>Vida {ficha.hp.current ?? ficha.hp.max}/{ficha.hp.max}{ficha.hp.superficiais ? ` · ${ficha.hp.superficiais} quebr.` : ""}:</span>
+                  <button type="button" onClick={() => ferirToken(selecionado, "superficial")} style={{ ...bt, borderColor: "#D9A441" }}>+ Superficial</button>
+                  <button type="button" onClick={() => ferirToken(selecionado, "agravante")} style={{ ...bt, borderColor: EMBER, color: EMBER }}>+ Agravante</button>
+                  <button type="button" onClick={() => ferirToken(selecionado, "tirarQuebrado")} title="Desfaz 1 ponto quebrado (correção)" style={bt}>− Quebrado</button>
+                  <button type="button" onClick={() => ferirToken(selecionado, "recuperarPonto")} title="Devolve 1 ponto de vida (correção)" style={bt}>+ Ponto</button>
+                </div>
+              )}
+              <div role="group" aria-label="Condições" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10.5, color: MUTED, padding: "0 4px" }}>Condições:</span>
+                {CONDICOES.map((c) => (
+                  <button key={c.id} type="button" aria-pressed={ativas.has(c.id)} onClick={() => alternarCondicaoDoToken(selecionado, c.id)}
+                    style={{ ...bt, padding: "3px 7px", fontSize: 11, background: ativas.has(c.id) ? c.cor : "#fff", color: ativas.has(c.id) ? "#fff" : PARCHMENT, borderColor: c.cor }}>{c.nome}</button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Imagem selecionada */}
         {selecionado && ferramenta === "mover" && podeMexer(selecionado) && (
@@ -1670,6 +1744,31 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
                 style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: PURPLE, color: PANEL, fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 12 }}>
                 Rolar {contaFicha.total}d10
               </button>
+              {podeMacros && (
+                <button type="button" onClick={salvarMacro} title="Salvar esta combinação como macro da ficha" aria-label="Salvar como macro"
+                  style={{ padding: "5px 7px", borderRadius: 8, border: `1px solid ${LINE}`, cursor: "pointer", background: PANEL, color: PURPLE, display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11 }}>
+                  <Plus size={12} /> Macro
+                </button>
+              )}
+            </div>
+          )}
+          {contaFicha && macrosObj?.macros?.length > 0 && (
+            <div aria-label="Macros da ficha" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {macrosObj.macros.map((mac) => {
+                const n = dadosDaFicha(fichaEfetiva, mac.atributo, mac.proficiencia, mac.extra).total;
+                return (
+                  <span key={mac.id} style={{ display: "inline-flex", alignItems: "center", borderRadius: 999, border: `1px solid ${PURPLE}55`, background: `${PURPLE}12`, overflow: "hidden" }}>
+                    <button type="button" onClick={() => rolarMacro(mac)} title={`${rotuloDaConta(mac.atributo, mac.proficiencia, mac.extra)} — ${n}d10`}
+                      style={{ border: "none", background: "transparent", cursor: "pointer", padding: "3px 8px", fontSize: 11.5, color: PURPLE, fontFamily: "'Spectral', serif" }}>
+                      <Dices size={11} style={{ verticalAlign: -1, marginRight: 3 }} />{mac.nome} <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: MUTED }}>{n}d10</span>
+                    </button>
+                    {podeMacros && (
+                      <button type="button" onClick={() => apagarMacro(mac)} aria-label={`Apagar macro ${mac.nome}`}
+                        style={{ border: "none", borderLeft: `1px solid ${PURPLE}33`, background: "transparent", cursor: "pointer", padding: "3px 5px", color: MUTED }}><XIcon size={10} /></button>
+                    )}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>

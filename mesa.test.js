@@ -504,3 +504,43 @@ describe("rolar iniciativa (09/11)", async () => {
     assert.equal(ini.entradas.find((x) => x.id === "g").valor, 4);
   });
 });
+
+describe("dano, condições e macros no token (09/11)", async () => {
+  const m = await import("./mesa.js");
+  it("superficial quebra; com todos quebrados vira agravante; agravante tira ponto", () => {
+    let hp = { current: 2, max: 3, superficiais: 1 };
+    let d = m.ferimentoNoHp(hp, "superficial");
+    assert.deepEqual([d.current, d.superficiais], [2, 2]);
+    assert.match(m.textoDoFerimento("Almah", "superficial", hp, d), /^Almah sofreu 1 ferimento superficial \(vida 2\/3, 2 quebrados\)/);
+    const d2 = m.ferimentoNoHp(d, "superficial");
+    assert.deepEqual([d2.current, d2.superficiais], [1, 1]);
+    assert.match(m.textoDoFerimento("Almah", "superficial", d, d2), /virou agravante/);
+    const d3 = m.ferimentoNoHp({ current: 3, max: 3 }, "agravante");
+    assert.deepEqual([d3.current, d3.superficiais], [2, 0]);
+  });
+  it("correções manuais: desfazer quebrado e recuperar ponto (sem passar do máximo)", () => {
+    assert.equal(m.ferimentoNoHp({ current: 2, max: 3, superficiais: 1 }, "tirarQuebrado").superficiais, 0);
+    assert.equal(m.ferimentoNoHp({ current: 2, max: 3, superficiais: 0 }, "tirarQuebrado").superficiais, 0);
+    assert.equal(m.ferimentoNoHp({ current: 2, max: 3 }, "recuperarPonto").current, 3);
+    assert.equal(m.ferimentoNoHp({ current: 3, max: 3 }, "recuperarPonto").current, 3);
+  });
+  it("condições ligam/desligam e vêm na ordem do catálogo", () => {
+    let t = { id: "t" };
+    t = m.alternarCondicao(t, "sangrando");
+    t = m.alternarCondicao(t, "envenenado");
+    assert.deepEqual(m.condicoesDoToken(t).map((c) => c.id), ["envenenado", "sangrando"]);
+    t = m.alternarCondicao(t, "sangrando");
+    assert.deepEqual(t.condicoes, ["envenenado"]);
+  });
+  it("macros: adiciona (nome único, sem vazio), tira, e quem pode editar", () => {
+    let o = m.macrosDaFicha([], "k");
+    o = m.adicionarMacro(o, { id: "1", nome: "Espada", atributo: "destreza", proficiencia: "combateCorpoACorpo", extra: 1 });
+    o = m.adicionarMacro(o, { id: "2", nome: "  ", atributo: "forca", proficiencia: "atletismo" });
+    o = m.adicionarMacro(o, { id: "3", nome: "espada", atributo: "forca", proficiencia: "combateCorpoACorpo", extra: 99 });
+    assert.deepEqual(o.macros.map((x) => [x.id, x.atributo, x.extra]), [["3", "forca", 10]]);
+    assert.equal(m.tirarMacro(o, "3").macros.length, 0);
+    assert.equal(m.macrosDaFicha([o], "k").macros.length, 1);
+    assert.equal(m.podeEditarMacros("k", { gm: false, minhas: ["k"] }), true);
+    assert.equal(m.podeEditarMacros("k", { gm: false, minhas: [] }), false);
+  });
+});

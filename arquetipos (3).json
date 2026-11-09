@@ -1,0 +1,2058 @@
+[
+ {
+  "arquetipo": "Guerreiro",
+  "gerais": [
+   "Maestria de Estilo",
+   "Guarda Alta"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Guerreiro",
+    "variacao": "Modal",
+    "foco": "Posturas e troca de estilo",
+    "conceito": "Muda de estilo de luta conforme a situação.",
+    "recurso": "MP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Atletismo",
+     "Intuição"
+    ],
+    "passiva": "Começa com a habilidade Maestria de Estilo, que para o Modal custa 0 MP na primeira vez de cada turno. Pode pagar 2 MP para usá-la de novo no mesmo turno e ganhar um segundo modificador. Uma vez por cena, troca de postura de graça (as demais trocas custam 2 MP).",
+    "descritores": [
+     "Letal",
+     "Firme",
+     "Ágil",
+     "Preciso",
+     "Esmagador",
+     "Sortudo",
+     "Veloz",
+     "Queimadura"
+    ],
+    "fraqueza": "Cada postura sozinha é modesta; vale pela troca certa na hora certa.",
+    "notaPedro": "aprovado",
+    "habilidades": [
+     {
+      "nome": "Maestria de Estilo",
+      "tipo": "Suporte",
+      "custo": "0 MP (1ª vez do turno); 2 MP para repetir",
+      "descritores": "Letal | Preciso 1 | Perfurante | Esmagador 1",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque: Letal, Preciso 1, Perfurante ou Esmagador 1. Se o ataque já tiver o descritor escolhido, em vez do bônus normal ele causa Sangramento 1 (Letal, Preciso 1 e Esmagador 1) ou ignora também Resistente (Perfurante). O Sangramento vindo de redundância soma com outros e tem teto de 2 por ataque. Para o Modal: custa 0 MP na primeira vez de cada turno e 2 MP para usar de novo no mesmo turno, ganhando um segundo modificador. A lista cresce conforme a postura ativa: Postura Defensiva (Firme 1 ou Ágil 1), Postura Veloz (Veloz) e Postura de Fogo (Queimadura 1).",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": "Pedro 06/11: Modal começa com ela"
+     },
+     {
+      "nome": "Guarda Alta",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": "Pedro 06/11: sem sucesso garantido"
+     },
+     {
+      "nome": "Postura Ofensiva",
+      "tipo": "Postura",
+      "custo": "1 MP",
+      "descritores": "Letal",
+      "texto": "Só ativa quando você escolhe uma postura diferente da do turno anterior. Até trocar de postura: seus ataques ganham Letal; se já tiverem Letal, ganham +1d10 no ataque. Sem penalidade de defesa.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 06/11"
+     },
+     {
+      "nome": "Postura Defensiva",
+      "tipo": "Postura",
+      "custo": "1 MP",
+      "descritores": "Firme 1 | Ágil 1",
+      "texto": "Até trocar de postura: Maestria de Estilo ganha a opção Firme 1 (ao bloquear) ou Ágil 1 (ao esquivar). Se já tiver o descritor escolhido, rola +1d10 nessa defesa.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 06/11: Ágil 1 é descritor novo"
+     },
+     {
+      "nome": "Postura Veloz",
+      "tipo": "Postura",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Até trocar de postura: ganha Veloz. No seu turno, precisa trocar de postura antes de agir. Se já tiver Veloz, ganha Sortudo; se já tiver Sortudo, ganha Potência de Destreza.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 06/11"
+     },
+     {
+      "nome": "Postura de Fogo",
+      "tipo": "Postura",
+      "custo": "1 MP",
+      "descritores": "Queimadura 1",
+      "texto": "Até trocar de postura: Maestria de Estilo ganha a opção Queimadura 1 nos golpes. Se o ataque com Queimadura errar o alvo, no turno seguinte você pode escolher esta mesma postura de novo, e ela conta como troca de postura para as outras habilidades.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 06/11: substitui Troca Fluida"
+     }
+    ]
+   },
+   {
+    "arquetipo": "Guerreiro",
+    "variacao": "Poder",
+    "foco": "Golpes devastadores, alto risco e alta recompensa",
+    "conceito": "Um golpe que decide a cena, mas deixa a guarda aberta.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Atletismo",
+     "Intimidação"
+    ],
+    "passiva": "Ataques com Pesado ou Esmagador ganham Sortudo.",
+    "descritores": [
+     "Pesado",
+     "Esmagador",
+     "Letal",
+     "Perfurante"
+    ],
+    "fraqueza": "Quem erra um golpe Pesado fica exposto; gasta muito SP.",
+    "notaPedro": "aprovado",
+    "habilidades": [
+     {
+      "nome": "Maestria de Estilo",
+      "tipo": "Suporte",
+      "custo": "0 MP (1ª vez da cena); depois 1 MP",
+      "descritores": "Letal | Preciso 1 | Perfurante | Esmagador 1",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque: Letal, Preciso 1, Perfurante ou Esmagador 1. Se o ataque já tiver o descritor escolhido, em vez do bônus normal ele causa Sangramento 1 (Letal, Preciso 1 e Esmagador 1) ou ignora também Resistente (Perfurante). O Sangramento vindo de redundância soma com outros e tem teto de 2 por ataque. Custa 0 MP na primeira vez da cena e 1 MP nas seguintes.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": "Pedro 06/11"
+     },
+     {
+      "nome": "Guarda Alta",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": "Pedro 06/11: sem sucesso garantido"
+     },
+     {
+      "nome": "Mãos Fortes",
+      "tipo": "Passiva",
+      "custo": "—",
+      "descritores": "—",
+      "texto": "Armas Pesadas podem ser usadas com uma mão.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 07/11: substitui Golpe Devastador"
+     },
+     {
+      "nome": "Tudo ou Nada",
+      "tipo": "Ataque",
+      "custo": "2 MP",
+      "descritores": "Letal",
+      "texto": "O ataque ganha Letal e +1d10. Se errar (não causar ferimento), fica Azarado na defesa. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 07/11"
+     },
+     {
+      "nome": "Golpe Gigante",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Pesado, Em área",
+      "texto": "O ataque ganha Pesado e Em área, atingindo todos na zona, sem atingir aliados (sem fogo amigo). Se o ataque já for Pesado, rola +1d10.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 07/11"
+     },
+     {
+      "nome": "Empurrão",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1",
+      "texto": "Ataque de escudo ou ombro com Esmagador 1; o alvo sai da zona se perder o teste de Força. Se já tiver Esmagador, ele sobe +1.",
+      "origem": "Compartilhada com Guardião Muralha",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Guerreiro",
+    "variacao": "Preciso",
+    "foco": "Velocidade e precisão",
+    "conceito": "Muitos golpes limpos, procurando a brecha.",
+    "recurso": "MP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Percepção",
+     "Atletismo"
+    ],
+    "passiva": "Ataques desarmados ou com arma Leve podem rolar com −1 grau nos dois atributos de ataque (atributo e proficiência, mínimo 1 em cada), mas fazem dois ataques.",
+    "descritores": [
+     "Preciso",
+     "Veloz",
+     "Sortudo",
+     "Perfurante"
+    ],
+    "fraqueza": "Golpe isolado causa pouco dano; depende de brechas.",
+    "notaPedro": "aprovado",
+    "habilidades": [
+     {
+      "nome": "Maestria de Estilo",
+      "tipo": "Suporte",
+      "custo": "0 MP (1ª vez da cena); depois 1 MP",
+      "descritores": "Letal | Preciso 1 | Perfurante | Esmagador 1",
+      "texto": "Escolhe 1 desses descritores para o próximo ataque: Letal, Preciso 1, Perfurante ou Esmagador 1. Se o ataque já tiver o descritor escolhido, em vez do bônus normal ele causa Sangramento 1 (Letal, Preciso 1 e Esmagador 1) ou ignora também Resistente (Perfurante). O Sangramento vindo de redundância soma com outros e tem teto de 2 por ataque. Custa 0 MP na primeira vez da cena e 1 MP nas seguintes.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": "Pedro 06/11"
+     },
+     {
+      "nome": "Guarda Alta",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Rola defesas físicas (Esquiva ou Bloqueio) com +1d10.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": "Pedro 06/11: sem sucesso garantido"
+     },
+     {
+      "nome": "Golpe Rápido",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Veloz, Preciso 1",
+      "texto": "O ataque ganha Veloz e Preciso 1. Se já tiver Veloz, rola +1d10; se já tiver Preciso, ele sobe +1 (máx. 3).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Estocada",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Perfurante",
+      "texto": "Com arma de haste ou lâmina: o ataque ganha Perfurante. Se o ataque já tiver Perfurante, rola +1d10 no ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Olho na Brecha",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Sortudo",
+      "texto": "Se o alvo errou o último ataque, seu próximo ataque contra ele ganha Sortudo. Se o ataque já tiver Sortudo, rola +1d10 no ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Contragolpe",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "Preciso 1",
+      "texto": "Após defesa bem-sucedida, ataque imediato contra o atacante com Preciso 1. Se já tiver Preciso, ele sobe +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Bárbaro",
+  "gerais": [
+   "Fúria",
+   "Resistir à Dor"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Bárbaro",
+    "variacao": "Fúria",
+    "foco": "Estado de Fúria que troca defesa por poder",
+    "conceito": "Entra em fúria: bate mais forte e pensa pior.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Atletismo",
+     "Intimidação"
+    ],
+    "passiva": "Ao sofrer ferimento, ganha +1d10 no próximo ataque.",
+    "descritores": [
+     "Letal",
+     "Esmagador",
+     "Resistente",
+     "Pesado"
+    ],
+    "fraqueza": "Esquiva e testes mentais pioram; Lento 1 ao sair.",
+    "notaPedro": "aprovado",
+    "habilidades": [
+     {
+      "nome": "Fúria",
+      "tipo": "Estado",
+      "custo": "1 SP",
+      "descritores": "Pesado",
+      "texto": "Por uma cena: você ganha +1 para confirmar ataques, porém ataques contra você também ganham +1. Ganha 1 ponto de vida temporário (pontos de vida temporários não acumulam).",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Resistir à Dor",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Golpe Descontrolado",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Pesado",
+      "texto": "O ataque ganha Pesado. Se o ataque já for Pesado, ganha Esmagador 1 em vez disso.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Brutalidade",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Perfurante",
+      "texto": "O ataque ganha Perfurante. Se o ataque já tiver Perfurante, rola +1d10 no ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Rugido",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Azarado",
+      "texto": "Inimigos na zona ficam Azarados no próximo teste; aliados se assustam também (teste de Resolução).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Fúria Total",
+      "tipo": "Estado",
+      "custo": "1 SP",
+      "descritores": "Letal, Esmagador 1",
+      "texto": "Exige Fúria ativa. Por uma cena, +1 dado em todo ataque; a defesa fica sem dados de Destreza.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Bárbaro",
+    "variacao": "Sanguinário",
+    "foco": "Cresce ao ferir e ao ser ferido",
+    "conceito": "Quanto mais sangue na cena, mais perigoso.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Intimidação",
+     "Percepção"
+    ],
+    "passiva": "Ao causar o primeiro ferimento da cena, ganha Letal até o fim dela. Se o ataque já tiver Letal, ganha Perfurante. Se o ataque possuir Letal e Perfurante, causa Sangramento 1.",
+    "descritores": [
+     "Letal",
+     "Drenante",
+     "Perfurante",
+     "Sangramento"
+    ],
+    "fraqueza": "Precisa começar a ferir; fraco contra alvos que ele não alcança.",
+    "notaPedro": "Sangramento 1 vai ser mecanicamente igual a Envenenamento 1.",
+    "habilidades": [
+     {
+      "nome": "Fúria",
+      "tipo": "Estado",
+      "custo": "1 SP",
+      "descritores": "Pesado",
+      "texto": "Por uma cena: você ganha +1 para confirmar ataques, porém ataques contra você também ganham +1. Ganha 1 ponto de vida temporário (pontos de vida temporários não acumulam).",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Resistir à Dor",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Cheiro de Sangue",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "Letal",
+      "texto": "Após causar ferimento, seu próximo ataque contra o mesmo alvo ganha +1 dado.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Mordida Selvagem",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Drenante",
+      "texto": "O ataque ganha Drenante: recupera 1 MP ao causar ferimento. Se já tiver Drenante, recupera 2 MP em vez de 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Sede de Sangue",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Letal",
+      "texto": "Até o fim da cena: cada ferimento que causa dá +1 dado ao ataque seguinte (teto +2).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Rasgar",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Perfurante, Letal (Sangramento 1 pela passiva)",
+      "texto": "O ataque ganha Perfurante e Letal e, por isso, causa Sangramento 1 pela passiva. Se o ataque já tinha Perfurante, rola +1d10.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Bárbaro",
+    "variacao": "Inabalável",
+    "foco": "Aguenta tudo e segue de pé",
+    "conceito": "O bárbaro que ignora a dor e segura a linha.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Bloqueio",
+    "outrasFixas": [
+     "Atletismo",
+     "Sobrevivência"
+    ],
+    "passiva": "Uma vez por cena, teste de Vigor + Fortitude; com 1 sucesso, o primeiro ferimento agravante vira superficial.",
+    "descritores": [
+     "Resistente",
+     "Firme",
+     "Selado",
+     "Esmagador"
+    ],
+    "fraqueza": "Dano baixo; vale por não cair.",
+    "notaPedro": "aprovado",
+    "habilidades": [
+     {
+      "nome": "Fúria",
+      "tipo": "Estado",
+      "custo": "1 SP",
+      "descritores": "Pesado",
+      "texto": "Por uma cena: você ganha +1 para confirmar ataques, porém ataques contra você também ganham +1. Ganha 1 ponto de vida temporário (pontos de vida temporários não acumulam).",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Resistir à Dor",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Uma vez por cena, faça um teste de Vigor + Fortitude. Com 1 sucesso, o primeiro ferimento agravante que receber vira superficial.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pele de Pedra",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Resistente, Firme 1",
+      "texto": "Ganha Resistente e Firme 1 por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário. Quem já tiver Firme rola +1d10 ao bloquear.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Grito de Resistência",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Você ou um aliado na zona ganha Resistente por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Contra-Atacar a Dor",
+      "tipo": "Reação",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1",
+      "texto": "Ao receber ferimento, ataque imediato com Esmagador 1. Se já tiver Esmagador, ele sobe +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Inamovível",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Selado 1",
+      "texto": "Não pode ser movido nem derrubado contra a vontade e ganha Selado 1 contra o próximo ataque. Se já tiver Selado, rola +1d10 na defesa.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Guerreiro Arcano",
+  "gerais": [
+   "Golpe Encantado",
+   "Pacto Arcano"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Guerreiro Arcano",
+    "variacao": "Encantado",
+    "foco": "Golpes imbuídos de mana",
+    "conceito": "Guerreiro que canaliza mana em cada golpe.",
+    "recurso": "MP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Magias Gerais",
+     "Liderança"
+    ],
+    "passiva": "+1 MP máximo.",
+    "descritores": [
+     "Queimadura",
+     "Drenante",
+     "Campo de Mana"
+    ],
+    "fraqueza": "Sem MP vira guerreiro comum.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Golpe Encantado",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Queimadura 1 ou Drenante",
+      "texto": "O ataque físico ganha Queimadura 1 ou Drenante, à escolha. Se o alvo já está queimando, a Queimadura sobe +1; se já tiver Drenante, recupera 2 MP.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pacto Arcano",
+      "tipo": "Estado",
+      "custo": "1x por cena",
+      "descritores": "Letal | Preciso 1 | Firme 1",
+      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, causa também Sangramento 1. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Explosão Arcana",
+      "tipo": "Ataque",
+      "custo": "2 MP",
+      "descritores": "Queimadura 2, Em área",
+      "texto": "Explosão de mana na zona; contra criaturas mágicas e mortos-vivos, +1 dado. Se o alvo já está queimando, rola +1d10 no ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Arma Encantada",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Letal",
+      "texto": "Sua arma ganha Letal por uma cena. Se a arma já tem Letal, seus ataques causam também Sangramento 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Escudo de Mana",
+      "tipo": "Reação",
+      "custo": "1 MP",
+      "descritores": "Campo de Mana",
+      "texto": "Você ou um aliado na zona ganha Campo de Mana (um só por pessoa). Quem já tiver Campo de Mana ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Aura Flamejante",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Queimadura 1",
+      "texto": "Por uma cena, seus ataques físicos ganham Queimadura 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Guerreiro Arcano",
+    "variacao": "Barreira",
+    "foco": "Aura e proteção do grupo",
+    "conceito": "Escudo do grupo; a mana vira muralha.",
+    "recurso": "MP",
+    "fixaCombate": "Bloqueio",
+    "outrasFixas": [
+     "Magias Gerais",
+     "Liderança"
+    ],
+    "passiva": "Uma vez por cena, um aliado na zona ganha Firme 1 por um ataque.",
+    "descritores": [
+     "Firme",
+     "Campo de Mana",
+     "Resistente",
+     "Selado"
+    ],
+    "fraqueza": "Pouco dano; depende de aliados por perto.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Golpe Encantado",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Queimadura 1 ou Drenante",
+      "texto": "O ataque físico ganha Queimadura 1 ou Drenante, à escolha. Se o alvo já está queimando, a Queimadura sobe +1; se já tiver Drenante, recupera 2 MP.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pacto Arcano",
+      "tipo": "Estado",
+      "custo": "1x por cena",
+      "descritores": "Letal | Preciso 1 | Firme 1",
+      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, causa também Sangramento 1. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Aura de Proteção",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Firme 1",
+      "texto": "Por uma cena, você e aliados na sua zona bloqueiam com Firme 1. Uma aura por vez. Quem já tiver Firme rola +1d10 ao bloquear.",
+      "origem": "Compartilhada com Guardião Muralha",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Véu Protetor",
+      "tipo": "Reação",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Aliado na zona ganha Resistente contra o próximo ataque. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Barreira Arcana",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Campo de Mana, Selado 1",
+      "texto": "Aliado na zona ganha Campo de Mana e Selado 1 por uma cena. Quem já tiver Campo de Mana ganha 1 ponto de vida temporário; quem já tiver Selado rola +1d10 na defesa.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Sacrifício",
+      "tipo": "Reação",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Recebe no lugar do aliado o primeiro ferimento agravante da cena.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Guerreiro Arcano",
+    "variacao": "Rúnico",
+    "foco": "Pactos arcanos e retaliação",
+    "conceito": "Cobra de quem fere os seus.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Intimidação",
+     "Magias Gerais"
+    ],
+    "passiva": "Contra quem feriu você ou um aliado na cena, ataques ganham +1 dado (teto 3).",
+    "descritores": [
+     "Letal",
+     "Preciso",
+     "Queimadura"
+    ],
+    "fraqueza": "Precisa de um alvo que já agrediu; reativo.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Golpe Encantado",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Queimadura 1 ou Drenante",
+      "texto": "O ataque físico ganha Queimadura 1 ou Drenante, à escolha. Se o alvo já está queimando, a Queimadura sobe +1; se já tiver Drenante, recupera 2 MP.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pacto Arcano",
+      "tipo": "Estado",
+      "custo": "1x por cena",
+      "descritores": "Letal | Preciso 1 | Firme 1",
+      "texto": "Escolhe um por cena: Vingança (Letal contra quem feriu um aliado), Justiça (Preciso 1) ou Proteção (Firme 1 nos aliados na zona). Vingança: se já tiver Letal, causa também Sangramento 1. Justiça: se já tiver Preciso, ele sobe +1. Proteção: quem já tiver Firme rola +1d10 ao bloquear.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Golpe Rúnico",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Preciso 1, Queimadura 1",
+      "texto": "O ataque ganha Preciso 1 e Queimadura 1. Se já tiver Preciso, ele sobe +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Punição Rúnica",
+      "tipo": "Ataque",
+      "custo": "1 SP",
+      "descritores": "Pesado",
+      "texto": "Contra o alvo do Pacto Arcano: Pesado e +1 dado. Se o ataque já for Pesado, ganha Esmagador 1 em vez disso.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Última Runa",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Ao cair, faz um último ataque contra quem o derrubou.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Marca Rúnica",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Letal",
+      "texto": "Marca um alvo que feriu você ou um aliado; seus ataques contra ele ganham Letal até o fim da cena. Se já tiver Letal, causa também Sangramento 1 no alvo marcado.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Ladino",
+  "gerais": [
+   "Ataque Furtivo",
+   "Passo Sombrio"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Ladino",
+    "variacao": "Assassino",
+    "foco": "Estado Oculto e ataque furtivo",
+    "conceito": "Mata de surpresa e some.",
+    "recurso": "MP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Furtividade",
+     "Percepção"
+    ],
+    "passiva": "Começa a cena Oculto se tinha como se esconder.",
+    "descritores": [
+     "Preciso",
+     "Letal",
+     "Perfurante",
+     "Envenenamento"
+    ],
+    "fraqueza": "Fraco de frente; depende de ficar escondido.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Ataque Furtivo",
+      "tipo": "Ataque",
+      "custo": "1x por cena",
+      "descritores": "Preciso 2, Letal",
+      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Passo Sombrio",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Muda de zona sem ser percebido e fica Oculto. Se já tiver Veloz, rola +1d10 no primeiro ataque depois.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Ponto Cego",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Azarado",
+      "texto": "Com sucesso líquido, alvo fica Azarado no próximo teste. Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Compartilhada com Artista Marcial Pontos Vitais",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Lâmina Envenenada",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Envenenamento 1",
+      "texto": "Sua arma ganha Envenenamento 1 durante a cena. Se o alvo já está envenenado, o Envenenamento sobe +1 (máx. 3).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Execução",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Letal",
+      "texto": "Contra alvo ferido ou Azarado: o ataque ganha Letal e +1 dado. Se já tiver Letal, causa também Sangramento 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Sumiço",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Volta a ficar Oculto sem teste, desde que haja onde se esconder.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Ladino",
+    "variacao": "Trapaceiro",
+    "foco": "Truques, confusão e enganos",
+    "conceito": "Vence enganando, não no golpe.",
+    "recurso": "MP",
+    "fixaCombate": "Esquiva",
+    "outrasFixas": [
+     "Malandragem",
+     "Persuasão"
+    ],
+    "passiva": "Uma vez por cena, quando vence um teste social, o alvo fica Azarado no próximo teste.",
+    "descritores": [
+     "Azarado",
+     "Sortudo",
+     "Lento"
+    ],
+    "fraqueza": "Dano baixo; vale pela condição que impõe.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Ataque Furtivo",
+      "tipo": "Ataque",
+      "custo": "1x por cena",
+      "descritores": "Preciso 2, Letal",
+      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Passo Sombrio",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Muda de zona sem ser percebido e fica Oculto. Se já tiver Veloz, rola +1d10 no primeiro ataque depois.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Truque Sujo",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Azarado",
+      "texto": "Jogar areia ou fingir fraqueza: o alvo fica Azarado na próxima defesa. Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Isca",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Um alvo ataca um falso alvo em vez de você (teste de Malandragem vs Perspicácia).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Mão Leve",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Rouba ou desarma um item do alvo no meio da luta.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Zombaria",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Azarado, Lento",
+      "texto": "Inimigo que falha na Resolução fica Azarado e Lento 1. Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Ladino",
+    "variacao": "Gatuno",
+    "foco": "Roubo, fuga e utilidade",
+    "conceito": "Pega o que quer e escapa.",
+    "recurso": "MP",
+    "fixaCombate": "Esquiva",
+    "outrasFixas": [
+     "Roubo",
+     "Furtividade"
+    ],
+    "passiva": "Rouba ou troca um item pequeno de uma pessoa sem teste de Percepção contra ela, se ela não estiver em guarda.",
+    "descritores": [
+     "Veloz",
+     "Preciso",
+     "Lento"
+    ],
+    "fraqueza": "Não luta; vale fora do combate e nas fugas.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Ataque Furtivo",
+      "tipo": "Ataque",
+      "custo": "1x por cena",
+      "descritores": "Preciso 2, Letal",
+      "texto": "Primeiro ataque contra alvo que não percebeu você ganha Preciso 2 e Letal. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Passo Sombrio",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Muda de zona sem ser percebido e fica Oculto. Se já tiver Veloz, rola +1d10 no primeiro ataque depois.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Arrombar",
+      "tipo": "Utilidade",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Abre fechaduras ou cofres sem teste, se tiver tempo.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Fuga Rápida",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "Veloz",
+      "texto": "Sai da zona sem ser atacado de volta.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Furto Oportuno",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Pega um item de um alvo que ela não esteja vigiando, sem teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Pé Ante Pé",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Ganha +1 dado em Furtividade e Roubo pela cena.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Caçador",
+  "gerais": [
+   "Marca da Presa",
+   "Rastrear"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Caçador",
+    "variacao": "Atirador",
+    "foco": "Tiro de longa distância",
+    "conceito": "Um tiro certo vale mais que dez.",
+    "recurso": "MP",
+    "fixaCombate": "Armas de Fogo",
+    "outrasFixas": [
+     "Percepção",
+     "Furtividade"
+    ],
+    "passiva": "Ataques de longe, sem alvo na zona, ganham Preciso 1.",
+    "descritores": [
+     "Preciso",
+     "Perfurante",
+     "Letal"
+    ],
+    "fraqueza": "Perde o brilho de perto e contra muitos alvos.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Marca da Presa",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Preciso 1",
+      "texto": "Marca um alvo até o fim da cena; ataques contra ele ganham Preciso 1. Se já tiver Preciso, ele sobe +1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Rastrear",
+      "tipo": "Utilidade",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Segue o rastro da presa marcada; sabe em que zona ela está.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Tiro Certeiro",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Perfurante",
+      "texto": "O ataque ganha Perfurante. Se o ataque já tiver Perfurante, rola +1d10 no ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Tiro Preciso",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Preciso 2",
+      "texto": "O ataque ganha Preciso 2, mas só vale em alvo sem aliados na zona. Se já tiver Preciso, ele vira Preciso 3.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Disparo Duplo",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Ataca 2 alvos na mesma zona.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Cobertura",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Aliado que está na linha de tiro ganha +1 dado de defesa.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Caçador",
+    "variacao": "Rastreador",
+    "foco": "Marca a presa e a segue",
+    "conceito": "Escolhe uma presa e não a solta.",
+    "recurso": "MP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Sobrevivência",
+     "Percepção"
+    ],
+    "passiva": "Sensor de graça em 1 presa (sem MP, até o descanso longo).",
+    "descritores": [
+     "Preciso",
+     "Lento",
+     "Azarado"
+    ],
+    "fraqueza": "Depende de ter uma presa marcada.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Marca da Presa",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Preciso 1",
+      "texto": "Marca um alvo até o fim da cena; ataques contra ele ganham Preciso 1. Se já tiver Preciso, ele sobe +1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Rastrear",
+      "tipo": "Utilidade",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Segue o rastro da presa marcada; sabe em que zona ela está.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Golpe da Presa",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Lento 1",
+      "texto": "O ataque deixa a presa Lenta 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Companheiro de Caça",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Um animal ajuda: +1 dado em Percepção e Sobrevivência.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Emboscada",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Preciso 2",
+      "texto": "Primeiro ataque contra a presa marcada que não percebeu você ganha Preciso 2. Se já tiver Preciso, ele vira Preciso 3.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Perseguir",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Muda de zona atrás da presa marcada sem ser atacado de volta.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Caçador",
+    "variacao": "Armadilheiro",
+    "foco": "Controle de campo com armadilhas",
+    "conceito": "Prepara o terreno antes do combate.",
+    "recurso": "MP",
+    "fixaCombate": "Armas",
+    "outrasFixas": [
+     "Sobrevivência",
+     "Tecnologia"
+    ],
+    "passiva": "Prepara 1 armadilha de graça antes de uma cena (sem SP).",
+    "descritores": [
+     "Lento",
+     "Em área",
+     "Envenenamento",
+     "Azarado"
+    ],
+    "fraqueza": "Precisa de tempo e preparo; fraco de improviso.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Marca da Presa",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Preciso 1",
+      "texto": "Marca um alvo até o fim da cena; ataques contra ele ganham Preciso 1. Se já tiver Preciso, ele sobe +1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Rastrear",
+      "tipo": "Utilidade",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Segue o rastro da presa marcada; sabe em que zona ela está.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Armadilha de Caça",
+      "tipo": "Armadilha",
+      "custo": "1x por cena",
+      "descritores": "Lento 1",
+      "texto": "Prepara uma zona: o primeiro inimigo que entra fica Lento 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Armadilha Venenosa",
+      "tipo": "Armadilha",
+      "custo": "1 MP",
+      "descritores": "Envenenamento 2",
+      "texto": "Primeiro inimigo que entra na zona fica com Envenenamento 2.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Armadilha Explosiva",
+      "tipo": "Armadilha",
+      "custo": "1 MP",
+      "descritores": "Em área",
+      "texto": "Quem entra na zona leva um ataque em área.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Rede",
+      "tipo": "Armadilha",
+      "custo": "1 MP",
+      "descritores": "Azarado, Lento",
+      "texto": "Inimigo preso fica Lento e Azarado até se soltar (teste de Atletismo). Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Comandante",
+  "gerais": [
+   "Inspirar",
+   "Grito de Guerra"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Comandante",
+    "variacao": "Estrategista",
+    "foco": "Planeja e dá vantagem ao grupo",
+    "conceito": "Lê a cena e entrega a ordem certa.",
+    "recurso": "MP",
+    "fixaCombate": "Vontade",
+    "outrasFixas": [
+     "Liderança",
+     "Intuição"
+    ],
+    "passiva": "Uma vez por cena, um aliado na zona ganha Sortudo no primeiro teste.",
+    "descritores": [
+     "Sortudo",
+     "Veloz",
+     "Preciso"
+    ],
+    "fraqueza": "Dano baixo; vale pela escolha certa.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Inspirar",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Sortudo",
+      "texto": "Aliado na zona ganha Sortudo por uma cena. Se o aliado já tem Sortudo, rola +1d10 no primeiro teste da cena.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Grito de Guerra",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Aliados na zona ganham Veloz (etiqueta). Quem já tiver Veloz rola +1d10 no primeiro ataque.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Ordem Tática",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Um aliado age antes (etiqueta Veloz) neste turno. Se o aliado já tem Veloz, rola +1d10 nesse ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Ponto Fraco",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Preciso 1",
+      "texto": "Aliados que atacam o alvo marcado ganham Preciso 1. Quem já tiver Preciso vê ele subir +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Reagrupar",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Aliados na zona mudam de zona sem ataque de oportunidade.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Plano de Contingência",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Um aliado na zona repete um teste que acabou de falhar.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Comandante",
+    "variacao": "Inspirador",
+    "foco": "Moral, canções e apoio",
+    "conceito": "O bardo clássico: o grupo luta melhor ouvindo.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Vontade",
+    "outrasFixas": [
+     "Atuação",
+     "Liderança"
+    ],
+    "passiva": "Uma vez por cena, um aliado recupera 1 MP gasto.",
+    "descritores": [
+     "Sortudo",
+     "Resistente",
+     "Veloz"
+    ],
+    "fraqueza": "Pouco ataque; depende do grupo.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Inspirar",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Sortudo",
+      "texto": "Aliado na zona ganha Sortudo por uma cena. Se o aliado já tem Sortudo, rola +1d10 no primeiro teste da cena.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Grito de Guerra",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Aliados na zona ganham Veloz (etiqueta). Quem já tiver Veloz rola +1d10 no primeiro ataque.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Canção de Descanso",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Aliado na zona recupera 1 MP.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Hino de Resistência",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Um aliado ganha Resistente por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Voz Calmante",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Remove Azarado ou medo de um aliado na zona.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Balada de Heróis",
+      "tipo": "Suporte",
+      "custo": "1 SP",
+      "descritores": "Sortudo",
+      "texto": "Aliados na zona ganham +1 dado no primeiro teste da cena. Quem já tiver Sortudo ganha +2 dados em vez de +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Comandante",
+    "variacao": "Tirano",
+    "foco": "Dominar pelo medo e desmontar o inimigo",
+    "conceito": "Quebra o moral do inimigo para que o grupo vença.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Vontade",
+    "outrasFixas": [
+     "Intimidação",
+     "Liderança"
+    ],
+    "passiva": "Um inimigo na zona que perde um teste de Resolução contra você fica Azarado.",
+    "descritores": [
+     "Azarado",
+     "Lento",
+     "Letal"
+    ],
+    "fraqueza": "Funciona mal com alvos de Resolução alta.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Inspirar",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Sortudo",
+      "texto": "Aliado na zona ganha Sortudo por uma cena. Se o aliado já tem Sortudo, rola +1d10 no primeiro teste da cena.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Grito de Guerra",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Aliados na zona ganham Veloz (etiqueta). Quem já tiver Veloz rola +1d10 no primeiro ataque.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Palavras Duras",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Azarado",
+      "texto": "Inimigo fica Azarado no próximo teste (Intimidação vs Resolução). Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Ordem Imperiosa",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Inimigo que falhar na Resolução perde a ação (uma vez por inimigo).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Medo Coletivo",
+      "tipo": "Suporte",
+      "custo": "1 SP",
+      "descritores": "Lento 1",
+      "texto": "Todos os inimigos na zona ficam Lentos 1 por uma cena.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Exemplo",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Letal",
+      "texto": "Ao derrubar um inimigo, os demais fazem teste de Resolução ou ficam Azarados. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Guardião",
+  "gerais": [
+   "Proteger",
+   "Pele de Ferro"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Guardião",
+    "variacao": "Muralha",
+    "foco": "Bloqueio e defesa pesada",
+    "conceito": "Parede viva: ninguém passa.",
+    "recurso": "MP",
+    "fixaCombate": "Bloqueio",
+    "outrasFixas": [
+     "Atletismo",
+     "Percepção"
+    ],
+    "passiva": "Bloqueando com escudo, ganha Firme 1.",
+    "descritores": [
+     "Firme",
+     "Resistente",
+     "Selado"
+    ],
+    "fraqueza": "Dano baixo; imóvel.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Proteger",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Assume o ataque dirigido a um aliado na zona.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pele de Ferro",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Ganha Resistente por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Muralha",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Firme 2",
+      "texto": "Ao bloquear, ganha Firme 2. Se já tiver Firme, rola +1d10 ao bloquear.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Escudo Firme",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Selado 1",
+      "texto": "Ganha Selado 1 contra o próximo ataque. Se já tiver Selado, rola +1d10 na defesa.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Empurrão",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1",
+      "texto": "Ataque de escudo com Esmagador 1. Se já tiver Esmagador, ele sobe +1.",
+      "origem": "Compartilhada com Guerreiro Poder",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Aura de Proteção",
+      "tipo": "Estado",
+      "custo": "1 MP",
+      "descritores": "Firme 1",
+      "texto": "Por uma cena, você e aliados na sua zona bloqueiam com Firme 1. Uma aura por vez. Quem já tiver Firme rola +1d10 ao bloquear.",
+      "origem": "Compartilhada com Guerreiro Arcano Barreira",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Guardião",
+    "variacao": "Protetor",
+    "foco": "Assume ataques por aliados",
+    "conceito": "Recebe o golpe que era do aliado.",
+    "recurso": "MP",
+    "fixaCombate": "Bloqueio",
+    "outrasFixas": [
+     "Percepção",
+     "Liderança"
+    ],
+    "passiva": "Uma vez por cena, assume um ataque dirigido a aliado na zona.",
+    "descritores": [
+     "Firme",
+     "Resistente",
+     "Campo de Mana"
+    ],
+    "fraqueza": "Depende de aliados em risco; sofre por eles.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Proteger",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Assume o ataque dirigido a um aliado na zona.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pele de Ferro",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Ganha Resistente por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Cobrir Retirada",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Aliado sai da zona sem ser atacado enquanto você segura.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Vigilância",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Aliados na zona não podem ser surpreendidos pela cena.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Último Escudo",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "Resistente",
+      "texto": "Quando um aliado cai, você ganha Resistente e +1 dado de defesa. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Interceptar",
+      "tipo": "Reação",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Move-se para a zona de um aliado atacado e assume o ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Guardião",
+    "variacao": "Provocador",
+    "foco": "Prende a atenção dos inimigos",
+    "conceito": "Atrai ataques e castiga quem os ignora.",
+    "recurso": "MP",
+    "fixaCombate": "Bloqueio",
+    "outrasFixas": [
+     "Intimidação",
+     "Atuação"
+    ],
+    "passiva": "Inimigos na zona que atacam outro alvo que não ele ficam Azarados no ataque.",
+    "descritores": [
+     "Azarado",
+     "Lento",
+     "Esmagador"
+    ],
+    "fraqueza": "Atrai risco; precisa aguentar.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Proteger",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Assume o ataque dirigido a um aliado na zona.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Pele de Ferro",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Ganha Resistente por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Provocar",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Azarado",
+      "texto": "Inimigos na zona ficam Azarados se atacarem alguém que não seja você.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Desafio",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Um inimigo só pode atacar você até o fim da cena (teste de Resolução).",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Retaliação",
+      "tipo": "Reação",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1",
+      "texto": "Quem atacar você leva ataque de volta com Esmagador 1. Se já tiver Esmagador, ele sobe +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Bravata",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "Azarado",
+      "texto": "O primeiro inimigo que errar o ataque contra você fica Azarado no próximo. Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "arquetipo": "Artista Marcial",
+  "gerais": [
+   "Golpe Marcial",
+   "Respiração"
+  ],
+  "variacoes": [
+   {
+    "arquetipo": "Artista Marcial",
+    "variacao": "Percussão",
+    "foco": "Golpes pesados sem arma",
+    "conceito": "Quebra guardas e bate para esmagar.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Desarmado",
+    "outrasFixas": [
+     "Atletismo",
+     "Intimidação"
+    ],
+    "passiva": "Ataques desarmados ganham Esmagador 1.",
+    "descritores": [
+     "Esmagador",
+     "Pesado",
+     "Em área",
+     "Resistente"
+    ],
+    "fraqueza": "Curto alcance; sem arma não perfura Blindado.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Golpe Marcial",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1 | Preciso 1",
+      "texto": "O ataque desarmado ganha Esmagador 1 ou Preciso 1, à escolha. Se já tiver o descritor escolhido, ele sobe +1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Respiração",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Recupera 1 MP.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Quebra-Guarda",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1",
+      "texto": "Ataque desarmado; se o alvo bloquear, rola 1 dado a menos. Se já tiver Esmagador, ele sobe +1.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Pancada Atordoante",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Lento 1",
+      "texto": "Com sucesso líquido, o alvo fica Lento 1 até o fim da cena.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Soco Sísmico",
+      "tipo": "Ataque",
+      "custo": "1 SP",
+      "descritores": "Pesado, Em área",
+      "texto": "O chão treme: todos na zona (aliados também) sofrem o ataque. Se o ataque já for Pesado, ganha Esmagador 1 em vez disso.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Corpo de Pedra",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Resistente",
+      "texto": "Ganha Resistente por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Artista Marcial",
+    "variacao": "Pontos Vitais",
+    "foco": "Precisão anatômica",
+    "conceito": "Acerta pontos fracos para incapacitar.",
+    "recurso": "MP + SP",
+    "fixaCombate": "Desarmado",
+    "outrasFixas": [
+     "Medicina",
+     "Percepção"
+    ],
+    "passiva": "Ataques desarmados ganham Preciso 1.",
+    "descritores": [
+     "Preciso",
+     "Perfurante",
+     "Lento",
+     "Azarado",
+     "Letal"
+    ],
+    "fraqueza": "Dano baixo sem condição prévia.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Golpe Marcial",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1 | Preciso 1",
+      "texto": "O ataque desarmado ganha Esmagador 1 ou Preciso 1, à escolha. Se já tiver o descritor escolhido, ele sobe +1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Respiração",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Recupera 1 MP.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Golpe Penetrante",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Perfurante",
+      "texto": "O ataque desarmado ganha Perfurante. Se o ataque já tiver Perfurante, rola +1d10 no ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Nervo Cortado",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Lento 1, Azarado",
+      "texto": "Com sucesso líquido, o alvo fica Lento 1 e Azarado no próximo teste. Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Ponto Cego",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Azarado",
+      "texto": "Com sucesso líquido, alvo fica Azarado no próximo teste. Se o alvo já estiver Azarado, ele rola 1 dado a menos no próximo teste.",
+      "origem": "Compartilhada com Ladino Assassino",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Ponto Fatal",
+      "tipo": "Ataque",
+      "custo": "1 SP",
+      "descritores": "Letal, Preciso 2",
+      "texto": "Só vale contra alvo Lento ou Azarado. Se já tiver Letal, causa também Sangramento 1; se já tiver Preciso, ele vira Preciso 3.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   },
+   {
+    "arquetipo": "Artista Marcial",
+    "variacao": "Fluxo",
+    "foco": "Defesa ativa e contra-ataque",
+    "conceito": "Deixa o golpe passar e devolve.",
+    "recurso": "MP",
+    "fixaCombate": "Esquiva",
+    "outrasFixas": [
+     "Atletismo",
+     "Intuição"
+    ],
+    "passiva": "Uma vez por cena, após defesa bem-sucedida, ganha Sortudo no próximo ataque.",
+    "descritores": [
+     "Sortudo",
+     "Veloz",
+     "Preciso"
+    ],
+    "fraqueza": "Quase sem dano próprio; depende de ser atacado.",
+    "notaPedro": "",
+    "habilidades": [
+     {
+      "nome": "Golpe Marcial",
+      "tipo": "Ataque",
+      "custo": "1 MP",
+      "descritores": "Esmagador 1 | Preciso 1",
+      "texto": "O ataque desarmado ganha Esmagador 1 ou Preciso 1, à escolha. Se já tiver o descritor escolhido, ele sobe +1.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Respiração",
+      "tipo": "Suporte",
+      "custo": "1x por cena",
+      "descritores": "—",
+      "texto": "Recupera 1 MP.",
+      "origem": "Geral do arquétipo",
+      "geral": true,
+      "nota": ""
+     },
+     {
+      "nome": "Contra-ataque",
+      "tipo": "Reação",
+      "custo": "1x por cena",
+      "descritores": "Preciso 1 (se margem 2+: +1d10)",
+      "texto": "Após esquiva bem-sucedida, ataque imediato contra o atacante. Se a esquiva teve 2 ou mais sucessos de margem, rola +1d10 nesse ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Passo Fluido",
+      "tipo": "Suporte",
+      "custo": "1 MP",
+      "descritores": "Veloz",
+      "texto": "Muda de zona sem ser atacado de volta. Se já tiver Veloz, rola +1d10 no próximo ataque.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Desvio",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "Sortudo",
+      "texto": "Na esquiva, ganha Sortudo. Se já tiver Sortudo na esquiva, re-rola mais um dado 1 ou 2.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     },
+     {
+      "nome": "Mestre da Esquiva",
+      "tipo": "Defesa",
+      "custo": "1 MP",
+      "descritores": "—",
+      "texto": "Esquiva com +1 dado até o fim da cena.",
+      "origem": "Única",
+      "geral": false,
+      "nota": ""
+     }
+    ]
+   }
+  ]
+ }
+]

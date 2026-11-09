@@ -54,3 +54,15 @@ Arquétipos e variações: Guerreiro (Modal, Poder, Preciso); Bárbaro (Fúria, 
 - Postura Ágil vira Postura Veloz: dá Veloz; no seu turno precisa trocar de postura antes de agir; se já tiver Veloz ganha Sortudo; se já tiver Sortudo ganha Potência de Destreza.
 - Troca Fluida é substituída por Postura de Fogo: Maestria ganha a opção Queimadura 1; se o ataque errar, a mesma postura pode ser escolhida no turno seguinte e conta como troca.
 - Novo descritor Ágil N no glossário e na lista de descritores do Modal.
+
+## Mudanças de 07/11 (Guerreiro Poder)
+- Golpe Devastador é substituído por Mãos Fortes: passiva que permite usar armas Pesadas com uma mão.
+- Tudo ou Nada: custa 2 MP; o ataque ganha Letal e +1d10; se errar, fica Azarado na defesa.
+- Golpe Gigante: custa 1 MP (antes 1 SP); golpe em área sem fogo amigo (não atinge aliados).
+- Ainda a revisar no Guerreiro: Empurrão, Golpe Rápido, Estocada, Olho na Brecha e Contragolpe.
+
+## Mudanças de 09/11 (descritor Leve)
+- Novo descritor Leve, oposto do Pesado: o ataque acerta com 5 ou mais no d10 (um a menos que o normal; 6 ou mais contra Blindado) e causa no máximo 1 ferimento agravante (1 ponto de vida) por ataque. Leve e Pesado no mesmo ataque se anulam.
+- Armas Leves (as que têm Veloz): Lâmina curta, Contundente leve, Contundente de punho, Arma de fogo curta, Arma de arremesso e Arma flexível. O Desarmado não é Leve por padrão.
+- Guerreiro Preciso, passiva: "ataques desarmados ou com arma Leve" (antes "arma leve", sem definição).
+- Em aberto: Contundente leve, Contundente de punho e Arma de arremesso já tinham a nota "1 superficial" no catálogo; foi mantida junto de Leve até Pedro decidir.

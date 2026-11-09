@@ -112,3 +112,17 @@ describe("profKeyDaArma / treinadoNaArma (24/10, docs/ATUALIZACAO_24-10.md seç�
     assert.equal(treinadoNaArma({ proficiencias: { armasDeFogo: "F" } }, getArmaPorId("arma_de_fogo_curta"), true), true);
   });
 });
+
+describe("Leve (09/11)", () => {
+  it("são Leves exatamente as 6 armas com Veloz", () => {
+    const leves = ARMAS.filter((a) => a.leve).map((a) => a.id).sort();
+    assert.deepEqual(leves, ["arma_de_arremesso", "arma_de_fogo_curta", "arma_flexivel", "contundente_de_punho", "contundente_leve", "lamina_curta"]);
+    for (const a of ARMAS) assert.equal(!!a.leve, a.descritor1 === "veloz" || a.descritor2 === "veloz", a.id);
+    assert.ok(!ARMAS.some((a) => a.leve && a.extra === "pesado"));
+  });
+  it("Leve entra sempre nos descritores efetivos", () => {
+    assert.deepEqual(descritoresEfetivosArma(getArmaPorId("lamina_curta"), [1]), ["letal", "leve"]);
+    assert.deepEqual(descritoresEfetivosArma(getArmaPorId("arma_de_fogo_curta"), []), ["arma_de_fogo", "leve"]);
+    assert.deepEqual(descritoresEfetivosArma(getArmaPorId("lamina"), [1]), ["letal"]);
+  });
+});

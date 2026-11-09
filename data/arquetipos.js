@@ -114,11 +114,13 @@ export function habilidadesIniciaisDaVariacao(disciplinaId) {
   return (v.habilidades || []).filter((h) => idDaHabilidade(h) === alvo).map(idDaHabilidade);
 }
 
-// 06/11: habilidades renomeadas/substituídas no Modal (id antigo -> novo),
+// 06/11 e 07/11: habilidades renomeadas/substituídas (id antigo -> novo),
 // pra migrar slots salvos (personagens.js:migrarDisciplinas).
 export const HABILIDADES_ARQUETIPO_RENOMEADAS = {
   "postura-agil": "postura-veloz",
   "troca-fluida": "postura-de-fogo",
+  // 07/11 (Guerreiro Poder): Golpe Devastador foi substituído por Mãos Fortes.
+  "golpe-devastador": "maos-fortes",
 };
 
 // Habilidades das disciplinas de arquétipo do personagem (lista de slots

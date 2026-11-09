@@ -6726,6 +6726,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                                 </label>
                               ))}
                               {armaCatalogo.extra && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>+ <Descritor token={armaCatalogo.extra} /></span>}
+                              {armaCatalogo.leve && <span style={{ display: "flex", alignItems: "center", gap: 4 }}>+ <Descritor token="leve" /></span>}
                             </div>
                           </div>
                         );
@@ -8578,7 +8579,7 @@ function AttackResultPanel({ result, emptyMessage = "Escolha um ataque à esquer
     <>
       <div style={{ textAlign: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 9.5, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
-          ATAQUE ({rolagemAtaque.dice.length}d10, sucesso {limiar === LIMIAR_BLINDADO ? "7+ — Blindado" : "6+"})
+          ATAQUE ({rolagemAtaque.dice.length}d10, sucesso {limiar + 1}+{limiar === LIMIAR_BLINDADO ? " — Blindado" : ""})
         </div>
         <AnimatedDiceRow dice={rolagemAtaque.dice} limiar={limiar} sortudoAplicado={rolagemAtaque.sortudoAplicado} reduced={reduced} onRevealed={() => setAtaqueRevelado(true)} />
         {tudoRevelado && (
@@ -13508,7 +13509,7 @@ function RulesView() {
 
       <SectionTitle icon={Swords}>Catálogo de Armas (tipos)</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 10px" }}>
-        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Na ficha, marque qual descritor a arma usa (um ou os dois). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas.
+        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Na ficha, marque qual descritor a arma usa (um ou os dois). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas. "Leve" (09/11) é o oposto: acerta com 5+ (6+ contra Blindado) e causa no máximo 1 agravante; Leve e Pesado se anulam.
       </p>
       {ARMAS.map((a) => (
         <div key={a.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
@@ -13517,11 +13518,12 @@ function RulesView() {
             <span style={{ fontSize: 10, color: BRASS, fontFamily: "'IBM Plex Mono', monospace" }}>{a.familia} · {ALCANCE_LABEL[a.alcance]}</span>
           </div>
           <div style={{ fontSize: 11, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", margin: "4px 0" }}>
-            Exemplos: {a.exemplos} · Feridas {a.feridas}{a.superficial ? " (superficial)" : ""}{a.extra ? ` · ${nomeDoToken(a.extra)}` : ""}
+            Exemplos: {a.exemplos} · Feridas {a.feridas}{a.superficial ? " (superficial)" : ""}{a.extra ? ` · ${nomeDoToken(a.extra)}` : ""}{a.leve ? " · Leve" : ""}
           </div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6, fontSize: 10 }}>
             <Descritor token={a.descritor1} />{a.descritor2 && <><span>ou</span><Descritor token={a.descritor2} /></>}
             {a.extra && <Descritor token={a.extra} />}
+            {a.leve && <Descritor token="leve" />}
           </div>
           <div style={{ fontSize: 10, color: MUTED, marginTop: 4 }}>Proficiência: {PROFICIENCIAS_LIST.find((p) => p.key === profKeyDaArma(a))?.label}</div>
         </div>

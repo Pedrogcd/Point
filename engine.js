@@ -907,13 +907,25 @@ export const LIMIAR_ENVENENAMENTO = 6; // dado > 6 => 7+ é sucesso na rolagem d
 // elevava o limiar por Blindado do defensor. Perfurante continua vencendo
 // os dois (negação sempre vence) — a arma de fogo longa do catálogo
 // (Perfurante + Pesado) fica só em 6+, como qualquer Perfurante.
-export function limiarAtaque({ atacante, defensor, descritoresAtaque }) {
+// "Leve" (09/11, Pedro — docs/revisao ATUALIZACAO_04-11 "Mudanças de
+// 09/11"): oposto do Pesado. O ataque acerta com 1 a menos que o normal
+// (5+; 6+ contra Blindado) e causa no máximo 1 ferimento agravante. Leve e
+// Pesado no mesmo ataque se anulam (os dois saem). Com outro limiar
+// elevado (Arma de fogo: 7+) o Leve também tira 1 (6+) — leitura do "um a
+// menos que o normal"; registrada para confirmar no vault.
+export function anularLeveEPesado(descritoresAtaque) {
   const ds = descritoresAtaque || [];
+  if (ds.includes("leve") && ds.includes("pesado")) return ds.filter((d) => d !== "leve" && d !== "pesado");
+  return ds;
+}
+export function limiarAtaque({ atacante, defensor, descritoresAtaque }) {
+  const ds = anularLeveEPesado(descritoresAtaque);
+  const leve = ds.includes("leve") ? 1 : 0;
   const perfurante = ds.includes("perfurante") || temDescritor(atacante, "ignora_blindado");
-  if (perfurante) return LIMIAR_SUCESSO;
+  if (perfurante) return LIMIAR_SUCESSO - leve;
   // 29/10: Arma de fogo também pede 7+ (igual Pesado; não soma com Blindado).
   const elevado = temDescritor(defensor, "blindado") || ds.includes("pesado") || ds.includes("arma_de_fogo");
-  return elevado ? LIMIAR_BLINDADO : LIMIAR_SUCESSO;
+  return (elevado ? LIMIAR_BLINDADO : LIMIAR_SUCESSO) - leve;
 }
 
 // "Extra" de dados da Base Mágica: mana gasta ACIMA do custo da magia (mínimo
@@ -1131,6 +1143,13 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
 // Devolve { feridas, agravantes, superficiais }.
 export function ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque = []) {
   if (!tipoFerimento) return { feridas: 0, agravantes: 0, superficiais: 0 };
+  // Leve (09/11): no máximo 1 agravante por ataque; o que passar disso
+  // conta como superficial (a confirmar no vault).
+  if (anularLeveEPesado(descritoresAtaque).includes("leve")) {
+    const r = ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque.filter((d) => d !== "leve"));
+    if (r.agravantes <= 1) return r;
+    return { feridas: r.feridas, agravantes: 1, superficiais: r.superficiais + r.agravantes - 1 };
+  }
   if (descritoresAtaque.includes("arma_de_fogo")) {
     return tipoFerimento === "agravante"
       ? { feridas: 2, agravantes: 1, superficiais: 1 }

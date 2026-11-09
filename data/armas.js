@@ -24,7 +24,16 @@
 // já faz hoje (engine.js) pra qualquer ataque com feridas>1, então não há
 // nada a mudar lá — só usar feridas:2 nestes 5 tipos.
 //
-// `superficial: true` marca os tipos "1 superficial" da planilha — o
+// `leve: true` (09/11, Pedro): descritor Leve, oposto do Pesado — acerta
+// com 5+ (6+ contra Blindado) e causa no máximo 1 agravante por ataque; se
+// anula com Pesado. São Leves as armas que tinham Veloz: Lâmina curta,
+// Contundente leve, Contundente de punho, Arma de fogo curta, Arma de
+// arremesso e Arma flexível (o Desarmado não é Leve). 09/11 (Pedro): a
+// nota "1 superficial" de Contundente leve, Contundente de punho e Arma de
+// arremesso saiu — agora o ferimento segue o Vigor, limitado pelo Leve.
+//
+// `superficial: true` marcava os tipos "1 superficial" da planilha (desde
+// 09/11 nenhum tipo usa; o campo continua para armas futuras) — o
 // ferimento é SEMPRE superficial, nunca agravante, independente do Vigor
 // (mesmo campo `superficial` que resolveAtaque já aceita pra magias
 // marcadas assim em data/magias.js).
@@ -52,23 +61,23 @@
 // não foram unificados — BASE_ATTACK_TYPES continua intocado porque fichas
 // salvas referenciam esses ids diretamente.
 export const ARMAS = [
-  { id: "lamina_curta", nome: "Lâmina curta", familia: "Lâmina", exemplos: "Adaga, faca, sabre", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "letal", descritor2: "veloz", extra: null, ajusteDados: 0, periciaFamilia: "Lâminas" },
+  { id: "lamina_curta", nome: "Lâmina curta", familia: "Lâmina", exemplos: "Adaga, faca, sabre", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "letal", descritor2: "veloz", extra: null, leve: true, ajusteDados: 0, periciaFamilia: "Lâminas" },
   { id: "lamina", nome: "Lâmina", familia: "Lâmina", exemplos: "Espada, gládio", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "letal", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Lâminas" },
   { id: "lamina_perfurante", nome: "Lâmina perfurante", familia: "Lâmina", exemplos: "Katana, estoque, rapieira", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "letal", descritor2: "perfurante", extra: null, ajusteDados: 0, periciaFamilia: "Lâminas" },
   { id: "lamina_pesada", nome: "Lâmina pesada", familia: "Lâmina", exemplos: "Machado, montante", alcance: "mesma_zona", feridas: 2, superficial: false, descritor1: "letal", descritor2: "esmagador_1", extra: "pesado", ajusteDados: 0, periciaFamilia: "Lâminas" },
-  { id: "contundente_leve", nome: "Contundente leve", familia: "Contundente", exemplos: "Bastão, cassetete", alcance: "mesma_zona", feridas: 1, superficial: true, descritor1: "esmagador_1", descritor2: "veloz", extra: null, ajusteDados: 0, periciaFamilia: "Contundentes" },
+  { id: "contundente_leve", nome: "Contundente leve", familia: "Contundente", exemplos: "Bastão, cassetete", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "esmagador_1", descritor2: "veloz", extra: null, leve: true, ajusteDados: 0, periciaFamilia: "Contundentes" },
   { id: "contundente", nome: "Contundente", familia: "Contundente", exemplos: "Maça, clava", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "esmagador_1", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Contundentes" },
   { id: "contundente_pesado", nome: "Contundente pesado", familia: "Contundente", exemplos: "Martelo de guerra, marreta", alcance: "mesma_zona", feridas: 2, superficial: false, descritor1: "esmagador_2", descritor2: "perfurante", extra: "pesado", ajusteDados: 0, periciaFamilia: "Contundentes" },
-  { id: "contundente_de_punho", nome: "Contundente de punho", familia: "Contundente", exemplos: "Manoplas, soco-inglês", alcance: "mesma_zona", feridas: 1, superficial: true, descritor1: "veloz", descritor2: "esmagador_1", extra: null, ajusteDados: 0, periciaFamilia: "Contundentes" },
+  { id: "contundente_de_punho", nome: "Contundente de punho", familia: "Contundente", exemplos: "Manoplas, soco-inglês", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "veloz", descritor2: "esmagador_1", extra: null, leve: true, ajusteDados: 0, periciaFamilia: "Contundentes" },
   { id: "haste", nome: "Haste", familia: "Haste", exemplos: "Lança, tridente", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Hastes" },
   { id: "haste_pesada", nome: "Haste pesada", familia: "Haste", exemplos: "Alabarda, glaive", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "letal", descritor2: "perfurante", extra: "pesado", ajusteDados: 0, periciaFamilia: "Hastes" },
-  { id: "arma_de_fogo_curta", nome: "Arma de fogo curta", familia: "Arma de fogo", exemplos: "Pistola, revólver", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "veloz", descritor2: "sortudo", extra: "arma_de_fogo", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
+  { id: "arma_de_fogo_curta", nome: "Arma de fogo curta", familia: "Arma de fogo", exemplos: "Pistola, revólver", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "veloz", descritor2: "sortudo", extra: "arma_de_fogo", leve: true, ajusteDados: 0, periciaFamilia: "Armas de fogo" },
   { id: "arma_de_fogo_longa", nome: "Arma de fogo longa", familia: "Arma de fogo", exemplos: "Rifle, fuzil", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: "arma_de_fogo", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
   { id: "arma_de_fogo_dispersao", nome: "Arma de fogo de dispersão", familia: "Arma de fogo", exemplos: "Espingarda", alcance: "uma_zona_adiante", feridas: 2, superficial: false, descritor1: "preciso_1", descritor2: "em_area", extra: "arma_de_fogo", ajusteDados: 0, periciaFamilia: "Armas de fogo" },
   { id: "arma_de_arco", nome: "Arma de arco", familia: "Distância", exemplos: "Arco curto, arco longo", alcance: "longo", feridas: 1, superficial: false, descritor1: "perfurante", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Distância" },
   { id: "arma_de_mecanismo", nome: "Arma de mecanismo", familia: "Distância", exemplos: "Besta", alcance: "longo", feridas: 2, superficial: false, descritor1: "perfurante", descritor2: "letal", extra: "pesado", ajusteDados: 0, periciaFamilia: "Distância" },
-  { id: "arma_de_arremesso", nome: "Arma de arremesso", familia: "Distância", exemplos: "Facas de arremesso, machadinha", alcance: "uma_zona_adiante", feridas: 1, superficial: true, descritor1: "veloz", descritor2: "sortudo", extra: null, ajusteDados: 0, periciaFamilia: "Distância" },
-  { id: "arma_flexivel", nome: "Arma flexível", familia: "Flexível", exemplos: "Corrente, mangual, chicote", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "preciso_1", descritor2: "veloz", extra: null, ajusteDados: 0, periciaFamilia: "Flexíveis" },
+  { id: "arma_de_arremesso", nome: "Arma de arremesso", familia: "Distância", exemplos: "Facas de arremesso, machadinha", alcance: "uma_zona_adiante", feridas: 1, superficial: false, descritor1: "veloz", descritor2: "sortudo", extra: null, leve: true, ajusteDados: 0, periciaFamilia: "Distância" },
+  { id: "arma_flexivel", nome: "Arma flexível", familia: "Flexível", exemplos: "Corrente, mangual, chicote", alcance: "mesma_zona", feridas: 1, superficial: false, descritor1: "preciso_1", descritor2: "veloz", extra: null, leve: true, ajusteDados: 0, periciaFamilia: "Flexíveis" },
 ];
 
 import { grauNumero } from "../engine.js";
@@ -85,6 +94,8 @@ export function descritoresEfetivosArma(arma, escolhidos = [1]) {
   const lista = normalizarDescritoresArma(escolhidos, arma);
   const out = lista.map((n) => (n === 2 ? arma.descritor2 : arma.descritor1));
   if (arma.extra) out.push(arma.extra);
+  // 09/11: Leve entra sempre, como o extra (ver engine.js:limiarAtaque).
+  if (arma.leve) out.push("leve");
   return out.filter(Boolean);
 }
 

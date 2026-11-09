@@ -135,34 +135,34 @@
       "nota": "Pedro 06/11: sem sucesso garantido"
      },
      {
-      "nome": "Golpe Devastador",
-      "tipo": "Ataque",
-      "custo": "1 SP",
-      "descritores": "Pesado, Esmagador 1",
-      "texto": "O ataque ganha Pesado (7+; 2 ferimentos pelo Vigor) e Esmagador 1. Se errar, fica Azarado na próxima defesa. Se o ataque já for Pesado, o Esmagador sobe para 2.",
+      "nome": "Mãos Fortes",
+      "tipo": "Passiva",
+      "custo": "—",
+      "descritores": "—",
+      "texto": "Armas Pesadas podem ser usadas com uma mão.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 07/11: substitui Golpe Devastador"
      },
      {
       "nome": "Tudo ou Nada",
       "tipo": "Ataque",
-      "custo": "1 MP",
+      "custo": "2 MP",
       "descritores": "Letal",
-      "texto": "O ataque ganha Letal; se não causar ferimento, a próxima defesa dele rola 1 dado a menos. Se o ataque já tiver Letal, causa também Sangramento 1.",
+      "texto": "O ataque ganha Letal e +1d10. Se errar (não causar ferimento), fica Azarado na defesa. Se o ataque já tiver Letal, causa também Sangramento 1.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 07/11"
      },
      {
       "nome": "Golpe Gigante",
       "tipo": "Ataque",
-      "custo": "1 SP",
+      "custo": "1 MP",
       "descritores": "Pesado, Em área",
-      "texto": "O ataque ganha Pesado e Em área, atingindo todos na zona (aliados também). Se o ataque já for Pesado, rola +1d10; se já for Em área, não atinge aliados.",
+      "texto": "O ataque ganha Pesado e Em área, atingindo todos na zona, sem atingir aliados (sem fogo amigo). Se o ataque já for Pesado, rola +1d10.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 07/11"
      },
      {
       "nome": "Empurrão",
@@ -187,7 +187,7 @@
      "Percepção",
      "Atletismo"
     ],
-    "passiva": "Ataques desarmados ou com arma leve podem rolar com −1 grau nos dois atributos de ataque (atributo e proficiência, mínimo 1 em cada), mas fazem dois ataques.",
+    "passiva": "Ataques desarmados ou com arma Leve podem rolar com −1 grau nos dois atributos de ataque (atributo e proficiência, mínimo 1 em cada), mas fazem dois ataques.",
     "descritores": [
      "Preciso",
      "Veloz",

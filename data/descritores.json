@@ -82,6 +82,17 @@
       "linkEmTextoLivre": false
     },
     {
+      "id": "leve",
+      "nome": "Leve",
+      "temN": false,
+      "tipo": "Ataque",
+      "status": "Definido",
+      "resumo": "Acerta com 5+ (6+ contra Blindado), mas causa no máximo 1 agravante.",
+      "regra": "Oposto do Pesado (09/11): os dados de ataque acertam com 1 a menos que o normal — 5+ (6+ contra Blindado). O ataque causa no máximo 1 ferimento agravante (1 ponto de vida). Leve e Pesado no mesmo ataque se anulam. São Leves: Lâmina curta, Contundente leve, Contundente de punho, Arma de fogo curta, Arma de arremesso e Arma flexível (o Desarmado não é Leve).",
+      "usadoEm": "Lâmina curta, Contundente leve, Contundente de punho, Arma de fogo curta, Arma de arremesso, Arma flexível",
+      "linkEmTextoLivre": false
+    },
+    {
       "id": "arma-de-fogo",
       "nome": "Arma de fogo",
       "temN": false,

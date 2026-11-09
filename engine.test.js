@@ -1751,3 +1751,25 @@ describe("Ágil N igual ao Firme, na esquiva (07/11)", () => {
     assert.equal(esq.totalDice, semAgil.totalDice - 1);
   });
 });
+
+describe("Leve (09/11): 1 a menos no limiar, no máximo 1 agravante, anula com Pesado", () => {
+  const c = () => makeCharacter();
+  const blindado = () => ({ ...makeCharacter(), descritores: ["blindado"] });
+  it("acerta com 5+ (6+ contra Blindado)", () => {
+    assert.equal(limiarAtaque({ atacante: c(), defensor: c(), descritoresAtaque: ["leve"] }), LIMIAR_SUCESSO - 1);
+    assert.equal(limiarAtaque({ atacante: c(), defensor: blindado(), descritoresAtaque: ["leve"] }), LIMIAR_SUCESSO);
+  });
+  it("Leve + Pesado se anulam (6+, 7+ contra Blindado)", () => {
+    assert.equal(limiarAtaque({ atacante: c(), defensor: c(), descritoresAtaque: ["leve", "pesado"] }), LIMIAR_SUCESSO);
+    assert.equal(limiarAtaque({ atacante: c(), defensor: blindado(), descritoresAtaque: ["leve", "pesado"] }), LIMIAR_BLINDADO);
+  });
+  it("arma de fogo curta (Leve + Arma de fogo): 6+", () => {
+    assert.equal(limiarAtaque({ atacante: c(), defensor: c(), descritoresAtaque: ["veloz", "arma_de_fogo", "leve"] }), LIMIAR_SUCESSO);
+  });
+  it("no máximo 1 agravante; arma de fogo continua 1 agravante + 1 superficial", () => {
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve"]), { feridas: 2, agravantes: 1, superficiais: 1 });
+    assert.deepEqual(ferimentosDoAtaque("agravante", 1, ["leve"]), { feridas: 1, agravantes: 1, superficiais: 0 });
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve", "arma_de_fogo"]), { feridas: 2, agravantes: 1, superficiais: 1 });
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve", "pesado"]), { feridas: 2, agravantes: 2, superficiais: 0 });
+  });
+});

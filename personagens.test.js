@@ -525,3 +525,10 @@ describe("migrarPersonagem — Guerreiro Modal (06/11)", () => {
     assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["maestria-de-estilo", "postura-de-fogo", "postura-veloz"]);
   });
 });
+
+describe("migrarPersonagem — Guerreiro Poder (07/11)", () => {
+  it("Golpe Devastador -> Mãos Fortes", () => {
+    const ch = migrarPersonagem({ id: "p", name: "P", disciplinas: [{ disciplinaId: "arquetipo-guerreiro-poder", habilidadesAtivas: ["golpe-devastador", "tudo-ou-nada"] }] });
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["maos-fortes", "tudo-ou-nada"]);
+  });
+});

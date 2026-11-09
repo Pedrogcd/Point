@@ -12,7 +12,7 @@ import {
   MousePointer2, Hand, Pencil, Eraser, ImagePlus, Map as MapIcon, Grid3x3, ZoomIn, ZoomOut, Maximize,
   Trash2, Send, Dices, Plus, Minus, Wifi, WifiOff, Crown,
   CloudFog, Cloud, CloudOff, Eye, Square, Circle, Pentagon, Magnet, Undo2, Check, X as XIcon, Users, Layers,
-  UserPlus, UserRound, ExternalLink, Lock, Reply,
+  UserPlus, UserRound, ExternalLink, Lock, Reply, ScrollText,
 } from "lucide-react";
 import {
   MESA_LARGURA, MESA_ALTURA, CORES_DESENHO, ALVO_PADRAO, MAX_DADOS, AUTOR_MESTRE,
@@ -22,7 +22,7 @@ import {
   formaDaNevoa, encaixarPonto, circuloDeArraste, pontosPerto, fecharPoligono,
   CAMADAS_IMAGEM, camadaDaImagem, imagensDaCamada, tracoTocaRetangulo,
   idDoJogador, jogadoresDaMesa, fichasDoJogador, tokenDePersonagem, podeMoverImagem,
-  mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino,
+  mensagemVisivel, destinosDeSussurro, parseSussurro, rotuloDoDestino, dadosDaFicha,
 } from "./mesa.js";
 import { ATRIBUTOS_GERAIS_LIST, PROFICIENCIAS_LIST, grauNumero } from "./engine.js";
 import { comGrausEfetivos } from "./racasCatalogo.js";
@@ -328,6 +328,19 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
     if (cmd) publicar(mensagemDeRolagem(autor, rolarDados(cmd.dados, cmd.alvo), { rotulo: cmd.rotulo, ...opcoesMsg(para) }));
     else publicar(mensagemDeFala(autor, t, opcoesMsg(para)));
     setTexto("");
+  }
+  // Rolar da ficha (08/11): quando quem fala é uma ficha, escolhe Atributo
+  // + Proficiência dela (com os bônus) e rola no chat com o rótulo.
+  const fichaQueFala = autor?.tipo === "ficha" ? (personagens || []).find((p) => `ficha:${p.id}` === autor.id) : null;
+  const fichaEfetiva = useMemo(() => (fichaQueFala ? comGrausEfetivos(fichaQueFala).character : null), [fichaQueFala]);
+  const [atribFicha, setAtribFicha] = useState("destreza");
+  const [profFicha, setProfFicha] = useState("combateCorpoACorpo");
+  const [extraFicha, setExtraFicha] = useState(0);
+  const contaFicha = fichaEfetiva ? dadosDaFicha(fichaEfetiva, atribFicha, profFicha, extraFicha) : null;
+  function rolarDaFicha() {
+    if (!contaFicha) return;
+    const rotulo = `${ATRIBUTOS_GERAIS_LIST.find((a) => a.key === atribFicha)?.label} + ${PROFICIENCIAS_LIST.find((p) => p.key === profFicha)?.label}${extraFicha ? ` + ${extraFicha} extra` : ""}`;
+    publicar(mensagemDeRolagem(autor, rolarDados(contaFicha.total, alvo), { rotulo, ...opcoesMsg(paraAtual) }));
   }
   function rolar() {
     publicar(mensagemDeRolagem(autor, rolarDados(qtdDados, alvo), opcoesMsg(paraAtual)));
@@ -1205,6 +1218,30 @@ export default function MesaView({ gm, personagens, npcs, resolverImagem, supaba
               Rolar
             </button>
           </div>
+          {contaFicha && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: MUTED, flexWrap: "wrap", paddingTop: 6, borderTop: `1px dashed ${LINE}` }}>
+              <ScrollText size={15} color={PURPLE} />
+              <span style={{ whiteSpace: "nowrap" }}>Da ficha</span>
+              <select value={atribFicha} onChange={(e) => setAtribFicha(e.target.value)} aria-label="Atributo da ficha" style={seletorFicha}>
+                {ATRIBUTOS_GERAIS_LIST.map((a) => <option key={a.key} value={a.key}>{a.label} ({grauNumero(fichaEfetiva.atributosGerais?.[a.key])})</option>)}
+              </select>
+              <span>+</span>
+              <select value={profFicha} onChange={(e) => setProfFicha(e.target.value)} aria-label="Proficiência da ficha" style={seletorFicha}>
+                {[["combate", "Combate"], ["fisica", "Física"], ["social", "Social"], ["mental", "Mental"]].map(([cat, nome]) => (
+                  <optgroup key={cat} label={nome}>
+                    {PROFICIENCIAS_LIST.filter((p) => p.categoria === cat).map((p) => <option key={p.key} value={p.key}>{p.label} ({grauNumero(fichaEfetiva.proficiencias?.[p.key])})</option>)}
+                  </optgroup>
+                ))}
+              </select>
+              <span title="Dados extras">+</span>
+              <input type="number" min={0} max={10} value={extraFicha} onChange={(e) => setExtraFicha(Math.max(0, Math.min(10, Number(e.target.value) || 0)))} aria-label="Dados extras da ficha"
+                style={{ width: 42, padding: "4px 4px", borderRadius: 6, border: `1px solid ${LINE}`, fontSize: 12 }} />
+              <button type="button" onClick={rolarDaFicha} title={`Rolar ${contaFicha.total}d10 (${alvo}+)`}
+                style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer", background: PURPLE, color: PANEL, fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: 12 }}>
+                Rolar {contaFicha.total}d10
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1218,4 +1255,8 @@ const passo = {
 const itemLista = {
   display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "5px 6px", borderRadius: 7, border: "1px solid transparent",
   background: "transparent", cursor: "pointer", fontSize: 13, color: PARCHMENT, textAlign: "left", fontFamily: "'Spectral', serif",
+};
+
+const seletorFicha = {
+  padding: "4px 4px", borderRadius: 6, border: `1px solid ${LINE}`, background: "#fff", fontSize: 12, color: PARCHMENT, maxWidth: 130,
 };

@@ -317,9 +317,9 @@
       "nome": "Veloz",
       "temN": false,
       "tipo": "Prioridade",
-      "status": "Etiqueta",
-      "resumo": "Prioridade +1 (só etiqueta até existir iniciativa).",
-      "regra": "Prioridade +1. Só etiqueta por enquanto, porque a iniciativa ainda não existe no motor. A iniciativa existe mas não é acompanhada no sistema (23/10).",
+      "status": "Definido",
+      "resumo": "+1 no resultado da iniciativa.",
+      "regra": "+1 no resultado da iniciativa (09/11). A iniciativa rola sucessos de Atributo + Proficiência escolhidos pelo Mestre na hora (padrão Destreza + Percepção); empate por maior Destreza, depois PC antes de NPC. Fora da iniciativa, sem efeito.",
       "usadoEm": "Mana Concentrada, Agilidade Bestial, Tônico Veloz, Encantamento: Veloz",
       "linkEmTextoLivre": false
     },

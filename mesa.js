@@ -738,11 +738,12 @@ export function textoDistancia({ quadrados, metros }) {
 }
 
 // ---- Ordem de turno / iniciativa (09/11) -----------------------------
-// Sem regra de rolagem (iniciativa ainda pendente no vault): o Mestre
-// digita o valor de cada um e a lista se ordena (maior primeiro; empate
-// fica na ordem em que entrou). Um objeto por plano:
+// Regra (Pedro, 09/11): ficha rola sucessos (6+) de Atributo + Proficiência
+// que o Mestre escolhe na hora (padrão Destreza + Percepção); Veloz soma +1
+// no resultado; empate: maior Destreza, depois ficha (PC) antes de NPC/nome
+// livre. NPC e nome livre: o Mestre digita o valor. Um objeto por plano:
 // { id: "iniciativa:<plano>", tipo: "iniciativa", entradas: [{ id, nome,
-//   img, valor, tokenId }], vez: id da entrada da vez, rodada }.
+//   img, valor, tokenId, fichaId, veloz, desempate }], vez, rodada }.
 export function idDaIniciativa(cena) {
   return `iniciativa:${cena || CENA_PRINCIPAL}`;
 }
@@ -751,13 +752,21 @@ export function iniciativaDaCena(objetos, cena) {
   return o || { id: idDaIniciativa(cena), tipo: "iniciativa", ordem: -9996, entradas: [], vez: null, rodada: 1 };
 }
 export function ordenarIniciativa(entradas) {
+  const des = (e) => (Number.isFinite(Number(e.desempate)) && e.desempate !== null ? Number(e.desempate) : -1);
   return (entradas || []).map((e, i) => ({ e, i }))
-    .sort((a, b) => (Number(b.e.valor) || 0) - (Number(a.e.valor) || 0) || a.i - b.i)
+    .sort((a, b) => (Number(b.e.valor) || 0) - (Number(a.e.valor) || 0)
+      || des(b.e) - des(a.e)
+      || (b.e.fichaId ? 1 : 0) - (a.e.fichaId ? 1 : 0)
+      || a.i - b.i)
     .map(({ e }) => e);
 }
 export function adicionarNaIniciativa(ini, entrada) {
   if (entrada.tokenId && ini.entradas.some((e) => e.tokenId === entrada.tokenId)) return ini;
-  const nova = { id: entrada.id, nome: entrada.nome || "?", img: entrada.img || null, valor: Number(entrada.valor) || 0, tokenId: entrada.tokenId || null };
+  const nova = {
+    id: entrada.id, nome: entrada.nome || "?", img: entrada.img || null, valor: Number(entrada.valor) || 0,
+    tokenId: entrada.tokenId || null, fichaId: entrada.fichaId || null, veloz: !!entrada.veloz,
+    desempate: entrada.desempate ?? null,
+  };
   const entradas = ordenarIniciativa([...ini.entradas, nova]);
   return { ...ini, entradas, vez: ini.vez ?? null };
 }
@@ -813,4 +822,39 @@ export function deveAnimarRolagem(msg, { abertaEm, agora = Date.now(), janela = 
   const t = Date.parse(msg.criado_em);
   if (!Number.isFinite(t)) return !!msg._pendente;
   return t >= abertaEm - 1000 && agora - t < janela;
+}
+
+// Veloz liga/desliga na entrada: +1/−1 no valor (09/11).
+export function velozNaIniciativa(ini, id, veloz) {
+  return {
+    ...ini,
+    entradas: ordenarIniciativa(ini.entradas.map((e) => {
+      if (e.id !== id || !!e.veloz === !!veloz) return e;
+      return { ...e, veloz: !!veloz, valor: (Number(e.valor) || 0) + (veloz ? 1 : -1) };
+    })),
+  };
+}
+export const INICIATIVA_PADRAO = { atributo: "destreza", proficiencia: "percepcao" };
+// Rola a iniciativa das entradas com ficha. `fichaDe(entrada)` devolve a
+// ficha EFETIVA (com bônus — comGrausEfetivos) ou null. Devolve a nova
+// iniciativa e um resumo por ficha para o chat.
+export function rolarIniciativa(ini, { fichaDe, atributo = INICIATIVA_PADRAO.atributo, proficiencia = INICIATIVA_PADRAO.proficiencia, aleatorio = Math.random } = {}) {
+  const resumo = [];
+  const entradas = ini.entradas.map((e) => {
+    const ficha = fichaDe ? fichaDe(e) : null;
+    if (!ficha) return e;
+    const conta = dadosDaFicha(ficha, atributo, proficiencia);
+    const r = rolarDados(conta.total, ALVO_PADRAO, aleatorio);
+    const veloz = (ficha.descritores || []).includes("veloz") || !!e.veloz;
+    const valor = r.sucessos + (veloz ? 1 : 0);
+    const desempate = grauNumero(ficha.atributosGerais?.destreza);
+    resumo.push({ nome: e.nome, dados: conta.total, faces: r.faces, sucessos: r.sucessos, veloz, valor });
+    return { ...e, valor, veloz, desempate };
+  });
+  return { ini: { ...ini, entradas: ordenarIniciativa(entradas), vez: null, rodada: 1 }, resumo };
+}
+export function textoDaIniciativa(resumo, rotulo) {
+  if (!resumo.length) return "";
+  const partes = resumo.map((r) => `${r.nome} ${r.valor}${r.veloz ? " (Veloz +1)" : ""} [${r.faces.join(" ")}]`);
+  return `Iniciativa (${rotulo}): ${partes.join(" · ")}`;
 }

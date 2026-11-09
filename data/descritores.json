@@ -76,8 +76,8 @@
       "temN": false,
       "tipo": "Ataque",
       "status": "Definido",
-      "resumo": "Acerta só com 7+, mas causa 2 ferimentos.",
-      "regra": "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com Blindado). A arma causa 2 ferimentos por ataque que acerta, e os dois seguem a regra do Vigor (os dois agravantes ou os dois superficiais). Em armadura, Pesado dá Lento 1 ao portador.",
+      "resumo": "Acerta só com 7+, mas causa 2 ferimentos (nunca 2 agravantes).",
+      "regra": "Os dados de ataque precisam de 7+ (como contra Blindado; não soma com Blindado). O ataque causa 2 ferimentos, mas nunca dois agravantes (09/11): se os sucessos líquidos chegam no Vigor do defensor, 1 agravante + 1 superficial; abaixo do Vigor, 2 superficiais. Vale para armas pesadas e qualquer ataque com Pesado (ex.: Golpe Gigante). Leve e Pesado no mesmo ataque se anulam. Em armadura, Pesado dá Lento 1 ao portador.",
       "usadoEm": "Torrente Mágica, armas pesadas, armaduras pesadas",
       "linkEmTextoLivre": false
     },

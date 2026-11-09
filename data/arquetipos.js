@@ -83,6 +83,9 @@ export function custoDaHabilidade(custo) {
   const t = String(custo || "").trim().toLowerCase();
   const gratis = /^0\s*mp\s*\(1ª vez d[ao] (cena|turno)\)[;,]?\s*(?:depois\s*)?(\d+)\s*mp/.exec(t);
   if (gratis) return { mp: parseInt(gratis[2], 10), primeiraGratis: gratis[1] };
+  // 09/11 (Resistir à Dor): custo E limite — "1 SP (1x por cena)".
+  const comLimite = /^(\d+)\s*(mp|sp)\s*\(1x por cena\)$/.exec(t);
+  if (comLimite) return { [comLimite[2]]: parseInt(comLimite[1], 10), porCena: true };
   if (/por cena/.test(t)) return { porCena: true };
   const m = /^(\d+)\s*(mp|sp)$/.exec(t);
   if (m) return { [m[2]]: parseInt(m[1], 10) };
@@ -123,6 +126,20 @@ export const HABILIDADES_ARQUETIPO_RENOMEADAS = {
   "golpe-devastador": "maos-fortes",
   // 09/11, segunda rodada (Guerreiro Preciso): Contragolpe foi substituído por Borrão.
   "contragolpe": "borrao",
+};
+
+// 09/11 (3ª e 4ª rodadas): trocas que só valem numa variação (o mesmo id
+// continua existindo em outra — ex.: Empurrão segue no Protetor Muralha).
+export const HABILIDADES_RENOMEADAS_POR_VARIACAO = {
+  "arquetipo-guerreiro-poder": { empurrao: "poder" },
+  "arquetipo-barbaro-furia": { "golpe-descontrolado": "tudo-ou-nada" },
+};
+
+// 09/11 (3ª rodada): habilidades passivas que dão grau quando desbloqueadas
+// — Guerreiro Poder, "Poder": +1 grau em Força (teto 3, o padrão de
+// racasCatalogo.js:comGrausEfetivos).
+export const BONUS_GRAU_POR_HABILIDADE_ARQUETIPO = {
+  "arquetipo-guerreiro-poder": { poder: [{ tipo: "atributo", chave: "forca" }] },
 };
 
 // Habilidades das disciplinas de arquétipo do personagem (lista de slots

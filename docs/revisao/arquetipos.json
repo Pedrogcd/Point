@@ -165,14 +165,14 @@
       "nota": "Pedro 07/11"
      },
      {
-      "nome": "Empurrão",
-      "tipo": "Ataque",
-      "custo": "1 MP",
-      "descritores": "Esmagador 1",
-      "texto": "Ataque de escudo ou ombro com Esmagador 1; o alvo sai da zona se perder o teste de Força. Se já tiver Esmagador, ele sobe +1.",
-      "origem": "Compartilhada com Guardião Muralha",
+      "nome": "Poder",
+      "tipo": "Passiva",
+      "custo": "—",
+      "descritores": "—",
+      "texto": "Ganha +1 grau em Força (teto 3).",
+      "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 09/11: substitui Empurrão"
      }
     ]
    },
@@ -1616,7 +1616,7 @@
       "custo": "1 MP",
       "descritores": "Esmagador 1",
       "texto": "Ataque de escudo com Esmagador 1. Se já tiver Esmagador, ele sobe +1.",
-      "origem": "Compartilhada com Guerreiro Poder",
+      "origem": "Única",
       "geral": false,
       "nota": ""
      },

@@ -76,3 +76,25 @@ Arquétipos e variações: Guerreiro (Modal, Poder, Preciso); Bárbaro (Fúria, 
 - Olho na Brecha: vira ataque; até o fim do turno todos os seus ataques ganham Sortudo, mas todo ferimento causado no turno é superficial.
 - Contragolpe é substituído por Borrão: 2 MP; ao rolar a esquiva, rola com +2d10.
 - Ainda a revisar no Guerreiro: Empurrão.
+
+## Mudanças de 09/11, terceira rodada (Guerreiro concluído)
+- Guerreiro Poder: Empurrão é substituído por uma passiva chamada Poder: ganha +1 grau em Força (teto 3). O Empurrão continua existindo no Guardião Muralha, agora como habilidade única (deixa de ser compartilhada).
+- Guerreiro está com a revisão concluída (as 3 variações).
+
+## Mudanças de 09/11, quarta rodada (Bárbaro, em andamento)
+- Resistir à Dor (geral do Bárbaro): passa a custar 1 SP, além de 1x por cena. O efeito (teste de Vigor + Fortitude; 1 sucesso transforma o primeiro agravante em superficial) não muda.
+- Bárbaro Inabalável, passiva: troca para "uma vez por dia, pode começar um combate já com 1 ponto de vida temporário" (antes repetia o Resistir à Dor).
+- Bárbaro Fúria (renomeada Poderoso em 09/11): Golpe Descontrolado é substituído por Tudo ou Nada (a mesma habilidade do Guerreiro Poder, agora compartilhada entre os dois): 2 MP; o ataque ganha Letal e +1d10; se errar, fica Azarado na defesa; se já tiver Letal, causa também Sangramento 1.
+- Fúria (geral): sem mudança, revisada.
+- Ainda a revisar no Bárbaro: Brutalidade, Rugido, Fúria Total, Cheiro de Sangue, Mordida Selvagem, Sede de Sangue, Rasgar, Pele de Pedra, Grito de Resistência, Contra-Atacar a Dor, Inamovível e as passivas de Fúria e Sanguinário.
+
+## Proposta de 09/11 para o Bárbaro (a validar pelo Pedro)
+- A variação Fúria é renomeada PODEROSO e vira a variação de ARMAS PESADAS (espelho do Guerreiro Preciso). Passiva nova: pode usar armas Pesadas ignorando o descritor Pesado e pode adicionar Pesado a qualquer arma que não seja Leve. A passiva antiga (+1d10 no próximo ataque ao sofrer ferimento) sai. Habilidades: Fúria, Resistir à Dor, Tudo ou Nada, Golpe Gigante (compartilhada com Guerreiro Poder, no lugar do Rugido), Brutalidade, Fúria Total.
+- Sanguinário vira SELVAGEM (traços de Ningen que se incrementam se o personagem já os tem). A passiva (Letal, depois Perfurante, depois Sangramento 1) é mantida. Prof. fixa de combate: Desarmado; outras fixas: Sobrevivência e Percepção. Habilidades: Fúria, Resistir à Dor, Mordida Selvagem (mantida), Garras Selvagens, Couro Selvagem e Forma Bestial (novas).
+- Inabalável não muda.
+- Guardadas para reuso: Rugido, Cheiro de Sangue, Sede de Sangue, Rasgar e a antiga passiva da Fúria.
+
+- Renomeação (09/11): a variação Bárbaro Fúria passa a se chamar Bárbaro Poderoso. A habilidade geral Fúria (estado) mantém o nome.
+
+## Mudança de 09/11: ferimentos do Pesado
+- Pesado continua causando 2 ferimentos, mas nunca dois agravantes. Se os sucessos líquidos forem iguais ou maiores que o Vigor do defensor, um ferimento é agravante e o outro é superficial. Abaixo do Vigor, os dois são superficiais. Isso vale para armas Pesadas e para qualquer ataque com o descritor Pesado (Tudo ou Nada não é Pesado; Golpe Gigante e as armas pesadas são).

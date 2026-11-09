@@ -1664,8 +1664,8 @@ describe("Arma de fogo (29/10)", () => {
     assert.deepEqual(ferimentosDoAtaque("superficial", 1, ["arma_de_fogo"]), { feridas: 2, agravantes: 0, superficiais: 2 });
     assert.deepEqual(ferimentosDoAtaque(null, 2, ["arma_de_fogo"]), { feridas: 0, agravantes: 0, superficiais: 0 });
   });
-  it("sem Arma de fogo, regra de sempre (todos do mesmo tipo)", () => {
-    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["pesado"]), { feridas: 2, agravantes: 2, superficiais: 0 });
+  it("sem Arma de fogo nem Pesado, regra de sempre (todos do mesmo tipo)", () => {
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["letal"]), { feridas: 2, agravantes: 2, superficiais: 0 });
   });
   it("todo ataque de arma de fogo ganha o descritor, inclusive ataque salvo antigo", () => {
     assert.ok(descritoresEfetivosDoAtaque({}, { tipo: "arma_de_fogo", descritores: ["letal"] }).includes("arma_de_fogo"));
@@ -1770,6 +1770,17 @@ describe("Leve (09/11): 1 a menos no limiar, no máximo 1 agravante, anula com P
     assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve"]), { feridas: 2, agravantes: 1, superficiais: 1 });
     assert.deepEqual(ferimentosDoAtaque("agravante", 1, ["leve"]), { feridas: 1, agravantes: 1, superficiais: 0 });
     assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve", "arma_de_fogo"]), { feridas: 2, agravantes: 1, superficiais: 1 });
-    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve", "pesado"]), { feridas: 2, agravantes: 2, superficiais: 0 });
+    // Leve + Pesado se anulam: ataque normal, 1 ferimento.
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["leve", "pesado"]), { feridas: 1, agravantes: 1, superficiais: 0 });
+  });
+});
+
+describe("Pesado (09/11): 2 ferimentos, nunca 2 agravantes", () => {
+  it("passando do Vigor: 1 agravante + 1 superficial; abaixo: 2 superficiais", () => {
+    assert.deepEqual(ferimentosDoAtaque("agravante", 2, ["pesado", "letal"]), { feridas: 2, agravantes: 1, superficiais: 1 });
+    assert.deepEqual(ferimentosDoAtaque("superficial", 2, ["pesado"]), { feridas: 2, agravantes: 0, superficiais: 2 });
+  });
+  it("qualquer ataque com Pesado causa 2 (ex.: Golpe Gigante numa arma de 1 ferimento)", () => {
+    assert.deepEqual(ferimentosDoAtaque("agravante", 1, ["pesado", "em_area"]), { feridas: 2, agravantes: 1, superficiais: 1 });
   });
 });

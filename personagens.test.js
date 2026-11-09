@@ -539,3 +539,18 @@ describe("migrarPersonagem — Guerreiro Preciso (09/11, 2ª rodada)", () => {
     assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["borrao", "estocada"]);
   });
 });
+
+describe("migrarPersonagem — 3ª e 4ª rodadas de 09/11", () => {
+  it("Guerreiro Poder: Empurrão -> Poder; Protetor Muralha mantém Empurrão", () => {
+    const ch = migrarPersonagem({ id: "g", name: "G", disciplinas: [
+      { disciplinaId: "arquetipo-guerreiro-poder", habilidadesAtivas: ["empurrao"] },
+      { disciplinaId: "arquetipo-protetor-muralha", habilidadesAtivas: ["empurrao"] },
+    ] });
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas, ["poder"]);
+    assert.deepEqual(ch.disciplinas[1].habilidadesAtivas, ["empurrao"]);
+  });
+  it("Bárbaro Fúria: Golpe Descontrolado -> Tudo ou Nada", () => {
+    const ch = migrarPersonagem({ id: "b", name: "B", disciplinas: [{ disciplinaId: "arquetipo-barbaro-furia", habilidadesAtivas: ["golpe-descontrolado"] }] });
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas, ["tudo-ou-nada"]);
+  });
+});

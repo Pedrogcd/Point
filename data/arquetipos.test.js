@@ -127,3 +127,20 @@ describe("Guerreiro — mudanças de 06/11", async () => {
     assert.ok(!ids.includes("troca-fluida") && !ids.includes("postura-agil"));
   });
 });
+
+describe("09/11, 3ª e 4ª rodadas", async () => {
+  const m = await import("./arquetipos.js");
+  it("Resistir à Dor: 1 SP e 1x por cena", () => {
+    assert.deepEqual(m.custoDaHabilidade("1 SP (1x por cena)"), { sp: 1, porCena: true });
+    const furia = m.getVariacaoPorId("arquetipo-barbaro-furia");
+    assert.equal(furia.habilidades.find((h) => h.nome === "Resistir à Dor").custo, "1 SP (1x por cena)");
+    assert.ok(furia.habilidades.some((h) => h.nome === "Tudo ou Nada") && !furia.habilidades.some((h) => h.nome === "Golpe Descontrolado"));
+  });
+  it("Inabalável: passiva do ponto de vida temporário", () => {
+    assert.match(m.getVariacaoPorId("arquetipo-barbaro-inabalavel").passiva, /^Uma vez por dia, pode começar um combate já com 1 ponto de vida temporário/);
+  });
+  it("Guerreiro Poder: passiva Poder dá +1 Força", () => {
+    assert.deepEqual(m.BONUS_GRAU_POR_HABILIDADE_ARQUETIPO["arquetipo-guerreiro-poder"].poder, [{ tipo: "atributo", chave: "forca" }]);
+    assert.ok(m.getVariacaoPorId("arquetipo-guerreiro-poder").habilidades.some((h) => h.nome === "Poder"));
+  });
+});

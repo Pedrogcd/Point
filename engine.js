@@ -1141,8 +1141,22 @@ export function resolveRolagemDefesa({ defensor, defesaAtributo, descritoresAtaq
 // 1 agravante + 1 superficial; senão, 2 superficiais. Pra qualquer outro
 // ataque: `feridas` ferimentos, todos do mesmo tipo (regra de sempre).
 // Devolve { feridas, agravantes, superficiais }.
+// Pesado (09/11, Pedro — "Mudança de 09/11: ferimentos do Pesado"):
+// continua causando 2 ferimentos, mas nunca dois agravantes — passando do
+// Vigor, 1 agravante + 1 superficial; abaixo, 2 superficiais (o mesmo
+// formato da Arma de fogo). Vale para armas pesadas e qualquer ataque com
+// Pesado (ex.: Golpe Gigante). Leve + Pesado se anulam: ataque normal, 1
+// ferimento (o "2" da arma pesada era do Pesado).
 export function ferimentosDoAtaque(tipoFerimento, feridas, descritoresAtaque = []) {
   if (!tipoFerimento) return { feridas: 0, agravantes: 0, superficiais: 0 };
+  if (descritoresAtaque.includes("leve") && descritoresAtaque.includes("pesado") && !descritoresAtaque.includes("arma_de_fogo")) {
+    return ferimentosDoAtaque(tipoFerimento, Math.min(1, feridas), anularLeveEPesado(descritoresAtaque));
+  }
+  if (descritoresAtaque.includes("pesado")) {
+    return tipoFerimento === "agravante"
+      ? { feridas: 2, agravantes: 1, superficiais: 1 }
+      : { feridas: 2, agravantes: 0, superficiais: 2 };
+  }
   // Leve (09/11): no máximo 1 agravante por ataque; o que passar disso
   // conta como superficial (a confirmar no vault).
   if (anularLeveEPesado(descritoresAtaque).includes("leve")) {

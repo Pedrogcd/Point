@@ -5277,7 +5277,7 @@ function CartaoHabilidadeArquetipo({ h, usada, gratis, podeUsar, onUsar }) {
       {onUsar && (
         <div style={{ marginTop: 6 }}>
           <Btn onClick={onUsar} disabled={!podeUsar} style={{ fontSize: 10.5, padding: "3px 10px" }}>
-            {gratis ? `Usar (grátis — 1ª vez ${custo.primeiraGratis === "turno" ? "do turno" : "da cena"})` : custo.porCena ? (usada ? "Usada na cena (desmarcar)" : "Usar (1x por cena)") : custo.mp ? `Usar (−${custo.mp} MP)` : custo.sp ? `Usar (−${custo.sp} SP)` : "Usar"}
+            {gratis ? `Usar (grátis — 1ª vez ${custo.primeiraGratis === "turno" ? "do turno" : "da cena"})` : custo.porCena && (custo.mp || custo.sp) ? (usada ? "Usada na cena" : `Usar (−${custo.mp || custo.sp} ${custo.mp ? "MP" : "SP"}, 1x por cena)`) : custo.porCena ? (usada ? "Usada na cena (desmarcar)" : "Usar (1x por cena)") : custo.mp ? `Usar (−${custo.mp} MP)` : custo.sp ? `Usar (−${custo.sp} SP)` : "Usar"}
           </Btn>
         </div>
       )}
@@ -7426,6 +7426,15 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
             if (c.primeiraGratis && gratisAgora(h)) {
               if (c.primeiraGratis === "cena") onUpdateCharacter(character.id, { usosCena: { ...usos, [h.chave]: true } });
               else onUpdateCharacter(character.id, { usosTurno: { ...usosTurno, [h.chave]: true } });
+            } else if (c.porCena && (c.mp || c.sp)) {
+              // 09/11 (Resistir à Dor: "1 SP (1x por cena)"): paga e marca
+              // o uso da cena de uma vez; volta no "Fim de cena".
+              if (usos[h.chave]) return;
+              const atual = c.mp ? mpAtual : spAtual;
+              const custo = c.mp || c.sp;
+              if (atual < custo) return;
+              const recurso = c.mp ? "mp" : "sp";
+              onUpdateCharacter(character.id, { [recurso]: { ...character[recurso], current: atual - custo }, usosCena: { ...usos, [h.chave]: true } });
             } else if (c.porCena) {
               onUpdateCharacter(character.id, { usosCena: { ...usos, [h.chave]: !usos[h.chave] } });
             } else if (c.mp) {
@@ -7448,7 +7457,10 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
                 {habilidades.map((h) => {
                   const c = h.custoInfo;
                   const gratis = gratisAgora(h);
-                  const podeUsar = !!onUpdateCharacter && (c.porCena || gratis || (c.mp ? mpAtual >= c.mp : c.sp ? spAtual >= c.sp : true));
+                  const comCusto = !!(c.mp || c.sp);
+                  const podeUsar = !!onUpdateCharacter && (c.porCena && comCusto
+                    ? !usos[h.chave] && (c.mp ? mpAtual >= c.mp : spAtual >= c.sp)
+                    : (c.porCena || gratis || (c.mp ? mpAtual >= c.mp : c.sp ? spAtual >= c.sp : true)));
                   return <CartaoHabilidadeArquetipo key={h.chave} h={h} usada={!!c.porCena && !!usos[h.chave]} gratis={gratis} podeUsar={podeUsar} onUsar={c.porCena || c.mp || c.sp ? () => usar(h) : undefined} />;
                 })}
               </div>
@@ -13509,7 +13521,7 @@ function RulesView() {
 
       <SectionTitle icon={Swords}>Catálogo de Armas (tipos)</SectionTitle>
       <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 10px" }}>
-        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Na ficha, marque qual descritor a arma usa (um ou os dois). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas. "Leve" (09/11) é o oposto: acerta com 5+ (6+ contra Blindado) e causa no máximo 1 agravante; Leve e Pesado se anulam.
+        17 tipos genéricos de arma física (docs/ATUALIZACAO_21-10.md item 6). Na ficha, escolha o tipo e digite o nome da sua arma — os exemplos abaixo são só referência. Na ficha, marque qual descritor a arma usa (um ou os dois). "Pesado" é um extra: dados de ataque precisam de 7+ e a arma causa 2 feridas, nunca 2 agravantes (09/11: passando do Vigor, 1 agravante + 1 superficial; abaixo, 2 superficiais). "Leve" (09/11) é o oposto: acerta com 5+ (6+ contra Blindado) e causa no máximo 1 agravante; Leve e Pesado se anulam.
       </p>
       {ARMAS.map((a) => (
         <div key={a.id} style={{ background: PANEL_2, border: `1px solid ${LINE}`, borderRadius: 8, padding: 12, marginBottom: 8 }}>

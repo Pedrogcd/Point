@@ -607,7 +607,7 @@ export function cenasDaMesa(objetos) {
     .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
   return [
     { id: CENA_PRINCIPAL, nome: principal?.nome || "Principal", principal: true },
-    ...outras.map((o) => ({ id: chave(o), nome: o.nome || "Plano", ordem: o.ordem ?? 0 })),
+    ...outras.map((o) => ({ id: chave(o), nome: o.nome || "Plano", ordem: o.ordem ?? 0, oculto: !!o.oculto })),
   ];
 }
 // Só os objetos do tabuleiro deste plano (o resto — jogadores, planos,
@@ -629,7 +629,8 @@ export function estadoDaMesa(objetos) {
 // Plano em que um jogador está: o dele (se o Mestre separou), senão o de
 // todos, senão o principal. Plano apagado cai no principal.
 export function cenaDoJogador(objetos, nome) {
-  const existe = new Set(cenasDaMesa(objetos).map((c) => c.id));
+  // Plano oculto (09/11) não recebe jogador: quem estava lá volta.
+  const existe = new Set(cenasDaMesa(objetos).filter((c) => !c.oculto).map((c) => c.id));
   const id = idDoJogador(nome);
   const proprio = (objetos || []).find((o) => o.id === id)?.cena;
   if (proprio && existe.has(proprio)) return proprio;
@@ -659,10 +660,54 @@ export function apagarCena(objetos, cena) {
   const apagar = [
     ...(objetos || []).filter((o) => TIPOS_DO_TABULEIRO.includes(o.tipo) && cenaDoObjeto(o) === cena).map((o) => o.id),
     idDaCena(cena),
+    ...(objetos || []).filter((o) => o.id === `camera:${cena}`).map((o) => o.id),
   ];
   const salvar = [];
   const estado = estadoDaMesa(objetos);
   if (estado.cenaJogadores === cena) salvar.push({ ...estado, cenaJogadores: CENA_PRINCIPAL });
   jogadoresDaMesa(objetos).filter((j) => j.cena === cena).forEach(({ cena: _c, ...resto }) => salvar.push(resto));
   return { apagar, salvar };
+}
+
+// ---- Planos: reordenar, duplicar, esconder, câmera (09/11) --------
+// Reordenar: tira `deId` e põe na posição de `paraId`. O Principal fica
+// sempre primeiro. Devolve os objetos de plano que mudaram de ordem.
+export function reordenarCenas(objetos, deId, paraId) {
+  const cenas = cenasDaMesa(objetos).filter((c) => !c.principal);
+  const de = cenas.findIndex((c) => c.id === deId);
+  const para = cenas.findIndex((c) => c.id === paraId);
+  if (de < 0 || para < 0 || de === para) return [];
+  const lista = [...cenas];
+  const [movida] = lista.splice(de, 1);
+  lista.splice(para, 0, movida);
+  return lista
+    .map((c, i) => ({ c, ordem: i + 1 }))
+    .filter(({ c, ordem }) => c.ordem !== ordem)
+    .map(({ c, ordem }) => ({ ...(objetos || []).find((o) => o.id === idDaCena(c.id)), ordem }));
+}
+// Duplicar: plano novo logo depois do original, com cópia de tudo o que é
+// do tabuleiro (ids novos). Devolve { chave, salvar }.
+export function duplicarCena(objetos, cena, gerarId = novoId) {
+  const origem = cenasDaMesa(objetos).find((c) => c.id === cena);
+  if (!origem) return { chave: null, salvar: [] };
+  const chave = gerarId("c");
+  const plano = { id: idDaCena(chave), tipo: "cena", nome: `${origem.nome} (cópia)`.slice(0, 40), ordem: (origem.ordem ?? 0) + 0.5, oculto: !!origem.oculto };
+  const copias = (objetos || [])
+    .filter((o) => TIPOS_DO_TABULEIRO.includes(o.tipo) && cenaDoObjeto(o) === cena)
+    .map((o) => ({ ...o, id: o.tipo === "config" ? idDaConfig(chave) : gerarId(o.id.split("-")[0] || "i"), cena: chave }));
+  return { chave, salvar: [plano, ...copias] };
+}
+// Câmera (09/11): o Mestre "puxa" a visão dos jogadores daquele plano —
+// guarda o centro e o zoom; cada tela ajusta ao próprio tamanho.
+export function idDaCamera(cena) {
+  return `camera:${cena || CENA_PRINCIPAL}`;
+}
+export function cameraDaCena(objetos, cena) {
+  return (objetos || []).find((o) => o.id === idDaCamera(cena)) || null;
+}
+export function camParaTela(camera, tamanho) {
+  if (!camera || !tamanho?.w) return null;
+  const zoom = Math.min(3, Math.max(0.15, Number(camera.zoom) || 1));
+  const [cx, cy] = camera.centro || [0, 0];
+  return { zoom, x: cx - tamanho.w / 2 / zoom, y: cy - tamanho.h / 2 / zoom };
 }

@@ -379,3 +379,48 @@ describe("planos / abas da Mesa (09/11)", async () => {
     assert.deepEqual(m.apagarCena(base, "principal"), { apagar: [], salvar: [] });
   });
 });
+
+describe("planos: reordenar, duplicar, esconder, câmera (09/11)", async () => {
+  const m = await import("./mesa.js");
+  const base = [
+    { id: "cena:a", tipo: "cena", nome: "A", ordem: 1 },
+    { id: "cena:b", tipo: "cena", nome: "B", ordem: 2 },
+    { id: "cena:c", tipo: "cena", nome: "C", ordem: 3 },
+    { id: "i-1", tipo: "imagem", cena: "b", url: "x" },
+    { id: "config:b", tipo: "config", cena: "b", tamanhoGrade: 80 },
+    { id: "i-2", tipo: "imagem", url: "p" },
+    { id: "jogador:ana", tipo: "jogador", nome: "Ana", fichas: [], cena: "c" },
+  ];
+  const aplicar = (objs, salvar) => salvar.reduce((l, o) => m.juntarObjeto(l, o), objs);
+  it("reordenar: arrastar C para antes de A", () => {
+    const mud = m.reordenarCenas(base, "c", "a");
+    assert.deepEqual(m.cenasDaMesa(aplicar(base, mud)).map((c) => c.id), ["principal", "c", "a", "b"]);
+    assert.deepEqual(m.reordenarCenas(base, "principal", "a"), []);
+    assert.deepEqual(m.reordenarCenas(base, "a", "a"), []);
+  });
+  it("duplicar copia o tabuleiro com ids novos, logo depois do original", () => {
+    let n = 0;
+    const r = m.duplicarCena(base, "b", (p) => `${p}-novo${++n}`);
+    const objs = aplicar(base, r.salvar);
+    assert.deepEqual(m.cenasDaMesa(objs).map((c) => c.nome), ["Principal", "A", "B", "B (cópia)", "C"]);
+    const copia = m.objetosDaCena(objs, r.chave).filter((o) => o.tipo === "imagem");
+    assert.equal(copia.length, 1); assert.notEqual(copia[0].id, "i-1"); assert.equal(copia[0].url, "x");
+    assert.equal(m.configDaMesa(m.objetosDaCena(objs, r.chave)).tamanhoGrade, 80);
+    assert.equal(m.objetosDaCena(objs, "b").filter((o) => o.tipo === "imagem").length, 1);
+    const p = m.duplicarCena(base, "principal", (x) => `${x}-z${++n}`);
+    assert.equal(p.salvar.filter((o) => o.tipo === "imagem")[0].url, "p");
+  });
+  it("plano oculto não recebe jogador", () => {
+    assert.equal(m.cenaDoJogador(base, "Ana"), "c");
+    const oculto = aplicar(base, [{ id: "cena:c", tipo: "cena", nome: "C", ordem: 3, oculto: true }]);
+    assert.equal(m.cenasDaMesa(oculto).find((c) => c.id === "c").oculto, true);
+    assert.equal(m.cenaDoJogador(oculto, "Ana"), "principal");
+  });
+  it("câmera do Mestre se ajusta à tela de quem recebe", () => {
+    const objs = [...base, { id: m.idDaCamera("b"), tipo: "camera", centro: [500, 400], zoom: 2, t: 1 }];
+    assert.equal(m.cameraDaCena(objs, "b").zoom, 2);
+    assert.equal(m.cameraDaCena(objs, "a"), null);
+    assert.deepEqual(m.camParaTela(m.cameraDaCena(objs, "b"), { w: 400, h: 200 }), { zoom: 2, x: 400, y: 350 });
+    assert.ok(m.apagarCena(objs, "b").apagar.includes("camera:b"));
+  });
+});

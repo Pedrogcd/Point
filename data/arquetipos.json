@@ -150,7 +150,7 @@
       "custo": "2 MP",
       "descritores": "Letal",
       "texto": "O ataque ganha Letal e +1d10. Se errar (não causar ferimento), fica Azarado na defesa. Se o ataque já tiver Letal, causa também Sangramento 1.",
-      "origem": "Compartilhada com Bárbaro Fúria",
+      "origem": "Compartilhada com Bárbaro Poderoso",
       "geral": false,
       "nota": "Pedro 07/11"
      },
@@ -160,7 +160,7 @@
       "custo": "1 MP",
       "descritores": "Pesado, Em área",
       "texto": "O ataque ganha Pesado e Em área, atingindo todos na zona, sem atingir aliados (sem fogo amigo). Se o ataque já for Pesado, rola +1d10.",
-      "origem": "Única",
+      "origem": "Compartilhada com Bárbaro Poderoso",
       "geral": false,
       "nota": "Pedro 07/11"
      },
@@ -271,16 +271,16 @@
   "variacoes": [
    {
     "arquetipo": "Bárbaro",
-    "variacao": "Fúria",
-    "foco": "Estado de Fúria que troca defesa por poder",
-    "conceito": "Entra em fúria: bate mais forte e pensa pior.",
+    "variacao": "Poderoso",
+    "foco": "Armas Pesadas e fúria",
+    "conceito": "Bárbaro das armas grandes: entra em fúria e transforma qualquer arma em golpe pesado.",
     "recurso": "MP + SP",
     "fixaCombate": "Armas",
     "outrasFixas": [
      "Atletismo",
      "Intimidação"
     ],
-    "passiva": "Ao sofrer ferimento, ganha +1d10 no próximo ataque.",
+    "passiva": "Armas Pesadas podem ser usadas ignorando o descritor Pesado (o ataque rola normal). Também pode adicionar o descritor Pesado a qualquer arma que não seja Leve.",
     "descritores": [
      "Letal",
      "Esmagador",
@@ -288,7 +288,7 @@
      "Pesado"
     ],
     "fraqueza": "Esquiva e testes mentais pioram; Lento 1 ao sair.",
-    "notaPedro": "aprovado",
+    "notaPedro": "Pedro 13/11: proposta de 09/11 aprovada (antes Bárbaro Fúria; espelho do Guerreiro Preciso)",
     "habilidades": [
      {
       "nome": "Fúria",
@@ -331,14 +331,14 @@
       "nota": ""
      },
      {
-      "nome": "Rugido",
-      "tipo": "Suporte",
+      "nome": "Golpe Gigante",
+      "tipo": "Ataque",
       "custo": "1 MP",
-      "descritores": "Azarado",
-      "texto": "Inimigos na zona ficam Azarados no próximo teste; aliados se assustam também (teste de Resolução).",
-      "origem": "Única",
+      "descritores": "Pesado, Em área",
+      "texto": "O ataque ganha Pesado e Em área, atingindo todos na zona, sem atingir aliados (sem fogo amigo). Se o ataque já for Pesado, rola +1d10.",
+      "origem": "Compartilhada com Guerreiro Poder",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 13/11: no lugar do Rugido"
      },
      {
       "nome": "Fúria Total",
@@ -354,13 +354,13 @@
    },
    {
     "arquetipo": "Bárbaro",
-    "variacao": "Sanguinário",
-    "foco": "Cresce ao ferir e ao ser ferido",
-    "conceito": "Quanto mais sangue na cena, mais perigoso.",
+    "variacao": "Selvagem",
+    "foco": "Traços de Ningen que se incrementam",
+    "conceito": "Garras, presas e couro: os traços bestiais crescem se o personagem já os tem.",
     "recurso": "MP + SP",
-    "fixaCombate": "Armas",
+    "fixaCombate": "Desarmado",
     "outrasFixas": [
-     "Intimidação",
+     "Sobrevivência",
      "Percepção"
     ],
     "passiva": "Ao causar o primeiro ferimento da cena, ganha Letal até o fim dela. Se o ataque já tiver Letal, ganha Perfurante. Se o ataque possuir Letal e Perfurante, causa Sangramento 1.",
@@ -371,7 +371,7 @@
      "Sangramento"
     ],
     "fraqueza": "Precisa começar a ferir; fraco contra alvos que ele não alcança.",
-    "notaPedro": "Sangramento 1 vai ser mecanicamente igual a Envenenamento 1.",
+    "notaPedro": "Pedro 13/11: proposta de 09/11 aprovada (antes Bárbaro Sanguinário); Garras Selvagens, Couro Selvagem e Forma Bestial a definir",
     "habilidades": [
      {
       "nome": "Fúria",
@@ -394,16 +394,6 @@
       "nota": "Pedro 09/11: custa 1 SP, além de 1x por cena"
      },
      {
-      "nome": "Cheiro de Sangue",
-      "tipo": "Suporte",
-      "custo": "1x por cena",
-      "descritores": "Letal",
-      "texto": "Após causar ferimento, seu próximo ataque contra o mesmo alvo ganha +1 dado.",
-      "origem": "Única",
-      "geral": false,
-      "nota": ""
-     },
-     {
       "nome": "Mordida Selvagem",
       "tipo": "Ataque",
       "custo": "1 MP",
@@ -414,24 +404,34 @@
       "nota": ""
      },
      {
-      "nome": "Sede de Sangue",
-      "tipo": "Estado",
-      "custo": "1 MP",
-      "descritores": "Letal",
-      "texto": "Até o fim da cena: cada ferimento que causa dá +1 dado ao ataque seguinte (teto +2).",
+      "nome": "Garras Selvagens",
+      "tipo": "A definir",
+      "custo": "a definir",
+      "descritores": "—",
+      "texto": "Em definição pelo Pedro.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 13/11: nova, a definir"
      },
      {
-      "nome": "Rasgar",
-      "tipo": "Ataque",
-      "custo": "1 MP",
-      "descritores": "Perfurante, Letal (Sangramento 1 pela passiva)",
-      "texto": "O ataque ganha Perfurante e Letal e, por isso, causa Sangramento 1 pela passiva. Se o ataque já tinha Perfurante, rola +1d10.",
+      "nome": "Couro Selvagem",
+      "tipo": "A definir",
+      "custo": "a definir",
+      "descritores": "—",
+      "texto": "Em definição pelo Pedro.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 13/11: nova, a definir"
+     },
+     {
+      "nome": "Forma Bestial",
+      "tipo": "A definir",
+      "custo": "a definir",
+      "descritores": "—",
+      "texto": "Em definição pelo Pedro.",
+      "origem": "Única",
+      "geral": false,
+      "nota": "Pedro 13/11: nova, a definir"
      }
     ]
    },

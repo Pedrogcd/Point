@@ -12,7 +12,7 @@ import {
 import { grupoDoPersonagem } from "./sidepoint.js";
 import { migrarSelecaoRacaLegado, disciplinasDoPersonagem } from "./racasCatalogo.js";
 import { DISCIPLINAS, MAX_DISCIPLINAS, BONUS_GRAU_POR_OFICIO } from "./data/magias.js";
-import { habilidadesIniciaisDaVariacao, HABILIDADES_ARQUETIPO_RENOMEADAS, HABILIDADES_RENOMEADAS_POR_VARIACAO } from "./data/arquetipos.js";
+import { habilidadesIniciaisDaVariacao, HABILIDADES_ARQUETIPO_RENOMEADAS, HABILIDADES_RENOMEADAS_POR_VARIACAO, idAtualDaVariacao, getVariacaoPorId, idDaHabilidade } from "./data/arquetipos.js";
 
 // 24/10 (seção 0.6): base de Magia Ofensiva na migração — ver nota no passo
 // 15 de migrarPersonagem. `antigos` = ofícios mágicos + Conduíte + clã que
@@ -121,7 +121,8 @@ function migrarDisciplinas(ch) {
       // 04/11 (Pedro): arquétipo Guardião renomeado pra Protetor — o id
       // vem do nome (data/arquetipos.js:idDaVariacao), então os slots
       // antigos são remapeados aqui em vez de descartados abaixo.
-      if (slot.disciplinaId.startsWith("arquetipo-guardiao-")) slot = { ...slot, disciplinaId: slot.disciplinaId.replace("arquetipo-guardiao-", "arquetipo-protetor-") };
+      // 13/11: idem Bárbaro Fúria -> Poderoso e Sanguinário -> Selvagem.
+      if (idAtualDaVariacao(slot.disciplinaId) !== slot.disciplinaId) slot = { ...slot, disciplinaId: idAtualDaVariacao(slot.disciplinaId) };
       const def = DISCIPLINAS.find((d) => d.id === slot.disciplinaId);
       if (!def) return null; // disciplinaId desconhecido (catálogo mudou) — descarta o slot
       let ativasSalvas = Array.isArray(slot.habilidadesAtivas) ? slot.habilidadesAtivas : [];
@@ -132,6 +133,10 @@ function migrarDisciplinas(ch) {
       if (def.tipo === "arquetipo") {
         const daVariacao = HABILIDADES_RENOMEADAS_POR_VARIACAO[def.id] || {};
         ativasSalvas = [...new Set([...habilidadesIniciaisDaVariacao(def.id), ...ativasSalvas.map((id) => daVariacao[id] || HABILIDADES_ARQUETIPO_RENOMEADAS[id] || id)])];
+        // 13/11 (Pedro): habilidade que saiu da variação (ex.: Rugido,
+        // Cheiro de Sangue) perde o desbloqueio — o jogador escolhe outra.
+        const existentes = new Set((getVariacaoPorId(def.id)?.habilidades || []).map(idDaHabilidade));
+        ativasSalvas = ativasSalvas.filter((id) => existentes.has(id));
       }
       const limpo = { disciplinaId: slot.disciplinaId, habilidadesAtivas: ativasSalvas.slice(0, def.magiasAtivasMax || def.habilidadesMax || 3) };
       // 23/10 (segunda parte): escolha da passiva anterior de Magias de
@@ -402,7 +407,11 @@ export function migrarPersonagem(ch) {
   // (14/10, mesmo dia): independente de disciplinaHumano (o antigo texto
   // livre nome+grau, preservado intocado acima via ...ch) — nunca existiu
   // antes de hoje, então toda ficha ganha `null` por padrão, não-destrutivo.
-  const disciplinaExtraHumano = ch.disciplinaExtraHumano ?? null;
+  // 13/11: o encaixe extra do Humano também acompanha as variações renomeadas.
+  const extraBruto = ch.disciplinaExtraHumano ?? null;
+  const disciplinaExtraHumano = extraBruto?.disciplinaId && idAtualDaVariacao(extraBruto.disciplinaId) !== extraBruto.disciplinaId
+    ? { ...extraBruto, disciplinaId: idAtualDaVariacao(extraBruto.disciplinaId) }
+    : extraBruto;
   // 17) Armas à Distância saiu (27/10, pedido do Pedro): as armas de
   // distância passam a usar Armas (combateCorpoACorpo, que já fica como
   // estava). O grau salvo em Armas à Distância vai pro legado.

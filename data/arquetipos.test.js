@@ -132,7 +132,7 @@ describe("09/11, 3ª e 4ª rodadas", async () => {
   const m = await import("./arquetipos.js");
   it("Resistir à Dor: 1 SP e 1x por cena", () => {
     assert.deepEqual(m.custoDaHabilidade("1 SP (1x por cena)"), { sp: 1, porCena: true });
-    const furia = m.getVariacaoPorId("arquetipo-barbaro-furia");
+    const furia = m.getVariacaoPorId("arquetipo-barbaro-poderoso");
     assert.equal(furia.habilidades.find((h) => h.nome === "Resistir à Dor").custo, "1 SP (1x por cena)");
     assert.ok(furia.habilidades.some((h) => h.nome === "Tudo ou Nada") && !furia.habilidades.some((h) => h.nome === "Golpe Descontrolado"));
   });
@@ -142,5 +142,29 @@ describe("09/11, 3ª e 4ª rodadas", async () => {
   it("Guerreiro Poder: passiva Poder dá +1 Força", () => {
     assert.deepEqual(m.BONUS_GRAU_POR_HABILIDADE_ARQUETIPO["arquetipo-guerreiro-poder"].poder, [{ tipo: "atributo", chave: "forca" }]);
     assert.ok(m.getVariacaoPorId("arquetipo-guerreiro-poder").habilidades.some((h) => h.nome === "Poder"));
+  });
+});
+
+describe("Bárbaro: Poderoso e Selvagem (13/11)", async () => {
+  const m = await import("./arquetipos.js");
+  it("Poderoso: passiva de armas Pesadas, Golpe Gigante no lugar do Rugido", () => {
+    const v = m.getVariacaoPorId("arquetipo-barbaro-poderoso");
+    assert.match(v.passiva, /ignorando o descritor Pesado/);
+    assert.deepEqual(v.habilidades.map((h) => h.nome), ["Fúria", "Resistir à Dor", "Tudo ou Nada", "Brutalidade", "Golpe Gigante", "Fúria Total"]);
+    assert.equal(m.getVariacaoPorId("arquetipo-barbaro-furia"), null);
+  });
+  it("Selvagem: fixas Desarmado, Sobrevivência e Percepção; 3 habilidades a definir sem custo", () => {
+    const v = m.getVariacaoPorId("arquetipo-barbaro-selvagem");
+    assert.deepEqual(m.BONUS_GRAU_POR_ARQUETIPO["arquetipo-barbaro-selvagem"].map((b) => b.chave), ["desarmado", "sobrevivencia", "percepcao"]);
+    for (const n of ["Garras Selvagens", "Couro Selvagem", "Forma Bestial"]) {
+      const h = v.habilidades.find((x) => x.nome === n);
+      assert.deepEqual(m.custoDaHabilidade(h.custo), {}, n);
+    }
+  });
+  it("ids antigos apontam para os novos", () => {
+    assert.equal(m.idAtualDaVariacao("arquetipo-barbaro-furia"), "arquetipo-barbaro-poderoso");
+    assert.equal(m.idAtualDaVariacao("arquetipo-barbaro-sanguinario"), "arquetipo-barbaro-selvagem");
+    assert.equal(m.idAtualDaVariacao("arquetipo-guardiao-muralha"), "arquetipo-protetor-muralha");
+    assert.equal(m.idAtualDaVariacao("arquetipo-guerreiro-poder"), "arquetipo-guerreiro-poder");
   });
 });

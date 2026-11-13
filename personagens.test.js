@@ -552,5 +552,24 @@ describe("migrarPersonagem — 3ª e 4ª rodadas de 09/11", () => {
   it("Bárbaro Fúria: Golpe Descontrolado -> Tudo ou Nada", () => {
     const ch = migrarPersonagem({ id: "b", name: "B", disciplinas: [{ disciplinaId: "arquetipo-barbaro-furia", habilidadesAtivas: ["golpe-descontrolado"] }] });
     assert.deepEqual(ch.disciplinas[0].habilidadesAtivas, ["tudo-ou-nada"]);
+    assert.equal(ch.disciplinas[0].disciplinaId, "arquetipo-barbaro-poderoso");
+  });
+});
+
+describe("migrarPersonagem — Bárbaro Poderoso e Selvagem (13/11)", () => {
+  it("Fúria -> Poderoso (Rugido perde o desbloqueio; Golpe Descontrolado vira Tudo ou Nada)", () => {
+    const ch = migrarPersonagem({ id: "b", name: "B", disciplinas: [{ disciplinaId: "arquetipo-barbaro-furia", habilidadesAtivas: ["rugido", "golpe-descontrolado", "brutalidade"], escolhaCombate: "bloqueio" }] });
+    assert.equal(ch.disciplinas[0].disciplinaId, "arquetipo-barbaro-poderoso");
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["brutalidade", "tudo-ou-nada"]);
+    assert.equal(ch.disciplinas[0].escolhaCombate, "bloqueio");
+  });
+  it("Sanguinário -> Selvagem (só Mordida Selvagem continua)", () => {
+    const ch = migrarPersonagem({ id: "s", name: "S", disciplinas: [{ disciplinaId: "arquetipo-barbaro-sanguinario", habilidadesAtivas: ["cheiro-de-sangue", "mordida-selvagem", "rasgar"] }] });
+    assert.equal(ch.disciplinas[0].disciplinaId, "arquetipo-barbaro-selvagem");
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas, ["mordida-selvagem"]);
+  });
+  it("encaixe extra do Humano também migra", () => {
+    const ch = migrarPersonagem({ id: "h", name: "H", disciplinaExtraHumano: { disciplinaId: "arquetipo-barbaro-furia", habilidadesAtivas: [] } });
+    assert.equal(ch.disciplinaExtraHumano.disciplinaId, "arquetipo-barbaro-poderoso");
   });
 });

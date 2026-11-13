@@ -132,8 +132,21 @@ export const HABILIDADES_ARQUETIPO_RENOMEADAS = {
 // continua existindo em outra — ex.: Empurrão segue no Protetor Muralha).
 export const HABILIDADES_RENOMEADAS_POR_VARIACAO = {
   "arquetipo-guerreiro-poder": { empurrao: "poder" },
-  "arquetipo-barbaro-furia": { "golpe-descontrolado": "tudo-ou-nada" },
+  "arquetipo-barbaro-poderoso": { "golpe-descontrolado": "tudo-ou-nada" },
 };
+
+// Variações renomeadas (id antigo -> novo): 04/11 Guardião -> Protetor;
+// 13/11 (Pedro aprovou a proposta de 09/11) Bárbaro Fúria -> Poderoso e
+// Sanguinário -> Selvagem.
+export const VARIACOES_RENOMEADAS = {
+  "arquetipo-barbaro-furia": "arquetipo-barbaro-poderoso",
+  "arquetipo-barbaro-sanguinario": "arquetipo-barbaro-selvagem",
+};
+export function idAtualDaVariacao(id) {
+  if (typeof id !== "string") return id;
+  if (id.startsWith("arquetipo-guardiao-")) return id.replace("arquetipo-guardiao-", "arquetipo-protetor-");
+  return VARIACOES_RENOMEADAS[id] || id;
+}
 
 // 09/11 (3ª rodada): habilidades passivas que dão grau quando desbloqueadas
 // — Guerreiro Poder, "Poder": +1 grau em Força (teto 3, o padrão de

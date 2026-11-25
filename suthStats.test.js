@@ -26,21 +26,21 @@ before(async () => {
 // resolveResistenciaAtiva em engine.js), por isso os dois números agora
 // sempre coincidem por personagem (nenhum dos dois soma mais proficiência).
 const TABELA_ESPERADA = {
-  suth_emphes: { armadura: null, resNatFis: 5, resNatMag: 5, acerto: [3, 1], hp: 5, mp: 3 },
+  suth_emphes: { armadura: null, resNatFis: 5, resNatMag: 5, acerto: [3, 1], hp: 4 /* 25/11: sem o +1 do Persistente */, mp: 3 },
   suth_velmira: { armadura: null, resNatFis: 3, resNatMag: 3, acerto: [0, 0], hp: 2, mp: 3 },
   suth_victoria: { armadura: 8, resNatFis: 7, resNatMag: 7, acerto: [2, 0], hp: 6, mp: 3 },
   suth_valeria: { armadura: 8, resNatFis: 6, resNatMag: 6, acerto: [4, 2], hp: 5, mp: 3 },
   suth_mars: { armadura: 8, resNatFis: 7, resNatMag: 7, acerto: [4, 2], hp: 6, mp: 3 },
-  suth_zero: { armadura: null, resNatFis: 5, resNatMag: 5, acerto: [0, 0], hp: 5, mp: 3 },
+  suth_zero: { armadura: null, resNatFis: 5, resNatMag: 5, acerto: [0, 0], hp: 4 /* 25/11: sem o +1 do Persistente */, mp: 3 },
   suth_kirilia: { armadura: 8, resNatFis: 5, resNatMag: 5, acerto: [6, 3], hp: 4, mp: 3 },
   suth_galantia: { armadura: 8, resNatFis: 6, resNatMag: 6, acerto: [3, 2], hp: 5, mp: 3 },
   suth_kyubei: { armadura: null, resNatFis: 5, resNatMag: 5, acerto: [6, 4], hp: 4, mp: 3 },
   suth_draguna: { armadura: null, resNatFis: 7, resNatMag: 7, acerto: [2, 2], hp: 6, mp: 3 },
   fate: { armadura: 8, resNatFis: 4, resNatMag: 4, acerto: [8, 4], hp: 3, mp: 3 },
   suth_athena: { armadura: 8, resNatFis: 5, resNatMag: 5, acerto: [6, 3], hp: 4, mp: 3 },
-  suth_azula: { armadura: null, resNatFis: 4, resNatMag: 4, acerto: [1, 1], hp: 4, mp: 5 },
+  suth_azula: { armadura: null, resNatFis: 4, resNatMag: 4, acerto: [1, 1], hp: 3 /* 25/11: sem o +1 do Persistente */, mp: 5 },
   suth_farron: { armadura: 8, resNatFis: 5, resNatMag: 5, acerto: [6, 3], hp: 4, mp: 3 },
-  suth_athermis: { armadura: null, resNatFis: 4, resNatMag: 4, acerto: [4, 3], hp: 4, mp: 3 },
+  suth_athermis: { armadura: null, resNatFis: 4, resNatMag: 4, acerto: [4, 3], hp: 3 /* 25/11: sem o +1 do Persistente */, mp: 3 },
 };
 
 describe("Tabela de estatísticas do Grupo Suth (engine.js x documento de conversão)", () => {

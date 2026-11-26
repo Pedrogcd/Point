@@ -6541,7 +6541,7 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
               color={SP_COLOR} icon={Flame}
               onToggle={onUpdateCharacter ? (novo) => onUpdateCharacter(character.id, { sp: { ...character.sp, current: novo } }) : undefined}
             />
-            <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6){(character.procs || []).includes("persistente") ? " + 1 (Persistente)" : ""}. SP máximo{(character.procs || []).includes("persistente") ? " inclui +1 (Persistente)" : ""}. MP de {MANA_MIN} a {MANA_MAX} (docs/SISTEMA_MAGIA.md).</div>
+            <div style={{ fontSize: 10, color: MUTED, marginTop: 6, fontStyle: "italic" }}>HP máximo = 2 + bônus de Vigor (E=2, D=3, C=4, B=5, A=6). MP de {MANA_MIN} a {MANA_MAX} (docs/SISTEMA_MAGIA.md).</div>
             {(character.mp?.recuperarPendente || 0) > 0 && (
               <div style={{ fontSize: 10.5, color: MP_COLOR, marginTop: 6, fontFamily: "'IBM Plex Mono', monospace" }}>
                 +{character.mp.recuperarPendente} mana a recuperar (aplica no "Início de turno")
@@ -7637,52 +7637,6 @@ export function CharacterSheet({ character, onBack, onEdit, onRequestDelete, onR
         );
       })()}
 
-      {/* TABELA 2 — os 3 espaços de Habilidade Passiva de Combate. Clicar numa
-          caixa abre o seletor com as habilidades já criadas (PROC_ABILITIES). */}
-      <div style={panelStyle}>
-        <div style={panelHeadStyle}>Habilidades Passivas de Combate</div>
-        <p style={{ fontSize: 10.5, color: MUTED, marginTop: -4, marginBottom: 10 }}>
-          {MAX_PROCS} espaços. Clique numa caixa pra escolher, trocar ou esvaziar. A maioria dispara sozinha quando um dado já rolado bate o limiar — sem rolagem extra.
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {Array.from({ length: MAX_PROCS }).map((_, i) => {
-            const procId = (character.procs || [])[i];
-            const p = procId ? PROC_ABILITIES.find((x) => x.id === procId) : null;
-            const cor = p ? HABILIDADE_CATEGORIA_INFO[categoriaDaHabilidade(p)].color : PURPLE;
-            const limiar = p ? limiarDaHabilidade(character, p) : null;
-            return (
-              <SlotBox
-                key={i}
-                etiqueta={p ? HABILIDADE_CATEGORIA_INFO[categoriaDaHabilidade(p)].label : `Espaço ${i + 1}`}
-                cor={cor}
-                vazio={!p}
-                titulo={p?.nome}
-                subtitulo={p
-                  ? (p.reduzCriticoEm
-                    ? `Reduz o crítico em ${p.reduzCriticoEm}`
-                    : p.gatilho?.startsWith("passivo_")
-                    ? "Sempre ativa"
-                    : p.gatilho === "contato_proprio"
-                    ? "Dispara ao fazer contato"
-                    : `Dado ≥${limiar} (${attrLabelDaHabilidade(p)})`) + (p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : "")
-                  : null}
-                corpo={p ? p.efeito : (onUpdateCharacter ? "Vazio — clique pra escolher." : "Vazio.")}
-                onClick={onUpdateCharacter ? () => setSlotAberto(i) : undefined}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {slotAberto !== null && onUpdateCharacter && (
-        <ProcSlotPicker
-          character={character}
-          slotIndex={slotAberto}
-          onPick={(procId) => { setProcNoSlot(slotAberto, procId); setSlotAberto(null); }}
-          onClear={() => { setProcNoSlot(slotAberto, null); setSlotAberto(null); }}
-          onClose={() => setSlotAberto(null)}
-        />
-      )}
 
       <div style={panelStyle}>
         <div style={panelHeadStyle}>Atributos Gerais e Proficiências (estilo Vampiro: A Máscara)</div>
@@ -8270,54 +8224,6 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       ))}
       <Btn onClick={addAttack}><Plus size={13} /> Adicionar ataque</Btn>
 
-      <SectionTitle icon={Swords}>Habilidades Passivas de Combate</SectionTitle>
-      <p style={{ fontSize: 11, color: MUTED, marginTop: -6, marginBottom: 10 }}>
-        Escolha até 3 — os mesmos 3 espaços da tabela da ficha. A Singularidade não ocupa espaço: ela tem lugar próprio, junto da Habilidade de Raça e das Classes.
-      </p>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-        {PROC_ABILITIES_AGRUPADAS.map((p) => {
-          const checked = (c.procs || []).includes(p.id);
-          const limiar = limiarDaHabilidade(c, p);
-          const attrLabel = attrLabelDaHabilidade(p);
-          const atLimit = !checked && (c.procs || []).length >= MAX_PROCS;
-          return (
-            <label key={p.id} style={{
-              display: "block", padding: 10, borderRadius: 8, cursor: atLimit ? "not-allowed" : "pointer",
-              background: checked ? `${PURPLE}18` : "#00000010", border: `1px solid ${checked ? PURPLE : LINE}`,
-              opacity: atLimit ? 0.5 : 1,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="checkbox" checked={checked} disabled={atLimit}
-                    onChange={() => {
-                      const cur = c.procs || [];
-                      const next = checked ? cur.filter((id) => id !== p.id) : [...cur, p.id].slice(0, MAX_PROCS);
-                      set(["procs"], next);
-                    }}
-                  />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: PARCHMENT }}>{p.nome}</span>
-                </div>
-                <span style={{ fontSize: 9.5, fontFamily: "'IBM Plex Mono', monospace" }}>
-                  <HabilidadeCategoriaBadge p={p} />
-                  {p.prioridade ? <span style={{ color: MUTED }}> · prioridade {p.prioridade}</span> : null}
-                </span>
-              </div>
-              <div style={{ fontSize: 10, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 3 }}>
-                {p.reduzCriticoEm
-                  ? `Reduz o crítico em ${p.reduzCriticoEm} (em todos os críticos da rolagem)`
-                  : p.gatilho?.startsWith("passivo_")
-                  ? "Sempre ativa (não depende de dado)"
-                  : p.gatilho === "contato_proprio"
-                  ? `Dispara sempre ao fazer contato${p.restricaoTipo ? ` com ataque ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`
-                  : `Dispara com dado ≥${limiar} (${attrLabel})${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`}
-              </div>
-              <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.4 }}><TextoComDescritores texto={p.efeito} /></div>
-            </label>
-          );
-        })}
-      </div>
-
       <details style={{ marginBottom: 20, background: "#00000010", border: `1px solid ${LINE}`, borderRadius: 8, padding: 12 }}>
         <summary style={{ fontSize: 12, color: MUTED, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, cursor: "pointer", textTransform: "uppercase" }}>
           Habilidades antigas (arquivadas — sistema anterior, desativado)
@@ -8369,20 +8275,18 @@ export function CharacterForm({ initial, onSave, onCancel }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         {["hp", "mp", "sp"].map((res) => {
           const maxHP = res === "hp" ? computeMaxHP(c) : null;
-          const temPersistente = (c.procs || []).includes("persistente");
           return (
             <div key={res}>
               <span style={{ display: "block", fontSize: 11, color: MUTED, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>{res.toUpperCase()} (atual / máximo)</span>
               <div style={{ display: "flex", gap: 6 }}>
                 <input type="number" style={inputStyle} value={c[res].current} onChange={(e) => set([res, "current"], Number(e.target.value))} />
                 {res === "hp" ? (
-                  <input type="number" style={{ ...inputStyle, opacity: 0.6 }} value={maxHP} disabled title="Calculado pelo Vigor (+1 se tiver Persistente) — ajuste o Vigor nos Atributos Gerais" />
+                  <input type="number" style={{ ...inputStyle, opacity: 0.6 }} value={maxHP} disabled title="Calculado pelo Vigor — ajuste o Vigor nos Atributos Gerais" />
                 ) : (
                   <input type="number" style={inputStyle} value={c[res].max} onChange={(e) => set([res, "max"], Number(e.target.value))} />
                 )}
               </div>
-              {res === "hp" && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>Máximo = 2 + bônus de Vigor{temPersistente ? " + 1 (Persistente)" : ""} (ajuste o Vigor lá embaixo, em Atributos Gerais)</div>}
-              {res === "sp" && temPersistente && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>Persistente soma +1 ao máximo mostrado na ficha (total: {computeMaxSP(c)})</div>}
+              {res === "hp" && <div style={{ fontSize: 9.5, color: MUTED, marginTop: 3, fontStyle: "italic" }}>Máximo = 2 + bônus de Vigor (ajuste o Vigor lá embaixo, em Atributos Gerais)</div>}
             </div>
           );
         })}
@@ -8937,44 +8841,6 @@ export function CompareView({ characters, onUpdateCharacter, gm, askConfirm, enc
             ))}
           </div>
 
-          <div style={{ fontSize: 10.5, color: BRASS_BRIGHT, fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.5, margin: "14px 0 8px", textTransform: "uppercase" }}>
-            Habilidades Passivas de Combate (até {MAX_PROCS})
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {PROC_ABILITIES_AGRUPADAS.map((p) => {
-              const checked = (editableStats.procs || []).includes(p.id);
-              const atLimit = !checked && (editableStats.procs || []).length >= MAX_PROCS;
-              const limiar = limiarDaHabilidade({ attributes: editableStats.attributes, atributosGerais: editableStats.atributosGerais }, p);
-              const attrLabel = attrLabelDaHabilidade(p);
-              return (
-                <label key={p.id} style={{
-                  display: "block", padding: 8, borderRadius: 6, cursor: atLimit ? "not-allowed" : "pointer",
-                  background: checked ? `${PURPLE}18` : "#00000010", border: `1px solid ${checked ? PURPLE : LINE}`,
-                  opacity: atLimit ? 0.5 : 1,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <input type="checkbox" checked={checked} disabled={atLimit} onChange={() => toggleEditableProc(p.id)} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: PARCHMENT }}>{p.nome}</span>
-                    </div>
-                    <span style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace" }}>
-                      <HabilidadeCategoriaBadge p={p} />
-                      {p.prioridade ? <span style={{ color: MUTED }}> · prio. {p.prioridade}</span> : null}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 9, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", margin: "2px 0" }}>
-                    {p.reduzCriticoEm
-                      ? `Reduz o crítico em ${p.reduzCriticoEm} (em todos os críticos da rolagem)`
-                      : p.gatilho?.startsWith("passivo_")
-                      ? "Sempre ativa (não depende de dado)"
-                      : p.gatilho === "contato_proprio"
-                      ? `Dispara sempre ao fazer contato${p.restricaoTipo ? ` com ataque ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`
-                      : `Dispara com dado ≥${limiar} (${attrLabel})${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`}
-                  </div>
-                </label>
-              );
-            })}
-          </div>
         </div>
       )}
 
@@ -13238,13 +13104,6 @@ function AbilitiesCatalogView() {
   const [query, setQuery] = useState("");
   const [catFilter, setCatFilter] = useState("Todas");
   const [revFilter, setRevFilter] = useState("Todas");
-  const [procCatFilter, setProcCatFilter] = useState("todas");
-
-  const procsOrdenados = useMemo(() => {
-    return [...PROC_ABILITIES]
-      .filter((p) => procCatFilter === "todas" || categoriaDaHabilidade(p) === procCatFilter)
-      .sort((a, b) => CATEGORIA_ORDEM.indexOf(categoriaDaHabilidade(a)) - CATEGORIA_ORDEM.indexOf(categoriaDaHabilidade(b)));
-  }, [procCatFilter]);
 
   const filtered = useMemo(() => {
     return ABILITIES_CATALOG.filter((a) => {
@@ -13259,58 +13118,6 @@ function AbilitiesCatalogView() {
 
   return (
     <div>
-      <SectionTitle icon={Sparkles}>Habilidades Passivas de Combate (catálogo atual)</SectionTitle>
-      <p style={{ fontSize: 11.5, color: MUTED, margin: "-4px 0 14px" }}>
-        Sistema em uso agora: cada ficha tem 3 espaços pra essas habilidades (a tabela de 3 caixas na ficha). A Singularidade não ocupa espaço — fica acima, junto da Habilidade de Raça e das duas Classes. A maioria dispara sozinha quando um dado já rolado (Acerto ou Confirmação) bate um limiar ligado a um atributo — sem rolagem extra. O Mestre em Armadura é sempre ativa, sem limiar nenhum. Se duas pudessem disparar no mesmo dado, só a de maior prioridade ativa.
-      </p>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        {["todas", ...CATEGORIA_ORDEM].map((catKey) => {
-          const info = catKey === "todas" ? { label: "Todas", icon: null, color: BRASS } : HABILIDADE_CATEGORIA_INFO[catKey];
-          const active = procCatFilter === catKey;
-          const Icon = info.icon;
-          return (
-            <button
-              key={catKey}
-              onClick={() => setProcCatFilter(catKey)}
-              style={{
-                display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, padding: "5px 12px", borderRadius: 20, cursor: "pointer",
-                border: `1px solid ${active ? info.color : LINE}`,
-                background: active ? `${info.color}22` : "transparent",
-                color: active ? info.color : MUTED, fontFamily: "'IBM Plex Mono', monospace", fontWeight: active ? 700 : 400,
-              }}
-            >
-              {Icon && <Icon size={12} color={active ? info.color : MUTED} />} {info.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {procsOrdenados.map((p) => {
-        const attrLabel = attrLabelDaHabilidade(p);
-        return (
-          <div key={p.id} style={{ background: PANEL_2, border: `1px solid ${HABILIDADE_CATEGORIA_INFO[categoriaDaHabilidade(p)].color}55`, borderRadius: 8, padding: 12, marginBottom: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontFamily: "'Cinzel', serif", fontSize: 13.5, color: PARCHMENT }}>{p.nome}</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }}>
-                <HabilidadeCategoriaBadge p={p} />
-                {p.prioridade && <span style={{ color: MUTED }}>prioridade {p.prioridade}</span>}
-              </span>
-            </div>
-            <div style={{ fontSize: 10.5, color: PURPLE, fontFamily: "'IBM Plex Mono', monospace", margin: "4px 0" }}>
-              {p.reduzCriticoEm
-                ? `Reduz o crítico em ${p.reduzCriticoEm} (em todos os críticos da rolagem)`
-                : p.gatilho?.startsWith("passivo_")
-                ? "Gatilho: sempre ativa, não depende de dado"
-                : p.gatilho === "contato_proprio"
-                ? `Gatilho: sempre ao fazer contato${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`
-                : `Gatilho: ${p.gatilho.replace(/_/g, " ")} · Limiar por ${attrLabel}${p.restricaoTipo ? ` · só ${TIPOS_ATAQUE[p.restricaoTipo]?.label}` : ""}`}
-            </div>
-            <p style={{ fontSize: 12, color: MUTED, margin: 0, lineHeight: 1.5 }}><TextoComDescritores texto={p.efeito} /></p>
-          </div>
-        );
-      })}
-      {procsOrdenados.length === 0 && <p style={{ color: MUTED, fontSize: 12.5 }}>Nenhuma habilidade nessa categoria.</p>}
 
       <details style={{ marginTop: 20 }}>
         <summary style={{ cursor: "pointer", fontFamily: "'Cinzel', serif", fontSize: 12.5, color: MUTED, letterSpacing: 0.5, textTransform: "uppercase", padding: "8px 0" }}>

@@ -100,11 +100,11 @@ describe("computeMaxHP / computeMaxSP", () => {
     assert.equal(computeMaxHP(makeCharacter()), 2); // Vigor E
     assert.equal(computeMaxHP(withAttrs(makeCharacter(), { vigor: 5 })), 6);
   });
-  it("Persistente soma +1 no HP máximo e +1 no SP máximo", () => {
+  it("25/11: Persistente (passiva de combate aposentada) não dá mais +1 HP/SP", () => {
     const semPersistente = makeCharacter();
     const comPersistente = { ...makeCharacter(), procs: ["persistente"] };
-    assert.equal(computeMaxHP(comPersistente), computeMaxHP(semPersistente) + 1);
-    assert.equal(computeMaxSP(comPersistente), computeMaxSP(semPersistente) + 1);
+    assert.equal(computeMaxHP(comPersistente), computeMaxHP(semPersistente));
+    assert.equal(computeMaxSP(comPersistente), computeMaxSP(semPersistente));
   });
   // "sp_maximo_1" (22/10, docs/revisao/racas-site.json — Mana Concentrada,
   // Coelho/Bode, Leonino, Lobo/Canino, Raposa/Kitsune: "+1 SP máximo").
@@ -1590,6 +1590,7 @@ describe("defaultAttacksForCharacter", () => {
 // teste junto. A Defesa de verdade agora é a rolagem em resolveRolagemDefesa
 // (ver describe acima), que já usa defesaProf.
 describe("fichas do Grupo Aurora (Sidepoint)", () => {
+  // 25/11: Persistente não soma mais +1 HP/SP (passivas de combate aposentadas) — HP/SP esperados ajustados.
   const corpoACorpo = ACERTOS_POR_TIPO.find((e) => e.key === "corpoACorpo");
   const armaDeFogo = ACERTOS_POR_TIPO.find((e) => e.key === "armaDeFogo");
 
@@ -1599,14 +1600,14 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       atributosGerais: { destreza: "C", vigor: "E" },
       proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", defesaProf: "D" },
       procs: ["golpe_certeiro", "reflexo_agil", "persistente"],
-      esperado: { acerto: [4, 2], hp: 3, sp: 4 },
+      esperado: { acerto: [4, 2], hp: 2, sp: 3 },
     },
     {
       nome: "Merkel Winters",
       atributosGerais: { destreza: "D", vigor: "D" },
       proficiencias: { combateCorpoACorpo: "C", armasDeFogo: "E", defesaProf: "D" },
       procs: ["persistente", "instinto_selvagem", "furia_crescente"],
-      esperado: { acerto: [3, 1], hp: 4, sp: 4 },
+      esperado: { acerto: [3, 1], hp: 3, sp: 3 },
     },
     {
       nome: "Raiko",
@@ -1620,7 +1621,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       atributosGerais: { destreza: "C", vigor: "E" },
       proficiencias: { combateCorpoACorpo: "E", armasDeFogo: "E", defesaProf: "D" },
       procs: ["reflexo_agil", "golpe_certeiro", "persistente"],
-      esperado: { acerto: [2, 2], hp: 3, sp: 4 },
+      esperado: { acerto: [2, 2], hp: 2, sp: 3 },
     },
     {
       nome: "K (Kanny)",
@@ -1634,7 +1635,7 @@ describe("fichas do Grupo Aurora (Sidepoint)", () => {
       atributosGerais: { destreza: "E", vigor: "D" },
       proficiencias: { combateCorpoACorpo: "D", armasDeFogo: "E", defesaProf: "D" },
       procs: ["persistente", "blindagem_reativa", "fortaleza_viva"],
-      esperado: { acerto: [1, 0], hp: 4, sp: 4 },
+      esperado: { acerto: [1, 0], hp: 3, sp: 3 },
     },
   ];
 

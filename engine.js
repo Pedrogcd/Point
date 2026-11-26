@@ -592,10 +592,12 @@ export function attrBonus(grade) {
 // em `character.descritores`, preenchido por descritoresDeSelecao na hora
 // de escolher a habilidade (ver racasCatalogo.js), sem engine.js precisar
 // conhecer raça nenhuma. Booleano (não soma por fonte), igual Blindado.
+// 25/11 (Pedro): as Habilidades Passivas de Combate saíram das fichas — o
+// "Persistente" não dá mais +1 HP/+1 SP (character.procs fica só como
+// dado antigo, sem efeito).
 export function computeMaxHP(character) {
-  const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
   const bonusDescritor = temDescritor(character, "hp_maximo_1") ? 1 : 0;
-  return 2 + attrBonus(character?.atributosGerais?.vigor) + bonusPersistente + bonusDescritor;
+  return 2 + attrBonus(character?.atributosGerais?.vigor) + bonusDescritor;
 }
 
 // "sp_maximo_menos_1" (21/10, Homúnculo — docs/ATUALIZACAO_21-10.md seção
@@ -610,10 +612,9 @@ export function computeMaxHP(character) {
 // raça combina as duas), os dois se cancelam naturalmente pela soma.
 export function computeMaxSP(character) {
   const base = character?.sp?.max ?? 3;
-  const bonusPersistente = (character?.procs || []).includes("persistente") ? 1 : 0;
   const bonusDescritor = temDescritor(character, "sp_maximo_1") ? 1 : 0;
   const penalidadeHomunculo = temDescritor(character, "sp_maximo_menos_1") ? 1 : 0;
-  return Math.max(0, base + bonusPersistente + bonusDescritor - penalidadeHomunculo);
+  return Math.max(0, base + bonusDescritor - penalidadeHomunculo);
 }
 
 // MP (mana) máximo: 1 a 6 (docs/SISTEMA_MAGIA.md item 7). Magia Inata (+1 MP

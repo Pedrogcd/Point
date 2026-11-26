@@ -446,7 +446,7 @@
      "Atletismo",
      "Sobrevivência"
     ],
-    "passiva": "Enquanto tiver pontos de vida temporários, pode usar a Fúria sem gastar SP.",
+    "passiva": "Uma vez por dia, pode começar um combate já com 1 ponto de vida temporário. Enquanto tiver pontos de vida temporários, pode usar a Fúria sem gastar SP.",
     "descritores": [
      "Resistente",
      "Firme",

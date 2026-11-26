@@ -137,8 +137,10 @@ describe("09/11, 3ª e 4ª rodadas", async () => {
     assert.ok(furia.habilidades.some((h) => h.nome === "Tudo ou Nada") && !furia.habilidades.some((h) => h.nome === "Golpe Descontrolado"));
   });
   it("Inabalável: passiva do ponto de vida temporário", () => {
-    // 26/11: a passiva virou "Fúria sem SP enquanto tiver PV temporário".
-    assert.match(m.getVariacaoPorId("arquetipo-barbaro-inabalavel").passiva, /^Enquanto tiver pontos de vida temporários, pode usar a Fúria sem gastar SP/);
+    // 26/11: a passiva tem as duas partes (PV temporário 1x por dia E Fúria sem SP com PV temporário).
+    const passiva = m.getVariacaoPorId("arquetipo-barbaro-inabalavel").passiva;
+    assert.match(passiva, /^Uma vez por dia, pode começar um combate já com 1 ponto de vida temporário\./);
+    assert.match(passiva, /Enquanto tiver pontos de vida temporários, pode usar a Fúria sem gastar SP\.$/);
   });
   it("Guerreiro Poder: passiva Poder dá +1 Força", () => {
     assert.deepEqual(m.BONUS_GRAU_POR_HABILIDADE_ARQUETIPO["arquetipo-guerreiro-poder"].poder, [{ tipo: "atributo", chave: "forca" }]);

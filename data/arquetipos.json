@@ -446,7 +446,7 @@
      "Atletismo",
      "Sobrevivência"
     ],
-    "passiva": "Uma vez por dia, pode começar um combate já com 1 ponto de vida temporário.",
+    "passiva": "Enquanto tiver pontos de vida temporários, pode usar a Fúria sem gastar SP.",
     "descritores": [
      "Resistente",
      "Firme",
@@ -479,12 +479,12 @@
      {
       "nome": "Pele de Pedra",
       "tipo": "Defesa",
-      "custo": "1 MP",
+      "custo": "2 MP (1x por cena)",
       "descritores": "Resistente, Firme 1",
-      "texto": "Ganha Resistente e Firme 1 por uma cena. Quem já tiver Resistente ganha, em troca, 1 ponto de vida temporário. Quem já tiver Firme rola +1d10 ao bloquear.",
+      "texto": "Ganha Resistente e Firme 1 por uma cena. Quem já tiver Resistente ou Firme ganha, em troca, 1 ponto de vida temporário; quem já tiver os dois ganha 2.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 26/11: 2 MP, 1x por cena, nova redundância"
      },
      {
       "nome": "Grito de Resistência",
@@ -499,22 +499,22 @@
      {
       "nome": "Contra-Atacar a Dor",
       "tipo": "Reação",
-      "custo": "1 MP",
-      "descritores": "Esmagador 1",
-      "texto": "Ao receber ferimento, ataque imediato com Esmagador 1. Se já tiver Esmagador, ele sobe +1.",
+      "custo": "1 SP",
+      "descritores": "—",
+      "texto": "Ao sofrer um ferimento agravante, faz um ataque normal imediato.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 26/11: 1 SP, só com agravante, ataque normal (sem Esmagador)"
      },
      {
-      "nome": "Inamovível",
+      "nome": "Inabalável",
       "tipo": "Defesa",
       "custo": "1 MP",
       "descritores": "Selado 1",
       "texto": "Não pode ser movido nem derrubado contra a vontade e ganha Selado 1 contra o próximo ataque. Se já tiver Selado, rola +1d10 na defesa.",
       "origem": "Única",
       "geral": false,
-      "nota": ""
+      "nota": "Pedro 26/11: renomeada (antes Inamovível)"
      }
     ]
    }

@@ -573,3 +573,10 @@ describe("migrarPersonagem — Bárbaro Poderoso e Selvagem (13/11)", () => {
     assert.equal(ch.disciplinaExtraHumano.disciplinaId, "arquetipo-barbaro-poderoso");
   });
 });
+
+describe("migrarPersonagem — Bárbaro Inabalável (26/11)", () => {
+  it("Inamovível -> Inabalável", () => {
+    const ch = migrarPersonagem({ id: "i", name: "I", disciplinas: [{ disciplinaId: "arquetipo-barbaro-inabalavel", habilidadesAtivas: ["inamovivel", "pele-de-pedra"] }] });
+    assert.deepEqual(ch.disciplinas[0].habilidadesAtivas.slice().sort(), ["inabalavel", "pele-de-pedra"]);
+  });
+});

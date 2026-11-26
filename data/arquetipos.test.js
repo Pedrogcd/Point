@@ -137,7 +137,8 @@ describe("09/11, 3ª e 4ª rodadas", async () => {
     assert.ok(furia.habilidades.some((h) => h.nome === "Tudo ou Nada") && !furia.habilidades.some((h) => h.nome === "Golpe Descontrolado"));
   });
   it("Inabalável: passiva do ponto de vida temporário", () => {
-    assert.match(m.getVariacaoPorId("arquetipo-barbaro-inabalavel").passiva, /^Uma vez por dia, pode começar um combate já com 1 ponto de vida temporário/);
+    // 26/11: a passiva virou "Fúria sem SP enquanto tiver PV temporário".
+    assert.match(m.getVariacaoPorId("arquetipo-barbaro-inabalavel").passiva, /^Enquanto tiver pontos de vida temporários, pode usar a Fúria sem gastar SP/);
   });
   it("Guerreiro Poder: passiva Poder dá +1 Força", () => {
     assert.deepEqual(m.BONUS_GRAU_POR_HABILIDADE_ARQUETIPO["arquetipo-guerreiro-poder"].poder, [{ tipo: "atributo", chave: "forca" }]);
@@ -166,5 +167,18 @@ describe("Bárbaro: Poderoso e Selvagem (13/11)", async () => {
     assert.equal(m.idAtualDaVariacao("arquetipo-barbaro-sanguinario"), "arquetipo-barbaro-selvagem");
     assert.equal(m.idAtualDaVariacao("arquetipo-guardiao-muralha"), "arquetipo-protetor-muralha");
     assert.equal(m.idAtualDaVariacao("arquetipo-guerreiro-poder"), "arquetipo-guerreiro-poder");
+  });
+});
+
+describe("Bárbaro Inabalável (26/11)", async () => {
+  const m = await import("./arquetipos.js");
+  const v = m.getVariacaoPorId("arquetipo-barbaro-inabalavel");
+  const h = (n) => v.habilidades.find((x) => x.nome === n);
+  it("Inamovível vira Inabalável; Contra-Atacar a Dor 1 SP sem Esmagador; Pele de Pedra 2 MP 1x por cena", () => {
+    assert.ok(h("Inabalável") && !h("Inamovível"));
+    assert.deepEqual(m.custoDaHabilidade(h("Contra-Atacar a Dor").custo), { sp: 1 });
+    assert.doesNotMatch(h("Contra-Atacar a Dor").texto, /Esmagador/);
+    assert.deepEqual(m.custoDaHabilidade(h("Pele de Pedra").custo), { mp: 2, porCena: true });
+    assert.match(h("Pele de Pedra").texto, /os dois ganha 2/);
   });
 });

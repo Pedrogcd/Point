@@ -133,6 +133,8 @@ export const HABILIDADES_ARQUETIPO_RENOMEADAS = {
 export const HABILIDADES_RENOMEADAS_POR_VARIACAO = {
   "arquetipo-guerreiro-poder": { empurrao: "poder" },
   "arquetipo-barbaro-poderoso": { "golpe-descontrolado": "tudo-ou-nada" },
+  // 26/11: a habilidade Inamovível passou a se chamar Inabalável.
+  "arquetipo-barbaro-inabalavel": { inamovivel: "inabalavel" },
 };
 
 // Variações renomeadas (id antigo -> novo): 04/11 Guardião -> Protetor;
